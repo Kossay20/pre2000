@@ -4,7 +4,7 @@ Application mobile de suivi de grossesse développée avec React Native / Expo.
 
 ## 📋 Prérequis
 
-- **Node.js** 18+ (LTS recommandé)
+- **Node.js** 20.19.4+ (RN 0.81 / Expo SDK 54). Version pinnée dans [`.nvmrc`](./.nvmrc) → `nvm use` avant tout `npm`.
 - **npm** 9+ ou **yarn** 1.22+
 - **Expo CLI**: `npm install -g expo-cli`
 - **iOS**: Xcode 15+ (pour simulateur iOS)
@@ -161,22 +161,26 @@ npm test -- --watch
 
 ### E2E web (Playwright)
 
-Les scénarios vivent dans `e2e/` ; la config est `playwright.config.ts`. Il faut **Expo web** déjà démarré sur l’URL de base (par défaut `http://localhost:8081`).
+Les scénarios vivent dans `e2e/` ; la config est `playwright.config.ts`. Depuis T1 (V1_AUTONOMOUS_RUN), Playwright **démarre Expo automatiquement** via `webServer:` (`npx expo start --web --port 8081 --clear`) — pas besoin de terminal séparé.
 
 ```bash
-# Terminal 1 — web (port aligné sur baseURL Playwright)
-npx expo start --web --port 8081
+# Prérequis : Node 20+ (pinned dans `.nvmrc`)
+nvm use            # → 20.20.2
 
-# Terminal 2 — smoke Chromium
+# Lance Playwright qui démarre Expo automatiquement (cold ~30-60s, warm ~5s)
 npm run e2e:web
 
-# Variantes
-npm run e2e:web:ui
-npm run e2e:web:headed
+# Variantes (réutilisent le webServer si déjà actif)
+npm run e2e:web:ui      # Playwright UI mode interactif
+npm run e2e:web:headed  # Voir le navigateur
+
+# Pipeline complet (lint + tsc + jest + e2e)
+npm run verify:e2e:web
 ```
 
-- **`E2E_BASE_URL`** : surcharger l’URL (ex. preview déployée).
-- Si l’UI montre des **clés i18n brutes** (`common.xxx`) ou un comportement incohérent, relancer Metro avec un cache clean : `npx expo start --web --port 8081 --clear`.
+- **`E2E_BASE_URL`** : surcharger l'URL pour cibler un preview déployé (skip webServer).
+- En CI (`CI=true`), `reuseExistingServer:false` force toujours un démarrage frais.
+- Artefacts en cas d'échec : `playwright-report/` + `test-results/` (traces, videos, screenshots).
 - Feuille de route détaillée : [`docs/PLAN_E2E_WEB_SUITE.md`](./docs/PLAN_E2E_WEB_SUITE.md).
 
 ## 📝 Conventions de Code
