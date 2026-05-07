@@ -57,7 +57,11 @@ test.describe('Expo web smoke', () => {
       })
       .click();
     await expect(page).toHaveURL(/Statistics/, { timeout: 20_000 });
-    // `statistics_screen_root` (StatisticsScreen) : vérifier avec `getByTestId` uniquement après Metro à jour
-    // (`npx expo start --web --clear`) ou CI qui build l’app au lancement — sinon 0 match si bundle périmé.
+    // Bundle frais garanti par webServer (--clear) → testID présent.
+    // `statistics_screen_root` peut apparaître sur loading/empty/scroll states (3 occurrences),
+    // .first() évite "strict mode violation" si plusieurs sont rendus en transition.
+    await expect(page.getByTestId('statistics_screen_root').first()).toBeVisible({
+      timeout: 15_000,
+    });
   });
 });
