@@ -111,15 +111,24 @@ export const CalendarScreen = () => {
 
             log.info(`Loading calendar data for user: ${effectiveUid ? 'found' : 'missing'} (week ${user?.currentWeek})`);
 
+            // Cycle 3 F202 : skip pregnancy templates pour TTC/Curious modes —
+            // ces utilisatrices n'ont pas de RDV de grossesse (echo 12SA, etc.).
+            // Le calendrier reste utilisable pour leurs propres événements (userEvents).
+            const skipPregnancyTemplates = !!(user.isTTC || user.isCurious);
+
             const [templates, uEvents] = await Promise.all([
-                loadCalendarTemplates(),
+                skipPregnancyTemplates ? Promise.resolve([]) : loadCalendarTemplates(),
                 // Only load user events if authenticated (not guest)
                 (!user.isGuest && effectiveUid) ? loadUserEvents(effectiveUid) : Promise.resolve([])
             ]);
 
-            log.info(`Loaded ${templates.length} templates and ${uEvents.length} user events`);
+            log.info(
+                `Loaded ${templates.length} templates and ${uEvents.length} user events (TTC/Curious=${skipPregnancyTemplates})`
+            );
 
-            const generatedEvents = generateAllEvents(templates, new Date(user.pregnancyStartDate));
+            const generatedEvents = skipPregnancyTemplates
+                ? []
+                : generateAllEvents(templates, new Date(user.pregnancyStartDate));
             setAllTemplateEvents(generatedEvents);
             setUserEvents(uEvents);
         } catch (err) {
@@ -128,7 +137,7 @@ export const CalendarScreen = () => {
         } finally {
             setLoading(false);
         }
-    }, [user?.pregnancyStartDate, user?.uid, user?.isGuest, user?.currentWeek, t]);
+    }, [user?.pregnancyStartDate, user?.uid, user?.isGuest, user?.currentWeek, user?.isTTC, user?.isCurious, t]);
 
     // Load initial data + reload when deps change
     useEffect(() => {

@@ -280,6 +280,13 @@ export interface UserProfile {
     ovulationDate?: string;          // ISO Date string — estimated for the current cycle
     fertileWindowStart?: string;     // ISO Date string — ovulation - 5 days
     fertileWindowEnd?: string;       // ISO Date string — ovulation + 1 day
+    // Cycle 3 F201 : marqueur "Curious" (mode découverte sans grossesse réelle).
+    // Avant : `handleFinishCurious` setait un fake LMP sans marqueur → l'app
+    // croyait l'utilisatrice enceinte semaine X (BabyGrowthCard, RDV templates).
+    // Avec ce flag, les screens peuvent guarder `if (user?.isCurious)` et afficher
+    // un mode exploration neutre (cf. F212 Wave C).
+    isCurious?: boolean;
+    exploreWeek?: number;            // 1-40 — semaine choisie en mode découverte
 }
 
 // User's personal calendar events/appointments

@@ -6,6 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
     createUserWithEmailAndPassword,
     signInWithEmailAndPassword,
+    signInAnonymously,
     signOut,
     onAuthStateChanged,
     EmailAuthProvider,
@@ -95,6 +96,9 @@ interface AuthContextType {
         // and the date passed in `pregnancyStartDate` is interpreted as the user's
         // last period date (LMP-equivalent for cycle tracking, NOT for pregnancy week).
         ttcOptions?: { isTTC: true; cycleLength: number },
+        // Cycle 3 F201 : opt-in Curious mode (mode découverte). Différencie
+        // l'utilisatrice qui explore d'une vraie grossesse.
+        curiousOptions?: { isCurious: true; exploreWeek: number },
     ) => Promise<void>;
     logout: () => Promise<void>;
     // MA6-FIX: updateProfile now reports success/failure explicitly so callers
@@ -260,9 +264,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isFirstPregnancy?: boolean,
         authenticatedUser?: FirebaseUser,  // NEW: Pass the firebase user directly (fixes timing issue)
         ttcOptions?: { isTTC: true; cycleLength: number },
+        // Cycle 3 F201 : option Curious (mode découverte) — différencie l'utilisatrice
+        // qui explore d'une vraie grossesse. Setting `isCurious: true` permet aux
+        // screens de garder `if (user?.isCurious)` au lieu de croire l'utilisatrice enceinte.
+        curiousOptions?: { isCurious: true; exploreWeek: number },
     ) => {
-        // Use passed authenticatedUser OR the state firebaseUser
-        const effectiveUser = authenticatedUser || firebaseUser;
+        // Cycle 3 F100 : tenter signInAnonymously si pas d'utilisateur fourni.
+        // Avant : `uid = 'guest_'+Date.now()` ne satisfait PAS `isAuthenticatedReader()`
+        // dans firestore.rules → tous les fetches Firestore échouent → écran vide
+        // perpétuel ("Error loading data" / skeleton). Maintenant : on demande à
+        // Firebase un uid anonyme réel qui satisfait les rules. Si Anonymous Auth
+        // n'est pas activé en Console (`auth/admin-restricted-operation` ou
+        // `auth/operation-not-allowed`), fallback sur l'ancien uid local + warning
+        // — l'utilisatrice voit toujours un écran vide MAIS au moins l'app ne
+        // crashe pas et le dev/operator sait quoi activer.
+        let effectiveUser = authenticatedUser || firebaseUser;
+        if (!effectiveUser) {
+            try {
+                const cred = await signInAnonymously(auth);
+                effectiveUser = cred.user;
+                log.debug('[AuthContext] 👤 signInAnonymously OK, uid:', effectiveUser.uid);
+            } catch (e: any) {
+                if (
+                    e?.code === 'auth/admin-restricted-operation' ||
+                    e?.code === 'auth/operation-not-allowed'
+                ) {
+                    log.warn(
+                        '[AuthContext] ⚠️ Anonymous Auth disabled in Firebase Console — guest mode will see empty screens until enabled. Error code:',
+                        e.code
+                    );
+                } else {
+                    log.warn('[AuthContext] ⚠️ signInAnonymously unexpected error:', e?.message);
+                }
+                // Fallback : pas de blocage, mais data Firestore inaccessible.
+            }
+        }
         const isAuthenticated = !!effectiveUser;
         const uid = effectiveUser?.uid || 'guest_' + Date.now();
         const isTTC = ttcOptions?.isTTC === true;
@@ -309,6 +345,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
         }
 
+        // Cycle 3 F201 : marker Curious appliqué si curiousOptions présent.
+        const curiousFields = curiousOptions
+            ? { isCurious: true as const, exploreWeek: curiousOptions.exploreWeek }
+            : {};
+
         const newUser: UserProfile = {
             uid,
             email: effectiveUser?.email || undefined,
@@ -323,6 +364,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             isFirstPregnancy,
             isGuest: !isAuthenticated,
             ...ttcFields,
+            ...curiousFields,
         };
 
         try {

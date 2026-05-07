@@ -1138,7 +1138,11 @@ export const OnboardingScreen = () => {
                     undefined,
                     undefined,
                     undefined,
-                    undefined
+                    undefined,
+                    undefined,
+                    // Cycle 3 F201 : passe le marker isCurious + exploreWeek pour
+                    // que les screens puissent garder ce mode (cf. F212 banner Wave C).
+                    { isCurious: true, exploreWeek }
                 ));
 
                 analytics.then(a => a && logEvent(a, 'onboarding_curious_complete', {
