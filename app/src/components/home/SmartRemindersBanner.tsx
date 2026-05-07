@@ -127,7 +127,8 @@ const styles = StyleSheet.create({
     },
     icon: {
         fontSize: 16,
-        marginRight: 8,
+        // Cycle 2 F308 RTL : marginEnd flip auto.
+        marginEnd: 8,
     },
     text: {
         fontSize: 13,

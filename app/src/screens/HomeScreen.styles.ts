@@ -58,7 +58,8 @@ export const styles = StyleSheet.create({
     },
     postpartumEmoji: {
         fontSize: 40,
-        marginRight: 16,
+        // Cycle 2 F307 RTL : marginEnd flip auto en arabe/tunisien.
+        marginEnd: 16,
     },
     postpartumTextContainer: {
         flex: 1,

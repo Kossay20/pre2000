@@ -142,40 +142,46 @@ test.describe('Audit screens — captures visuelles v1.0', () => {
 
   // === T6.5 — Captures additionnelles demandées par adversary ===
 
-  test('13 — Home dashboard avec wait long (test F42 = capture trop vite vs runtime cassé)', async ({
+  // Cycle 2 F501 fix : `waitForTimeout` est anti-pattern (cf. F35 Cycle 1).
+  // Pour les captures « après chargement », on attend `networkidle` (pas de
+  // requête en vol pendant 500ms) — signal clair que les fetches Firestore
+  // ont soit abouti, soit timeout silencieusement. Timeout 25s couvre le cold
+  // start Firebase + la transition skeleton → content/error.
+  async function waitForSettled(page: import('@playwright/test').Page) {
+    await page.waitForLoadState('networkidle', { timeout: 25_000 }).catch(() => {
+      // On accepte que networkidle puisse timeout : c'est précisément le signal
+      // que F-LOAD est actif (Firestore queries pendantes infiniment).
+      // La capture screenshot suit pour documenter l'état réel observé.
+    });
+  }
+
+  test('13 — Home dashboard après settle (test F42 = capture trop vite vs runtime cassé)', async ({
     page,
   }) => {
     await ensureMainTabs(page);
     await expect(page).toHaveURL(/HomeMain/);
-    // Attente longue (20s) pour voir si le skeleton se résout. Si après 20s il
-    // est toujours en skeleton, c'est un vrai bug runtime (Firestore timeout
-    // silencieux), pas un problème de timing du test.
-    // On waitFor un sélecteur de contenu probable : ScrollView racine ou tout
-    // texte non-skeleton. On utilise une heuristique fragile : disparition du
-    // pattern background skeleton.
-    await page.waitForTimeout(20_000);
+    await waitForSettled(page);
     await shot(page, '13-home-dashboard-after-20s');
   });
 
   test('14 — Profile screen (RGPD critique)', async ({ page }) => {
     await ensureMainTabs(page);
-    // Navigation directe vers Profile via URL.
     await page.goto('/Profile', { waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(3_000);
+    await waitForSettled(page);
     await shot(page, '14-profile');
   });
 
   test('15 — Settings screen (RGPD critique)', async ({ page }) => {
     await ensureMainTabs(page);
     await page.goto('/Settings', { waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(3_000);
+    await waitForSettled(page);
     await shot(page, '15-settings');
   });
 
-  test('16 — Articles avec wait long (test F51)', async ({ page }) => {
+  test('16 — Articles après settle (test F51)', async ({ page }) => {
     await ensureMainTabs(page);
     await page.getByRole('tab', { name: TAB.resources }).click();
-    await page.waitForTimeout(20_000);
+    await waitForSettled(page);
     await shot(page, '16-articles-after-20s');
   });
 });

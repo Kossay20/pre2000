@@ -22,7 +22,8 @@ export const styles = StyleSheet.create({
     closeButton: {
         position: 'absolute',
         top: 16,
-        right: 16,
+        // Cycle 2 F310 RTL : `end` flip auto en arabe.
+        end: 16,
         width: 32,
         height: 32,
         borderRadius: 16,
@@ -239,7 +240,8 @@ export const styles = StyleSheet.create({
         alignItems: 'center',
         backgroundColor: theme.colors.lavenderBlush,
         borderRadius: 12,
-        marginLeft: 4,
+        // Cycle 2 F310 RTL.
+        marginStart: 4,
     },
     removeTimeIcon: {
         fontSize: 18,

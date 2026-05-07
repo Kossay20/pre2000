@@ -215,7 +215,8 @@ const styles = StyleSheet.create({
     comparisonBadge: {
         position: 'absolute',
         bottom: 16,
-        right: 16,
+        // Cycle 2 F311 RTL : `end` flip auto en arabe.
+        end: 16,
         backgroundColor: theme.colors.whiteAlpha95,
         paddingHorizontal: 16,
         paddingVertical: 10,

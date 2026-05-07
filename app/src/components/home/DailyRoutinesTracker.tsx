@@ -284,7 +284,8 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         flexShrink: 1, // Allow text wrapping/shrinking if needed gracefully
-        marginRight: 4,
+        // Cycle 2 F309 RTL : marginEnd flip auto.
+        marginEnd: 4,
     },
     rightContent: {
         flexDirection: 'row',
@@ -292,7 +293,8 @@ const styles = StyleSheet.create({
     },
     emoji: {
         fontSize: 13,
-        marginRight: 4,
+        // Cycle 2 F309 RTL.
+        marginEnd: 4,
     },
     title: {
         fontSize: 11,
