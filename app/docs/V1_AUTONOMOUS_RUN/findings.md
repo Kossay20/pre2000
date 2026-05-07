@@ -109,15 +109,31 @@ Le `.catch(() => false)` swallow toute exception (page closed, locator query cra
 
 ---
 
-## F36 — 🟡 P2 — `ci.yml` n'exécute pas `e2e:web` — sera RÉSOLU T2
+## F36 — 🟡 P2 — `ci.yml` n'exécute pas `e2e:web` — RÉSOLU T2
 
 **Découvert** : 2026-05-07, adversary review T1.
 
-**Cause** : `.github/workflows/ci.yml:46-48` n'invoque que `verify` (lint/tsc/test). E2E web reste local-only.
+**Cause** : `.github/workflows/ci.yml` n'invoquait que `verify` (lint/tsc/test). E2E web restait local-only ; toute régression UI passait CI sans être détectée.
 
-**Fix prévu** : T2 — création `.github/workflows/e2e-web.yml` job dédié.
+**Fix appliqué (T2)** : nouveau workflow `.github/workflows/e2e-web.yml` :
+- Trigger : push main + PR vers main (idem ci.yml).
+- `concurrency` group annule les runs concurrents sur même ref.
+- Node version pinned via `node-version-file: app/.nvmrc` (cohérence avec local F33).
+- Cache navigateurs Playwright keyed sur version extraite du lockfile.
+- `npx playwright install --with-deps chromium` (cold) ou `install-deps` seul (cache hit).
+- Job lance `npm run e2e:web` qui démarre Expo automatiquement via `webServer:` (CI=true → reuseExistingServer false).
+- Upload artefacts : `playwright-report/` (toujours) + `test-results/` (failure seulement, contient traces/videos/screenshots).
+- timeout-minutes: 25 (cold Expo + 4 specs ~3-5 min, large marge).
 
-**Verdict** : à fixer en T2 (déjà planifié).
+**Auto-review /office-hours T2** :
+1. Mauvaise hypothèse ? Non — `webServer` config testée localement, fonctionne.
+2. Sur-complexité ? Cache + concurrency + 2-step browser install sont défensifs (économie minutes CI). Pas de gold-plating.
+3. Edits orthogonaux ? Non — 1 fichier yml, scope unique.
+4. Impératif ou déclaratif ? Déclaratif YAML standard.
+5. Feedback loop ? Pas testable localement sans `act` ; le push `main` validera (acceptable risque pour T2).
+6. Scope minimal ? Oui — pas d'élargissement à matrix browsers / OS, gardé chromium ubuntu seul.
+
+**Verdict** : ✅ RÉSOLU. CI run réel validera au prochain push.
 
 ---
 
