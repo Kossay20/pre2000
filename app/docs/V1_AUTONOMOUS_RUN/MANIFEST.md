@@ -52,9 +52,9 @@ Livrer **v1.0 sans faute** de l'app grossesse :
 | T1 | mock-playwright + webServer + cleanup verify | ✅ DONE (4 e2e + 347 unit passed) | 60046d2 |
 | T1.adv | Adversary review T1 (BLOCK→fix→ré-PASS) | ✅ DONE | (inclus T1) |
 | T2 | CI workflow `.github/workflows/e2e-web.yml` | ✅ DONE | a173be2 |
-| T3 | testID `statistics_screen_root` assertion | 🔄 IN PROGRESS | - |
-| T4 | E2E extension | ⏸ pending | - |
-| T5 | verify wrapper | ⏸ pending | - |
+| T3 | testID `statistics_screen_root` assertion | ✅ DONE | 78d3410 |
+| T4 | E2E extension Resources/Chatbot/Langue (7/7 passed 29.3s) | ✅ DONE | (à commiter) |
+| T5 | verify:e2e:web wrapper | 🔄 IN PROGRESS | - |
 | T6 | Audit massif | ⏸ pending | - |
 | T7 | Fix loop (incl. F41 worker leak) | ⏸ pending | - |
 
