@@ -11,7 +11,7 @@
     "lint": "tsc --noEmit",
     "lint:colors": "bash scripts/check-theme-strings.sh",
     "verify": "npm run lint:colors && tsc --noEmit && npm test -- --passWithNoTests",
-    "e2e:web": "node mock-playwright.js",
+    "e2e:web": "playwright test",
     "e2e:web:ui": "playwright test --ui",
     "e2e:web:headed": "playwright test --headed",
     "import-data": "tsx scripts/importData.ts",
