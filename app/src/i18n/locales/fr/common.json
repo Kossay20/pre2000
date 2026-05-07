@@ -693,7 +693,10 @@
   "enterFirstName": "Entrez votre prénom",
   "enterLastName": "Entrez votre nom",
   "home": {
-    "reminders": {}
+    "reminders": {},
+    "postpartumTitle": "Avez-vous accueilli votre bébé ?",
+    "postpartumDesc": "Il semblerait que votre date prévue d'accouchement soit passée ! Mettez à jour votre profil pour passer en mode post-partum.",
+    "postpartumCta": "Mettre à jour le statut"
   },
   "errorLoadingData": "Impossible de charger les données. Vérifiez votre connexion.",
   "passwordMin": "Mot de passe (8 car. min + 1 chiffre)",

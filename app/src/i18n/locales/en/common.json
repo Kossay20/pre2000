@@ -693,7 +693,10 @@
   "enterFirstName": "Enter your first name",
   "enterLastName": "Enter your last name",
   "home": {
-    "reminders": {}
+    "reminders": {},
+    "postpartumTitle": "Welcomed your baby?",
+    "postpartumDesc": "It looks like your due date has passed! Update your profile to switch to postpartum mode.",
+    "postpartumCta": "Update status"
   },
   "errorLoadingData": "Failed to load data. Please check your internet connection.",
   "passwordMin": "Password (8 chars min + 1 digit)",

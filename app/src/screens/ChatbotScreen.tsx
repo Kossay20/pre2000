@@ -460,11 +460,13 @@ const styles = StyleSheet.create({
         borderBottomWidth: 1,
         borderBottomColor: theme.colors.borderLight,
     },
+    // Cycle 2 F302 : medical disclaimer doit être lisible (sujet sanitaire critique +
+    // risque légal). gray500 = ratio ~2.85:1 (FAIL WCAG AA). textSecondary ≈ 5.4:1.
+    // Italic conservé pour la nuance "advisory", mais fontSize bumpé à 12 + non-italic.
     disclaimerText: {
-        fontSize: 11,
-        color: theme.colors.gray500,
+        fontSize: 12,
+        color: theme.colors.textSecondary,
         textAlign: 'center',
-        fontStyle: 'italic',
     },
     // ── Smart send button styles
     sendButton: {

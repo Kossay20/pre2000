@@ -39,7 +39,9 @@ export function resolveButtonVariant(
                 borderColor: variant === 'outline' ? theme.colors.disabled : undefined,
             };
         }
-        return { backgroundColor: theme.colors.disabled, textColor: theme.colors.white };
+        // Cycle 2 F301 : white-on-disabled = ratio ~1.4:1 (WCAG AA fail).
+        // neutral700 sur disabled = ~7:1, lisible sans donner l'air actif.
+        return { backgroundColor: theme.colors.disabled, textColor: theme.colors.neutral700 };
     }
 
     switch (variant) {
@@ -70,11 +72,13 @@ export function resolveButtonVariant(
 export function resolveButtonSize(size: ButtonSize): ButtonSizeStyle {
     switch (size) {
         case 'small':
+            // Cycle 2 F300 : Apple HIG min 44pt + Android Material min 48dp.
+            // 44 satisfait les deux et passe la review accessibility App Store.
             return {
                 paddingVertical: theme.spacing.s,
                 paddingHorizontal: theme.spacing.m,
                 fontSize: 14,
-                minHeight: 36,
+                minHeight: 44,
             };
         case 'large':
             return {

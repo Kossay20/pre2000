@@ -6,7 +6,10 @@ import { createLogger } from '../utils/logger';
 
 const log = createLogger('SupportService');
 
-const SUPPORT_EMAIL = 'support@mama-bebe.app'; // Replace with actual support email
+// Cycle 2 F104 : aligné sur bundle identifier `com.mamabebe.app` (app.json:18,146)
+// et CONTACT_EMAIL `contact@mamabebe.app` (PrivacyPolicyScreen.tsx:9). Avant,
+// `mama-bebe.app` divergeait → MX différent → mailto bounce → rejet review store.
+const SUPPORT_EMAIL = 'support@mamabebe.app';
 
 export const openSupportEmail = async (t: (key: string, options?: any) => string) => {
     try {

@@ -693,7 +693,10 @@
   "enterFirstName": "أكتب إسمك",
   "enterLastName": "أكتب لقبك",
   "home": {
-    "reminders": {}
+    "reminders": {},
+    "postpartumTitle": "هل وضعت طفلك؟",
+    "postpartumDesc": "يبدو أن تاريخ ولادتك المتوقع فات! حدّثي بروفايلك بش تنتقلي لوضع ما بعد الولادة.",
+    "postpartumCta": "تحديث الحالة"
   },
   "errorLoadingData": "ما نجمتيش تحملي البيانات. شوفي الاتصال بالنت.",
   "passwordMin": "كلمة السر (8 حروف + رقم)",

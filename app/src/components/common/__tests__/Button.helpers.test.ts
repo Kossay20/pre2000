@@ -37,9 +37,11 @@ describe('Button helpers', () => {
         });
 
         it('returns disabled palette when disabled (filled variants)', () => {
+            // Cycle 2 F301 fix : disabled text passe à neutral700 (~7:1 ratio)
+            // au lieu de white (~1.4:1 fail WCAG AA).
             const v = resolveButtonVariant('primary', true);
             expect(v.backgroundColor).toBe(theme.colors.disabled);
-            expect(v.textColor).toBe(theme.colors.white);
+            expect(v.textColor).toBe(theme.colors.neutral700);
         });
 
         it('returns transparent + placeholder text when disabled (outline)', () => {
@@ -58,10 +60,12 @@ describe('Button helpers', () => {
     });
 
     describe('resolveButtonSize', () => {
-        it('returns small dimensions', () => {
+        it('returns small dimensions (a11y compliant ≥ 44pt Apple HIG)', () => {
+            // Cycle 2 F300 fix : small minHeight bumpé 36→44 pour passer Apple HIG
+            // (44pt) et Material (48dp non atteint mais 44 acceptable iOS-first).
             const s = resolveButtonSize('small');
             expect(s.fontSize).toBe(14);
-            expect(s.minHeight).toBeLessThanOrEqual(40);
+            expect(s.minHeight).toBeGreaterThanOrEqual(44);
         });
 
         it('returns medium dimensions by default', () => {

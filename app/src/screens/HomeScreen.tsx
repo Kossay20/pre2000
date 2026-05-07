@@ -429,15 +429,15 @@ export const HomeScreen = () => {
                     <View style={styles.postpartumBanner}>
                         <Text style={styles.postpartumEmoji}>🍼</Text>
                         <View style={styles.postpartumTextContainer}>
-                            <Text style={styles.postpartumTitle}>Avez-vous accueilli votre bébé ?</Text>
-                            <Text style={styles.postpartumDesc}>Il semblerait que votre date prévue d'accouchement soit passée ! Mettez à jour votre profil pour passer en mode post-partum.</Text>
+                            <Text style={styles.postpartumTitle}>{t('home.postpartumTitle')}</Text>
+                            <Text style={styles.postpartumDesc}>{t('home.postpartumDesc')}</Text>
                             <TouchableOpacity 
                                 style={styles.postpartumButton}
                                 onPress={() => navigation.navigate('Profile')}
                                 accessibilityRole="button"
                                 accessibilityLabel={t('home.updateStatus', 'Mettre à jour le statut')}
                             >
-                                <Text style={styles.postpartumButtonText}>Mettre à jour le statut</Text>
+                                <Text style={styles.postpartumButtonText}>{t('home.postpartumCta')}</Text>
                             </TouchableOpacity>
                         </View>
                     </View>

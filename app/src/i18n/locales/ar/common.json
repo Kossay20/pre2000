@@ -693,7 +693,10 @@
   "enterFirstName": "أدخل اسمك الأول",
   "enterLastName": "أدخل اسم العائلة",
   "home": {
-    "reminders": {}
+    "reminders": {},
+    "postpartumTitle": "هل وضعت طفلك؟",
+    "postpartumDesc": "يبدو أن تاريخ ولادتك المتوقع قد مرّ! حدّثي ملفك للانتقال إلى وضع ما بعد الولادة.",
+    "postpartumCta": "تحديث الحالة"
   },
   "errorLoadingData": "تعذّر تحميل البيانات. تحققي من اتصالك بالإنترنت.",
   "passwordMin": "كلمة المرور (8 أحرف + رقم واحد)",
