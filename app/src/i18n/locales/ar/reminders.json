@@ -26,7 +26,8 @@
         "remindersTimeRange": "بين 8 صباحاً و 10 مساءً",
         "enableReminders": "تفعيل التذكيرات",
         "concept": "في تاريخ الحمل",
-        "save": "حفظ"
+        "save": "حفظ",
+        "outOf": "من {{goalL}}L"
     },
     "frequenciesShort": {
         "per_day": "يوم",

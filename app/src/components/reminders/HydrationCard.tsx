@@ -106,7 +106,7 @@ export const HydrationCard = () => {
                                 <Text style={styles.unit}>L</Text>
                             </Text>
                             <Text style={styles.goalText}>
-                                sur {(data.dailyGoal / 1000).toFixed(1)}L
+                                {t('reminders.hydration.outOf', { goalL: (data.dailyGoal / 1000).toFixed(1) })}
                             </Text>
                         </View>
                         <View style={styles.percentageContainer}>

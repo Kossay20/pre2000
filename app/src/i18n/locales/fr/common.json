@@ -571,7 +571,8 @@
     "articles": "Articles",
     "supplements": "Compléments",
     "remindersTasks": "Tâches",
-    "remindersAlerts": "Rappels"
+    "remindersAlerts": "Rappels",
+    "onboarding": "Bienvenue"
   },
   "chatResponse": {
     "unknownMessage": "Je n'ai pas bien compris votre message. Pas de souci ! Essayez de formuler autrement, par exemple :\n\n• 'J'ai mal à la tête'\n• 'Que puis-je manger ?'\n• 'Je suis fatiguée'\n• 'Quand faire l'échographie ?'\n\nJe suis là pour vous aider ",

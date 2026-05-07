@@ -26,7 +26,8 @@
         "remindersTimeRange": "Entre 8h et 22h",
         "enableReminders": "Activer les rappels",
         "concept": "Sur la date de conception",
-        "save": "Sauvegarder"
+        "save": "Sauvegarder",
+        "outOf": "sur {{goalL}}L"
     },
     "frequenciesShort": {
         "per_day": "jour",

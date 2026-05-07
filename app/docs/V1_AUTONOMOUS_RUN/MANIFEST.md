@@ -55,8 +55,8 @@ Livrer **v1.0 sans faute** de l'app grossesse :
 | T3 | testID `statistics_screen_root` assertion | ✅ DONE | 78d3410 |
 | T4 | E2E extension Resources/Chatbot/Langue (7/7 passed 29.3s) | ✅ DONE | (à commiter) |
 | T5 | verify:e2e:web wrapper | ✅ DONE | 298fe7c |
-| T6 | Audit massif (16 captures + adversary review) | ✅ DONE | (à commiter) |
-| T7 | Fix loop autonome | 🔄 IN PROGRESS (suivant) | - |
+| T6 | Audit massif (16 captures + adversary review) | ✅ DONE | e59b783 |
+| T7 | Fix loop autonome (F63/F47/F52/F49/F53/F56) | ✅ DONE | (à commiter) |
 
 **Findings produits par T1** :
 - F31 ✅ RÉSOLU (mock-playwright supprimé).

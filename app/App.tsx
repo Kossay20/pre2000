@@ -79,7 +79,7 @@ const AuthStack = () => {
       <Stack.Screen name="AuthChoice" component={AuthChoiceScreen} />
       <Stack.Screen name="Register" component={RegisterScreen} options={{ headerShown: true, title: t('common.screen.createAccount') }} />
       <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: true, title: t('common.screen.login') }} />
-      <Stack.Screen name="Onboarding" component={OnboardingScreen} options={{ headerShown: true, title: t('common.screen.profile') }} />
+      <Stack.Screen name="Onboarding" component={OnboardingScreen} options={{ headerShown: true, title: t('common.screen.onboarding') }} />
       <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} options={{ headerShown: true, title: t('common.screen.legalNotice') }} />
     </Stack.Navigator>
   );

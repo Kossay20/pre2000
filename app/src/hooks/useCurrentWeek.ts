@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { usePregnancy } from '../context/PregnancyContext';
@@ -11,9 +11,17 @@ export const useCurrentWeek = (weekNumber?: number) => {
     const [weekData, setWeekData] = useState<Week | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    // T7-FIX-F63 : nonce permet de retrigger le fetch via refetch() sans démonter le composant
+    const [nonce, setNonce] = useState(0);
 
     const targetWeek = weekNumber || pregnancyInfo?.week || 1;
     const currentDay = pregnancyInfo?.dayInWeek || 1;
+
+    const refetch = useCallback(() => {
+        setError(null);
+        setLoading(true);
+        setNonce(n => n + 1);
+    }, []);
 
     useEffect(() => {
         let isMounted = true;
@@ -53,7 +61,15 @@ export const useCurrentWeek = (weekNumber?: number) => {
         fetchWeekData();
 
         return () => { isMounted = false; };
-    }, [pregnancyInfo, contextLoading, targetWeek]);
+    }, [pregnancyInfo, contextLoading, targetWeek, nonce]);
 
-    return { weekData, loading: loading || (contextLoading && !weekNumber), error, currentWeekNumber: targetWeek, currentDay, isInvalid: pregnancyInfo?.isInvalid || false };
+    return {
+        weekData,
+        loading: loading || (contextLoading && !weekNumber),
+        error,
+        currentWeekNumber: targetWeek,
+        currentDay,
+        isInvalid: pregnancyInfo?.isInvalid || false,
+        refetch,
+    };
 };

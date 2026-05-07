@@ -502,7 +502,8 @@
     "articles": "مقالات",
     "supplements": "مكملات",
     "remindersTasks": "المهام",
-    "remindersAlerts": "التذكيرات"
+    "remindersAlerts": "التذكيرات",
+    "onboarding": "أهلاً"
   },
   "chatResponse": {
     "unknownMessage": "لم أفهم رسالتك تمامًا. لا تقلقي! حاولي إعادة الصياغة، مثلاً:\n\n• 'عندي صداع'\n• 'ماذا يمكنني أن آكل؟'\n• 'أشعر بالتعب'\n• 'متى يجب عمل السونار؟'\n\nأنا هنا لمساعدتك ",

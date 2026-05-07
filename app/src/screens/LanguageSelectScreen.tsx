@@ -12,10 +12,13 @@ import { useTranslation } from 'react-i18next';
 import { changeLanguage } from '../i18n/rtl';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
 
+// T7-FIX-F53 : utiliser le nom natif comme label principal pour AR/TN aussi
+// (idem FR/EN). Un user arabophone reconnaît "العربية" en premier coup d'œil
+// alors que "Arabic" était caché en subtitle.
 const LANGUAGES = [
     { code: 'fr', name: 'Français', flag: '🇫🇷', nativeName: 'Français' },
-    { code: 'ar', name: 'Arabic', flag: '🇩🇿', nativeName: 'العربية' },
-    { code: 'tn', name: 'Arabe + Darija', flag: '🇹🇳', nativeName: 'العربية + الدارجة (Beta)' },
+    { code: 'ar', name: 'العربية', flag: '🇩🇿', nativeName: 'Arabic' },
+    { code: 'tn', name: 'العربية + الدارجة (Beta)', flag: '🇹🇳', nativeName: 'Arabe + Darija' },
     { code: 'en', name: 'English', flag: '🇬🇧', nativeName: 'English' },
 ];
 

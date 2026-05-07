@@ -383,13 +383,21 @@ testPathIgnorePatterns: ['/node_modules/', '/e2e/', '/scripts/'],
 
 ---
 
-## F54 — 🟠 P1 — Flèche `→` hardcoded ne flip pas en RTL
+## F54 — ⚪ NON-ISSUE — Flèche `→/←` déjà gérée par i18n par locale
 
-**Découvert** : adversary review T6 sur `02-auth-choice.png` ("Continue as guest →").
+**Découvert** : adversary review T6 sur `02-auth-choice.png`.
 
-**Symptôme** : caractère unicode `→` codé en dur dans le label. En mode RTL (ar/tn), devrait être `←` ou utiliser un Icon avec auto-flip.
+**Adversary claim** : `→` hardcoded ne flip pas en RTL.
 
-**Fix T7** : remplacer par `<RtlAwareChevron direction="forward" />` (composant déjà existant) ou utiliser le hook `i18n.dir() === 'rtl'` pour switcher.
+**Investigation T7 (orchestrateur invertit)** :
+- `src/i18n/locales/fr/auth.json:10` : `"continueAsGuest": "Continuer en invité →"`
+- `src/i18n/locales/en/auth.json:9` : `"continueAsGuest": "Continue as guest →"`
+- `src/i18n/locales/ar/auth.json:10` : `"continueAsGuest": "المتابعة كضيف ←"` ← **flippé**
+- `src/i18n/locales/tn/auth.json:10` : `"continueAsGuest": "المتابعة كضيف ←"` ← **flippé**
+
+Les arrow sont déjà flipées par locale au niveau des chaînes i18n. La capture EN montre `→` correct. Pour AR/TN, l'utilisateur verra `←` correct.
+
+**Verdict** : adversary claim **INVERTED** — ✅ pas d'action requise.
 
 ---
 

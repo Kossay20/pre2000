@@ -502,7 +502,8 @@
     "articles": "Articles",
     "supplements": "Supplements",
     "remindersTasks": "Tasks",
-    "remindersAlerts": "Reminders"
+    "remindersAlerts": "Reminders",
+    "onboarding": "Welcome"
   },
   "chatResponse": {
     "unknownMessage": "I didn't quite understand your message. No worries! Try rephrasing, for example:\n\n• 'I have a headache'\n• 'What can I eat?'\n• 'I'm tired'\n• 'When should I get an ultrasound?'\n\nI'm here to help ",

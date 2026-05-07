@@ -1,4 +1,5 @@
 import React from 'react';
+import { Platform } from 'react-native';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { ArticlesListScreen } from './ArticlesListScreen';
 import { SupplementsListScreen } from './SupplementsListScreen';
@@ -23,6 +24,10 @@ export const ResourcesScreen = () => {
                 tabBarIndicatorStyle: { backgroundColor: theme.colors.primary },
                 tabBarStyle: { backgroundColor: theme.colors.white },
                 tabBarLabelStyle: { fontWeight: '600' },
+                // T7-FIX-F52 : swipe MaterialTopTabs cassait le layout sur web
+                // (panel Articles + Supplements affichés en partie superposés
+                // après tab switch). Click-only sur web.
+                swipeEnabled: Platform.OS !== 'web',
             }}
         >
             <Tab.Screen name="Articles" component={ArticlesListScreen} options={{ tabBarLabel: t('common.screen.articles') }} />

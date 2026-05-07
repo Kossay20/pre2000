@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { RemindersTab } from './reminders/RemindersTab';
 import { TasksTab } from './reminders/TasksTab';
@@ -13,6 +13,11 @@ const Tab = createMaterialTopTabNavigator();
  * RemindersScreen - V1.2 Feature
  * Full reminders and tasks management with local notifications
  * Refactored to use split components
+ *
+ * T7-FIX-F47 : `swipeEnabled: Platform.OS !== 'web'` — sur web, le swipe horizontal
+ * de MaterialTopTabs cassait le layout (panel Tasks et Reminders affichés
+ * partiellement superposés, banner truncated mid-word). Désactiver le swipe
+ * force la transition à se compléter via click tab uniquement.
  */
 export const RemindersScreen = () => {
     useScreenAnalytics('RemindersScreen');
@@ -25,6 +30,7 @@ export const RemindersScreen = () => {
                 tabBarLabelStyle: { fontSize: 14, fontWeight: '600' },
                 tabBarStyle: { backgroundColor: theme.colors.white },
                 tabBarIndicatorStyle: { backgroundColor: theme.colors.accent },
+                swipeEnabled: Platform.OS !== 'web',
             }}
         >
             <Tab.Screen

@@ -24,6 +24,7 @@ import { useAuth } from '../context/AuthContext';
 import { usePregnancy } from '../context/PregnancyContext';
 import { theme } from '../theme';
 import { styles } from './HomeScreen.styles';
+import { Button } from '../components/common/Button';
 import { Card } from '../components/common/Card';
 import { SectionHeader } from '../components/common/SectionHeader';
 import { Skeleton } from '../components/common/Skeleton'; // D4
@@ -58,7 +59,7 @@ export const HomeScreen = () => {
     useScreenAnalytics('HomeScreen');
     const [overrideWeek, setOverrideWeek] = useState<number | null>(null);
     const [overrideDay, setOverrideDay] = useState<number | null>(null);
-    const { weekData, loading, error, currentWeekNumber, currentDay, isInvalid } = useCurrentWeek(overrideWeek ?? undefined);
+    const { weekData, loading, error, currentWeekNumber, currentDay, isInvalid, refetch } = useCurrentWeek(overrideWeek ?? undefined);
     const { t, i18n } = useTranslation();
     const dateLocale = useDateLocale();
     const { user } = useAuth();
@@ -233,10 +234,19 @@ export const HomeScreen = () => {
     }
 
     if (error || !weekData) {
+        // T7-FIX-F63 : aligner sur le pattern errorBoundary (Articles) avec retry —
+        // évite le pattern "stranded user" du EmptyState minimaliste pré-T7.
+        const isRealError = !!error;
         return (
             <EmptyState
-                icon="😔"
-                title={error ? t(error) : t('common.noDataAvailable')}
+                icon={isRealError ? '😔' : '🤰'}
+                title={isRealError ? t('errorBoundary.title') : t('common.noDataAvailable')}
+                subtitle={isRealError ? t('errorBoundary.message') : undefined}
+                action={
+                    isRealError ? (
+                        <Button title={t('errorBoundary.retry')} onPress={refetch} />
+                    ) : undefined
+                }
             />
         );
     }

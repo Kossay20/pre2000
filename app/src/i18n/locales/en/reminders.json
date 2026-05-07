@@ -26,7 +26,8 @@
         "remindersTimeRange": "Between 8am and 10pm",
         "enableReminders": "Enable reminders",
         "save": "Save",
-        "concept": "On conception date"
+        "concept": "On conception date",
+        "outOf": "of {{goalL}}L"
     },
     "frequenciesShort": {
         "per_day": "day",
