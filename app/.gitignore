@@ -52,3 +52,5 @@ GoogleService-Info.plist
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+# T6 V1_AUTONOMOUS_RUN audit captures (transient, recréés à chaque run)
+/audit-screenshots/

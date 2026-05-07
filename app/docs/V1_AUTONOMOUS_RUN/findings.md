@@ -206,6 +206,273 @@ testPathIgnorePatterns: ['/node_modules/', '/e2e/', '/scripts/'],
 
 ---
 
+## F42 — 🟠 P1 — Home dashboard reste en skeleton loading
+
+**Découvert** : 2026-05-07, T6 audit visuel screenshot `04-home-dashboard.png`.
+
+**Symptôme visuel** : la capture, prise immédiatement après navigation `HomeMain`, montre 4 cards entièrement en skeleton (lignes grises animées) — aucun contenu réel rendu. Bottom tabs visibles + en place.
+
+**Hypothèses (à confirmer T7)** :
+1. **Test capture trop vite** — `audit-screens.spec.ts:75` ne fait que `expect(page).toHaveURL(/HomeMain/)` puis screenshot. Le contenu Firestore (week tips, baby evolution data, recommendations) prend > 1-2s à arriver.
+2. **Firestore inaccessible en mode guest sans config** — sans Firebase Auth (mode guest), les queries Firestore peuvent timeout silencieusement et laisser les skeletons à l'infini.
+3. **Skeleton sans timeout fallback** — pas d'état "load failed → retry" affiché à l'utilisateur, juste skeleton perpétuel.
+
+**Impact** :
+- Si #1 : test fix simple (waitFor un selector de contenu réel).
+- Si #2 ou #3 : **release blocker** — utilisateur en mode guest verrait Home perpétuellement en chargement.
+
+**Action T7** : ajouter waitFor un marqueur de contenu réel dans le test ; si ça timeout, c'est un vrai bug runtime à fixer (timeout fallback + empty state).
+
+---
+
+## F46 — 🔴 P0 — Calendar perpétuellement en skeleton (idem F42)
+
+**Découvert** : 2026-05-07, T6 screenshot `05-calendar.png`.
+
+**Symptôme** : Calendar tab affiche header "Calendar" + skeleton week strip + 3 skeleton event cards. Pas même un empty state ("No appointments yet").
+
+**Pourquoi P0 vs F42 P1** : pour une app de grossesse, le calendrier est **central** — une utilisatrice doit voir « pas de RDV » clairement, ou les RDV templates auto-générés (echo 12 SA, glucose 24-28 SA, etc.). Skeleton perpétuel = perte de confiance immédiate dès l'install.
+
+**Action T7** :
+1. Vérifier que `CalendarScreen.tsx` gère le cas où `events.length === 0` après chargement → afficher empty state "Aucun rendez-vous · Ajouter".
+2. Vérifier le timeout sur les queries Firestore en mode guest (templates devraient charger même sans auth si publics).
+3. Si Firestore inaccessible : empty state + bouton "Ajouter mon premier RDV".
+
+---
+
+## F47 — 🔴 P0 — Tasks tab layout cassé (overlap horizontal Material Top Tabs)
+
+**Découvert** : 2026-05-07, T6 screenshot `08-tasks.png`.
+
+**Symptôme visuel** : après click sur l'onglet "Tasks" du MaterialTopTabNavigator, la capture montre **les deux panels superposés** :
+- Côté gauche : moitié du panel "Reminders" (Hydration card "Add a glass" + 0%) — décalé horizontalement.
+- Côté droit : panel "Tasks" (My Tasks / MY DAY / Prenatal vitamins 09:00 / Gentle walk 18:00 / View Statistics).
+- Banner "Enable notifications to receive your reminders" tronqué horizontalement.
+
+**Cause probable** : MaterialTopTabs animation swipe horizontal sur web n'aboutit pas — la transition est figée à mi-parcours quand le screenshot est pris. Mais le test précédent `web-smoke.spec.ts:50 rappels → Tasks → Statistiques` ARRIVE à cliquer "View Statistics" et le test passe — donc fonctionnellement OK, mais visuellement cassé pendant la transition.
+
+**Investigation T7** :
+1. Confirmer que le screenshot capture une transition incomplète (attendre transition complete OU `tabBarPressOpacity` finalisé).
+2. Si bug réel : forcer `tabBarPressOpacity={1}` ou désactiver l'animation swipe sur web (`screenOptions.swipeEnabled: Platform.OS !== 'web'`).
+3. Vérifier sur mobile natif si même symptôme.
+
+---
+
+## F48 — 🟠 P1 — Chatbot bouton send quasi invisible (contraste disabled)
+
+**Découvert** : 2026-05-07, T6 screenshot `12-chatbot.png`.
+
+**Symptôme** : la flèche send à droite du champ "Ask your question..." est gris pâle sur fond rose pâle — sans message tapé, le bouton est `disabled`, visuellement quasi invisible (contraste WCAG AA fail probable).
+
+**Impact** : utilisatrice ne sait pas qu'il y a un bouton à cliquer. Quand elle tape (le bouton devient actif), c'est moins grave, mais à l'arrivée sur le screen, l'affordance est cassée.
+
+**Fix T7** : `ChatbotScreen.tsx` augmenter contraste du bouton disabled (background plus marqué OU border visible OU même opacité 0.4 au lieu de quasi-zéro).
+
+---
+
+## F49 — 🟠 P1 — Header onboarding affiche "Profile" (ambigu pour new user)
+
+**Découvert** : 2026-05-07, T6 screenshot `03-onboarding-mode-select.png`.
+
+**Symptôme** : la screen step 1 d'onboarding (mode pregnant/TTC/curious) a un header "Profile" + back arrow + barre progress rose. Pour un new user, "Profile" suggère **édition** d'un profil existant — alors qu'il est en train d'en créer un.
+
+**Fix T7** : `OnboardingScreen.tsx` ou navigation options : changer header en "Welcome", "Setup", "Setup your profile", ou un step indicator type "Step 1 of 4".
+
+---
+
+## F50 — 🟡 P2 — Chatbot suggestion "I have strong..." tronquée à droite
+
+**Découvert** : 2026-05-07, T6 screenshot `12-chatbot.png`.
+
+**Symptôme** : la rangée horizontale de 8 quick-pills (I have morning sickness, I feel very tired, etc.) se termine par "I have strong" coupé au bord droit du viewport. ScrollView horizontal sans indicator visible.
+
+**Fix T7** : soit ajouter `showsHorizontalScrollIndicator={true}` ou un fade gradient à droite suggérant scroll, soit wrap les pills sur 2 lignes au-delà d'une largeur seuil.
+
+---
+
+## F63 — 🔴 P0 — "Error loading data" universel sans retry (Home + Profile + Settings)
+
+**Découvert** : 2026-05-07, T6.5 captures additionnelles avec wait 20s.
+
+**Symptôme** :
+- `13-home-dashboard-after-20s.png` : après 20s, Home affiche emoji 😔 + "Error loading data" — **PAS de bouton retry**, PAS d'explication, PAS d'action.
+- `14-profile.png` et `15-settings.png` : **identiques** au Home error — emoji 😔 + "Error loading data".
+- `16-articles-after-20s.png` : Articles affiche un meilleur fallback : "Oops! A small error occurred. Don't worry, your data is safe." + **bouton Retry rose**.
+
+**Conclusion** :
+1. **F-LOAD CONFIRMÉ runtime bug, pas test timing**. Données ne chargent jamais en mode guest.
+2. **Inconsistance fallback UX critique** :
+   - Articles a un fallback élégant + retry → utilisateur peut récupérer.
+   - Home/Profile/Settings ont un fallback minimaliste sans action → utilisateur **stranded**.
+3. **Probable cause** : ErrorBoundary global ou hook `useDataFetch` partagé qui rend des composants différents selon le screen ; OU les screens HomeStack utilisent un fallback partagé minimaliste alors que Resources utilise son propre composant Empty.
+
+**Action T7 (priorité #1)** :
+1. Grep `"Error loading data"` dans `app/src/` → identifier le composant fallback Home/Profile/Settings.
+2. Soit l'aligner sur le pattern Articles ("Oops" + Retry button), soit créer un `<DataErrorState />` partagé avec retry callback.
+3. Re-tester captures après fix → confirmer comportement uniforme.
+
+**Sécurité** : malgré l'ergonomie cassée, le fait que le Profile screen NE révèle PAS de données utilisateur (parce qu'il échoue à charger) limite l'impact RGPD. À reverif en post-fix : quand Profile charge correctement, vérifier qu'aucun UID/email/PII brut n'est visible.
+
+---
+
+## F-LOAD — 🔴 P0 BUG SYSTÉMIQUE — Loading state perpétuel (F42+F46+F51+F52 same root)
+
+**Découvert** : 2026-05-07, T6 audit visuel + adversary review.
+
+**Constat racine** : 4 captures montrent un skeleton perpétuel sur des screens qui devraient charger du contenu :
+- `04-home-dashboard.png` (F42, reclassé P1→P0 par adversary)
+- `05-calendar.png` (F46 P0)
+- `10-resources-articles.png` (F51 P0 NEW adversary)
+- `11-resources-supplements.png` (F52 P0 NEW adversary, + tab switch cassé)
+
+**Hypothèse forte** : Firestore queries en mode guest (sans Firebase Auth) timeout silencieusement → skeleton infini, pas de fallback. Bug systémique vs 4 bugs séparés.
+
+**Action T7 unique** :
+1. Identifier le hook ou pattern partagé qui charge la data (probablement `useEffect` + `getDocs` dans ces screens).
+2. Ajouter un timeout (15-30s) → bascule empty state friendly avec retry.
+3. Tester en mode guest (sans Firebase Auth) : si Firestore inaccessible, doit montrer empty state immédiat.
+4. Re-capture les 4 screens après fix → confirmer rendering avec contenu OU empty state propre.
+
+---
+
+## F47 — 🔴 P0 — Tasks tab layout cassé (NUANCÉ par adversary)
+
+**Statut** : Initialement classé P0 par orchestrateur. Adversary confirme + nuance : ce n'est PAS une transition incomplète, c'est un layout cassé reproductible.
+
+**Symptôme aggravé** : panel Tasks positionné hors viewport droit, panel Reminders garde 60% écran. Banner truncated mid-word "Enable notifications to receive your remind".
+
+**Même pattern** : F52 sur Resources Supplements (tab switch casse layout). → Bug commun MaterialTopTabs sur web.
+
+**Fix T7** :
+- `src/screens/RemindersScreen.tsx` + `src/screens/ResourcesScreen.tsx` : passer `screenOptions={{ swipeEnabled: Platform.OS !== 'web' }}` ou forcer style explicite sur le container des tabs.
+- Tester via E2E spec qui screenshot APRÈS click tab + waitFor 500ms + verify pas de overlap horizontal.
+
+---
+
+## F51 — 🔴 P0 — Resources Articles skeleton perpétuel
+
+**Découvert** : adversary review T6.
+
+**Symptôme** : `10-resources-articles.png` 5 cards skeleton, jamais de contenu. Idem mécanisme F42.
+
+**Fix** : voir F-LOAD.
+
+---
+
+## F52 — 🔴 P0 — Resources Supplements tab switch casse layout
+
+**Découvert** : adversary review T6.
+
+**Symptôme** : `11-resources-supplements.png` après click tab Supplements, header underline a bougé mais content reste celui d'Articles + bandeau gris à droite. Même pattern que F47 sur Reminders.
+
+**Fix** : voir F47 (commun MaterialTopTabs config).
+
+---
+
+## F53 — 🟠 P1 — Language picker : "Arabic" en EN au lieu de "العربية"
+
+**Découvert** : adversary review T6 sur `01-language-picker.png`.
+
+**Symptôme** : carte Arabic affiche "Arabic" en label principal et "العربية" en subtitle. Inconsistance avec "Français" qui a son nom natif en label principal. Un user arabophone peut ne pas reconnaître son option.
+
+**Fix T7** : `src/screens/LanguageSelectScreen.tsx:18-20` — inverser pour Arabic et Tunisian :
+```ts
+{ code: 'ar', name: 'العربية', flag: '🇩🇿', nativeName: 'Arabic' },
+{ code: 'tn', name: 'العربية + الدارجة (Beta)', flag: '🇹🇳', nativeName: 'Arabe + Darija' },
+```
+
+---
+
+## F54 — 🟠 P1 — Flèche `→` hardcoded ne flip pas en RTL
+
+**Découvert** : adversary review T6 sur `02-auth-choice.png` ("Continue as guest →").
+
+**Symptôme** : caractère unicode `→` codé en dur dans le label. En mode RTL (ar/tn), devrait être `←` ou utiliser un Icon avec auto-flip.
+
+**Fix T7** : remplacer par `<RtlAwareChevron direction="forward" />` (composant déjà existant) ou utiliser le hook `i18n.dir() === 'rtl'` pour switcher.
+
+---
+
+## F55 — 🟠 P1 — AddAppointment date au format ISO non localisé
+
+**Découvert** : adversary review T6 sur `06-add-appointment.png`.
+
+**Symptôme** : input Date affiche `2026-05-07` (ISO) au lieu de `07/05/2026` (FR/AR locale). Time `06:08` est l'heure courante (devrait être un default plausible comme 09:00).
+
+**Fix T7** : `AddAppointmentScreen.tsx` formater le default date via `Intl.DateTimeFormat(i18n.language)` et set time default à 09:00.
+
+---
+
+## F56 — 🟠 P1 — Mix FR/EN dans Reminders ("sur 3.0L" en français quand UI = EN)
+
+**Découvert** : adversary review T6 sur `07-reminders.png`.
+
+**Symptôme** : "0.00L **sur** 3.0L" — "sur" est en français. Reste de l'UI en anglais ("Daily Goal", "Add a glass", "Daily Habits"). Clé i18n manquante OU string codée en dur.
+
+**Fix T7** : grep `"sur"` dans `src/screens/RemindersTab*.tsx` ou composant Hydration → remplacer par `t('reminders.hydration.outOf')` (FR: "sur", EN: "of", AR: "من", TN: "من").
+
+---
+
+## F57 — 🟠 P1 — Toggle Prenatal vitamins no on/off label (a11y)
+
+**Découvert** : adversary review T6 sur `07-reminders.png`.
+
+**Symptôme** : pill toggle rose-gauche/vert-droite sans label "on/off" textuel ni accessibility hint. Pour daltonien ou screen reader, état du toggle non communiqué.
+
+**Fix T7** : ajouter `accessibilityRole="switch"` + `accessibilityState={{ checked: enabled }}` + `accessibilityLabel={enabled ? 'Daily reminder enabled' : 'Daily reminder disabled'}`.
+
+---
+
+## F58 — 🟡 P2 — AddAppointment "Personal" default sélectionné suggère CTA primaire
+
+**Découvert** : adversary review T6 sur `06-add-appointment.png`.
+
+**Symptôme** : segmented control Type a "Personal" en rose vif (sélectionné) et "Medical" en blanc. Suggère visuellement que Personal est la primary action alors que c'est juste l'option active.
+
+**Fix T7 (différable)** : utiliser un vrai segmented control avec contraste neutre (gris foncé sélectionné, gris pâle non) ; OU pré-sélectionner "Medical" qui est plus pertinent en grossesse.
+
+---
+
+## F59 — 🟡 P2 — Statistics tab perd son active state dans bottom nav
+
+**Découvert** : adversary review T6 sur `09-statistics.png`.
+
+**Symptôme** : screen Statistics est rendu mais bottom nav garde "Reminders" en rose actif. User perd le repère "où suis-je dans l'app".
+
+**Fix T7 (différable)** : `Statistics` est un sous-screen du Reminders Stack, c'est donc normal que Reminders reste active. MAIS faut un titre header "Statistics" sur la page elle-même (semble manquer dans la capture).
+
+---
+
+## F60 — 🟡 P2 — Disclaimer médical Chatbot trop pâle (risque légal)
+
+**Découvert** : adversary review T6 sur `12-chatbot.png`.
+
+**Symptôme** : "This assistant does not replace medical advice... call your local emergency number" en gris pâle italique ~11px. Pour sujet sanitaire critique, contraste insuffisant + risque légal.
+
+**Fix T7** : `ChatbotScreen.tsx` disclaimer en bold OU encadré jaune avec icône warning (cf. pattern Reminders banner notification).
+
+---
+
+## F61 — 🟡 P2 — AuthChoice "Privacy Policy" footer link affordance
+
+**Découvert** : adversary review T6 sur `02-auth-choice.png`.
+
+**Symptôme** : footer "Your data won't be saved without an account — Privacy Policy" sous-ligné comme link. Le lien navigue-t-il vers PrivacyPolicyScreen ? À vérifier — sinon affordance fausse + risque RGPD (politique vie privée non accessible avant collecte).
+
+**Fix T7** : grep `Privacy Policy` dans `AuthChoiceScreen.tsx`, vérifier le `onPress` mène vers le route `PrivacyPolicy`. Si non : wire la navigation.
+
+---
+
+## F62 — 🟡 P2 — "Arabe + Darija (Beta)" : pas de tooltip explicatif
+
+**Découvert** : adversary review T6 sur `01-language-picker.png`.
+
+**Symptôme** : nom "Arabe + Darija (Beta)" peut confondre user non-tunisien.
+
+**Fix T7 (différable post-v1)** : tooltip ou texte secondaire "Arabe avec dialecte tunisien" dessous.
+
+---
+
 ## F38 — 🟡 P2 — Couverture E2E faible (~4 specs / 20+ écrans)
 
 **Découvert** : 2026-05-07, adversary review T1.
