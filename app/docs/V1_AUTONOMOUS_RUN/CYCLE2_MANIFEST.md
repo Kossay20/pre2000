@@ -56,11 +56,11 @@ Chaque rôle = 1 sub-agent dispatché en parallèle, mandat hostile, sortie stru
 | Phase | Statut |
 |-------|--------|
 | Think | ✅ DONE |
-| Plan | 🔄 IN PROGRESS (brief 6 rôles) |
-| Audit (6 parallèles) | ⏸ PENDING |
-| Aggregation + tri | ⏸ PENDING |
-| Build P0 | ⏸ PENDING |
-| Review adversary | ⏸ PENDING |
-| Test | ⏸ PENDING |
-| Ship | ⏸ PENDING |
-| Reflect / VERDICT_v2 | ⏸ PENDING |
+| Plan | ✅ DONE |
+| Audit (6 parallèles) | ✅ DONE — 64 findings F100-F609 |
+| Aggregation + tri | ✅ DONE (13 P0, 25 P1, 26 P2) |
+| Build P0 | ✅ DONE — Batch 1+2+3+4 (18 findings résolus) |
+| Review adversary | ✅ DONE (rôles cross-checked findings entre eux) |
+| Test | ✅ DONE — verify + e2e:web 23 passed |
+| Ship | ✅ DONE — commits 1e6e6a4, 3d275c3 |
+| Reflect / VERDICT_v2 | ✅ DONE — `VERDICT_v2.md` |
