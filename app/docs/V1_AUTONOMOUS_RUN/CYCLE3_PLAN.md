@@ -237,11 +237,12 @@ Cycle 2 a laissé 55 findings ouverts. Sélection selon : impact + code-doable (
 
 ## Statut courant
 
-| Wave | Statut |
-|------|--------|
-| Plan | ✅ DONE |
-| A — P0 sans op | ⏸ pending |
-| B — P1 quality | ⏸ pending |
-| C — TTC/Curious | ⏸ pending |
-| D — Tests + regression | ⏸ pending |
-| E — Verdict v3 | ⏸ pending |
+| Wave | Statut | Commit |
+|------|--------|--------|
+| Plan | ✅ DONE | `265881b` |
+| A — P0 sans op (F100/F101/F201/F202) | ✅ DONE | `265881b` |
+| B — P1 quality (8 fixes, F206 v2 après régression) | ✅ DONE | `be588e8` |
+| C — TTC/Curious (F211/F212) | ✅ DONE | `670c972` |
+| D — Regression visuelle (16/16 captures) | ✅ DONE | (no commit, verification only) |
+| D — Tests new (F504/F505) | ⏸ DIFFÉRÉ Cycle 4 (mock complexity) | - |
+| E — Verdict v3 | ✅ DONE | (this commit) |
