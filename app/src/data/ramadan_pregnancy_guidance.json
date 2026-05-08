@@ -27,6 +27,16 @@
         "Hypoglycaemia from prolonged fasting",
         "Significant fatigue"
       ],
+      "key_risks_ar": [
+        "غثيان الصباح والجفاف",
+        "نقص السكر بسبب الصيام الطويل",
+        "إرهاق شديد"
+      ],
+      "key_risks_tn": [
+        "غثيان الصباح والجفاف",
+        "نقصان السكر بسبب الصيام الطويل",
+        "تعب برشة"
+      ],
       "recommendation_fr": "Le 1er trimestre est souvent associé à des nausées et une fatigue qui rendent le jeûne difficile. La déshydratation expose le bébé à des risques. La plupart des cliniciens recommandent de ne pas jeûner au 1er trimestre, surtout en cas de vomissements ou perte de poids. Demandez l'avis de votre médecin avant tout.",
       "recommendation_en": "Many clinicians advise against fasting in the 1st trimester, especially when nausea, vomiting or weight loss is present. Dehydration is a real risk. Always ask your doctor first.",
       "recommendation_ar": "غالبا ما ينصح الأطباء بعدم الصيام في الثلث الأول، خاصة عند وجود غثيان أو قيء أو فقدان وزن. استشيري طبيبتك قبل كل قرار.",
@@ -49,6 +59,16 @@
         "Gestational diabetes",
         "Dehydration"
       ],
+      "key_risks_ar": [
+        "فقر الدم",
+        "سكري الحمل",
+        "الجفاف"
+      ],
+      "key_risks_tn": [
+        "أنيميا",
+        "سكري الحمل",
+        "الجفاف"
+      ],
       "recommendation_fr": "Le 2e trimestre est souvent mieux toléré, mais le jeûne reste un effort important. Une glycémie suivie, une bonne hydratation au Suhoor/Iftar et l'absence d'anémie sont des conditions minimales. Votre médecin doit valider la décision.",
       "recommendation_en": "The 2nd trimester is generally better tolerated, but fasting remains demanding. Monitored glycaemia, good hydration at Suhoor/Iftar and the absence of anaemia are minimum conditions. Your doctor must validate the decision.",
       "recommendation_ar": "الثلث الثاني أسهل عادة، لكن الصيام يظل مجهودا. متابعة السكر والترطيب الجيد وعدم الإصابة بفقر الدم شروط دنيا. القرار يبقى لطبيبتك.",
@@ -70,6 +90,16 @@
         "Preterm contractions",
         "Pre-eclampsia",
         "Poor fetal weight gain"
+      ],
+      "key_risks_ar": [
+        "تقلصات قبل الأوان",
+        "تسمم الحمل",
+        "ضعف نمو الجنين"
+      ],
+      "key_risks_tn": [
+        "تقلصات قبل الأوان",
+        "تسمم الحمل",
+        "ضعف في نمو البيبي"
       ],
       "recommendation_fr": "Le 3e trimestre demande une nutrition stable et une hydratation continue. Le jeûne au 3e trimestre est souvent déconseillé, en particulier en cas de diabète gestationnel, d'hypertension ou de prise de poids insuffisante du bébé. Concertez votre obstétricien.",
       "recommendation_en": "The 3rd trimester requires steady nutrition and continuous hydration. Fasting is often discouraged here, especially with gestational diabetes, hypertension, or poor fetal growth. Speak with your obstetrician.",

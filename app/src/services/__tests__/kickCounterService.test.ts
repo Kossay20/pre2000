@@ -71,6 +71,25 @@ describe('kickCounterService', () => {
         expect(countInLastHour(session)).toBe(2);
     });
 
+    it('loadState drops a stale active session (>4h old)', async () => {
+        const fiveHoursAgo = Date.now() - 5 * 60 * 60 * 1000;
+        const AsyncStorage = require('@react-native-async-storage/async-storage');
+        await AsyncStorage.setItem(
+            'kick_counter_v1',
+            JSON.stringify({
+                activeSession: {
+                    id: 'stale',
+                    startedAt: fiveHoursAgo,
+                    endedAt: null,
+                    kicks: [{ timestamp: fiveHoursAgo }],
+                },
+                history: [],
+            }),
+        );
+        const reloaded = await loadState();
+        expect(reloaded.activeSession).toBeNull();
+    });
+
     it('countToday sums history + active for today only', async () => {
         const today = Date.now();
         const yesterday = today - 24 * 3600_000;

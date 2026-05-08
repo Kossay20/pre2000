@@ -66,11 +66,35 @@ describe('contractionTimerService', () => {
         expect(formatDuration(125_000)).toBe('2:05');
     });
 
-    it('buildShareSummary contains count and durations', () => {
+    it('buildShareSummary contains count and durations (default EN labels)', () => {
         const c1 = { id: '1', startedAt: 0, endedAt: 60_000 };
         const summary = buildShareSummary(computeStats([c1]), [c1]);
         expect(summary).toContain('Contractions: 1');
         expect(summary).toContain('Avg duration: 1:00');
+    });
+
+    it('buildShareSummary respects custom localized labels', () => {
+        const c1 = { id: '1', startedAt: 0, endedAt: 60_000 };
+        const summary = buildShareSummary(computeStats([c1]), [c1], {
+            contractionsLabel: 'Nombre',
+            avgDurationLabel: 'Durée moy.',
+            avgFrequencyLabel: 'Fréq. moy.',
+        });
+        expect(summary).toContain('Nombre: 1');
+        expect(summary).toContain('Durée moy.: 1:00');
+        expect(summary).not.toContain('Contractions:');
+    });
+
+    it('loadState drops a stale active contraction (>4h old)', async () => {
+        // Manually plant a stale state (5h ago).
+        const fiveHoursAgo = Date.now() - 5 * 60 * 60 * 1000;
+        const AsyncStorage = require('@react-native-async-storage/async-storage');
+        await AsyncStorage.setItem(
+            'contraction_timer_v1',
+            JSON.stringify({ activeStartedAt: fiveHoursAgo, history: [] }),
+        );
+        const reloaded = await loadState();
+        expect(reloaded.activeStartedAt).toBeNull();
     });
 
     it('clearAll empties everything', async () => {

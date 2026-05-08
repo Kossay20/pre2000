@@ -4,6 +4,9 @@ import { createLogger } from '../utils/logger';
 const log = createLogger('ContractionTimerService');
 const STORAGE_KEY = 'contraction_timer_v1';
 const MAX_HISTORY = 200;
+// Cycle 8.1 — guard: discard an "active" contraction older than 4h.
+// A real contraction is < 2 min ; > 4h means the phone was locked, not labour.
+const MAX_ACTIVE_AGE_MS = 4 * 60 * 60 * 1000;
 
 export interface Contraction {
     id: string;
@@ -27,7 +30,13 @@ const newId = (): string =>
 export const loadState = async (): Promise<ContractionTimerState> => {
     try {
         const json = await AsyncStorage.getItem(STORAGE_KEY);
-        return json ? (JSON.parse(json) as ContractionTimerState) : DEFAULT_STATE;
+        const parsed = json ? (JSON.parse(json) as ContractionTimerState) : DEFAULT_STATE;
+        if (parsed.activeStartedAt !== null && Date.now() - parsed.activeStartedAt > MAX_ACTIVE_AGE_MS) {
+            const cleaned: ContractionTimerState = { ...parsed, activeStartedAt: null };
+            await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(cleaned));
+            return cleaned;
+        }
+        return parsed;
     } catch (error) {
         log.error('Error loading contraction timer state:', error);
         return DEFAULT_STATE;
@@ -123,11 +132,27 @@ export const formatDuration = (ms: number): string => {
     return `${m}:${s.toString().padStart(2, '0')}`;
 };
 
-export const buildShareSummary = (stats: ContractionStats, history: Contraction[]): string => {
+export interface ShareSummaryLabels {
+    contractionsLabel: string;
+    avgDurationLabel: string;
+    avgFrequencyLabel: string;
+}
+
+const DEFAULT_SHARE_LABELS: ShareSummaryLabels = {
+    contractionsLabel: 'Contractions',
+    avgDurationLabel: 'Avg duration',
+    avgFrequencyLabel: 'Avg interval',
+};
+
+export const buildShareSummary = (
+    stats: ContractionStats,
+    history: Contraction[],
+    labels: ShareSummaryLabels = DEFAULT_SHARE_LABELS,
+): string => {
     const lines: string[] = [];
-    lines.push(`Contractions: ${stats.count}`);
-    lines.push(`Avg duration: ${formatDuration(stats.avgDurationMs)}`);
-    lines.push(`Avg interval: ${formatDuration(stats.avgFrequencyMs)}`);
+    lines.push(`${labels.contractionsLabel}: ${stats.count}`);
+    lines.push(`${labels.avgDurationLabel}: ${formatDuration(stats.avgDurationMs)}`);
+    lines.push(`${labels.avgFrequencyLabel}: ${formatDuration(stats.avgFrequencyMs)}`);
     lines.push('');
     const last10 = [...history].slice(0, 10);
     last10.forEach((c, i) => {

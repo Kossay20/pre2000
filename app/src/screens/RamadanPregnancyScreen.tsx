@@ -37,6 +37,8 @@ interface TrimesterEntry {
     label_tn: string;
     key_risks: string[];
     key_risks_en: string[];
+    key_risks_ar: string[];
+    key_risks_tn: string[];
     recommendation_fr: string;
     recommendation_en: string;
     recommendation_ar: string;
@@ -81,6 +83,8 @@ const pickRecommendation = (entry: TrimesterEntry, lang: string): string => {
 };
 
 const pickRisks = (entry: TrimesterEntry, lang: string): string[] => {
+    if (lang === 'ar') return entry.key_risks_ar;
+    if (lang === 'tn') return entry.key_risks_tn || entry.key_risks_ar;
     if (lang === 'en') return entry.key_risks_en;
     return entry.key_risks;
 };

@@ -69,6 +69,10 @@ const PRIVATE_STORAGE_KEYS = [
     'in_app_review_install_date',        // STORAGE-FIX: App install date for review
     'hydration_data_v1',                 // STORAGE-FIX: Hydration tracking (preferences + daily intake)
     'ttcProfile',                        // TTC-FIX: standalone TTC snapshot (lastPeriodDate, cycleLength, fertile window)
+    'kick_counter_v1',                   // Cycle 8 Epic 1: kick session history (pregnancy-stage data)
+    'contraction_timer_v1',              // Cycle 8 Epic 1: contraction history (labor-timing data)
+    'hospital_bag_v1',                   // Cycle 8 Epic 1: bag checklist + custom items
+    'ramadan_pregnancy_v1',              // Cycle 8 Epic 2: GDPR Art. 9 (religion + health) — must purge
 ] as const;
 
 // Re-export pure helper extracted to ./loginHelpers so it can be unit-tested

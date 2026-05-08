@@ -5,6 +5,8 @@ import { createLogger } from '../utils/logger';
 const log = createLogger('KickCounterService');
 const STORAGE_KEY = 'kick_counter_v1';
 const SESSION_WINDOW_MS = 60 * 60 * 1000;
+// Cycle 8.1 — guard: discard active sessions older than 4h (phone-locked-overnight)
+const MAX_ACTIVE_AGE_MS = 4 * 60 * 60 * 1000;
 
 export interface KickEvent {
     timestamp: number;
@@ -33,7 +35,14 @@ const newSessionId = (): string =>
 export const loadState = async (): Promise<KickCounterState> => {
     try {
         const json = await AsyncStorage.getItem(STORAGE_KEY);
-        return json ? (JSON.parse(json) as KickCounterState) : DEFAULT_STATE;
+        const parsed = json ? (JSON.parse(json) as KickCounterState) : DEFAULT_STATE;
+        // Cycle 8.1 — drop a stale active session (e.g. phone locked > 4h with session open).
+        if (parsed.activeSession && Date.now() - parsed.activeSession.startedAt > MAX_ACTIVE_AGE_MS) {
+            const cleaned: KickCounterState = { ...parsed, activeSession: null };
+            await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(cleaned));
+            return cleaned;
+        }
+        return parsed;
     } catch (error) {
         log.error('Error loading kick counter state:', error);
         return DEFAULT_STATE;

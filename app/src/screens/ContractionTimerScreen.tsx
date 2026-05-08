@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
     Alert,
     Linking,
-    Platform,
     ScrollView,
     Share,
     StyleSheet,
@@ -18,6 +17,8 @@ import { Button } from '../components/common/Button';
 import { Card } from '../components/common/Card';
 import { EmptyState } from '../components/common/EmptyState';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
+import { useAuth } from '../context/AuthContext';
+import { resolveEmergencyNumber } from '../utils/clinicalChecks';
 import {
     ContractionTimerState,
     buildShareSummary,
@@ -31,7 +32,9 @@ import {
 
 export const ContractionTimerScreen: React.FC = () => {
     useScreenAnalytics('ContractionTimerScreen');
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
+    const { user } = useAuth();
+    const emergencyNumber = resolveEmergencyNumber(user?.country, i18n.language);
     const [state, setState] = useState<ContractionTimerState>({ activeStartedAt: null, history: [] });
     const [now, setNow] = useState<number>(Date.now());
     const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -91,19 +94,22 @@ export const ContractionTimerScreen: React.FC = () => {
 
     const onShare = useCallback(async () => {
         if (state.history.length === 0) return;
-        const summary = buildShareSummary(stats, state.history);
+        const summary = buildShareSummary(stats, state.history, {
+            contractionsLabel: t('cycle8.contractionTimer.count'),
+            avgDurationLabel: t('cycle8.contractionTimer.avgDuration'),
+            avgFrequencyLabel: t('cycle8.contractionTimer.avgFrequency'),
+        });
         try {
             await Share.share({ message: summary });
         } catch {
             // user cancelled or platform issue
         }
-    }, [state.history, stats]);
+    }, [state.history, stats, t]);
 
     const onCallMaternity = useCallback(() => {
-        const number = '15';
-        const url = Platform.OS === 'ios' ? `tel:${number}` : `tel:${number}`;
-        Linking.openURL(url).catch(() => {});
-    }, []);
+        if (!emergencyNumber) return;
+        Linking.openURL(`tel:${emergencyNumber}`).catch(() => {});
+    }, [emergencyNumber]);
 
     const elapsedActive = state.activeStartedAt ? now - state.activeStartedAt : 0;
 
@@ -191,9 +197,18 @@ export const ContractionTimerScreen: React.FC = () => {
                     </>
                 )}
 
-                <TouchableOpacity style={styles.callRow} onPress={onCallMaternity} accessibilityRole="button">
-                    <Text style={styles.callText}>📞 {t('cycle8.contractionTimer.callMaternity')}</Text>
-                </TouchableOpacity>
+                {emergencyNumber && (
+                    <TouchableOpacity
+                        style={styles.callRow}
+                        onPress={onCallMaternity}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${t('cycle8.contractionTimer.callMaternity')} ${emergencyNumber}`}
+                    >
+                        <Text style={styles.callText}>
+                            📞 {t('cycle8.contractionTimer.callMaternity')} ({emergencyNumber})
+                        </Text>
+                    </TouchableOpacity>
+                )}
 
                 <Text style={styles.disclaimer}>{t('cycle8.contractionTimer.disclaimer')}</Text>
             </ScrollView>
