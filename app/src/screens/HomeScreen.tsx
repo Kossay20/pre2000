@@ -386,30 +386,56 @@ export const HomeScreen = () => {
 
                         {/* Minimal Quick Links - Single Row */}
                         <View style={styles.quickLinksRow}>
-                            <TouchableOpacity onPress={() => navigation.navigate('Calendrier')} activeOpacity={0.7} testID="home_quick_appointments" accessibilityRole="button">
+                            {/* Cycle 3 F305 : a11y labels explicites pour VoiceOver/TalkBack
+                                (avant : seulement emoji + texte court → screen reader lit "calendrier" sans contexte). */}
+                            <TouchableOpacity
+                                onPress={() => navigation.navigate('Calendrier')}
+                                activeOpacity={0.7}
+                                testID="home_quick_appointments"
+                                accessibilityRole="button"
+                                accessibilityLabel={t('home.myAppointments')}
+                            >
                                 <Text style={styles.quickLink}>📅 {t('home.myAppointments')}</Text>
                             </TouchableOpacity>
                             <Text style={styles.linkDivider}>•</Text>
-                            <TouchableOpacity onPress={() => navigation.navigate('Rappels', { screen: 'RemindersMain', params: { screen: 'TasksTab', params: { action: 'add' } } })} activeOpacity={0.7} testID="home_quick_add_task" accessibilityRole="button">
+                            <TouchableOpacity
+                                onPress={() => navigation.navigate('Rappels', { screen: 'RemindersMain', params: { screen: 'TasksTab', params: { action: 'add' } } })}
+                                activeOpacity={0.7}
+                                testID="home_quick_add_task"
+                                accessibilityRole="button"
+                                accessibilityLabel={t('home.addTask', 'Tâche')}
+                            >
                                 <Text style={styles.quickLink}>➕ {t('home.addTask', 'Tâche')}</Text>
                             </TouchableOpacity>
                             <Text style={styles.linkDivider}>•</Text>
-                            <TouchableOpacity onPress={() => {
-                                let targetDate = new Date();
-                                if (profile?.lmp && currentWeekNumber) {
-                                    const dayOffset = (overrideDay || currentDay || 1) - 1;
-                                    const weekOffset = (currentWeekNumber - 1) * 7;
-                                    targetDate = addDays(new Date(profile.lmp), weekOffset + dayOffset);
-                                }
-                                navigation.navigate('Calendrier', {
-                                    screen: 'AddAppointment',
-                                    params: { selectedDate: targetDate.toISOString() }
-                                });
-                            }} activeOpacity={0.7} testID="home_quick_add_appointment" accessibilityRole="button">
+                            <TouchableOpacity
+                                onPress={() => {
+                                    let targetDate = new Date();
+                                    if (profile?.lmp && currentWeekNumber) {
+                                        const dayOffset = (overrideDay || currentDay || 1) - 1;
+                                        const weekOffset = (currentWeekNumber - 1) * 7;
+                                        targetDate = addDays(new Date(profile.lmp), weekOffset + dayOffset);
+                                    }
+                                    navigation.navigate('Calendrier', {
+                                        screen: 'AddAppointment',
+                                        params: { selectedDate: targetDate.toISOString() }
+                                    });
+                                }}
+                                activeOpacity={0.7}
+                                testID="home_quick_add_appointment"
+                                accessibilityRole="button"
+                                accessibilityLabel={t('home.addAppointment', 'RDV')}
+                            >
                                 <Text style={styles.quickLink}>➕ {t('home.addAppointment', 'RDV')}</Text>
                             </TouchableOpacity>
                             <Text style={styles.linkDivider}>•</Text>
-                            <TouchableOpacity onPress={() => navigation.navigate('Ressources', { screen: 'ResourcesMain', params: { openSearch: true } })} activeOpacity={0.7} testID="home_quick_search" accessibilityRole="button">
+                            <TouchableOpacity
+                                onPress={() => navigation.navigate('Ressources', { screen: 'ResourcesMain', params: { openSearch: true } })}
+                                activeOpacity={0.7}
+                                testID="home_quick_search"
+                                accessibilityRole="button"
+                                accessibilityLabel={t('common.search')}
+                            >
                                 <Text style={styles.quickLink}>🔍 {t('common.search')}</Text>
                             </TouchableOpacity>
                         </View>

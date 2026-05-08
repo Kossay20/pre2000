@@ -119,7 +119,7 @@ export const ChatbotScreen = () => {
             : {};
         return (
             <View style={[styles.messageContainer, isUser ? styles.userMessage : styles.botMessage, bubbleAlign]}>
-                <Text style={[styles.messageText, isUser ? styles.userMessageText : styles.botMessageText, isRTL && { textAlign: 'right' as const }]}>
+                <Text style={[styles.messageText, isUser ? styles.userMessageText : styles.botMessageText, { textAlign: 'auto' as const }]}>
                     {item.text}
                 </Text>
 
@@ -283,7 +283,7 @@ export const ChatbotScreen = () => {
                 style={styles.inputContainer}
             >
                 <TextInput
-                    style={[styles.input, isRTL && { textAlign: 'right' }]}
+                    style={[styles.input, { textAlign: 'auto' as const }]}
                     value={inputText}
                     onChangeText={setInputText}
                     maxLength={MAX_INPUT_LENGTH}
@@ -297,7 +297,7 @@ export const ChatbotScreen = () => {
                     style={[styles.sendButton, (!inputText.trim() || loading) && styles.sendButtonDisabled]}
                     accessibilityRole="button"
                     accessibilityLabel={t('a11y.sendMessage')}
-                    accessibilityState={{ disabled: !inputText.trim() || loading }}
+                    accessibilityState={{ disabled: !inputText.trim() || loading, busy: loading }}
                 >
                     {loading ? (
                         <Text style={[styles.sendButtonText, styles.sendButtonTextDisabled]}>⏳</Text>

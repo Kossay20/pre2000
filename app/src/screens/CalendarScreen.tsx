@@ -368,7 +368,20 @@ export const CalendarScreen = () => {
     const handleDeleteEvent = async (eventId: string) => {
         // Guest check
         if (user?.isGuest) {
-            Alert.alert(t('calendar.guestModeTitle'), t('calendar.guestModeMessage'));
+            // Cycle 3 F203 : Alert avec CTA "Create account" — avant pas de chemin
+            // direct, l'utilisatrice savait juste qu'il fallait un compte sans
+            // savoir où aller. Maintenant 1-tap vers Register.
+            Alert.alert(
+                t('calendar.guestModeTitle'),
+                t('calendar.guestModeMessage'),
+                [
+                    { text: t('common.cancel'), style: 'cancel' },
+                    {
+                        text: t('common.createAccount'),
+                        onPress: () => navigation.getParent()?.navigate('AuthChoice'),
+                    },
+                ]
+            );
             return;
         }
 

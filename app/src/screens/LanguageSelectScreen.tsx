@@ -2,6 +2,8 @@ import { createLogger } from '../utils/logger';
 const log = createLogger('LanguageSelectScreen');
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
+// Cycle 3 F206 : toast non-bloquant à la place de Alert.alert pour le succès.
+import { useToast } from '../context/ToastContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation, CommonActions } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -26,6 +28,7 @@ export const LanguageSelectScreen = () => {
     useScreenAnalytics('LanguageSelectScreen');
     const navigation = useNavigation();
     const { t } = useTranslation();
+    const { showToast } = useToast();
     const [selectedLanguage, setSelectedLanguage] = useState(i18n.language || 'fr');
     const [loading, setLoading] = useState(false);
 
@@ -53,17 +56,13 @@ export const LanguageSelectScreen = () => {
             await AsyncStorage.setItem('app_locale', languageCode);
             setSelectedLanguage(languageCode);
 
-            // Show success message
-            Alert.alert(
-                t('common.languageUpdated'),
-                t('common.languageUpdatedMsg'),
-                [
-                    {
-                        text: t('common.ok'),
-                        onPress: () => navigation.navigate('AuthChoice'),
-                    },
-                ]
-            );
+            // Cycle 3 F206 : toast non-bloquant à la place de l'Alert (qui bloquait
+            // le flux et forçait un tap OK). Pas de navigation auto — l'utilisatrice
+            // confirme via le bouton "Continue" en bas de l'écran (l'helper E2E
+            // bootstrap-main-tabs.ts:21 + audit-screens spec 02 cliquent ce bouton).
+            // Cela préserve aussi un meilleur UX : si l'utilisatrice se trompe de
+            // langue, elle peut re-cliquer une autre carte sans être navigated away.
+            showToast(t('common.languageUpdated'), 'success');
         } catch (error) {
             log.error('Error saving language:', error);
             Alert.alert(t('common.error'), t('common.languageChangeError'));

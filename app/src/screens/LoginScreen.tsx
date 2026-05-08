@@ -21,6 +21,8 @@ import { useTranslation } from 'react-i18next';
 import { useNavigation } from '@react-navigation/native';
 import { useAuthLoading } from '../hooks/useAuthLoading';
 import { retryOperation } from '../utils/retry';
+// Cycle 3 F404 : authLimiter (5 tentatives / 5 min) — anti brute-force client-side.
+import { authLimiter } from '../utils/rateLimiter';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
 
 export const LoginScreen = () => {
@@ -58,11 +60,24 @@ export const LoginScreen = () => {
             return;
         }
 
+        // Cycle 3 F404 : check rate limiter AVANT d'appeler Firebase (anti
+        // brute-force / credential-stuffing). 5 tentatives / 5 min par appareil.
+        // Complète le throttling Firebase Auth (qui est lâche : ~5/sec/IP).
+        if (!authLimiter.tryRequest()) {
+            const seconds = Math.ceil(authLimiter.getTimeUntilReset() / 1000);
+            const minutes = Math.ceil(seconds / 60);
+            setError(t('auth.tooManyAttempts', { minutes }));
+            return;
+        }
+
         await withLoading(async () => {
             try {
                 await retryOperation(() => login(email.trim(), password));
                 await analyticsService.logEvent('login', { method: 'email' });
                 await analyticsService.setUserId(auth.currentUser?.uid || null);
+                // Cycle 3 F404 : reset après succès (l'utilisatrice a légitimement
+                // saisi son password, on ne pénalise pas un login OK).
+                authLimiter.reset();
             } catch (error: any) {
                 log.error('[LoginScreen] Login error:', error);
                 const errorMessage = error.code
