@@ -103,6 +103,9 @@ export const ForbiddenFoodsScreen = () => {
         });
     };
 
+    const showHalalLens = i18n.language === 'ar' || i18n.language === 'tn';
+    const halalItemKeys = ['alcohol', 'pork', 'gelatin', 'nonHalalMeat', 'cookingWine'];
+
     return (
         <SafeAreaView style={styles.safeArea} edges={['top']}>
         <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -113,6 +116,21 @@ export const ForbiddenFoodsScreen = () => {
                     {t('common.defaultWarning')}
                 </Text>
             </View>
+
+            {/* Cycle 8 Epic 2 — Halal lens (AR/TN only). Content TODO clinician + imam review. */}
+            {showHalalLens && (
+                <View style={styles.halalCard}>
+                    <Text style={styles.halalTitle}>🌙 {t('cycle8.forbiddenFoodsHalal.title')}</Text>
+                    <Text style={styles.halalIntro}>{t('cycle8.forbiddenFoodsHalal.intro')}</Text>
+                    {halalItemKeys.map((k) => (
+                        <Text key={k} style={styles.halalBullet}>
+                            • <Text style={styles.halalBulletStrong}>{t(`cycle8.forbiddenFoodsHalal.items.${k}.label`)}</Text>{' '}
+                            — {t(`cycle8.forbiddenFoodsHalal.items.${k}.note`)}
+                        </Text>
+                    ))}
+                    <Text style={styles.halalDraft}>{t('cycle8.forbiddenFoodsHalal.draftNote')}</Text>
+                </View>
+            )}
 
             {/* Search Bar */}
             <View style={styles.searchContainer}>
@@ -249,6 +267,40 @@ const styles = StyleSheet.create({
     },
     header: {
         marginBottom: 20,
+    },
+    halalCard: {
+        backgroundColor: theme.colors.surfacePurpleTint,
+        padding: 16,
+        borderRadius: 12,
+        marginBottom: 20,
+    },
+    halalTitle: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: theme.colors.purple700,
+        marginBottom: 8,
+    },
+    halalIntro: {
+        fontSize: 14,
+        color: theme.colors.text,
+        marginBottom: 12,
+        lineHeight: 20,
+    },
+    halalBullet: {
+        fontSize: 14,
+        color: theme.colors.text,
+        lineHeight: 22,
+        marginBottom: 4,
+    },
+    halalBulletStrong: {
+        fontWeight: '700',
+        color: theme.colors.text,
+    },
+    halalDraft: {
+        marginTop: 12,
+        fontSize: 12,
+        color: theme.colors.textLight,
+        fontStyle: 'italic',
     },
     title: {
         fontSize: 28,

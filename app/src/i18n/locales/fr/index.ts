@@ -15,12 +15,20 @@ import babyGrowthFr from './babyGrowth.json';
 import remindersFr from './reminders.json';
 import forbiddenFoodsFr from './forbiddenFoods.json';
 import notificationsFr from './notifications.json';
+import cycle8Fr from './cycle8.json';
 
 
+
+// P0-2 FIX (E2E audit 2026-05-08): commonFr.errors was shadowing authFr.errors
+// because `...commonFr` spreads after `...authFr`. Result: keys like
+// `errors.emailRequired` (defined only in auth.json) resolved to the raw key.
+// Explicit deep-merge of the `errors` sub-block — auth wins, common is base.
+const mergedErrors = { ...(commonFr as any).errors, ...(authFr as any).errors };
 
 export default {
     ...authFr,
     ...commonFr,
+    errors: mergedErrors,
     common: commonFr,
     profile: profileFr,
     onboarding: onboardingFr,
@@ -34,6 +42,7 @@ export default {
     reminders: remindersFr,
     forbiddenFoods: forbiddenFoodsFr,
     notifications: notificationsFr,
+    cycle8: cycle8Fr,
 
 
 };

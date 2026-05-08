@@ -1,0 +1,117 @@
+{
+  "kickCounter": {
+    "title": "Compteur de coups de bébé",
+    "subtitle": "Comptez les mouvements de votre bébé sur 1 heure.",
+    "tapToCount": "Touchez pour compter",
+    "kicks": "coups",
+    "kicksToday": "coups aujourd'hui",
+    "kicksLastHour": "sur la dernière heure",
+    "startSession": "Commencer une session",
+    "endSession": "Terminer la session",
+    "cancelSession": "Annuler",
+    "noSessionYet": "Pas encore de session",
+    "noSessionSub": "Commencez à compter les mouvements de votre bébé.",
+    "history": "Historique",
+    "elapsed": "Durée écoulée",
+    "guidanceTitle": "Conseil",
+    "guidanceText": "À partir de 28 semaines, comptez 10 mouvements en moins d'1h, idéalement après un repas. Si moins de 10 mouvements en 2h, contactez votre sage-femme ou allez à la maternité.",
+    "disclaimer": "Cet outil est informatif. Il ne remplace pas l'avis médical. En cas de doute, contactez votre professionnel de santé.",
+    "tapBabyEmoji": "👶",
+    "session": "Session"
+  },
+  "contractionTimer": {
+    "title": "Minuteur de contractions",
+    "subtitle": "Mesurez la durée et la fréquence de vos contractions.",
+    "startContraction": "Début de contraction",
+    "stopContraction": "Fin de contraction",
+    "active": "Contraction en cours…",
+    "noContractionsYet": "Aucune contraction enregistrée",
+    "noContractionsSub": "Appuyez sur le bouton dès qu'une contraction commence.",
+    "stats": "Statistiques",
+    "count": "Nombre",
+    "avgDuration": "Durée moyenne",
+    "avgFrequency": "Fréquence moyenne",
+    "lastDuration": "Dernière durée",
+    "lastFrequency": "Dernier intervalle",
+    "history": "Historique",
+    "share": "Partager le résumé",
+    "clear": "Tout effacer",
+    "clearConfirmTitle": "Effacer toutes les contractions ?",
+    "clearConfirmMsg": "Cette action est irréversible.",
+    "callMaternity": "Appeler la maternité",
+    "guidanceTitle": "Quand aller à la maternité ?",
+    "guidanceText": "Règle 5-1-1 : contractions toutes les 5 min, durant 1 min, depuis 1 heure. Pour une 1re grossesse. Suivez l'avis de votre sage-femme.",
+    "disclaimer": "Cet outil est informatif. Suivez l'avis de votre professionnel de santé."
+  },
+  "hospitalBag": {
+    "title": "Valise de maternité",
+    "subtitle": "Préparez votre valise sereinement.",
+    "progress": "{{done}} / {{total}} préparés",
+    "sections": {
+      "papers": "📄 Documents",
+      "mom": "🤱 Maman",
+      "baby": "👶 Bébé",
+      "partner": "🤝 Accompagnant"
+    },
+    "addCustom": "Ajouter un élément",
+    "addCustomPlaceholder": "Nouvel élément…",
+    "add": "Ajouter",
+    "cancel": "Annuler",
+    "removeCustom": "Retirer",
+    "tip": "💡 Préparez votre valise vers 32-34 SA. Vérifiez avec votre maternité si elle fournit certains éléments."
+  },
+  "ramadan": {
+    "title": "Ramadan & Grossesse",
+    "subtitle": "Conseils, sécurité et suivi des jours à rattraper.",
+    "draftBanner": "⚠️ Contenu en cours de revue clinique. À valider avec votre médecin et un imam.",
+    "consultDoctor": "J'ai consulté ma médecin sur le jeûne",
+    "trimesterTitle": "Selon votre trimestre",
+    "weeks": "Semaines",
+    "keyRisks": "Risques principaux",
+    "recommendation": "Recommandation",
+    "warningTitle": "Signes pour rompre le jeûne",
+    "suhoorTitle": "Conseils pour le Suhoor",
+    "iftarTitle": "Conseils pour l'Iftar",
+    "trackerTitle": "Jours à rattraper (Qada / Fidya)",
+    "trackerSubtitle": "Logguez les jours non jeûnés. L'islam permet de les rattraper plus tard ou de payer la Fidya.",
+    "logDay": "Logguer un jour non jeûné",
+    "logBroken": "Jeûne rompu",
+    "logSkipped": "Non jeûné",
+    "missedDays": "Jours manqués",
+    "fidyaPaid": "Fidya déjà versée",
+    "fidyaRemaining": "Fidya restante",
+    "fidyaPlus": "+1 Fidya versée",
+    "fidyaMinus": "-1",
+    "remove": "Retirer",
+    "noMissedDays": "Aucun jour manqué enregistré",
+    "callDoctor": "Appeler ma médecin",
+    "disclaimer": "Cet écran est informatif. La décision de jeûner relève de vous, de votre médecin et de votre conseiller religieux. L'islam dispense les femmes enceintes du jeûne lorsque cela peut nuire à elles ou à leur bébé."
+  },
+  "forbiddenFoodsHalal": {
+    "title": "Aliments à éviter — perspective halal",
+    "intro": "En plus des risques cliniques (listériose, toxoplasmose…), voici des aliments non halal courants à surveiller pendant la grossesse.",
+    "draftNote": "Contenu à valider par un imam et une diététicienne. Consultez votre médecin pour les choix alimentaires.",
+    "items": {
+      "alcohol": {
+        "label": "Alcool",
+        "note": "Interdit en islam et tératogène. Inclut les alcools cachés (sauces, desserts, certains médicaments)."
+      },
+      "pork": {
+        "label": "Porc et dérivés",
+        "note": "Lard, charcuterie, gélatine de porc — souvent présents dans bonbons, yaourts industriels, capsules."
+      },
+      "gelatin": {
+        "label": "Gélatine non halal",
+        "note": "Vérifiez l'origine (porcine, bovine non zabihah). Présente dans guimauves, oursons, certains compléments."
+      },
+      "nonHalalMeat": {
+        "label": "Viande non zabihah",
+        "note": "Privilégier viande certifiée halal. Risque de salmonelles si crue ou peu cuite (carpaccio, tartare)."
+      },
+      "cookingWine": {
+        "label": "Vin/bière de cuisson",
+        "note": "Coq au vin, bière dans les sauces — l'alcool ne s'évapore jamais totalement à la cuisson."
+      }
+    }
+  }
+}

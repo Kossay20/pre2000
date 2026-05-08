@@ -762,6 +762,76 @@ export const HomeScreen = () => {
                             <Text style={styles.toolTitle}>{t('home.foods')}</Text>
                             <Text style={styles.toolSubtitle}>{t('home.toAvoid')}</Text>
                         </TouchableOpacity>
+
+                        {/* Cycle 8 — Kick Counter */}
+                        <TouchableOpacity
+                            style={styles.toolCard}
+                            onPress={() => navigation.navigate('KickCounter')}
+                            accessibilityLabel={t('cycle8.kickCounter.title')}
+                            accessibilityRole="button"
+                        >
+                            <LinearGradient
+                                colors={[theme.colors.gradientPinkStart, theme.colors.gradientPinkEnd]}
+                                style={styles.toolIconContainer}
+                            >
+                                <Text style={styles.toolEmoji}>👶</Text>
+                            </LinearGradient>
+                            <Text style={styles.toolTitle}>{t('cycle8.kickCounter.title')}</Text>
+                            <Text style={styles.toolSubtitle}>{t('cycle8.kickCounter.kicksLastHour')}</Text>
+                        </TouchableOpacity>
+
+                        {/* Cycle 8 — Contraction Timer */}
+                        <TouchableOpacity
+                            style={styles.toolCard}
+                            onPress={() => navigation.navigate('ContractionTimer')}
+                            accessibilityLabel={t('cycle8.contractionTimer.title')}
+                            accessibilityRole="button"
+                        >
+                            <LinearGradient
+                                colors={[theme.colors.gradientPeachStart, theme.colors.gradientPeachEnd]}
+                                style={styles.toolIconContainer}
+                            >
+                                <Text style={styles.toolEmoji}>⏱️</Text>
+                            </LinearGradient>
+                            <Text style={styles.toolTitle}>{t('cycle8.contractionTimer.title')}</Text>
+                            <Text style={styles.toolSubtitle}>{t('cycle8.contractionTimer.subtitle')}</Text>
+                        </TouchableOpacity>
+
+                        {/* Cycle 8 — Hospital Bag */}
+                        <TouchableOpacity
+                            style={styles.toolCard}
+                            onPress={() => navigation.navigate('HospitalBag')}
+                            accessibilityLabel={t('cycle8.hospitalBag.title')}
+                            accessibilityRole="button"
+                        >
+                            <LinearGradient
+                                colors={[theme.colors.gradientAmberStart, theme.colors.gradientAmberEnd]}
+                                style={styles.toolIconContainer}
+                            >
+                                <Text style={styles.toolEmoji}>🧳</Text>
+                            </LinearGradient>
+                            <Text style={styles.toolTitle}>{t('cycle8.hospitalBag.title')}</Text>
+                            <Text style={styles.toolSubtitle}>{t('cycle8.hospitalBag.subtitle')}</Text>
+                        </TouchableOpacity>
+
+                        {/* Cycle 8 — Ramadan & Pregnancy (visible AR/TN; otherwise discoverable via Profile/Settings later) */}
+                        {(i18n.language === 'ar' || i18n.language === 'tn') && (
+                            <TouchableOpacity
+                                style={styles.toolCard}
+                                onPress={() => navigation.navigate('RamadanPregnancy')}
+                                accessibilityLabel={t('cycle8.ramadan.title')}
+                                accessibilityRole="button"
+                            >
+                                <LinearGradient
+                                    colors={[theme.colors.surfacePurpleTint, theme.colors.gradientRoseStart]}
+                                    style={styles.toolIconContainer}
+                                >
+                                    <Text style={styles.toolEmoji}>🌙</Text>
+                                </LinearGradient>
+                                <Text style={styles.toolTitle}>{t('cycle8.ramadan.title')}</Text>
+                                <Text style={styles.toolSubtitle}>{t('cycle8.ramadan.subtitle')}</Text>
+                            </TouchableOpacity>
+                        )}
                     </View>
                 </View>
 

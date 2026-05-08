@@ -13,11 +13,17 @@ import tasksAr from './tasks.json';
 import remindersAr from './reminders.json';
 import forbiddenFoodsAr from './forbiddenFoods.json';
 import notificationsAr from './notifications.json';
+import cycle8Tn from './cycle8.json';
 
 import babyGrowthTn from './babyGrowth.json';
+// P0-2 FIX (E2E audit 2026-05-08): commonAr.errors shadowed authAr.errors.
+// Explicit deep-merge of the `errors` sub-block — auth wins, common is base.
+const mergedErrorsTn = { ...(commonAr as any).errors, ...(authAr as any).errors };
+
 export default {
     ...authAr,
     ...commonAr,
+    errors: mergedErrorsTn,
     common: commonAr,
     profile: profileAr,
     onboarding: onboardingAr,
@@ -30,6 +36,7 @@ export default {
     reminders: remindersAr,
     forbiddenFoods: forbiddenFoodsAr,
     notifications: notificationsAr,
+    cycle8: cycle8Tn,
 
     babyGrowth: babyGrowthTn,
 };

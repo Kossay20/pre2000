@@ -35,6 +35,10 @@ export type HomeStackParamList = {
   Diagnostic: undefined;
   LanguageSelect: undefined;
   BabyEvolution: undefined;
+  KickCounter: undefined;
+  ContractionTimer: undefined;
+  HospitalBag: undefined;
+  RamadanPregnancy: undefined;
 };
 
 // ─── Resources Stack Screens ─────────────────────────────────
@@ -91,6 +95,10 @@ export type AllScreensParamList = {
   Diagnostic: undefined;
   LanguageSelect: undefined;
   BabyEvolution: undefined;
+  KickCounter: undefined;
+  ContractionTimer: undefined;
+  HospitalBag: undefined;
+  RamadanPregnancy: undefined;
   // Calendar Stack
   CalendarMain: { selectedDate?: string };
   AddAppointment: { selectedDate?: string; event?: any };

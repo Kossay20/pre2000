@@ -66,6 +66,10 @@ import { HealthDashboardScreen } from './src/screens/HealthDashboardScreen';
 import { WeightTrackerScreen } from './src/screens/WeightTrackerScreen';
 import { ForbiddenFoodsScreen } from './src/screens/ForbiddenFoodsScreen';
 import { BabyEvolutionScreen } from './src/screens/BabyEvolutionScreen'; // P0: Baby 3D Evolution
+import { KickCounterScreen } from './src/screens/KickCounterScreen'; // Cycle 8 Epic 1
+import { ContractionTimerScreen } from './src/screens/ContractionTimerScreen'; // Cycle 8 Epic 1
+import { HospitalBagChecklistScreen } from './src/screens/HospitalBagChecklistScreen'; // Cycle 8 Epic 1
+import { RamadanPregnancyScreen } from './src/screens/RamadanPregnancyScreen'; // Cycle 8 Epic 2
 import './src/types/navigation'; // Activate global navigation type augmentation
 
 const Stack = createNativeStackNavigator();
@@ -106,6 +110,10 @@ const HomeStack = () => {
       <Stack.Screen name="Diagnostic" component={DiagnosticScreen} options={{ title: t('common.screen.dataDiagnostic') }} />
       <Stack.Screen name="LanguageSelect" component={LanguageSelectScreen} options={{ title: t('common.screen.language') }} />
       <Stack.Screen name="BabyEvolution" component={BabyEvolutionScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="KickCounter" component={KickCounterScreen} options={{ title: t('cycle8.kickCounter.title') }} />
+      <Stack.Screen name="ContractionTimer" component={ContractionTimerScreen} options={{ title: t('cycle8.contractionTimer.title') }} />
+      <Stack.Screen name="HospitalBag" component={HospitalBagChecklistScreen} options={{ title: t('cycle8.hospitalBag.title') }} />
+      <Stack.Screen name="RamadanPregnancy" component={RamadanPregnancyScreen} options={{ title: t('cycle8.ramadan.title') }} />
     </Stack.Navigator>
   );
 };
@@ -162,6 +170,11 @@ const MainTabs = () => {
     <Tab.Navigator
       detachInactiveScreens
       screenOptions={({ route }) => ({
+        // P0-3 FIX (E2E audit 2026-05-08): on web, detachInactiveScreens is a
+        // no-op (depends on react-native-screens, native-only). Without this,
+        // every visited tab stayed in the DOM → 3-4 simultaneous H1, stale
+        // ErrorBoundary, leaking Firestore listeners.
+        unmountOnBlur: true,
         headerShown: false,
         tabBarActiveTintColor: theme.colors.primary,
         tabBarInactiveTintColor: theme.colors.textLight,
