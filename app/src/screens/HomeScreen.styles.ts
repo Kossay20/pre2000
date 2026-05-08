@@ -462,10 +462,15 @@ export const styles = StyleSheet.create({
         gap: 8,
     },
     quickLink: {
-        fontSize: 11,
+        // Cycle 4 F701 : 11→13 lisibilité +30% + paddingVertical 8 pour hit
+        // target 44pt (Apple HIG / WCAG touch target). Avant: lisibilité fail
+        // sur écrans denses + tap sub-44 sur Android Material.
+        fontSize: 13,
         color: theme.colors.white,
         fontWeight: '600',
-        opacity: 0.9,
+        opacity: 0.95,
+        paddingVertical: 8,
+        paddingHorizontal: 4,
     },
     linkDivider: {
         fontSize: 10,

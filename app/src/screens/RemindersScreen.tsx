@@ -31,6 +31,10 @@ export const RemindersScreen = () => {
                 tabBarStyle: { backgroundColor: theme.colors.white },
                 tabBarIndicatorStyle: { backgroundColor: theme.colors.accent },
                 swipeEnabled: Platform.OS !== 'web',
+                // Cycle 4 F703 : sur web l'animation MaterialTopTabs causait des
+                // captures mid-transition (cf. F47 Cycle 1 + F52 Cycle 2). Désactiver
+                // l'animation force un rendu propre instantané au tab switch.
+                animationEnabled: Platform.OS !== 'web',
             }}
         >
             <Tab.Screen

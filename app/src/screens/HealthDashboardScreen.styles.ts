@@ -22,7 +22,8 @@ export const styles = StyleSheet.create({
         fontSize: 12,
         color: theme.colors.textLight,
         lineHeight: 18,
-        textAlign: 'left',
+        // Cycle 4 F823 RTL : `auto` au lieu de hardcoded 'left' → suit la direction du parent.
+        textAlign: 'auto',
     },
     centerContainer: {
         flex: 1,

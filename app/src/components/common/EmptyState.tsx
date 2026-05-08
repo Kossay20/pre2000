@@ -91,7 +91,10 @@ const styles = StyleSheet.create({
         color: theme.colors.textLight,
         textAlign: 'center',
         lineHeight: 20,
-        maxWidth: 320,
+        // Cycle 4 F704 : maxWidth 320→400 — textes AR/TN ~30% plus longs que EN.
+        // Avant: tronquage en 4-5 lignes saccadées en arabe. Après: 2-3 lignes lisibles.
+        maxWidth: 400,
+        paddingHorizontal: theme.spacing.m,
     },
     actionWrapper: {
         marginTop: theme.spacing.l,

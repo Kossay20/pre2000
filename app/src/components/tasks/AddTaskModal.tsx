@@ -528,7 +528,7 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
                                                                     setTempTimeDate(null);
                                                                 }}
                                                             >
-                                                                <Text style={{ color: theme.colors.white, fontWeight: 'bold' }}>Valider l'heure</Text>
+                                                                <Text style={{ color: theme.colors.white, fontWeight: 'bold' }}>{t('tasks.confirmTime')}</Text>
                                                             </TouchableOpacity>
                                                         )}
                                                     </View>

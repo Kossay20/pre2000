@@ -84,6 +84,7 @@ const styles = StyleSheet.create({
         fontSize: 12,
         fontStyle: 'italic',
         color: theme.colors.gray600,
-        textAlign: 'right',
+        // Cycle 4 F820 RTL : `auto` = follow direction → en RTL = visuel gauche.
+        textAlign: 'auto',
     },
 });
