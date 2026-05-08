@@ -128,9 +128,18 @@ export const KickCounterScreen: React.FC = () => {
                     </View>
                 ) : (
                     <View style={styles.activeWrap}>
-                        <Text style={styles.bigCount}>{lastHourCount}</Text>
+                        <Text
+                            style={styles.bigCount}
+                            accessibilityLiveRegion="polite"
+                            accessibilityLabel={`${lastHourCount} ${t('cycle8.kickCounter.kicksLastHour')}`}
+                        >
+                            {lastHourCount}
+                        </Text>
                         <Text style={styles.bigCountLabel}>{t('cycle8.kickCounter.kicksLastHour')}</Text>
-                        <Text style={styles.elapsed}>
+                        <Text
+                            style={styles.elapsed}
+                            accessibilityLiveRegion="polite"
+                        >
                             {t('cycle8.kickCounter.elapsed')} : {formatElapsed(elapsed)}
                         </Text>
                         <TouchableOpacity

@@ -134,7 +134,13 @@ export const ContractionTimerScreen: React.FC = () => {
                     ) : (
                         <View style={styles.activeWrap}>
                             <Text style={styles.activeLabel}>{t('cycle8.contractionTimer.active')}</Text>
-                            <Text style={styles.activeTimer}>{formatDuration(elapsedActive)}</Text>
+                            <Text
+                                style={styles.activeTimer}
+                                accessibilityLiveRegion="polite"
+                                accessibilityLabel={`${t('cycle8.contractionTimer.active')} ${formatDuration(elapsedActive)}`}
+                            >
+                                {formatDuration(elapsedActive)}
+                            </Text>
                             <Button
                                 title={t('cycle8.contractionTimer.stopContraction')}
                                 onPress={onStop}

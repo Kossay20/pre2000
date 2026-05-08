@@ -13,7 +13,6 @@ import {
     Alert,
     ActivityIndicator,
     Animated,
-    TouchableWithoutFeedback
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { HomeHeader } from '../components/home/HomeHeader';

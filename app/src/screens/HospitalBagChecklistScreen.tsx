@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import {
     Modal,
+    Pressable,
     ScrollView,
     StyleSheet,
     Text,
@@ -117,34 +118,42 @@ export const HospitalBagChecklistScreen: React.FC = () => {
                         </Text>
                         {grouped[sec].map((item) => {
                             const checked = !!state.checked[item.id];
+                            // Cycle 8.2 P2 fix: split nested TouchableOpacity into a non-nested layout.
+                            // Outer = View (no press); inner left side = checkbox toggle button;
+                            // inner right side = remove button (custom only). Avoids Android event-bubble
+                            // bug where remove + toggle both fire, and avoids the screen-reader confusion
+                            // of a "checkbox" with a destructive button inside.
                             return (
-                                <TouchableOpacity
-                                    key={item.id}
-                                    style={styles.row}
-                                    onPress={() => onToggle(item.id)}
-                                    accessibilityRole="checkbox"
-                                    accessibilityState={{ checked }}
-                                    accessibilityLabel={labelFor(item, i18n.language)}
-                                >
-                                    <View style={[styles.checkbox, checked && styles.checkboxChecked]}>
-                                        {checked && <Text style={styles.checkboxMark}>✓</Text>}
-                                    </View>
-                                    <Text
-                                        style={[styles.rowLabel, checked && styles.rowLabelChecked]}
-                                        numberOfLines={2}
+                                <View key={item.id} style={styles.row}>
+                                    <TouchableOpacity
+                                        style={styles.rowToggle}
+                                        onPress={() => onToggle(item.id)}
+                                        accessibilityRole="checkbox"
+                                        accessibilityState={{ checked }}
+                                        accessibilityLabel={labelFor(item, i18n.language)}
                                     >
-                                        {labelFor(item, i18n.language)}
-                                    </Text>
+                                        <View style={[styles.checkbox, checked && styles.checkboxChecked]}>
+                                            {checked && <Text style={styles.checkboxMark}>✓</Text>}
+                                        </View>
+                                        <Text
+                                            style={[styles.rowLabel, checked && styles.rowLabelChecked]}
+                                            numberOfLines={2}
+                                        >
+                                            {labelFor(item, i18n.language)}
+                                        </Text>
+                                    </TouchableOpacity>
                                     {item.custom && (
                                         <TouchableOpacity
                                             onPress={() => onRemove(item.id)}
                                             hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+                                            accessibilityRole="button"
                                             accessibilityLabel={t('cycle8.hospitalBag.removeCustom')}
+                                            style={styles.removeBtnTouch}
                                         >
                                             <Text style={styles.removeText}>✕</Text>
                                         </TouchableOpacity>
                                     )}
-                                </TouchableOpacity>
+                                </View>
                             );
                         })}
                         <TouchableOpacity
@@ -164,8 +173,18 @@ export const HospitalBagChecklistScreen: React.FC = () => {
                 animationType="fade"
                 onRequestClose={() => setAddingFor(null)}
             >
-                <View style={styles.modalBackdrop}>
-                    <View style={styles.modalCard}>
+                {/* Cycle 8.2 P2 fix: Pressable backdrop dismisses modal on tap-outside (iOS UX).
+                    Inner card uses pointer-event swallowing via its own Pressable so taps inside
+                    don't bubble up to dismiss. */}
+                <Pressable
+                    style={styles.modalBackdrop}
+                    onPress={() => {
+                        setAddingFor(null);
+                        setDraft('');
+                    }}
+                    accessibilityLabel={t('cycle8.hospitalBag.cancel')}
+                >
+                    <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation?.()}>
                         <Text style={styles.modalTitle}>{t('cycle8.hospitalBag.addCustom')}</Text>
                         <TextInput
                             style={styles.input}
@@ -175,6 +194,7 @@ export const HospitalBagChecklistScreen: React.FC = () => {
                             onChangeText={setDraft}
                             maxLength={80}
                             autoFocus
+                            accessibilityLabel={t('cycle8.hospitalBag.addCustom')}
                         />
                         <View style={styles.modalActions}>
                             <Button
@@ -193,8 +213,8 @@ export const HospitalBagChecklistScreen: React.FC = () => {
                                 disabled={!draft.trim()}
                             />
                         </View>
-                    </View>
-                </View>
+                    </Pressable>
+                </Pressable>
             </Modal>
         </SafeAreaView>
     );
@@ -235,6 +255,15 @@ const styles = StyleSheet.create({
         paddingHorizontal: theme.spacing.s,
         borderBottomWidth: StyleSheet.hairlineWidth,
         borderBottomColor: theme.colors.borderLight,
+    },
+    rowToggle: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    removeBtnTouch: {
+        paddingHorizontal: theme.spacing.s,
+        paddingVertical: theme.spacing.xs,
     },
     checkbox: {
         width: 24,
