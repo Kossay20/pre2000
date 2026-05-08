@@ -696,7 +696,12 @@
     "reminders": {},
     "postpartumTitle": "Avez-vous accueilli votre bébé ?",
     "postpartumDesc": "Il semblerait que votre date prévue d'accouchement soit passée ! Mettez à jour votre profil pour passer en mode post-partum.",
-    "postpartumCta": "Mettre à jour le statut"
+    "postpartumCta": "Mettre à jour le statut",
+    "ttcTitle": "Vous essayez de concevoir 💕",
+    "ttcDay": "Jour {{day}} de votre cycle (~{{total}} jours)",
+    "curiousTitle": "Mode découverte 👀",
+    "curiousDesc": "Vous explorez la semaine {{week}} de grossesse. Les données affichées sont illustratives.",
+    "curiousCta": "Je suis enceinte"
   },
   "errorLoadingData": "Impossible de charger les données. Vérifiez votre connexion.",
   "passwordMin": "Mot de passe (8 car. min + 1 chiffre)",

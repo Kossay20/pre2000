@@ -696,7 +696,12 @@
     "reminders": {},
     "postpartumTitle": "Welcomed your baby?",
     "postpartumDesc": "It looks like your due date has passed! Update your profile to switch to postpartum mode.",
-    "postpartumCta": "Update status"
+    "postpartumCta": "Update status",
+    "ttcTitle": "Trying to conceive 💕",
+    "ttcDay": "Day {{day}} of your cycle (~{{total}} days)",
+    "curiousTitle": "Discovery mode 👀",
+    "curiousDesc": "You are exploring week {{week}} of pregnancy. Data shown is illustrative.",
+    "curiousCta": "I am pregnant"
   },
   "errorLoadingData": "Failed to load data. Please check your internet connection.",
   "passwordMin": "Password (8 chars min + 1 digit)",

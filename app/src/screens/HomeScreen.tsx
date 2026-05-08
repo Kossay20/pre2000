@@ -217,6 +217,31 @@ export const HomeScreen = () => {
 
 
 
+    // Cycle 3 F211 — Mode TTC : home dédié minimal (pas de grossesse en cours).
+    // Avant : aucun guard côté HomeScreen pour TTC → l'utilisatrice voyait un
+    // BabyGrowthCard "semaine 0" + RDV grossesse (incohérent). Maintenant :
+    // un screen simple "Vous essayez de concevoir" + cycle day count.
+    if (user?.isTTC) {
+        const lmpDate = profile?.lmp ? new Date(profile.lmp) : new Date();
+        const cycleDay = Math.max(
+            1,
+            Math.floor((Date.now() - lmpDate.getTime()) / (1000 * 60 * 60 * 24)) + 1
+        );
+        const cycleLength = user?.cycleLength || 28;
+        return (
+            <ScrollView
+                style={styles.container}
+                contentContainerStyle={{ paddingTop: 64, paddingHorizontal: 16 }}
+            >
+                <EmptyState
+                    icon="💕"
+                    title={t('home.ttcTitle')}
+                    subtitle={t('home.ttcDay', { day: cycleDay, total: cycleLength })}
+                />
+            </ScrollView>
+        );
+    }
+
     if (loading) {
         // D4: Skeleton-based loading replaces opaque ActivityIndicator. Mimics the
         // structure of the ready-state hero card → user perceives the screen as fast.
@@ -300,6 +325,29 @@ export const HomeScreen = () => {
 
     return (
         <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+            {/* Cycle 3 F212 — Banner Mode découverte (Curious mode).
+                Avertit l'utilisatrice que les données affichées correspondent à
+                une exploration (pas une vraie grossesse). CTA pour basculer si
+                grossesse réelle survient (vise Profile pour reset onboarding). */}
+            {user?.isCurious && (
+                <View style={styles.curiousBanner}>
+                    <Text style={styles.curiousBannerEmoji}>👀</Text>
+                    <View style={styles.curiousBannerTextContainer}>
+                        <Text style={styles.curiousBannerTitle}>{t('home.curiousTitle')}</Text>
+                        <Text style={styles.curiousBannerDesc}>
+                            {t('home.curiousDesc', { week: user?.exploreWeek || currentWeekNumber })}
+                        </Text>
+                    </View>
+                    <TouchableOpacity
+                        style={styles.curiousBannerCta}
+                        onPress={() => navigation.navigate('Profile')}
+                        accessibilityRole="button"
+                        accessibilityLabel={t('home.curiousCta')}
+                    >
+                        <Text style={styles.curiousBannerCtaText}>{t('home.curiousCta')}</Text>
+                    </TouchableOpacity>
+                </View>
+            )}
             {/* Gradient Header */}
             <LinearGradient
                 colors={[theme.colors.primary, theme.colors.accent, theme.colors.deepPink]}

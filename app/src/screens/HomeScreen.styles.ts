@@ -89,6 +89,45 @@ export const styles = StyleSheet.create({
         fontSize: 13,
         fontWeight: 'bold',
     },
+    // Cycle 3 F212 — Curious mode banner styles.
+    curiousBanner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: theme.colors.lavenderBlush,
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: theme.colors.borderLight,
+    },
+    curiousBannerEmoji: {
+        fontSize: 28,
+        marginEnd: 12,
+    },
+    curiousBannerTextContainer: {
+        flex: 1,
+    },
+    curiousBannerTitle: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: theme.colors.text,
+        marginBottom: 2,
+    },
+    curiousBannerDesc: {
+        fontSize: 12,
+        color: theme.colors.textSecondary,
+    },
+    curiousBannerCta: {
+        backgroundColor: theme.colors.primary,
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        borderRadius: 8,
+        marginStart: 8,
+    },
+    curiousBannerCtaText: {
+        color: theme.colors.white,
+        fontSize: 12,
+        fontWeight: '700',
+    },
     // EXISTING STYLES (Kept for compatibility)
     container: {
         flex: 1,
