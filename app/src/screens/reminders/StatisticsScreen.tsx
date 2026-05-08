@@ -49,10 +49,6 @@ export const StatisticsScreen = () => {
     }>>([]);
 
 
-    useEffect(() => {
-        loadStats();
-    }, [timeRange]);
-
     const loadStats = useCallback(async () => {
         setLoading(true);
         try {
@@ -97,6 +93,10 @@ export const StatisticsScreen = () => {
             setLoading(false);
         }
     }, [timeRange, user?.uid, i18n.language]);
+
+    useEffect(() => {
+        loadStats();
+    }, [loadStats]);
 
     if (loading) {
         return (

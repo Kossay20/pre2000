@@ -5,7 +5,7 @@ import { analyticsService } from '../services/analyticsService';
 import {
     View, Text, StyleSheet, TextInput, ScrollView,
     TouchableOpacity, KeyboardAvoidingView, Platform,
-    I18nManager, TouchableWithoutFeedback, Keyboard,
+    I18nManager, Pressable, Keyboard,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { theme } from '../theme';
@@ -105,7 +105,8 @@ export const RegisterScreen = () => {
             style={{ flex: 1 }}
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-            <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+            {/* PHASE 3.1 FIX: TouchableWithoutFeedback deprecated → Pressable */}
+            <Pressable onPress={Keyboard.dismiss}>
                 <ScrollView
                     contentContainerStyle={styles.container}
                     keyboardShouldPersistTaps="handled"
@@ -139,6 +140,11 @@ export const RegisterScreen = () => {
                             returnKeyType="next"
                             onSubmitEditing={() => passwordRef.current?.focus()}
                             testID="register_email_input"
+                            // PHASE 2.2 FIX: a11y + password manager hints
+                            accessibilityLabel={t('email')}
+                            textContentType="emailAddress"
+                            autoComplete="email"
+                            inputMode="email"
                         />
 
                         {/* Password */}
@@ -159,6 +165,10 @@ export const RegisterScreen = () => {
                                 returnKeyType="next"
                                 onSubmitEditing={() => confirmRef.current?.focus()}
                                 testID="register_password_input"
+                                // PHASE 2.2 FIX: hint password manager to OFFER a new password
+                                accessibilityLabel={t('password')}
+                                textContentType="newPassword"
+                                autoComplete="new-password"
                             />
                             <TouchableOpacity
                                 style={styles.eyeButton}
@@ -205,6 +215,9 @@ export const RegisterScreen = () => {
                                 returnKeyType="done"
                                 onSubmitEditing={handleRegister}
                                 testID="register_confirm_input"
+                                accessibilityLabel={t('confirmPassword')}
+                                textContentType="newPassword"
+                                autoComplete="new-password"
                             />
                             <TouchableOpacity
                                 style={styles.eyeButton}
@@ -254,7 +267,7 @@ export const RegisterScreen = () => {
                         </TouchableOpacity>
                     </View>
                 </ScrollView>
-            </TouchableWithoutFeedback>
+            </Pressable>
         </KeyboardAvoidingView>
     );
 };

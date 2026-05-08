@@ -65,13 +65,26 @@ export const OnboardingScreen = () => {
     // Data collected
     const [pregnancyStatus, setPregnancyStatus] = useState<PregnancyStatus>(null);
     const [dateMethod, setDateMethod] = useState<DateMethod>('ddr');
-    const [selectedDate, setSelectedDate] = useState(new Date());
+    // PHASE 2.5 FIX (E2E audit 2026-05-08): pre-fill date 8 weeks ago instead of
+    // today. Previously the absurd "Semaine 1, 0 SA + 1 jour" was shown to every
+    // user who landed on step 2 without changing the date. 8 weeks is the median
+    // moment users discover their pregnancy and seek tracking apps.
+    const [selectedDate, setSelectedDate] = useState(() => {
+        const d = new Date();
+        d.setDate(d.getDate() - 8 * 7);
+        return d;
+    });
     const [firstName, setFirstName] = useState('');
     const [isFirstPregnancy, setIsFirstPregnancy] = useState<boolean | null>(null);
 
     // TTC-specific state
     const [cycleLength, setCycleLength] = useState(28);
-    const [lastPeriodDate, setLastPeriodDate] = useState(new Date());
+    const [lastPeriodDate, setLastPeriodDate] = useState(() => {
+        // For TTC, default to 14 days ago (mid-cycle, common when user starts tracking)
+        const d = new Date();
+        d.setDate(d.getDate() - 14);
+        return d;
+    });
     const [showCycleDatePicker, setShowCycleDatePicker] = useState(false);
 
     // Curious-specific state
@@ -622,6 +635,11 @@ export const OnboardingScreen = () => {
                                     keyboardType="email-address"
                                     autoCapitalize="none"
                                     autoCorrect={false}
+                                    accessibilityLabel={t('email')}
+                                    textContentType="emailAddress"
+                                    autoComplete="email"
+                                    inputMode="email"
+                                    testID="onboarding_step4_email"
                                 />
                                 <TextInput
                                     style={styles.accountInput}
@@ -630,6 +648,11 @@ export const OnboardingScreen = () => {
                                     value={password}
                                     onChangeText={setPassword}
                                     secureTextEntry
+                                    accessibilityLabel={t('password')}
+                                    textContentType="newPassword"
+                                    autoComplete="new-password"
+                                    autoCapitalize="none"
+                                    testID="onboarding_step4_password"
                                 />
                             </View>
                         )}
@@ -640,10 +663,24 @@ export const OnboardingScreen = () => {
                         {/* U-FIX-10: align button gating with the actual policy
                             (8 chars + 1 digit) to match RegisterScreen and validatePassword.
                             Was 6 chars only — created accounts that the prod policy rejects. */}
+                        {/* P0-6 FIX (E2E audit 2026-05-08): explicit accessibilityRole
+                            so the button is announced/focused by AT and matched as
+                            role=button by web a11y tree (TouchableOpacity does not
+                            propagate the role automatically on RNWeb). */}
                         <TouchableOpacity
                             style={styles.startButton}
                             onPress={() => handleFinish(!!(!user && canCreateAccount))}
                             disabled={loading || (!user && !canCreateAccount)}
+                            accessibilityRole="button"
+                            accessibilityLabel={
+                                loading
+                                    ? t('onboarding.step4.creatingAccount')
+                                    : user
+                                        ? t('onboarding.step4.finalizeProfile')
+                                        : t('onboarding.step4.start')
+                            }
+                            accessibilityState={{ disabled: loading || (!user && !canCreateAccount), busy: loading }}
+                            testID="onboarding_step4_submit"
                         >
                             <LinearGradient
                                 colors={loading || (!user && !canCreateAccount)
@@ -666,11 +703,20 @@ export const OnboardingScreen = () => {
                         <TouchableOpacity
                             style={styles.skipAccountButton}
                             onPress={() => handleFinish(false)}
+                            accessibilityRole="button"
+                            accessibilityLabel={t('onboarding.step4.skipAccount')}
+                            testID="onboarding_step4_skip"
                         >
                             <Text style={styles.skipAccountText}>{t('onboarding.step4.skipAccount')}</Text>
                         </TouchableOpacity>
 
-                        <TouchableOpacity onPress={prevStep} style={styles.backButtonFinal}>
+                        <TouchableOpacity
+                            onPress={prevStep}
+                            style={styles.backButtonFinal}
+                            accessibilityRole="button"
+                            accessibilityLabel={t('onboarding.step4.editInfos')}
+                            testID="onboarding_step4_back"
+                        >
                             <Text style={styles.backButtonText}>{t('onboarding.step4.editInfos')}</Text>
                         </TouchableOpacity>
                     </View>

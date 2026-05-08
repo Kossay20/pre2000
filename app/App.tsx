@@ -25,6 +25,7 @@ if (!__DEV__) {
 }
 import { NavigationContainer, useNavigation } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { Ionicons } from '@expo/vector-icons';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import './src/i18n'; // Initialize i18n
@@ -182,14 +183,18 @@ const MainTabs = () => {
           backgroundColor: theme.colors.white,
           borderTopColor: theme.colors.border,
         },
-        tabBarIcon: ({ color, size }) => {
-          let iconName = '❓';
-          if (route.name === 'Home') iconName = '🏠';
-          else if (route.name === 'Calendrier') iconName = '📅';
-          else if (route.name === 'Ressources') iconName = '📚';
-          else if (route.name === 'Chatbot') iconName = '💬';
-          else if (route.name === 'Rappels') iconName = '🔔';
-          return <Text style={{ fontSize: size }}>{iconName}</Text>;
+        // PHASE 2.3 FIX (E2E audit 2026-05-08): replace emoji <Text> with vector
+        // icons. RNWeb was rendering the emoji twice in the a11y tree (`tab "🏠 🏠
+        // Accueil"`) because emoji <Text> got mirrored as accessibilityLabel.
+        // Ionicons is rendered via SVG/font, no a11y duplication, branding-grade.
+        tabBarIcon: ({ color, size, focused }) => {
+          let iconName: keyof typeof Ionicons.glyphMap = 'help-circle-outline';
+          if (route.name === 'Home') iconName = focused ? 'home' : 'home-outline';
+          else if (route.name === 'Calendrier') iconName = focused ? 'calendar' : 'calendar-outline';
+          else if (route.name === 'Ressources') iconName = focused ? 'library' : 'library-outline';
+          else if (route.name === 'Chatbot') iconName = focused ? 'chatbubbles' : 'chatbubbles-outline';
+          else if (route.name === 'Rappels') iconName = focused ? 'notifications' : 'notifications-outline';
+          return <Ionicons name={iconName} size={size} color={color} accessibilityElementsHidden importantForAccessibility="no" />;
         },
       })}
     >
@@ -224,48 +229,39 @@ const AppContent = () => {
   }, [user?.uid, pregnancyInfo?.week, i18n.language]); // user?.uid instead of user object to avoid stale-closure re-runs
 
   // Deep Linking Configuration
+  // The linking tree mirrors the navigator hierarchy by ROUTE NAME, not component
+  // name. MainTabs registers tabs named Home / Calendrier / Rappels / Ressources;
+  // each of those tabs hosts a Stack whose inner Stack.Screen names (ArticleDetail,
+  // CalendarMain, …) are what the linking config addresses directly. Previous
+  // versions wrapped these in fake `*Stack` levels (matching component names) and
+  // mis-spelled `Resources` instead of `Ressources` — both made every deep link
+  // silently no-op.
   const linking = {
     prefixes: ['mama-bebe://', 'exp+mama-bebe://', 'https://mama-bebe.com'],
     config: {
       screens: {
         Home: {
           screens: {
-            HomeStack: { // Matches the component name in Tab.Screen
-              screens: {
-                ArticleDetail: 'article/:articleId',
-                SupplementDetail: 'supplement/:supplementId',
-                WeekRecommendations: 'recommendations',
-                Diagnostic: 'diagnostic',
-              }
-            }
+            ArticleDetail: 'article/:articleId',
+            SupplementDetail: 'supplement/:supplementId',
+            WeekRecommendations: 'recommendations',
+            Diagnostic: 'diagnostic',
           }
         },
         Calendrier: {
           screens: {
-            CalendarStack: {
-              screens: {
-                CalendarMain: 'calendar',
-                AddAppointment: 'appointment/add',
-              }
-            }
+            CalendarMain: 'calendar',
+            AddAppointment: 'appointment/add',
           }
         },
         Rappels: {
           screens: {
-            RemindersStack: {
-              screens: {
-                RemindersMain: 'reminders',
-              }
-            }
+            RemindersMain: 'reminders',
           }
         },
-        Resources: {
+        Ressources: {
           screens: {
-            ResourcesStack: {
-              screens: {
-                ResourcesMain: 'resources',
-              }
-            }
+            ResourcesMain: 'resources',
           }
         }
       }
@@ -274,9 +270,46 @@ const AppContent = () => {
 
   if (loading) return null;
 
+  // PHASE 2.1 FIX (E2E audit 2026-05-08): localize document.title per route on
+  // web. Default React Navigation behaviour leaks the route name (e.g.
+  // "AuthChoice", "HomeMain") to <title>. Map common.screen.<key> per route name,
+  // fall back to the brand on unknown routes.
+  const APP_BRAND = 'Mama & Bébé';
+  const routeNameToTitleKey: Record<string, string> = {
+    Language: 'common.chooseLanguage',
+    AuthChoice: 'startJourney',
+    Register: 'common.screen.createAccount',
+    Login: 'common.screen.login',
+    Onboarding: 'common.screen.onboarding',
+    HomeMain: 'common.nav.home',
+    CalendarMain: 'common.nav.calendar',
+    RemindersMain: 'common.nav.reminders',
+    ResourcesMain: 'common.nav.resources',
+    Articles: 'common.screen.articles',
+    Chatbot: 'common.nav.chatbot',
+    Profile: 'common.screen.myProfile',
+    Settings: 'common.screen.settings',
+    HealthDashboard: 'common.screen.myHealth',
+    WeightTracker: 'common.screen.weightTracking',
+    ForbiddenFoods: 'common.screen.forbiddenFoods',
+    Statistics: 'common.screen.myStatistics',
+    PrivacyPolicy: 'common.screen.legalNotice',
+  };
+
   return (
     <NavigationContainer
-      linking={linking as any}
+      linking={linking}
+      documentTitle={{
+        formatter: (options: any, route: any) => {
+          const i18nMod = require('./src/i18n').default;
+          const key = routeNameToTitleKey[route?.name];
+          if (key) {
+            const translated = i18nMod.t(key);
+            if (translated && translated !== key) return `${translated} · ${APP_BRAND}`;
+          }
+          return options?.title ? `${options.title} · ${APP_BRAND}` : APP_BRAND;
+        },
+      }}
       onStateChange={async () => {
         const currentRouteName = navigationRef.getCurrentRoute()?.name;
         const currentRouteParams = navigationRef.getCurrentRoute()?.params;

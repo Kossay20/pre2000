@@ -25,8 +25,18 @@ export async function ensureMainTabs(page: Page): Promise<void> {
 
   await page.goto('/Language', { waitUntil: 'domcontentloaded' });
   await page.getByText('English', { exact: true }).first().click();
-  await page.getByText('Continue', { exact: true }).first().click();
-  await page.getByTestId('auth_guest_button').click();
+  // handleLanguageSelect est async (changeLanguage + AsyncStorage + setLoading + setState
+  // + toast + setLoading(false)). Ces re-renders successifs détachaient le DOM node
+  // "Continue" mi-click → TimeoutError "element was detached from the DOM".
+  //
+  // Anchor stable : le checkmark ✓ rendu dans LanguageSelectScreen.tsx:121-125 SI
+  // selectedLanguage === 'en'. Sa visibilité confirme que `setSelectedLanguage` a
+  // commit. Le `dispatchEvent('click')` ensuite bypass l'actionability check de
+  // Playwright (qui retry le click pendant que React reconcile) — la TouchableOpacity
+  // RN Web reçoit l'onPress directement via le synthetic event handler.
+  await page.locator('text="✓"').first().waitFor({ state: 'visible', timeout: 10_000 });
+  await page.getByText('Continue', { exact: true }).first().dispatchEvent('click');
+  await page.getByTestId('auth_guest_button').click({ timeout: 20_000 });
 
   await page.getByRole('button', { name: 'I am pregnant' }).click({ timeout: 20_000 });
   await page.getByRole('button', { name: /Last Period/i }).click({ timeout: 15_000 });

@@ -496,7 +496,9 @@
   "errorBoundary": {
     "title": "Oups !",
     "message": "Une petite erreur est survenue. Pas de panique, vos données sont en sécurité.",
-    "retry": "Réessayer"
+    "retry": "Réessayer",
+    "errorId": "Code erreur",
+    "returnHome": "Retour à l'accueil"
   },
   "gamification": {
     "currentStreak": "Série actuelle",
@@ -704,7 +706,6 @@
     "curiousCta": "Je suis enceinte"
   },
   "errorLoadingData": "Impossible de charger les données. Vérifiez votre connexion.",
-  "passwordMin": "Mot de passe (8 car. min + 1 chiffre)",
   "profile": {
     "title": "Mon Profil",
     "personalInfo": "Informations personnelles",

@@ -1,12 +1,16 @@
 import { test, expect } from '@playwright/test';
 import { ensureMainTabs } from './helpers/bootstrap-main-tabs';
 
+// PHASE 2.3 FIX (E2E audit 2026-05-08): tab labels updated. Vector icons
+// (Ionicons) replaced emoji <Text>, removing the duplicated emoji that
+// previously leaked into the accessible name (`'🏠 🏠 Home'`). The accessible
+// name now matches the tabBarLabel only.
 const TAB = {
-  home: '🏠 🏠 Home',
-  calendar: '📅 📅 Calendar',
-  reminders: '🔔 🔔 Reminders',
-  resources: '📚 📚 Resources',
-  chatbot: '💬 💬 Chatbot',
+  home: 'Home',
+  calendar: 'Calendar',
+  reminders: 'Reminders',
+  resources: 'Resources',
+  chatbot: 'Chatbot',
 } as const;
 
 async function gotoMain(page: import('@playwright/test').Page) {

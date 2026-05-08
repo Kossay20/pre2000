@@ -472,7 +472,9 @@
   "errorBoundary": {
     "title": "Oops!",
     "message": "A small error occurred. Don't worry, your data is safe.",
-    "retry": "Retry"
+    "retry": "Retry",
+    "errorId": "Error code",
+    "returnHome": "Back to home"
   },
   "nav": {
     "home": "Home",
@@ -704,7 +706,6 @@
     "curiousCta": "I am pregnant"
   },
   "errorLoadingData": "Failed to load data. Please check your internet connection.",
-  "passwordMin": "Password (8 chars min + 1 digit)",
   "profile": {
     "title": "My Profile",
     "personalInfo": "Personal Information",

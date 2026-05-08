@@ -54,7 +54,7 @@
     "createAccountTitle": "📧 Create your account",
     "createAccountSubtitle": "Sync your data across all your devices",
     "emailPlaceholder": "Your Email",
-    "passwordPlaceholder": "Password (min. 6 chars)",
+    "passwordPlaceholder": "Password (10+ chars, 1 uppercase, 1 digit)",
     "creatingAccount": "Creating Account...",
     "start": "Create Account & Start",
     "finalizeProfile": "Finalize Profile",

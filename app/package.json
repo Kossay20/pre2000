@@ -10,7 +10,7 @@
     "test": "jest",
     "lint": "tsc --noEmit",
     "lint:colors": "bash scripts/check-theme-strings.sh",
-    "verify": "npm run lint:colors && tsc --noEmit && npm test -- --passWithNoTests",
+    "verify": "npm run lint:colors && tsc --noEmit && npm test",
     "verify:e2e:web": "npm run verify && npm run e2e:web",
     "e2e:web": "playwright test",
     "e2e:web:ui": "playwright test --ui",

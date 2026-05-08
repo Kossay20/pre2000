@@ -59,16 +59,33 @@ i18n
 
 log.debug('[i18n] ✅ i18n initialized');
 
-// R1 FIX: register the RTL listener here (not in App.tsx) so it is wired up
-// the moment the i18n module is imported — BEFORE App.tsx mounts. This way
-// the async LANGUAGE_DETECTOR can finish reading 'app_locale' from
-// AsyncStorage and the resulting 'initialized' / 'languageChanged' event
-// will trigger setupRTL() with the correct language even on cold start.
-// Done lazily via require() to avoid a circular import (rtl.ts imports i18n).
+// P1-2 FIX (E2E audit 2026-05-08): on web, sync <html lang> and <html dir>
+// with the active language. Without this, document.documentElement.lang stays
+// 'en' even when displaying French content — auto-translate extensions and
+// screen readers misidentify the document language.
+const syncHtmlLangDir = (lng: string) => {
+    if (typeof document === 'undefined') return;
+    try {
+        document.documentElement.lang = lng;
+        document.documentElement.dir = (lng === 'ar' || lng === 'tn') ? 'rtl' : 'ltr';
+    } catch (e) {
+        log.debug('[i18n] Could not sync html lang/dir:', e);
+    }
+};
+i18n.on('initialized', () => syncHtmlLangDir(i18n.language));
+i18n.on('languageChanged', syncHtmlLangDir);
+// In case i18n is already initialised at import time (cached resolver):
+if (i18n.isInitialized) syncHtmlLangDir(i18n.language);
+
+// PHASE 1.2 FIX (E2E audit 2026-05-08): inject the i18n instance into
+// registerRTLListener() to break the require cycle (rtl.ts no longer imports
+// from index.ts, so HMR-stable). Wired up the moment the i18n module is
+// imported — BEFORE App.tsx mounts — so the async LANGUAGE_DETECTOR can
+// finish reading 'app_locale' from AsyncStorage and trigger setupRTL().
 try {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const { registerRTLListener } = require('./rtl');
-    registerRTLListener();
+    registerRTLListener(i18n);
 } catch (e) {
     log.warn('[i18n] Failed to register RTL listener:', e);
 }
