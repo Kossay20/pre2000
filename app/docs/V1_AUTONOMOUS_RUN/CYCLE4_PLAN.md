@@ -50,8 +50,8 @@
 | Phase | Statut |
 |-------|--------|
 | Plan | ✅ DONE |
-| 1 Sec ultra-review | ⏸ |
-| 2 Design competitor | ⏸ |
-| 3 i18n RTL | ⏸ |
-| 4 Functionality tests | ⏸ |
-| 5 VERDICT_v4 | ⏸ |
+| 1 Sec ultra-review (skill) | ✅ DONE — 0 vuln HIGH/MEDIUM |
+| 2 Design competitor (sub-agent) | ✅ DONE — 17 findings F700-F799, 5 P0 appliqués |
+| 3 i18n RTL (sub-agent) | ✅ DONE — parité 1460/1460, 30 findings F800-F829, 3 fixes appliqués |
+| 4 Functionality tests | ✅ DONE — 10 nouveaux specs feature-tests.spec.ts, 33/33 passed |
+| 5 VERDICT_v4 | ✅ DONE |
