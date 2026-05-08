@@ -16,6 +16,9 @@ import { useAuth } from '../../context/AuthContext';
 import { format, parseISO } from 'date-fns';
 import { useScreenAnalytics } from '../../hooks/useScreenAnalytics';
 import { RtlAwareChevron } from '../../components/common/RtlAwareChevron';
+// Cycle 5 F702 — EmptyState avec CTA cohérent design system.
+import { EmptyState } from '../../components/common/EmptyState';
+import { Button } from '../../components/common/Button';
 
 const log = createLogger('StatisticsScreen');
 const screenWidth = Dimensions.get('window').width;
@@ -105,13 +108,21 @@ export const StatisticsScreen = () => {
     }
 
     if (!data || data.dates.length === 0) {
+        // Cycle 5 F702 — empty state aligné design system + CTA "Aller aux tâches"
+        // (avant : juste emoji + texte, l'utilisatrice n'avait aucune action proposée).
         return (
-            <View testID="statistics_screen_root" style={styles.centerContainer}>
-                <Text style={styles.emptyEmoji}>📊</Text>
-                <Text style={styles.emptyTitle}>{t('noDataYet')}</Text>
-                <Text style={styles.emptyText}>
-                    {t('useAppForStats')}
-                </Text>
+            <View testID="statistics_screen_root" style={{ flex: 1 }}>
+                <EmptyState
+                    icon="📊"
+                    title={t('noDataYet')}
+                    subtitle={t('useAppForStats')}
+                    action={
+                        <Button
+                            title={t('goToTasks')}
+                            onPress={() => navigation.goBack()}
+                        />
+                    }
+                />
             </View>
         );
     }

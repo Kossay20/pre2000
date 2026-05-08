@@ -44,10 +44,12 @@ test.describe('Audit screens — captures visuelles v1.0', () => {
   });
 
   test('02 — AuthChoice (login vs register vs guest)', async ({ page }) => {
+    // Skip click sur English card (qui déclenche un toast 3s qui overlap le
+    // footer en screenshot). Click directement le bouton "Continue" en bas du
+    // picker — qui navigue vers AuthChoice sans toast.
     await page.goto('/Language', { waitUntil: 'domcontentloaded' });
-    await page.getByText('English', { exact: true }).first().click();
-    await page.getByText('Continue', { exact: true }).first().click();
-    // AuthChoice doit montrer 3 boutons : Register, Login, Continue as Guest.
+    // Default lang = FR donc bouton est "Continuer" — regex pour matcher EN/FR.
+    await page.getByText(/^(Continue|Continuer)$/).first().click();
     await expect(page.getByTestId('auth_guest_button')).toBeVisible({ timeout: 15_000 });
     await shot(page, '02-auth-choice');
   });

@@ -749,5 +749,8 @@
     "errorMessage": "Une erreur est survenue lors de l'export. Veuillez réessayer.",
     "warningTitle": "Données sensibles",
     "warningMessage": "Le fichier exporté contient TOUTES vos données médicales (poids, tension, glucose, symptômes, RDV) en clair. Partage-le uniquement avec quelqu'un de confiance via un canal sécurisé. Continuer ?"
-  }
+  },
+  "goToTasks": "Aller aux Tâches",
+  "chatbotTitle": "Assistant grossesse",
+  "chatbotSubtitle": "Guidance par IA"
 }

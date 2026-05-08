@@ -749,5 +749,8 @@
     "errorMessage": "An error occurred during export. Please try again.",
     "warningTitle": "Sensitive data",
     "warningMessage": "The exported file contains ALL your medical data (weight, blood pressure, glucose, symptoms, appointments) in plain text. Share it only with someone you trust over a secure channel. Continue?"
-  }
+  },
+  "goToTasks": "Go to Tasks",
+  "chatbotTitle": "Pregnancy Assistant",
+  "chatbotSubtitle": "AI-powered guidance"
 }

@@ -236,6 +236,18 @@ export const ChatbotScreen = () => {
 
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
+            {/* Cycle 5 F704D — Header avatar bot + identité (avant: pas de header,
+                disclaimer flottait seul, écran orphelin). Pattern Ovia/Flo/BabyCenter. */}
+            <View style={styles.botHeader}>
+                <Text style={styles.botAvatar}>🤖</Text>
+                <View style={styles.botHeaderTextContainer}>
+                    <Text style={styles.botHeaderTitle}>{t('common.chatbotTitle')}</Text>
+                    <Text style={styles.botHeaderSubtitle}>{t('common.chatbotSubtitle')}</Text>
+                </View>
+                <View style={styles.botBetaBadge}>
+                    <Text style={styles.botBetaBadgeText}>BETA</Text>
+                </View>
+            </View>
             <View style={styles.headerContainer}>
                 <Text style={styles.disclaimerText}>
                     ⚠️ {t('common.chatDisclaimer')}
@@ -459,6 +471,45 @@ const styles = StyleSheet.create({
         backgroundColor: 'transparent',
         borderBottomWidth: 1,
         borderBottomColor: theme.colors.borderLight,
+    },
+    // Cycle 5 F704D — Bot header avec avatar + identité + BETA badge.
+    botHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        backgroundColor: theme.colors.surface,
+        borderBottomWidth: 1,
+        borderBottomColor: theme.colors.borderLight,
+    },
+    botAvatar: {
+        fontSize: 32,
+        marginEnd: 12,
+    },
+    botHeaderTextContainer: {
+        flex: 1,
+    },
+    botHeaderTitle: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: theme.colors.text,
+    },
+    botHeaderSubtitle: {
+        fontSize: 12,
+        color: theme.colors.textSecondary,
+        marginTop: 2,
+    },
+    botBetaBadge: {
+        backgroundColor: theme.colors.primary,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 6,
+    },
+    botBetaBadgeText: {
+        color: theme.colors.white,
+        fontSize: 10,
+        fontWeight: '700',
+        letterSpacing: 0.5,
     },
     // Cycle 2 F302 : medical disclaimer doit être lisible (sujet sanitaire critique +
     // risque légal). gray500 = ratio ~2.85:1 (FAIL WCAG AA). textSecondary ≈ 5.4:1.
