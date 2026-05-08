@@ -277,11 +277,20 @@ export const OnboardingScreen = () => {
     // RENDER STEPS
     // ==========================================
 
-    const renderProgressBar = () => (
-        <View style={styles.progressContainer}>
-            <View style={[styles.progressBar, { width: `${(step / getStepCount(pregnancyStatus)) * 100}%` }]} />
-        </View>
-    );
+    const renderProgressBar = () => {
+        const totalSteps = getStepCount(pregnancyStatus);
+        return (
+            <View>
+                <View style={styles.progressContainer}>
+                    <View style={[styles.progressBar, { width: `${(step / totalSteps) * 100}%` }]} />
+                </View>
+                {/* Cycle 5 F901 — Stepper text explicite (Flo/Glow pattern). */}
+                <Text style={styles.stepperText}>
+                    {t('onboarding.stepper', { current: step, total: totalSteps })}
+                </Text>
+            </View>
+        );
+    };
 
     // STEP 1: Pregnancy Status
     const renderStep1 = () => (

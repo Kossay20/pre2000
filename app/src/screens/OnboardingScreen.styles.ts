@@ -19,20 +19,34 @@ export const styles = StyleSheet.create({
         backgroundColor: theme.colors.primary,
         borderRadius: 2,
     },
+    // Cycle 5 F901 — Stepper text "Step X of Y" sous progress bar (pattern Flo/Glow).
+    stepperText: {
+        fontSize: 12,
+        color: theme.colors.textSecondary,
+        textAlign: 'center',
+        marginTop: 8,
+        marginBottom: 0,
+        fontWeight: '500',
+    },
     stepContentContainer: {
         padding: 24,
-        paddingTop: 40,
+        paddingTop: 32,
         paddingBottom: 40,
         alignItems: 'center' as const,
     },
     stepContent: {
         flex: 1,
         padding: 24,
-        paddingTop: 40,
+        // Cycle 5 F903 — paddingTop 40→24 (réduit white-space avant question).
+        paddingTop: 24,
     },
     stepEmoji: {
+        // Cycle 5 F900 — Centrer + ajuster taille (était 64 mais top-left visuel
+        // car alignItems pas hérité). Reste 64 mais avec textAlign center.
         fontSize: 64,
         marginBottom: 16,
+        textAlign: 'center',
+        alignSelf: 'center',
     },
     stepTitle: {
         fontSize: 26,
