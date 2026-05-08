@@ -98,15 +98,15 @@ Pour CHAQUE page traitée, livrer :
 
 ## Statut courant
 
-| Phase | Statut |
-|-------|--------|
-| Plan | ✅ DONE |
-| 1 Onboarding | ⏸ |
-| 2 Home | ⏸ |
-| 3 Calendar | ⏸ |
-| 4 Reminders/Tasks/Stats | ⏸ |
-| 5 Resources | ⏸ |
-| 6 Chatbot | ⏸ |
-| 7 Profile/Settings | ⏸ |
-| 8 Auth | ⏸ |
-| Final report VERDICT_v5 | ⏸ |
+| Phase | Statut | Commit |
+|-------|--------|--------|
+| Plan | ✅ DONE | `3fd9d7c` |
+| 1 Onboarding step 1 (emoji + stepper + spacing) | ✅ DONE | `3fd9d7c` |
+| 2 Home (différé : data dépend ops) | ⏸ DIFFÉRÉ | - |
+| 3 Calendar (différé : data dépend ops) | ⏸ DIFFÉRÉ | - |
+| 4 Stats EmptyState CTA (F702) | ✅ DONE | `c4ca5e4` |
+| 5 Resources (déjà OK) | ✅ N/A | - |
+| 6 Chatbot header bot persona (F704D) | ✅ DONE | `c4ca5e4` |
+| 7 Profile/Settings (différé Cycle 6) | ⏸ DIFFÉRÉ | - |
+| 8 AuthChoice startJourney emoji separation (F700) | ✅ DONE | `c4ca5e4` |
+| Final report VERDICT_v5 | ✅ DONE | (this commit) |
