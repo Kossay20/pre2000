@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Text, TextInput } from 'react-native';
+import { Text, TextInput, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as Sentry from '@sentry/react-native';
 import { logger } from './src/utils/logger';
@@ -194,7 +194,14 @@ const MainTabs = () => {
           else if (route.name === 'Ressources') iconName = focused ? 'library' : 'library-outline';
           else if (route.name === 'Chatbot') iconName = focused ? 'chatbubbles' : 'chatbubbles-outline';
           else if (route.name === 'Rappels') iconName = focused ? 'notifications' : 'notifications-outline';
-          return <Ionicons name={iconName} size={size} color={color} accessibilityElementsHidden importantForAccessibility="no" />;
+          // Wrap in <View accessible={false} aria-hidden> so the icon doesn't
+          // leak whitespace into the tab's accessible name on RNWeb. The
+          // tabBarLabel below provides the canonical name.
+          return (
+            <View accessible={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" aria-hidden style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+              <Ionicons name={iconName} size={size} color={color} />
+            </View>
+          );
         },
       })}
     >

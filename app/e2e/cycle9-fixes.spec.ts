@@ -4,17 +4,25 @@
  *
  * Each test asserts a specific fix from VERDICT_v9.md so the suite acts as
  * regression net for the YC GSTACK sprint.
+ *
+ * Reproduction:
+ *   cd app
+ *   npx expo export --platform web --output-dir dist
+ *   npx serve dist -l 8082 --single &
+ *   E2E_BASE_URL=http://localhost:8082 ./node_modules/.bin/playwright test \
+ *     e2e/cycle9-fixes.spec.ts --project=chromium --workers=1 --timeout=120000
  */
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 
 // Bypass globalSetup's localStorage state for this suite — we want to test
-// the cold-boot Language screen path.
+// the cold-boot Language screen path. Authenticated suite below uses a fresh
+// guest profile.
 test.use({ storageState: { cookies: [], origins: [] } });
 
 // Static export bundle (~9MB) + AsyncStorage IndexedDB cold-init + i18n
 // resolver + React Navigation initial route resolution = ~10-15s cold start
-// in headless Chromium. We need a longer hydration anchor than the default.
-async function gotoLanguageHydrated(page: import('@playwright/test').Page) {
+// in headless Chromium. Hydration anchor = body text length > 100.
+async function gotoLanguageHydrated(page: Page) {
     await page.goto('/Language', { waitUntil: 'load' });
     await page.waitForFunction(
         () => document.body.innerText.length > 100,
@@ -23,7 +31,7 @@ async function gotoLanguageHydrated(page: import('@playwright/test').Page) {
     );
 }
 
-test.describe('Cycle 9 — fix regression net', () => {
+test.describe('Cycle 9 — fix regression net (cold-boot Language)', () => {
     test('Bundle health — main bundle loads, React mounts, body populated', async ({ page }) => {
         await gotoLanguageHydrated(page);
         const childCount = await page.evaluate(() =>
@@ -91,7 +99,7 @@ test.describe('Cycle 9 — fix regression net', () => {
         expect(isInitWarnings).toHaveLength(0);
     });
 
-    test('Phase 1.1 — wa-sqlite.wasm resolution stub on web (no bundle error in console)', async ({ page }) => {
+    test('Phase 1.1 — wa-sqlite.wasm resolution stub on web (no bundle resolution error)', async ({ page }) => {
         const bundleErrors: string[] = [];
         page.on('console', (msg) => {
             const t = msg.text();
@@ -101,5 +109,97 @@ test.describe('Cycle 9 — fix regression net', () => {
         });
         await gotoLanguageHydrated(page);
         expect(bundleErrors).toHaveLength(0);
+    });
+
+    test('LanguageSelectScreen — 4 languages rendered + active checkmark', async ({ page }) => {
+        await gotoLanguageHydrated(page);
+        const text = await page.evaluate(() => document.body.innerText);
+        expect(text).toContain('Français');
+        expect(text).toContain('English');
+        expect(text).toContain('Arabic');
+        expect(text).toContain('Arabe + Darija');
+        // Active language has ✓ checkmark.
+        expect(text).toContain('✓');
+        // No raw i18n keys leaked.
+        expect(text).not.toContain('common.');
+    });
+
+    test('Continue button visible on Language screen', async ({ page }) => {
+        await gotoLanguageHydrated(page);
+        const text = await page.evaluate(() => document.body.innerText);
+        // FR: "Continuer →" with newline between.
+        expect(text).toMatch(/Continuer/);
+    });
+});
+
+test.describe('Cycle 9 — authenticated guest flow (with localStorage state)', () => {
+    test.use({ storageState: 'e2e/.auth/state.json' });
+
+    async function gotoHomeHydrated(page: Page) {
+        await page.goto('/HomeMain', { waitUntil: 'load' });
+        await page.waitForFunction(
+            () => document.querySelectorAll('[role="tab"]').length >= 5,
+            null,
+            { timeout: 60_000, polling: 250 }
+        );
+    }
+
+    test('P0-3 + P2.3 — bottom tabs render with clean labels (no emoji duplication)', async ({ page }) => {
+        await gotoHomeHydrated(page);
+        // Use Playwright's accessible name resolver (matches what screen readers
+        // announce, not raw innerText). Whitespace and aria-hidden descendants
+        // are properly excluded.
+        const tablist = page.getByRole('tablist').first();
+        await expect(tablist).toBeVisible();
+        const tabNames = ['Home', 'Calendar', 'Reminders', 'Resources', 'Chatbot'];
+        for (const name of tabNames) {
+            await expect(page.getByRole('tab', { name, exact: true })).toBeVisible();
+        }
+        // Snapshot a11y tree to assert NO emoji-duplicated tab labels remain.
+        const labelText = await page.evaluate(() =>
+            Array.from(document.querySelectorAll('[role="tab"]'))
+                .map((t) => t.getAttribute('aria-label') || '')
+                .filter(Boolean)
+                .join(' | ')
+        );
+        expect(labelText).not.toMatch(/🏠.*🏠|📅.*📅|🔔.*🔔|📚.*📚|💬.*💬/);
+    });
+
+    test('P1-1 — document title localized on Home', async ({ page }) => {
+        await gotoHomeHydrated(page);
+        await expect.poll(
+            async () => page.title(),
+            { timeout: 15_000, intervals: [500] }
+        ).toMatch(/Home · Mama & Bébé|Accueil · Mama & Bébé/i);
+    });
+
+    test('Tab navigation — click Calendar updates URL', async ({ page }) => {
+        await gotoHomeHydrated(page);
+        await page.getByRole('tab', { name: 'Calendar', exact: true }).click();
+        // Linking config maps Calendrier.CalendarMain to /calendar.
+        await expect(page).toHaveURL(/\/calendar/);
+    });
+
+    test('P0-3 — only 1 H1 on screen at a time (no DOM stacking)', async ({ page }) => {
+        await gotoHomeHydrated(page);
+        await page.getByRole('tab', { name: 'Calendar', exact: true }).click();
+        await page.waitForURL(/\/calendar/);
+        // Wait a beat for the Calendar screen to fully mount.
+        await page.waitForTimeout(1000);
+        const h1Count = await page.evaluate(() =>
+            document.querySelectorAll('h1, [role="heading"][aria-level="1"]').length
+        );
+        // Before fix: 3+ stacked. After fix: 1 active screen only (or 0 if no H1).
+        expect(h1Count).toBeLessThanOrEqual(1);
+    });
+
+    test('Chatbot tab navigation — URL updates', async ({ page }) => {
+        await gotoHomeHydrated(page);
+        await page.getByRole('tab', { name: 'Chatbot', exact: true }).click();
+        // Linking is not configured for Chatbot path explicitly; URL pattern is /Chatbot.
+        await expect.poll(
+            () => page.url(),
+            { timeout: 10_000, intervals: [500] }
+        ).toMatch(/Chatbot/i);
     });
 });

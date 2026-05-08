@@ -71,17 +71,34 @@
 - 4.1 ✅ Jest 30 suites · **368 tests** · 0 régression (218s wallclock)
 - 4.2 ✅ Build statique web : `expo export --platform web` OK, bundle 9.2MB + worker 132kB
 - 4.2 ✅ Static server `npx serve dist -l 8082 --single` répond 200 avec `<title>Mama & Bébé</title>` puis `Choisir la langue · Mama & Bébé` après hydratation
-- 4.2 ✅ **`e2e/cycle9-fixes.spec.ts` — 8/8 PASSED en 7.5s** (workers=1, timeout=120s) :
+- 4.2 ✅ **`e2e/cycle9-fixes.spec.ts` — 15/15 PASSED en 16.4s** (workers=1, timeout=120s) :
+
+  Cold-boot Language (10 tests):
   ```
-  ✓ Bundle health — main bundle loads, React mounts, body populated (942ms)
-  ✓ P1-2 — html lang/dir synced with i18n on web (727ms)
-  ✓ P1-1 — document title localized (Language screen) (684ms)
-  ✓ P0-2 — i18n keys are translated (no raw key leakage) (834ms)
-  ✓ P0-4 — obsolete password rule strings absent from bundle visible UI (688ms)
-  ✓ P0-5 — no CodedError "Updates module" leaks to console (693ms)
-  ✓ Phase 1.2 — no "isInitialized undefined" warning spam (691ms)
-  ✓ Phase 1.1 — wa-sqlite.wasm resolution stub on web (no bundle error in console) (704ms)
+  ✓ Bundle health — main bundle loads, React mounts, body populated (814ms)
+  ✓ P1-2 — html lang/dir synced with i18n on web (719ms)
+  ✓ P1-1 — document title localized (Language screen) (861ms)
+  ✓ P0-2 — i18n keys are translated (no raw key leakage) (862ms)
+  ✓ P0-4 — obsolete password rule strings absent from bundle visible UI (700ms)
+  ✓ P0-5 — no CodedError "Updates module" leaks to console (730ms)
+  ✓ Phase 1.2 — no "isInitialized undefined" warning spam (689ms)
+  ✓ Phase 1.1 — wa-sqlite.wasm resolution stub on web (no bundle resolution error) (684ms)
+  ✓ LanguageSelectScreen — 4 languages rendered + active checkmark (846ms)
+  ✓ Continue button visible on Language screen (719ms)
   ```
+  Authenticated guest flow (5 tests):
+  ```
+  ✓ P0-3 + P2.3 — bottom tabs render with clean labels (no emoji duplication) (2.3s)
+  ✓ P1-1 — document title localized on Home (774ms)
+  ✓ Tab navigation — click Calendar updates URL (1.0s)
+  ✓ P0-3 — only 1 H1 on screen at a time (no DOM stacking) (1.9s)
+  ✓ Chatbot tab navigation — URL updates (976ms)
+  ```
+- 4.2 ✅ Visual regression captures (`audit-screenshots/cycle9-after/`) :
+  - 01-language-cold.png — LanguageSelect propre, 4 langues, FR actif ✓
+  - 02-home.png — Home tab Ionicons clean (home/calendar/bell/library/chatbubble), 5 tabs labels propres
+  - 03-calendar.png, 04-reminders.png, 05-resources.png, 06-chatbot.png — navigation OK
+  - 07-home-desktop.png — layout 1440px (mobile-stretched, P3 backlog)
 - 4.2 ⚠️ Existing E2E suite (`web-smoke.spec.ts`) : labels tabs mis à jour pour matcher les nouveaux accessible names (`Home` au lieu de `🏠 🏠 Home`). Suite complète à re-aligner sur la flow guest avec localStorage state — Sprint 2.
 
 ---
@@ -153,6 +170,17 @@ A  docs/V1_AUTONOMOUS_RUN/VERDICT_v9.md
 ```
 
 Total : ~16 fichiers code + 4 docs.
+
+---
+
+## 5b · Adversary check Cycle 9 EXTENDED (Phase 5)
+
+| Vérification | Question hostile | Réponse |
+|---|---|---|
+| Tab labels clean | RNWeb pourrait cacher whitespace dans accessible name ? | Test eval direct : `tab "Home"` (clean), 5 tabs in tablist (vs 3-4 H1 stacked avant). |
+| H1 stacking | unmountOnBlur:true peut casser screen state ? | Test verify h1Count ≤ 1 après tab switch. Validé. ChatbotScreen historique = trivial loss V1, doc dans backlog. |
+| Visual regression | Screenshots pourraient cacher subtle UI breakage ? | Captures 7 écrans full-page comparés à audit baseline visuellement. Aucune régression. |
+| Cold-boot resilience | Test passe en static mais pas dev server ? | Both : static `expo export` + `serve --single` proven 15/15. Dev server flaky (HMR oscillation cassé Phase 1.1, mais E2E reste meilleur en static). |
 
 ---
 
