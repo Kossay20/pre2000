@@ -33,6 +33,9 @@ async function importData() {
         await importCollection('red_flags_db.json', 'redFlags', 'red_flag_id');
         await importCollection('chatbot_suggestions.json', 'chatbotSuggestionsAG', 'suggestion_id');
         await importCollection('app/DATA_PACK_MVP_V3_FINAL/baby_messages_db_v1_2_FULL.json', 'babyMessages', 'message_id');
+        // R2-FIX: supplements were never seeded — SupplementsListScreen / ArticleDetail read
+        // collection('supplements') and DiagnosticScreen expects 15, so the tab was empty in prod.
+        await importCollection('supplements_pregnancy.json', 'supplements', 'supplement_id');
 
         console.log('\n🎉 All imports completed successfully!');
         process.exit(0);
