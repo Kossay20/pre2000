@@ -8,7 +8,7 @@
 
 ## 0 · Headline
 
-Baseline at run start: **368 tests**. Now: **415 tests green** (37 suites), `tsc` clean, `lint:colors` clean — **0 regression**, +47 tests, all backing the verified P0/P1 safety findings. Canonical E2E net **cycle9-fixes 15/15** passes against the standardized static-export harness. Every claim below is backed by a command that was actually run.
+Baseline at run start: **368 tests**. Now: **421 tests green** (37 suites), `tsc` clean, `lint:colors` clean — **0 regression**, +53 tests, all backing the verified P0/P1 safety findings. Canonical E2E net **cycle9-fixes 15/15** passes against the standardized static-export harness. Every claim below is backed by a command that was actually run.
 
 Each fix was **proven by a test that failed before and passes after** (TDD), and the two highest-stakes changes (chatbot triage, GDPR purge) survived a RED adversary pass.
 
@@ -36,6 +36,10 @@ The chatbot RED pass found issues the first 12-phrase corpus missed; all folded 
 - **EN negation absent** → `I am not bleeding` falsely escalated → EN+`ne` negations added. ✅
 - **Paraphrase gaps** (can't breathe / passed out / baby stopped moving / suicidal variants) → added + locked in corpus. ✅
 - Residual (BETA, documented): exhaustive AR/TN colloquial paraphrase coverage. A keyword matcher is not free-text AI triage → **BETA badge + medical disclaimer remain mandatory**.
+
+**Post-verification sweep (W3b, `863320e`)** — advisor flagged that the stricter matcher had an unmeasured false-negative/positive surface beyond the corpus. Swept all 15 flags with symptom paraphrases:
+- Found + removed a **severe false positive**: the suicidal-ideation flag's label "Unwell feeling" made any "I feel …" input escalate (`feel` ⊂ `feeling`) → **removed label-based matching entirely** (keywords only).
+- Added missing critical EN symptom keywords (fever, vomiting-everything, swollen face, fainted) using specific multi-word forms so normal pregnancy complaints (morning-sickness nausea, ankle swelling) do NOT escalate — both proven by the corpus (now 27 cases, incl. specificity guards).
 
 ---
 
