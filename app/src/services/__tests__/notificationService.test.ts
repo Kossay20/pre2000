@@ -65,6 +65,16 @@ describe('NotificationService', () => {
     });
 
     describe('scheduleReminderNotification', () => {
+        // N2-FIX: this block previously relied on getPermissionsAsync being left
+        // mock-resolved to 'granted' by the requestNotificationPermissions block above
+        // (jest.clearAllMocks does NOT reset mockResolvedValue impls). Run in isolation
+        // the call returned null and the test silently failed. Stub permission explicitly
+        // here so the test proves scheduling on its own.
+        beforeEach(() => {
+            (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({ status: 'granted' });
+            Platform.OS = 'ios';
+        });
+
         it('should schedule a notification with correct parameters', async () => {
             (Notifications.scheduleNotificationAsync as jest.Mock).mockResolvedValue('notif-123');
             const result = await scheduleReminderNotification('rem-1', 'Title', 'Body', 8, 30);
@@ -84,12 +94,35 @@ describe('NotificationService', () => {
                         highlightId: 'rem-1',
                     }
                 }),
+                // N2-FIX: assert the recurring trigger TYPE (CALENDAR) — the most
+                // regression-prone field, previously unchecked. A daily "take-a-pill"
+                // reminder must use a repeating CALENDAR trigger, not a one-shot date.
                 trigger: expect.objectContaining({
+                    type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
                     hour: 8,
                     minute: 30,
                     repeats: true
                 })
             }));
+        });
+
+        it('should attach the Android channelId so notifications are not dropped on Android 8+', async () => {
+            // NOTIF-01 regression net: without channelId, Android silently drops the notification.
+            Platform.OS = 'android';
+            (Notifications.scheduleNotificationAsync as jest.Mock).mockResolvedValue('notif-456');
+            await scheduleReminderNotification('rem-2', 'T', 'B', 9, 0);
+
+            const arg = (Notifications.scheduleNotificationAsync as jest.Mock).mock.calls[0][0];
+            expect(arg.trigger.channelId).toBe('pregnancy-reminders');
+            Platform.OS = 'ios';
+        });
+
+        it('should return null if notification permission is denied', async () => {
+            // N2-FIX: explicit proof of the deny path (was implicitly the only behavior in isolation).
+            (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({ status: 'denied' });
+            (Notifications.requestPermissionsAsync as jest.Mock).mockResolvedValue({ status: 'denied' });
+            const result = await scheduleReminderNotification('rem-3', 'T', 'B', 8, 30);
+            expect(result).toBeNull();
         });
 
         it('should return null on error', async () => {
