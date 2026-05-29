@@ -40,7 +40,7 @@ import {
     checkGlucose,
     checkBloodPressure,
     checkWeightChange,
-    getEmergencyNumber,
+    resolveEmergencyNumber,
     type ClinicalAlert,
 } from '../utils/clinicalChecks'; // SAFETY-CRITICAL: clinical alerts on dangerous values
 import { HealthWeightModal } from '../components/health/HealthWeightModal';
@@ -199,7 +199,10 @@ export const HealthDashboardScreen = () => {
             clinicalAlert.severity === 'critical' &&
             clinicalAlert.emergencyAction === 'call'
         ) {
-            const number = getEmergencyNumber((user as any)?.country);
+            // H2-FIX: use locale fallback (ar/tn→190, fr→15) so an AR/TN user whose profile
+            // country is empty (e.g. account created via login, not full onboarding) still gets
+            // the emergency-call button — matching ContractionTimerScreen / ChatbotScreen.
+            const number = resolveEmergencyNumber((user as any)?.country, i18n.language);
             if (number) {
                 buttons.push({
                     text: `${t('dashboard.alerts.callEmergency')} (${number})`,
