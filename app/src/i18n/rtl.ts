@@ -19,25 +19,26 @@ export const isRTL = (): boolean => {
 export const setupRTL = async () => {
     const shouldBeRTL = isRTL();
 
-    // R1 FIX: anti-loop guard — if I18nManager already matches the desired
-    // direction, do NOT reload. This prevents an infinite reload loop when
-    // setupRTL runs both at boot and again from the languageChanged listener.
+    // I2-FIX (RED-team): on WEB, do NOT touch I18nManager or reload. react-native-web's
+    // I18nManager.isRTL is in-memory and resets to `false` on every page load, so
+    // forceRTL(true) + window.location.reload() never converges for an Arabic/Tunisian
+    // user — it reloads, isRTL is false again, mismatch again → INFINITE RELOAD LOOP.
+    // Web RTL direction is already applied declaratively via document.documentElement.dir
+    // in i18n/index.ts (syncHtmlLangDir), so there is nothing to reload for here.
+    if (Platform.OS === 'web') {
+        return;
+    }
+
+    // NATIVE: anti-loop guard — only flip + reload when the direction actually changed.
     if (I18nManager.isRTL !== shouldBeRTL) {
         log.info(`Switching RTL mode: ${I18nManager.isRTL} -> ${shouldBeRTL}`);
         I18nManager.allowRTL(shouldBeRTL);
         I18nManager.forceRTL(shouldBeRTL);
 
-        // Reload app to apply RTL changes.
-        // P0-5 FIX: Updates.reloadAsync throws CodedError in dev mode and is
-        // unsuitable for web (would discard the entire session). Guard accordingly.
+        // Reload app to apply RTL changes (native only).
+        // P0-5 FIX: Updates.reloadAsync throws CodedError in dev mode → guard.
         try {
             setTimeout(async () => {
-                if (Platform.OS === 'web') {
-                    if (typeof window !== 'undefined' && window.location) {
-                        window.location.reload();
-                    }
-                    return;
-                }
                 if (__DEV__) {
                     log.info('Skipping Updates.reloadAsync in dev — RTL change visible after manual restart');
                     return;
