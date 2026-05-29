@@ -1,0 +1,107 @@
+/**
+ * G-B — BEHAVIORAL GDPR purge test (RGPD Art. 17).
+ *
+ * Prior coverage was a static source-regex guard that never ran the code. This executes
+ * purgeUserFirestoreData against a mocked Firestore and asserts:
+ *  - the userProfiles/{uid} doc is deleted,
+ *  - every one of the 9 top-level collections is queried by user_id and its docs deleted,
+ *  - legacy subcollections are cleaned,
+ *  - deletes are committed in fresh 400-doc batches (Firestore writeBatch limit),
+ *  - a single collection failure does not abort the rest of the purge.
+ */
+jest.mock('../../utils/logger', () => ({
+  createLogger: () => ({ info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn(), success: jest.fn() }),
+}));
+
+let DOC_COUNTS: Record<string, number> = {};
+let SUB_COUNTS: Record<string, number> = {};
+const queriedByUserId: Record<string, any> = {};
+let totalDeletes = 0;
+let batchCommits = 0;
+
+jest.mock('firebase/firestore', () => ({
+  doc: jest.fn((_db: any, ...p: string[]) => ({ path: p.join('/') })),
+  deleteDoc: jest.fn(),
+  collection: jest.fn((_db: any, ...p: string[]) => ({ path: p.join('/') })),
+  where: jest.fn((field: string, op: string, val: any) => ({ field, op, val })),
+  query: jest.fn((coll: any, clause: any) => ({ coll, clause })),
+  getDocs: jest.fn((q: any) => {
+    if (q.coll) {
+      // top-level: query(collection, where('user_id','==',uid))
+      const name = q.coll.path;
+      queriedByUserId[name] = q.clause?.val;
+      const n = DOC_COUNTS[name] ?? 0;
+      return { size: n, docs: Array.from({ length: n }, (_, i) => ({ ref: { path: `${name}/${i}` } })) };
+    }
+    // subcollection: getDocs(collection(db,'userProfiles',uid,sub))
+    const n = SUB_COUNTS[q.path] ?? 0;
+    return { size: n, docs: Array.from({ length: n }, (_, i) => ({ ref: { path: `${q.path}/${i}` } })) };
+  }),
+  writeBatch: jest.fn(() => ({
+    delete: () => { totalDeletes++; },
+    commit: jest.fn(async () => { batchCommits++; }),
+  })),
+}));
+
+import { purgeUserFirestoreData, topLevelCollectionsToDelete, legacySubCollections } from '../gdprPurge';
+import { deleteDoc } from 'firebase/firestore';
+
+const UID = 'user-xyz';
+
+beforeEach(() => {
+  jest.clearAllMocks();
+  DOC_COUNTS = {}; SUB_COUNTS = {};
+  for (const k of Object.keys(queriedByUserId)) delete queriedByUserId[k];
+  totalDeletes = 0; batchCommits = 0;
+});
+
+describe('purgeUserFirestoreData (GDPR Art. 17)', () => {
+  it('deletes the userProfiles/{uid} document', async () => {
+    await purgeUserFirestoreData({}, UID);
+    expect(deleteDoc).toHaveBeenCalledWith({ path: `userProfiles/${UID}` });
+  });
+
+  it('queries EVERY one of the 9 top-level collections by user_id === uid', async () => {
+    await purgeUserFirestoreData({}, UID);
+    for (const col of topLevelCollectionsToDelete) {
+      expect(queriedByUserId[col]).toBe(UID);
+    }
+    expect(Object.keys(queriedByUserId).sort()).toEqual([...topLevelCollectionsToDelete].sort());
+  });
+
+  it('deletes documents found in the owned collections', async () => {
+    DOC_COUNTS = { userTasks: 3, healthMetrics: 2 };
+    SUB_COUNTS = { [`userProfiles/${UID}/weights`]: 1 };
+    await purgeUserFirestoreData({}, UID);
+    expect(totalDeletes).toBe(6); // 3 + 2 + 1
+  });
+
+  it('commits in fresh batches past the 400-doc Firestore limit', async () => {
+    DOC_COUNTS = { userEvents: 450 }; // 400 + 50 → 2 commits for this collection
+    await purgeUserFirestoreData({}, UID);
+    expect(totalDeletes).toBe(450);
+    expect(batchCommits).toBe(2);
+  });
+
+  it('cleans legacy subcollections under userProfiles/{uid}', async () => {
+    SUB_COUNTS = {
+      [`userProfiles/${UID}/journal`]: 2,
+      [`userProfiles/${UID}/chatbot_history`]: 1,
+    };
+    await purgeUserFirestoreData({}, UID);
+    expect(totalDeletes).toBe(3);
+    expect(legacySubCollections).toContain('journal');
+  });
+
+  it('does not abort the whole purge if one collection query throws', async () => {
+    const { getDocs } = require('firebase/firestore');
+    let firstCall = true;
+    (getDocs as jest.Mock).mockImplementation((q: any) => {
+      if (firstCall && q.coll) { firstCall = false; throw new Error('permission denied'); }
+      return { size: 0, docs: [] };
+    });
+    // Should resolve (the profile deleteDoc + remaining collections still processed)
+    await expect(purgeUserFirestoreData({}, UID)).resolves.toBeUndefined();
+    expect(deleteDoc).toHaveBeenCalledWith({ path: `userProfiles/${UID}` });
+  });
+});

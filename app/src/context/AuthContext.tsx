@@ -13,7 +13,8 @@ import {
     reauthenticateWithCredential,
     User as FirebaseUser
 } from 'firebase/auth';
-import { doc, setDoc, getDoc, deleteDoc, collection, getDocs, writeBatch, query, where } from 'firebase/firestore';
+import { doc, setDoc, getDoc, deleteDoc } from 'firebase/firestore';
+import { purgeUserFirestoreData } from './gdprPurge';
 import { db, auth } from '../config/firebase';
 import { UserProfile } from '../types';
 import { calculateCurrentWeek } from '../utils/pregnancyCalculator';
@@ -569,77 +570,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 const uid = firebaseUser.uid;
                 log.debug('[AuthContext] Starting account deletion for:', uid);
 
-                // BUG FIX: App stores data in TOP-LEVEL collections, not subcollections.
-                // These must all be queried by user_id and deleted. GDPR compliance.
-                // INVARIANT: Any collection written by client code MUST appear here AND in firestore.rules.
-                const topLevelCollectionsToDelete = [
-                    'userTasks',
-                    'userEvents',
-                    'healthMetrics',
-                    'userReminderSettings',
-                    'userTaskStatuses',
-                    'weight_entries',       // FIX: Added - used by weightService.ts
-                    'reminder_settings_v2', // FIX: Added - used by remindersV2Service.ts
-                    'glucoseMetrics',       // P1.2 FIX: Added - used by healthService.saveGlucoseEntry
-                    'symptomsLog',          // P1.2 FIX: Added - used by healthService.saveSymptomEntry
-                ];
-
-                // 1. Delete Firestore Data (User Profile) - Do this first or alongside collections
-                const userDocRef = doc(db, 'userProfiles', uid);
-                await deleteDoc(userDocRef);
-                log.debug('[AuthContext] Firestore profile deleted');
-
-                for (const colName of topLevelCollectionsToDelete) {
-                    try {
-                        const colRef = collection(db, colName);
-                        const q = query(colRef, where('user_id', '==', uid));
-                        const snap = await getDocs(q);
-                        log.debug(`[AuthContext] Deleting ${snap.size} docs from ${colName}`);
-
-                        // RGPD FIX: writeBatch cannot be reused after commit().
-                        // We must create a fresh batch after every 400-doc commit.
-                        let batch = writeBatch(db);
-                        let counter = 0;
-                        for (const document of snap.docs) {
-                            batch.delete(document.ref);
-                            counter++;
-                            if (counter >= 400) {
-                                await batch.commit();
-                                batch = writeBatch(db); // CRITICAL: create fresh batch
-                                counter = 0;
-                            }
-                        }
-                        if (counter > 0) await batch.commit();
-                    } catch (err) {
-                        log.warn(`[AuthContext] Failed to cleanup collection ${colName}`, err);
-                    }
-                }
-
-                // Also clean any legacy subcollections under userProfiles
-                const legacySubCollections = ['weights', 'events', 'journal', 'chatbot_history'];
-                for (const subColName of legacySubCollections) {
-                    try {
-                        const subColRef = collection(db, 'userProfiles', uid, subColName);
-                        const subSnap = await getDocs(subColRef);
-                        if (subSnap.size > 0) {
-                            // RGPD FIX: Same batching logic for subcollections
-                            let batch = writeBatch(db);
-                            let counter = 0;
-                            for (const d of subSnap.docs) {
-                                batch.delete(d.ref);
-                                counter++;
-                                if (counter >= 400) {
-                                    await batch.commit();
-                                    batch = writeBatch(db);
-                                    counter = 0;
-                                }
-                            }
-                            if (counter > 0) await batch.commit();
-                        }
-                    } catch (err) {
-                        log.warn(`[AuthContext] Failed to cleanup subcollection ${subColName}`, err);
-                    }
-                }
+                // GDPR purge (RGPD Art. 17) — extracted to gdprPurge.ts so the delete path is
+                // behaviorally tested (gdprPurge.test.ts), not just statically grepped. Profile doc
+                // + every top-level collection (by user_id) + legacy subcollections, batched at 400.
+                // Runs BEFORE the Auth user delete so Firestore owner rules still authorize it.
+                await purgeUserFirestoreData(db, uid);
 
                 // 2. Delete Firebase Auth User (Must happen LAST so Firestore rules still apply)
                 // F4: Firebase requires a recent login for `auth.delete()`. If the session
