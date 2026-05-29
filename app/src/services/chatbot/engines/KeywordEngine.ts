@@ -42,8 +42,12 @@ const SYNONYMS: Record<string, string[]> = {
 // Negation words: French + Arabic standard + Tunisian dialect
 // BUG-02 FIX: Was missing all Arabic/TN negations
 const NEGATIONS = [
-    // French
-    'pas', 'aucun', 'aucune', 'sans', 'ni', 'jamais', 'guère', 'plus',
+    // French ('ne' added — RED-team P1-2: "je ne saigne pas" leaked the verb as positive)
+    'ne', 'pas', 'aucun', 'aucune', 'sans', 'ni', 'jamais', 'guère', 'plus',
+    // English (RED-team P1-1: EN negations were entirely missing → "I am not bleeding" /
+    // "I have no headache" falsely escalated). Strong (literal-phrase) matches are still
+    // protected from negation in chatbotService, so "I can't breathe" still escalates.
+    'not', 'no', 'without', 'never', 'dont', "don't", 'cannot', "can't", 'cant', 'neither',
     // Arabic standard
     'لا', 'ليس', 'ليست', 'لم', 'لن', 'غير', 'لو', 'مش',
     // Tunisian dialectal: "ma" alone + "mash" / "ما...ش" pattern handled below

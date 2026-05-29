@@ -240,16 +240,44 @@ export const _analyzeMessage = async (text: string): Promise<ChatResponse> => {
 
         let matchCount = 0;
         let negatedCount = 0;
+        // CB3-FIX (SAFETY): a "strong" match = the literal danger phrase appears in the text
+        // (multi-word keyword, or Arabic-script substring). Token-level negation must NOT cancel
+        // a strong match — the Arabic flag keyword "لا أشعر بالطفل" ("I no longer feel the baby")
+        // begins with the negation word "لا", which previously self-cancelled the emergency.
+        let strongMatch = false;
 
         allKeywords.forEach(keyword => {
-            // Path A: token-based (latin/Arabizi/normalized) — Levenshtein-friendly
-            if (positive.some(word => word.includes(keyword) || keyword.includes(word))) {
-                matchCount++;
-            }
-            // Path B (U-FIX-1): direct substring match on the raw normalized text.
-            // Critical for Arabic/Tunisian script which doesn't go through the latin tokenizer.
-            else if (textIsArabic && keyword.length >= 2 && normalizedText.includes(keyword)) {
-                matchCount++;
+            // CB2-FIX (SAFETY): multi-word keywords ("kill myself", "loss of consciousness",
+            // "heavy bleeding", "can't keep anything down") match ONLY as a full-phrase
+            // substring of the raw text. The previous token path (`keyword.includes(word)`)
+            // let a single generic token — "myself", "want", "loss", "down" — satisfy a
+            // multi-word emergency keyword, escalating benign input (e.g. a nutrition
+            // question matched "shortness of breath"/eclampsia). Single-word keywords keep
+            // the fuzzy-friendly token path.
+            const isMultiword = keyword.includes(' ');
+            if (isMultiword) {
+                if (normalizedText.includes(keyword)) {
+                    matchCount++;
+                    strongMatch = true;
+                }
+            } else {
+                // Path A: token-based (latin/Arabizi/normalized) — Levenshtein-friendly.
+                // CB2-FIX (SAFETY): require a meaningful overlap. The old `keyword.includes(word)`
+                // let a short common token substring-match a long keyword — "eat" ⊂ "breathing",
+                // "la" ⊂ "éclampsie" — escalating benign input to emergency flags. Now the shorter
+                // side of any substring match must be ≥4 chars; otherwise an exact token is required.
+                if (positive.some(word =>
+                        word === keyword
+                        || (keyword.length >= 4 && word.includes(keyword))
+                        || (word.length >= 4 && keyword.includes(word)))) {
+                    matchCount++;
+                }
+                // Path B (U-FIX-1): direct substring match on the raw normalized text.
+                // Critical for Arabic/Tunisian script which doesn't go through the latin tokenizer.
+                else if (textIsArabic && keyword.length >= 2 && normalizedText.includes(keyword)) {
+                    matchCount++;
+                    strongMatch = true;
+                }
             }
             // Negation guard (only via tokenized path — negation in arabic NLP is harder)
             if (negative.some(word => word.includes(keyword) || keyword.includes(word))) {
@@ -263,12 +291,15 @@ export const _analyzeMessage = async (text: string): Promise<ChatResponse> => {
         const localLabelTn = flag.label_tn?.toLowerCase() || '';
         const localLabelEn = (flag as any).label_en?.toLowerCase() || ''; // CB1-FIX
 
-        if (positive.some(w => localLabelFr.includes(w) || localLabelAr.includes(w) || localLabelTn.includes(w) || localLabelEn.includes(w))) {
+        // CB2-FIX (SAFETY): w.length >= 4 — same short-token-substring guard as the keyword path
+        // (a label like "Difficulty breathing" contains "eat", which must not match token "eat").
+        if (positive.some(w => w.length >= 4 && (localLabelFr.includes(w) || localLabelAr.includes(w) || localLabelTn.includes(w) || localLabelEn.includes(w)))) {
             matchCount++;
         }
 
-        // If explicitly negated, we ignore this flag or reduce score drastically
-        if (negatedCount > 0) {
+        // If explicitly negated, we ignore this flag or reduce score drastically.
+        // CB3-FIX: but never let token-negation cancel a STRONG (literal-phrase) match.
+        if (negatedCount > 0 && !strongMatch) {
             log.debug(`Ignoring flag ${flag.red_flag_id} due to negation.`);
             continue;
         }

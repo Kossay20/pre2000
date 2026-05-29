@@ -18,11 +18,12 @@ import { ensureMainTabs } from './helpers/bootstrap-main-tabs';
  */
 
 const TAB = {
-  home: '🏠 🏠 Home',
-  calendar: '📅 📅 Calendar',
-  reminders: '🔔 🔔 Reminders',
-  resources: '📚 📚 Resources',
-  chatbot: '💬 💬 Chatbot',
+  // Cycle 9 replaced emoji <Text> tab icons with Ionicons → tab accessible names are now clean.
+  home: 'Home',
+  calendar: 'Calendar',
+  reminders: 'Reminders',
+  resources: 'Resources',
+  chatbot: 'Chatbot',
 } as const;
 
 const SHOT_DIR = 'audit-screenshots';

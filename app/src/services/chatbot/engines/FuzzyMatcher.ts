@@ -49,12 +49,21 @@ export class FuzzyMatcher {
     static findClosestMatch(word: string, candidates: string[], threshold: number = 2): string | null {
         if (word.length < 4) return null; // Don't correct short words
 
+        // CB2-FIX (SAFETY): make the edit budget proportional to word length.
+        // A flat threshold of 2 let medium words be "corrected" across languages into
+        // unrelated red-flag keywords — e.g. EN "should"/"pendant"/"aliments"/"mild" were
+        // pulled onto emergency-flag synonyms, escalating benign nutrition questions to
+        // "shortness of breath"/"eclampsia", and EN words were mangled away from their real
+        // matches. Allow only a single edit for words ≤7 chars; the looser budget (2) is
+        // reserved for longer words where 2 edits is still a small fraction of the token.
+        const effThreshold = word.length <= 7 ? Math.min(threshold, 1) : threshold;
+
         let bestMatch = null;
         let minDistance = Infinity;
 
         for (const candidate of candidates) {
             const distance = this.levenshtein(word, candidate);
-            if (distance <= threshold && distance < minDistance) {
+            if (distance <= effThreshold && distance < minDistance) {
                 minDistance = distance;
                 bestMatch = candidate;
             }

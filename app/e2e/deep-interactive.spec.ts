@@ -18,11 +18,12 @@ import { test, expect, type Page } from '@playwright/test';
  */
 
 const TAB = {
-  home: '🏠 🏠 Home',
-  calendar: '📅 📅 Calendar',
-  reminders: '🔔 🔔 Reminders',
-  resources: '📚 📚 Resources',
-  chatbot: '💬 💬 Chatbot',
+  // Cycle 9 replaced emoji <Text> tab icons with Ionicons → tab accessible names are now clean.
+  home: 'Home',
+  calendar: 'Calendar',
+  reminders: 'Reminders',
+  resources: 'Resources',
+  chatbot: 'Chatbot',
 } as const;
 
 // Capture errors par screen

@@ -29,13 +29,19 @@ export default defineConfig({
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
   },
+  // E1-FIX: standardize on the STATIC-EXPORT harness. The Expo dev server
+  // (`expo start --web`) 404s on deep routes like /HomeMain (no SPA fallback +
+  // HMR oscillation, cf. VERDICT_v8.2 §5 / Cycle 9 metro wa-sqlite fix), so the
+  // whole suite was un-runnable against it. `expo export` + `serve --single`
+  // gives the SPA fallback that makes /HomeMain (and every deep route) resolve —
+  // this is the harness cycle9-fixes already passes 15/15 against.
   webServer: usingExternalServer
     ? undefined
     : {
-        command: 'npx expo start --web --port 8081 --clear',
+        command: 'npx expo export --platform web --output-dir dist && npx serve dist -l 8081 --single',
         url: 'http://localhost:8081',
         reuseExistingServer: !process.env.CI,
-        timeout: 180_000,
+        timeout: 300_000,
         stdout: 'pipe',
         stderr: 'pipe',
       },
