@@ -285,17 +285,11 @@ export const _analyzeMessage = async (text: string): Promise<ChatResponse> => {
             }
         });
 
-        // Also check label safely by resolving localized label content
-        const localLabelFr = flag.label_fr?.toLowerCase() || '';
-        const localLabelAr = flag.label_ar?.toLowerCase() || '';
-        const localLabelTn = flag.label_tn?.toLowerCase() || '';
-        const localLabelEn = (flag as any).label_en?.toLowerCase() || ''; // CB1-FIX
-
-        // CB2-FIX (SAFETY): w.length >= 4 — same short-token-substring guard as the keyword path
-        // (a label like "Difficulty breathing" contains "eat", which must not match token "eat").
-        if (positive.some(w => w.length >= 4 && (localLabelFr.includes(w) || localLabelAr.includes(w) || localLabelTn.includes(w) || localLabelEn.includes(w)))) {
-            matchCount++;
-        }
+        // CB3-FIX (SAFETY): label-based matching REMOVED. Localized labels are human-readable
+        // phrases ("Unwell feeling", "Difficulty breathing") whose common words substring-matched
+        // generic tokens (feel ⊂ feeling, eat ⊂ breathing) and mis-escalated benign input — e.g.
+        // "I feel a bit nauseous" hit the suicidal-ideation flag via its "Unwell feeling" label.
+        // Keywords (keywords_{fr,ar,tn,en}) are the designed, curated matching mechanism.
 
         // If explicitly negated, we ignore this flag or reduce score drastically.
         // CB3-FIX: but never let token-negation cancel a STRONG (literal-phrase) match.

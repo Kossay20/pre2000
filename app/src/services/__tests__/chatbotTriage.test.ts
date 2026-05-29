@@ -53,6 +53,11 @@ describe('Chatbot triage — emergencies MUST escalate in all 4 languages', () =
     // RED-team P0-1 (worst): Arabic "I no longer feel the baby move" must NOT self-cancel
     // via the negation word "لا" that begins its own flag keyword.
     { lang: 'ar', text: 'لا أشعر بحركة الجنين' },
+    // Adversary sweep: symptom-paraphrase coverage across the other flags (were missing).
+    { lang: 'en', text: 'I have a high fever' },
+    { lang: 'en', text: 'I keep vomiting everything I eat' },
+    { lang: 'en', text: 'my face is swollen' },
+    { lang: 'en', text: 'I fainted earlier' },
   ];
 
   for (const c of emergencies) {
@@ -76,6 +81,10 @@ describe('Chatbot triage — clearly benign input must NOT over-escalate', () =>
     { lang: 'en', text: 'I am not bleeding' },
     { lang: 'en', text: 'I have no headache' },
     { lang: 'fr', text: 'je ne saigne pas' },
+    // Specificity guards: the new symptom keywords must NOT over-escalate normal pregnancy
+    // complaints (ankle swelling / morning-sickness nausea are common, not emergencies).
+    { lang: 'en', text: 'my ankles are a little swollen' },
+    { lang: 'en', text: 'I feel a bit nauseous this morning' },
   ];
 
   for (const c of benign) {
