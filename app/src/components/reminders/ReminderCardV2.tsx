@@ -134,7 +134,12 @@ export const ReminderCardV2: React.FC<ReminderCardV2Props> = ({
                         </Text>
                         {/* Small edit link instead of big button */}
                         {onEdit && (
-                            <TouchableOpacity onPress={onEdit} style={styles.editLink}>
+                            <TouchableOpacity
+                                onPress={onEdit}
+                                style={styles.editLink}
+                                accessibilityRole="button"
+                                accessibilityLabel={t('a11y.edit')}
+                            >
                                 <Text style={styles.editLinkText}>⚙️</Text>
                             </TouchableOpacity>
                         )}

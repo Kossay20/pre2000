@@ -287,7 +287,12 @@ export const ReminderEditModal: React.FC<ReminderEditModalProps> = ({
                 <View style={styles.modalContainer}>
                     {/* Header */}
                     <View style={styles.header}>
-                        <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+                        <TouchableOpacity
+                            onPress={onClose}
+                            style={styles.closeButton}
+                            accessibilityRole="button"
+                            accessibilityLabel={t('a11y.closeModal')}
+                        >
                             <Text style={styles.closeButtonText}>✕</Text>
                         </TouchableOpacity>
                         <View style={styles.headerContent}>
@@ -326,6 +331,8 @@ export const ReminderEditModal: React.FC<ReminderEditModalProps> = ({
                                             <TouchableOpacity
                                                 style={styles.removeTimeButton}
                                                 onPress={() => removeTimeSlot(index)}
+                                                accessibilityRole="button"
+                                                accessibilityLabel={t('a11y.removeTimeSlot')}
                                             >
                                                 <Text style={styles.removeTimeIcon}>🗑️</Text>
                                             </TouchableOpacity>

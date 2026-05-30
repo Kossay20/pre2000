@@ -444,6 +444,7 @@
     "addNew": "Ajouter",
     "delete": "Supprimer",
     "edit": "Modifier",
+    "removeTimeSlot": "Supprimer le créneau horaire",
     "save": "Enregistrer",
     "confirm": "Confirmer",
     "cancel": "Annuler",

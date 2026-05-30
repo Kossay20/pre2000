@@ -41,6 +41,32 @@ const REFERENCE = 'fr';
 const locales: Record<string, Dict> = { fr: fr as Dict, en: en as Dict, ar: ar as Dict, tn: tn as Dict };
 const refKeys = new Set(flattenKeys(locales[REFERENCE]));
 
+/** Collect leaf key-path → value pairs (for value-level assertions). */
+function flattenValues(obj: Dict, prefix = ''): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(obj)) {
+    const path = prefix ? `${prefix}.${k}` : k;
+    if (v !== null && typeof v === 'object' && !Array.isArray(v)) {
+      Object.assign(out, flattenValues(v as Dict, path));
+    } else if (typeof v === 'string') {
+      out[path.replace(/_(zero|one|two|few|many|other)$/, '')] = v;
+    }
+  }
+  return out;
+}
+
+// Keys whose values are INTENTIONALLY Latin-script across all locales:
+const VALUE_ALLOWLIST = new Set([
+  // Arabizi/Darija (Tunisian dialect intentionally mixes Latin):
+  'common.legal', 'common.dangerZone', 'common.preferences',
+  // Email input placeholder — always shows a canonical email format (Latin, all locales):
+  'emailPlaceholder', 'common.emailPlaceholder',
+  // Language-picker subtitle shows ALL 4 languages side by side (multilingual by design):
+  'chooseLanguageSubtitle', 'common.chooseLanguageSubtitle',
+  // Brand names are always English regardless of locale:
+  'legalTerms.cookies.firebase_title', 'common.legalTerms.cookies.firebase_title',
+]);
+
 describe('i18n 4-language key parity (FR/EN/AR/TN)', () => {
   it('reference locale (fr) is substantial (sanity)', () => {
     expect(refKeys.size).toBeGreaterThan(800);
@@ -62,4 +88,48 @@ describe('i18n 4-language key parity (FR/EN/AR/TN)', () => {
         .toEqual({ lang, extra: [], extraCount: 0 });
     });
   }
+});
+
+// VALUE-LEVEL parity guard (P2 — massive audit 2026-05-30).
+// The key-parity test above only checks that keys EXIST — it cannot detect a value that is still
+// in French inside an AR or TN file (e.g. "dashboard": "Tableau de bord" shipping to Arabic users).
+// This supplement catches: (a) empty/whitespace-only values, (b) Latin-script strings in AR
+// (heuristic: >50% Latin chars in a value that's keyed in the AR locale where siblings are Arabic).
+describe('i18n VALUE-level parity — no empty strings, no obvious FR/EN text in AR', () => {
+  const AR_VALUES = flattenValues(ar as Dict);
+
+  it('ar: no empty or whitespace-only values', () => {
+    const empty = Object.entries(AR_VALUES)
+      .filter(([, v]) => v.trim() === '')
+      .map(([k]) => k);
+    expect({ empty: empty.slice(0, 10), emptyCount: empty.length })
+      .toEqual({ empty: [], emptyCount: 0 });
+  });
+
+  it('ar: no values that are predominantly Latin script (likely untranslated FR/EN)', () => {
+    // Heuristic: if a value has > 60% Latin characters (a-z/A-Z, excluding digits, spaces,
+    // punctuation, i18n interpolation markers {{...}}), it is probably an untranslated FR/EN
+    // string. Skip values ≤ 6 chars (short codes, numbers, shared brand names are common).
+    const latinRatio = (s: string) => {
+      const cleaned = s.replace(/\{\{[^}]+\}\}/g, '').replace(/[0-9\s.,;:!?'"()\-•\n\t→←]/g, '');
+      if (cleaned.length <= 6) return 0;
+      const latinCount = (cleaned.match(/[a-zA-Z]/g) || []).length;
+      return latinCount / cleaned.length;
+    };
+    const suspicious = Object.entries(AR_VALUES)
+      .filter(([k, v]) => !VALUE_ALLOWLIST.has(k) && latinRatio(v) > 0.6)
+      .map(([k, v]) => `${k}: "${v.slice(0, 60)}"`);
+    expect({ suspicious: suspicious.slice(0, 10), suspiciousCount: suspicious.length })
+      .toEqual({ suspicious: [], suspiciousCount: 0 });
+  });
+
+  const TN_VALUES = flattenValues(tn as Dict);
+
+  it('tn: no empty or whitespace-only values', () => {
+    const empty = Object.entries(TN_VALUES)
+      .filter(([, v]) => v.trim() === '')
+      .map(([k]) => k);
+    expect({ empty: empty.slice(0, 10), emptyCount: empty.length })
+      .toEqual({ empty: [], emptyCount: 0 });
+  });
 });

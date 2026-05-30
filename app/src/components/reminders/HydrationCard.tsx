@@ -92,6 +92,8 @@ export const HydrationCard = () => {
                     <TouchableOpacity
                         onPress={() => setShowSettings(true)}
                         style={styles.settingsButton}
+                        accessibilityRole="button"
+                        accessibilityLabel={t('a11y.openSettings')}
                     >
                         <Ionicons name="settings-outline" size={20} color={iconColor} />
                     </TouchableOpacity>
@@ -163,7 +165,11 @@ export const HydrationCard = () => {
                     <View style={styles.modalContent}>
                         <View style={styles.modalHeader}>
                             <Text style={styles.modalTitle}>{t('reminders.hydration.settingsTitle')}</Text>
-                            <TouchableOpacity onPress={() => setShowSettings(false)}>
+                            <TouchableOpacity
+                                onPress={() => setShowSettings(false)}
+                                accessibilityRole="button"
+                                accessibilityLabel={t('a11y.closeModal')}
+                            >
                                 <Ionicons name="close" size={24} color={theme.colors.neutral400} />
                             </TouchableOpacity>
                         </View>

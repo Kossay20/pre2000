@@ -384,6 +384,7 @@
     "addNew": "Add",
     "delete": "Delete",
     "edit": "Edit",
+    "removeTimeSlot": "Remove time slot",
     "save": "Save",
     "confirm": "Confirm",
     "cancel": "Cancel",
