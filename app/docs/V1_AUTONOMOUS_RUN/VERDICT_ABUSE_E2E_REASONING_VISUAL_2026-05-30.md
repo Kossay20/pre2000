@@ -38,7 +38,15 @@ could itself have regressed) found one NEW finding of the BAN1 class in a differ
 | BAN2 | P1 | `fr/common.json` `chatResponse.redFlagCritical` | FR response body hardcoded "le 15" (France SAMU) while en/ar/tn were generic → a French-speaking guest in Belgium/Canada/Maghreb sees "15" contradicting the country-derived button. (The cycle-1 test only guarded `chatDisclaimer`, not the response body.) | FR line made generic ("…ou les services d'urgence si besoin"). | `chatDisclaimerNumbers.test` broadened to scan the WHOLE chatbot surface (chatDisclaimer + chatEmergencyAction + every `chatResponse.*`, 92 assertions / 4 langs) |
 
 Cross-checks from cycle-2 (no defect): chevron mirroring correct on **both** sides — fr/en send
-button `›` (LTR), ar/tn `‹` (RTL); tn-tab3 = الموارد/Resources (parallel to ar-tab3). Fixes: `8cf4cbe`.
+button `›` (LTR), ar/tn `‹` (RTL); the CalendarScreen nav chevron also mirrors (ar-tab1.png: left
+`›` / right `‹` = mirrored vs LTR) so RTL1 is confirmed on both named surfaces; tn-tab3 = الموارد
+/Resources (parallel to ar-tab3). Fixes: `8cf4cbe`.
+
+**Lock made real (`76fabf6`):** the BAN1/BAN2 guard initially scanned only the i18n catalog
+(`common.json`). The `RED_FLAGS` *data layer* (`standard_message_*` = paragraph 1 of every emergency
+screen, + `label_*`) was grep-verified clean but unguarded. The guard now also imports `RED_FLAGS`
+and scans every flag × body/label field — so the WHOLE chatbot emergency surface (catalog + data) is
+locked against any future reintroduction of a country number. (1611 total assertions.)
 
 ---
 
