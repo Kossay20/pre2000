@@ -40,9 +40,13 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
     onPressToday,
     t,
 }) => {
-    // RTL: swap chevrons so navigation stays intuitive (prev=right, next=left)
-    const prevIcon = isRTL ? 'chevron-forward' : 'chevron-back';
-    const nextIcon = isRTL ? 'chevron-back' : 'chevron-forward';
+    // AUDIT-FIX (massive-audit 2026-05-30 P1): the original code swapped BOTH the icon glyphs
+    // (chevron-forward↔back) AND applied flexDirection:'row-reverse' on the header row. The two
+    // mirrors cancelled each other → both arrows pointed INWARD in AR/TN. Standard calendar UX
+    // in Arabic/Hebrew keeps the same directional convention as LTR: ← = earlier (prev), → =
+    // later (next), matching Apple iOS Calendar Arabic locale. Remove both swaps.
+    // The a11y labels were also wrong in RTL (label said "previousWeek" but button called
+    // onNextWeek). Removing the onPress swap fixes that too.
 
     return (
         <LinearGradient
@@ -51,14 +55,14 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
             end={{ x: 1, y: 1 }}
             style={styles.header}
         >
-            <View style={[styles.headerTop, isRTL && { flexDirection: 'row-reverse' }]}>
+            <View style={styles.headerTop}>
                 <TouchableOpacity
-                    onPress={isRTL ? onNextWeek : onPrevWeek}
+                    onPress={onPrevWeek}
                     style={styles.navButton}
                     accessibilityLabel={t('a11y.previousWeek')}
                     accessibilityRole="button"
                 >
-                    <Ionicons name={prevIcon as any} size={24} color={theme.colors.white} />
+                    <Ionicons name="chevron-back" size={24} color={theme.colors.white} />
                 </TouchableOpacity>
 
                 <View style={styles.headerTitleContainer}>
@@ -69,12 +73,12 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                 </View>
 
                 <TouchableOpacity
-                    onPress={isRTL ? onPrevWeek : onNextWeek}
+                    onPress={onNextWeek}
                     style={styles.navButton}
                     accessibilityLabel={t('a11y.nextWeek')}
                     accessibilityRole="button"
                 >
-                    <Ionicons name={nextIcon as any} size={24} color={theme.colors.white} />
+                    <Ionicons name="chevron-forward" size={24} color={theme.colors.white} />
                 </TouchableOpacity>
             </View>
 

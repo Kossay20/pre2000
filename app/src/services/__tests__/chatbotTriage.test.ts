@@ -58,6 +58,24 @@ describe('Chatbot triage — emergencies MUST escalate in all 4 languages', () =
     { lang: 'en', text: 'I keep vomiting everything I eat' },
     { lang: 'en', text: 'my face is swollen' },
     { lang: 'en', text: 'I fainted earlier' },
+    // massive-audit P0 — suicidal-ideation i18n parity: FR/AR/TN paraphrases were silently dropped
+    // (keywords_fr had only 2 clinical terms; EN had 12 layperson paraphrases). These cover the
+    // most common layperson expressions that MUST escalate to the psychiatry emergency flag.
+    { lang: 'fr', text: "j'ai envie d'en finir avec la vie" },
+    { lang: 'fr', text: "je veux mourir" },
+    { lang: 'fr', text: "je veux me faire du mal" },
+    { lang: 'ar', text: 'أريد أن أموت' },
+    { lang: 'ar', text: 'أفكر في الانتحار' },
+    { lang: 'tn', text: 'nheb nmout' },
+    // massive-audit P0 — eclampsia inflected forms: FR "évanouie" and AR "أغمي" were not caught
+    { lang: 'fr', text: "je me suis évanouie" },
+    { lang: 'fr', text: "je suis inconsciente" },
+    { lang: 'ar', text: 'أغمي علي' },
+    // massive-audit P0 — HELLP syndrome: "douleur foie" multiword missed; single-token "foie" added
+    { lang: 'fr', text: "j'ai une douleur au foie" },
+    { lang: 'ar', text: 'عندي ألم في الكبد' },
+    // massive-audit P1 — breathlessness adjective: "essoufflée" did not match noun "essoufflement"
+    { lang: 'fr', text: "je suis essoufflée" },
   ];
 
   for (const c of emergencies) {
