@@ -2084,7 +2084,7 @@ export const RED_FLAGS: RedFlag[] = [
     "label_ar": "شعور سيء",
     "label_en": "Unwell feeling",
     "label_tn": "شعور سيء",
-    "keywords_fr": "pensées suicidaires,suicid,mourir,mal-être,en finir,vouloir mourir,plus vivre,me faire du mal,envie de mourir,mettre fin,me blesser",
+    "keywords_fr": "pensées suicidaires,suicid,mal-être,en finir,veux mourir,veut mourir,plus vivre,me faire du mal,envie de mourir,mettre fin,me blesser,me suicider",
     "keywords_ar": "أفكار انتحارية,انتحار,أؤذي,أموت,شعور سيء,أريد أن أموت,لا أريد الحياة,إنهاء حياتي,إيذاء نفسي",
     "keywords_en": "suicidal thoughts,suicidal,suicide,kill myself,want to die,end my life,harm myself,don't want to live,better off dead,end it all,no reason to live,unwell",
     "keywords_tn": "أفكار انتحارية,انتحار,شعور سيء,nmout,naarraj,afkar khaybha,nheb naarraj,9ahr,mish ta9a,mich ta9a,khalas 3liya,ma nhebch nkammel,ykhallas",

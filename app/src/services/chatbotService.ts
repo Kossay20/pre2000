@@ -510,12 +510,23 @@ export const _analyzeMessage = async (text: string): Promise<ChatResponse> => {
             message = i18n.t('common.chatResponse.topicNoArticles', { label });
         }
 
+        // SUG1-FIX (audit 2026-05-30 P1): never expose the linked redFlag in suggestion
+        // responses. The redFlag object triggers the full URGENCE badge + call-button UI in
+        // ChatbotScreen — that must ONLY come from the direct red_flag path (step 3 above),
+        // which runs explicit keyword matching against emergency symptoms. The suggestion path
+        // (step 3b below) fires only when the red_flag path found nothing, meaning the engine
+        // already determined no emergency was explicitly reported. Any score-threshold approach
+        // is defeated by multi-language label scoring (e.g. "j'ai peur de l'accouchement"
+        // scored 90 on a hemorrhage-linked suggestion because "accouchement" appeared in FR +
+        // EN + AR labels) — causing a false URGENCE banner on a normal childbirth-fear question.
+        // The ⚠️ warning TEXT from standard_message is still in the message field (valuable
+        // clinical disclosure); we just strip the redFlag from the response object so the
+        // call-button UI doesn't activate on a suggestion match.
         return {
             type: 'suggestion',
             message,
             articles: linkedArticles,
             suggestions: [topSuggestion],
-            redFlag: linkedRedFlags[0],
             matchScore: matchedSuggestions[0].score,
         };
     }

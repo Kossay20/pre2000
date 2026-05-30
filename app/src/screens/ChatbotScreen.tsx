@@ -428,9 +428,11 @@ const styles = StyleSheet.create({
         marginTop: 8,
         backgroundColor: theme.colors.error,
         paddingHorizontal: 16,
-        paddingVertical: 8,
+        paddingVertical: 12,
+        minHeight: 44,
         borderRadius: theme.borderRadius.m,
         alignSelf: 'flex-start',
+        justifyContent: 'center',
     },
     callButtonText: {
         color: theme.colors.white,

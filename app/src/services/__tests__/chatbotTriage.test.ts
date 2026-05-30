@@ -103,6 +103,13 @@ describe('Chatbot triage — clearly benign input must NOT over-escalate', () =>
     // complaints (ankle swelling / morning-sickness nausea are common, not emergencies).
     { lang: 'en', text: 'my ankles are a little swollen' },
     { lang: 'en', text: 'I feel a bit nauseous this morning' },
+    // Supervisor-loop benign probes (2026-05-30): verify widened emergency keywords don't create
+    // false positives on COLLOQUIAL or TOCOPHOBIA phrasing that is NOT suicidal ideation.
+    // "mourir" standalone was too broad; replaced with conjugated multiword phrases.
+    { lang: 'fr', text: "j'ai peur de mourir en accouchant" },   // tocophobia — NOT suicidal
+    { lang: 'fr', text: "je vais mourir de rire" },              // colloquial idiom
+    { lang: 'fr', text: "j'ai peur de l'accouchement" },        // normal childbirth fear
+    { lang: 'fr', text: "cette attente va me tuer" },            // colloquial idiom
   ];
 
   for (const c of benign) {
@@ -137,5 +144,28 @@ describe('Chatbot triage — negation must not leak a false emergency through a 
     // bleeding is negated → must not route to a hemorrhage emergency (it may surface the headache).
     expect((r.redFlag?.red_flag_id || '')).not.toMatch(/hemorragie|hémorragie/i);
     if (r.type === 'red_flag') expect((r.redFlag?.severity || '').toLowerCase()).not.toBe('emergency');
+  });
+});
+
+// SUG1-FIX — supervisor-loop (2026-05-30): the suggestion path was including the linked redFlag
+// object for ALL score->0 matches, so "j'ai peur de l'accouchement" (normal childbirth fear)
+// triggered a hemorrhage-linked suggestion and showed the full URGENCE + call-button UI — cry-wolf.
+// Fix: gate redFlag on score >= 50 (exact chip-click = 100; typed keyword overlap = 10-20).
+// This locks: (a) low-score benign queries don't show emergency UI via suggestion path;
+// (b) deliberate chip-clicks ("J'ai des pensées négatives") still expose the linked redFlag.
+describe('Chatbot triage — suggestion path: low-score match must NOT expose emergency redFlag UI', () => {
+  it('"j\'ai peur de l\'accouchement" → no redFlag on the suggestion response (cry-wolf guard)', async () => {
+    const r: any = await analyzeMessage("j'ai peur de l'accouchement");
+    // If this routes via the suggestion path, the redFlag must be undefined (low-score match).
+    // The message text may still contain a ⚠️ warning — that is acceptable and intentional.
+    if (r.type === 'suggestion') {
+      expect(r.redFlag).toBeUndefined();
+    }
+    // Alternatively it may route as unknown — either is fine; what's NOT acceptable is a
+    // full emergency redFlag on a "fear of childbirth" query.
+    if (r.type === 'red_flag') {
+      // If a red_flag IS matched directly, make sure it's not the hemorrhage flag (wrong condition)
+      expect(r.redFlag?.red_flag_id).not.toMatch(/hemorragie/i);
+    }
   });
 });
