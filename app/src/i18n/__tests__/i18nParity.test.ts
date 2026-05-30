@@ -27,7 +27,11 @@ function flattenKeys(obj: Dict, prefix = ''): string[] {
     if (v !== null && typeof v === 'object' && !Array.isArray(v)) {
       out.push(...flattenKeys(v as Dict, path));
     } else {
-      out.push(path);
+      // CLDR plural variants (key_one/_two/_few/_many/_other/_zero) legitimately differ in
+      // count ACROSS languages — Arabic has 6 categories, FR/EN only 2 — so comparing the raw
+      // category keys would falsely fail parity. Normalize to the base logical key; the
+      // pluralForms.test.ts proves each language renders the correct form.
+      out.push(path.replace(/_(zero|one|two|few|many|other)$/, ''));
     }
   }
   return out;
