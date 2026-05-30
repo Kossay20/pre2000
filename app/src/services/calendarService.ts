@@ -60,6 +60,11 @@ const PRIORITY_COLORS: Record<string, string> = {
     élevé: theme.colors.calendarPriorityHigh,
     modéré: theme.colors.calendarPriorityModerate,
     faible: theme.colors.teal500,
+    // BUGFIX: CalendarTemplate.importance typed union ('essential'|'recommended'|'optional')
+    // was unmapped → every type-conformant value fell through to the grey info fallback.
+    essential: theme.colors.calendarPriorityHigh,
+    recommended: theme.colors.calendarPriorityModerate,
+    optional: theme.colors.calendarPriorityInfo,
 };
 
 const getPriorityColor = (importance: string): string => {
@@ -399,6 +404,7 @@ export const getCombinedEventsForWeek = (
             type: ue.type,
             source: 'user',
             notes: ue.notes,
+            location: ue.location, // BUGFIX: was dropped → user-event address vanished in combined view
             priorityColor: theme.colors.indigoAccent, // Purple for user events
         });
     });

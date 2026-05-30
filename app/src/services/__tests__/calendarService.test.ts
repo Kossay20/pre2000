@@ -284,13 +284,12 @@ describe('priorityColor mapping (via generateEventsForWeek)', () => {
         expect(colorFor('totally-unknown')).toBe(theme.colors.calendarPriorityInfo);
     });
 
-    test('typed importance values (essential/recommended/optional) all fall through to the information color', () => {
-        // BUG (calendarService.ts:44-63 + types/index.ts:161): the CalendarTemplate.importance
-        // union ('essential'|'recommended'|'optional') has NO matching key in PRIORITY_COLORS,
-        // so every typed importance silently resolves to the 'information' fallback color.
-        // Documented in bugsFound; asserting CURRENT behavior here.
-        expect(colorFor('essential')).toBe(theme.colors.calendarPriorityInfo);
-        expect(colorFor('recommended')).toBe(theme.colors.calendarPriorityInfo);
+    test('typed importance values (essential/recommended/optional) map to distinct colors', () => {
+        // BUGFIX (calendarService.ts): the CalendarTemplate.importance union is now mapped —
+        // essential→high, recommended→moderate, optional→info — instead of all falling through
+        // to the grey information fallback.
+        expect(colorFor('essential')).toBe(theme.colors.calendarPriorityHigh);
+        expect(colorFor('recommended')).toBe(theme.colors.calendarPriorityModerate);
         expect(colorFor('optional')).toBe(theme.colors.calendarPriorityInfo);
     });
 });
@@ -724,16 +723,13 @@ describe('getCombinedEventsForWeek', () => {
         expect(ev.date).toBeInstanceOf(Date);
     });
 
-    test('drops the user event location field in the combined view (asserting current behavior)', () => {
-        // BUG (calendarService.ts:393-404): the user-event -> CombinedEvent mapping
-        // copies id/title/date/week/type/source/notes/priorityColor but NEVER sets
-        // `location`, even though UserEvent.location (types/index.ts:300) and
-        // CombinedEvent.location (types/index.ts:325, "For user events") both exist.
-        // A user event's address therefore silently disappears in the combined/grouped
-        // view. Recorded in bugsFound; asserting the CURRENT (buggy) behavior here.
+    test('preserves the user event location field in the combined view', () => {
+        // BUGFIX (calendarService.ts): the user-event → CombinedEvent mapping now carries
+        // `location` (UserEvent.location → CombinedEvent.location) — the address no longer
+        // silently disappears in the combined/grouped calendar view.
         const users = [makeUserEvent({ event_id: 'u1', week: 12, location: 'Clinique Avicenne, Tunis' })];
         const [ev] = getCombinedEventsForWeek([], users, 12);
-        expect(ev.location).toBeUndefined();
+        expect(ev.location).toBe('Clinique Avicenne, Tunis');
     });
 
     test('combines template + user events and sorts the whole list by date ascending', () => {
