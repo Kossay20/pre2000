@@ -62,7 +62,12 @@ export const LanguageSelectScreen = () => {
             // bootstrap-main-tabs.ts:21 + audit-screens spec 02 cliquent ce bouton).
             // Cela préserve aussi un meilleur UX : si l'utilisatrice se trompe de
             // langue, elle peut re-cliquer une autre carte sans être navigated away.
-            showToast(t('common.languageUpdated'), 'success');
+            // Use i18n.getFixedT(newLang) instead of t() here: the React useTranslation hook
+            // captures its value at render time and lags one cycle behind i18n.changeLanguage,
+            // so t('languageUpdated') would show the OLD language's string (e.g. "Langue mise
+            // à jour" in French even after switching to Arabic). getFixedT reads the new locale
+            // directly from the i18n instance without waiting for a React re-render.
+            showToast(i18n.getFixedT(languageCode)('common.languageUpdated'), 'success');
         } catch (error) {
             log.error('Error saving language:', error);
             Alert.alert(t('common.error'), t('common.languageChangeError'));
