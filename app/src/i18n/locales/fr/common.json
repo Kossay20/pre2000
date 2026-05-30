@@ -157,7 +157,7 @@
   "vitaminAdjust": "Si ton médecin t'a prescrit plusieurs prises, ajuste ici ",
   "notifCapMsg": "On t'aide à garder le rythme sans t'envahir",
   "notifCapSubMsg": "On regroupe les rappels proches dans la journée",
-  "chatDisclaimer": "Cet assistant ne remplace pas un avis médical. En cas d'urgence, contactez le 15 (ou 112) ou rendez-vous aux urgences.",
+  "chatDisclaimer": "Cet assistant ne remplace pas un avis médical. En cas d'urgence, appelez votre numéro d'urgence local ou rendez-vous aux urgences.",
   "chatWelcome": "Bonjour ! Je suis votre assistante grossesse.\n\nJe peux vous aider sur :\n•  Alimentation\n•  Symptômes\n• 🩺 Examens médicaux\n•  Sommeil\n• ‍ Sport\n\nPosez-moi vos questions ! ",
   "chatRateLimit": "⏳ Doucement ! Tu envoies beaucoup de messages. Attends quelques secondes avant de réessayer ",
   "chatError": "Désolé, une erreur est survenue.",

@@ -94,3 +94,30 @@ describe('Chatbot triage — clearly benign input must NOT over-escalate', () =>
     });
   }
 });
+
+// CB4-FIX — abuse-e2e reasoning audit found that the additive score let a multi-symptom URGENT
+// flag outrank a higher-severity EMERGENCY. Severity must win; match count is only a tiebreaker.
+const EMERGENCY_SEV = ['emergency', 'critique'];
+describe('Chatbot triage — multi-symptom: the EMERGENCY must win, not the higher-keyword urgent flag', () => {
+  const cases = [
+    { text: 'I have a severe headache and pain and I cannot breathe', why: 'breathing emergency > headache urgent' },
+    { text: 'I have a severe headache with pain and a little bleeding', why: 'bleeding emergency > headache urgent' },
+  ];
+  for (const c of cases) {
+    it(`"${c.text}" → escalates to an EMERGENCY (${c.why})`, async () => {
+      const r: any = await analyzeMessage(c.text);
+      expect({ phrase: c.text, type: r.type, severity: r.redFlag?.severity })
+        .toMatchObject({ type: 'red_flag' });
+      expect(EMERGENCY_SEV).toContain((r.redFlag?.severity || '').toLowerCase());
+    });
+  }
+});
+
+describe('Chatbot triage — negation must not leak a false emergency through a filler verb', () => {
+  it('"I do not have bleeding but I have a headache" → NOT the bleeding emergency', async () => {
+    const r: any = await analyzeMessage('I do not have bleeding but I have a headache');
+    // bleeding is negated → must not route to a hemorrhage emergency (it may surface the headache).
+    expect((r.redFlag?.red_flag_id || '')).not.toMatch(/hemorragie|hémorragie/i);
+    if (r.type === 'red_flag') expect((r.redFlag?.severity || '').toLowerCase()).not.toBe('emergency');
+  });
+});

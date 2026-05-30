@@ -72,17 +72,19 @@ for (const L of LANGS) {
 
       // document direction must match the language (RTL audit for ar/tn)
       await expect(page.locator('html')).toHaveAttribute('dir', L.dir, { timeout: 10_000 });
+      await expect(page.getByRole('tablist').first()).toBeVisible({ timeout: 30_000 });
 
-      const tablist = page.getByRole('tablist').first();
-      await expect(tablist).toBeVisible({ timeout: 30_000 });
-
-      // Click each tab BY POSITION (labels are localized) and audit it in this language.
-      const tabs = page.getByRole('tab');
-      const count = await tabs.count();
-      expect(count, `${L.code}: expected 5 bottom tabs`).toBeGreaterThanOrEqual(5);
+      // Click each tab BY POSITION (labels are localized). RE-NAVIGATE to /HomeMain before each
+      // selection: screens with internal top-tabs (Reminders, Resources) add extra role=tab
+      // elements that shift nth() indices — so without resetting to Home (5 bottom tabs only),
+      // tab3 (Resources) was mis-captured as Calendar. Fresh Home guarantees stable bottom-tab order.
       for (let i = 0; i < 5; i++) {
+        await page.goto('/HomeMain', { waitUntil: 'load' });
+        await page.waitForTimeout(1200);
+        const tabs = page.getByRole('tablist').first().getByRole('tab');
+        await expect(tabs.first()).toBeVisible({ timeout: 30_000 });
         await tabs.nth(i).click();
-        await page.waitForTimeout(1000);
+        await page.waitForTimeout(1200);
         await auditLangScreen(page, `${L.code}-tab${i}`, errors);
       }
     });

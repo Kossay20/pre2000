@@ -21,7 +21,8 @@
  */
 
 import React from 'react';
-import { I18nManager, StyleProp, Text, TextStyle } from 'react-native';
+import { StyleProp, Text, TextStyle } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import {
     ChevronDirection,
     ChevronVariant,
@@ -49,7 +50,13 @@ export const RtlAwareChevron: React.FC<RtlAwareChevronProps> = ({
     style,
     accessibilityLabel,
 }) => {
-    const glyph = resolveChevronGlyph(direction, variant, I18nManager.isRTL);
+    // CB4-FIX: derive RTL from the active LANGUAGE, not I18nManager.isRTL. On web, setupRTL()
+    // intentionally skips forceRTL (it would cause a reload loop), so I18nManager.isRTL stays false
+    // even though the layout is mirrored via document.dir — which left chevrons (chatbot send,
+    // calendar nav) pointing the wrong way in Arabic/Tunisian. Language is the correct source.
+    const { i18n } = useTranslation();
+    const isRtl = i18n.language === 'ar' || i18n.language === 'tn';
+    const glyph = resolveChevronGlyph(direction, variant, isRtl);
     const isDecorative = accessibilityLabel === undefined;
     return (
         <Text

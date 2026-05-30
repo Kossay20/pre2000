@@ -226,7 +226,7 @@ export const _analyzeMessage = async (text: string): Promise<ChatResponse> => {
 
     // 2. Check Red Flags (Critical) — use cache
     const redFlags = await getRedFlagsCached();
-    const matchedFlags: { flag: RedFlag; score: number }[] = [];
+    const matchedFlags: { flag: RedFlag; severityScore: number; matchCount: number }[] = [];
 
     for (const flag of redFlags) {
         const keywordsFr = flag.keywords_fr ? flag.keywords_fr.split(',').map(k => k.trim().toLowerCase()).filter(Boolean) : [];
@@ -300,13 +300,18 @@ export const _analyzeMessage = async (text: string): Promise<ChatResponse> => {
 
         if (matchCount > 0) {
             const severityScore = SEVERITY_PRIORITY[flag.severity?.toLowerCase() || 'faible'] || 0;
-            const score = (matchCount * 10) + (severityScore * 5);
-            matchedFlags.push({ flag, score });
+            matchedFlags.push({ flag, severityScore, matchCount });
         }
     }
 
     if (matchedFlags.length > 0) {
-        matchedFlags.sort((a, b) => b.score - a.score);
+        // CB4-FIX (SAFETY): severity FIRST, match strength only as tiebreaker. The old additive
+        // score (matchCount*10 + severity*5) made severity worth just half a keyword, so a
+        // multi-symptom URGENT flag could outrank a higher-severity EMERGENCY — e.g.
+        // "severe headache and I can't breathe" routed to the headache (urgent) instead of the
+        // breathing EMERGENCY. A described emergency must always win over a non-emergency,
+        // regardless of how many keywords the lesser flag matched.
+        matchedFlags.sort((a, b) => (b.severityScore - a.severityScore) || (b.matchCount - a.matchCount));
         const topFlag = matchedFlags[0].flag;
 
         // Fetch linked articles — use cache
@@ -332,7 +337,7 @@ export const _analyzeMessage = async (text: string): Promise<ChatResponse> => {
             message: redFlagMessage,
             redFlag: topFlag,
             articles: linkedArticles,
-            matchScore: matchedFlags[0].score,
+            matchScore: matchedFlags[0].matchCount,
         };
     }
 

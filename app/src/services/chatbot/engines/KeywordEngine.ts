@@ -61,6 +61,15 @@ const TN_NEGATION_RE = /^(?:ما|ma).*(?:ش|sh|c)$/i;
 // Stopwords to ignore during negation scope
 const STOPWORDS = ['le', 'la', 'les', 'un', 'une', 'de', 'du', 'des', 'ce', 'cette', 'mon', 'ma', 'mes', 'ton', 'ta', 'tes', 'je', 'tu', 'il', 'elle', 'on', 'nous', 'vous', 'ils', 'elles', 'me', 'te', 'se', 'y', 'en'];
 
+// CB4-FIX: auxiliary/filler verbs that sit between a negation and the real symptom
+// ("I do not HAVE bleeding"). They must NOT consume the negation — it has to reach the
+// content word ("bleeding"), otherwise a negated symptom leaks as a false positive.
+const AUX_FILLERS = [
+    'have', 'has', 'had', 'having', 'feel', 'feels', 'feeling', 'felt',
+    'am', 'is', 'are', 'was', 'were', 'be', 'been', 'get', 'got',
+    'ai', 'as', 'avons', 'avez', 'ont', 'eu', 'ressens', 'ressent', 'sens', 'sent',
+];
+
 export class KeywordEngine {
     private vocabulary: Set<string>;
 
@@ -102,8 +111,14 @@ export class KeywordEngine {
             }
 
             // Reset negation after punctuation or specific connectors (simplified)
-            if (['mais', 'et', 'car', 'donc', 'or'].includes(word)) {
+            if (['mais', 'et', 'car', 'donc', 'or', 'but'].includes(word)) {
                 isNegationActive = false;
+                continue;
+            }
+
+            // CB4-FIX: auxiliary/filler verbs do NOT consume an active negation — keep it on the
+            // next CONTENT word, so "I do not HAVE bleeding" negates "bleeding", not "have".
+            if (isNegationActive && AUX_FILLERS.includes(word)) {
                 continue;
             }
 

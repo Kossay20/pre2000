@@ -29,7 +29,6 @@ import { CalendarMonthStats } from '../components/calendar/CalendarMonthStats';
 import { format, addDays, startOfWeek, addWeeks, subWeeks, isSameDay, subMonths, addMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, parseISO, getDay } from 'date-fns';
 import { useTranslation } from 'react-i18next';
 import { useDateLocale } from '../hooks/useDateLocale';
-import { I18nManager } from 'react-native';
 import { getLocalizedContent } from '../utils/i18nHelpers';
 import { calculateCurrentWeek } from '../utils/pregnancyCalculator';
 import { CalendarScreenNavigationProp } from '../types/navigation';
@@ -425,7 +424,9 @@ export const CalendarScreen = () => {
         }
     };
 
-    const isRTL = I18nManager.isRTL;
+    // CB4-FIX: language-derived RTL (I18nManager.isRTL is false on web — forceRTL is skipped there,
+    // so the calendar nav chevrons did not mirror in Arabic/Tunisian on web).
+    const isRTL = i18n.language === 'ar' || i18n.language === 'tn';
     const monthLabel = format(selectedDate, 'MMMM yyyy', { locale: dateLocale });
     const weekLabel = t('calendar.weekOfPregnancy', { week: currentWeek });
 
