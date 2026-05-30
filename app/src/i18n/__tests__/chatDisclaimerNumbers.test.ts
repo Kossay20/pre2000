@@ -18,6 +18,7 @@ import frC from '../locales/fr/common.json';
 import enC from '../locales/en/common.json';
 import arC from '../locales/ar/common.json';
 import tnC from '../locales/tn/common.json';
+import { RED_FLAGS } from '../../data/chatbot_data';
 
 const LOCALES: Record<string, any> = { fr: frC, en: enC, ar: arC, tn: tnC };
 // Emergency numbers across the mapped countries (FR 15/112, Maghreb 190/141/16/197/198, etc.) + SAMU.
@@ -45,6 +46,29 @@ describe('chatbot emergency strings are generic — no hardcoded country emergen
     for (const { key, text } of strings) {
       it(`${lng}.${key}: no hardcoded emergency number`, () => {
         expect({ lng, key, hardcoded: HARDCODED.test(text) }).toEqual({ lng, key, hardcoded: false });
+      });
+    }
+  }
+});
+
+// The RED_FLAGS data layer renders the FIRST paragraph of every emergency triage screen
+// (`standard_message_*`) sitting directly above the chatResponse hint. A wrong-country number
+// there during a real hemorrhage is the exact clinical-safety class this guard exists for, so the
+// lock must cover the DATA layer too — not just the i18n catalog — else a future flag edit could
+// reintroduce a number with nothing to catch it. (Verified clean 2026-05-30 cycle-2 close.)
+describe('RED_FLAGS message bodies are generic — no hardcoded country emergency numbers', () => {
+  const FIELDS = ['standard_message_fr', 'standard_message_en', 'standard_message_ar', 'standard_message_tn',
+                  'label_fr', 'label_en', 'label_ar', 'label_tn'] as const;
+  it('scans every RED_FLAGS body/label field (sanity)', () => {
+    expect(RED_FLAGS.length).toBeGreaterThan(5);
+  });
+  for (const flag of RED_FLAGS) {
+    for (const f of FIELDS) {
+      const text = (flag as any)[f];
+      if (typeof text !== 'string') continue;
+      it(`${flag.red_flag_id}.${f}: no hardcoded emergency number`, () => {
+        expect({ id: flag.red_flag_id, field: f, hardcoded: HARDCODED.test(text) })
+          .toEqual({ id: flag.red_flag_id, field: f, hardcoded: false });
       });
     }
   }
