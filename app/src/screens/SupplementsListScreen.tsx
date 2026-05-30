@@ -118,6 +118,9 @@ export const SupplementsListScreen = () => {
         return (
             <View style={styles.centerContainer}>
                 <Text style={{ fontSize: 48, marginBottom: 16 }}>💊</Text>
+                <Text style={{ fontSize: 20, fontWeight: '700', color: theme.colors.text, marginBottom: 8, textAlign: 'center' }}>
+                    {t('common.errorBoundary.title')}
+                </Text>
                 <Text style={[{ textAlign: 'center', marginVertical: 10, color: theme.colors.textLight }]}>
                     {t('common.errorBoundary.message')}
                 </Text>
