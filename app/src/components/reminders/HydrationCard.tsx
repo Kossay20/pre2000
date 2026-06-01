@@ -241,6 +241,12 @@ const styles = StyleSheet.create({
     titleRow: {
         flexDirection: 'row',
         alignItems: 'center',
+        // AUDIT-FIX (massive-audit P2 2026-05-30): use `gap` instead of marginEnd on the icon.
+        // Under RN-Web RTL, `marginEnd` could resolve to the wrong physical side, removing the
+        // gap so the droplet tile sat flush against / overlapped the right-aligned Arabic title
+        // ("شرب الماء"). `gap` is direction-agnostic and keeps the spacing in both LTR and RTL.
+        gap: 12,
+        flexShrink: 1,
     },
     iconContainer: {
         width: 40,
@@ -249,7 +255,6 @@ const styles = StyleSheet.create({
         backgroundColor: theme.colors.white,
         justifyContent: 'center',
         alignItems: 'center',
-        marginEnd: 12,
         ...getShadowStyle(2, theme.colors.accentDarkPink, 0.1, 4, { width: 0, height: 2 }),
     },
     emoji: {
