@@ -85,11 +85,11 @@ async function captureScreen(page: Page, name: string, errors: string[]) {
   expect(errors, `${name}: console errors: ${errors.join(' | ')}`).toEqual([]);
 }
 
-const LANGS: { code: string; dir: 'ltr' | 'rtl'; cardIndex: number; langAttr: string }[] = [
-  { code: 'fr', dir: 'ltr', cardIndex: 0, langAttr: 'fr' },
-  { code: 'en', dir: 'ltr', cardIndex: 3, langAttr: 'en' },
-  { code: 'ar', dir: 'rtl', cardIndex: 1, langAttr: 'ar' },
-  { code: 'tn', dir: 'rtl', cardIndex: 2, langAttr: 'tn' },
+const LANGS: { code: string; dir: 'ltr' | 'rtl'; cardIndex: number; langAttr: string; pregnant: RegExp; cont: RegExp }[] = [
+  { code: 'fr', dir: 'ltr', cardIndex: 0, langAttr: 'fr', pregnant: /Je suis enceinte/i, cont: /Continuer/i },
+  { code: 'en', dir: 'ltr', cardIndex: 3, langAttr: 'en', pregnant: /I am pregnant/i, cont: /Continue/i },
+  { code: 'ar', dir: 'rtl', cardIndex: 1, langAttr: 'ar', pregnant: /أنا حامل/, cont: /متابعة/ },
+  { code: 'tn', dir: 'rtl', cardIndex: 2, langAttr: 'tn', pregnant: /أنا حامل/, cont: /متابعة/ },
 ];
 
 for (const L of LANGS) {
@@ -159,15 +159,41 @@ for (const L of LANGS) {
       await page.getByTestId('auth_guest_button').click();
       await page.waitForTimeout(2000);
       // Onboarding step 1: the user picks their mode (pregnant / TTC / curious).
-      // We don't advance further — submission requires live Auth (owner gate G1).
       const body = (await page.locator('body').innerText().catch(() => '')) || '';
-      // Onboarding has NOT a tablist (confirms we're not on the main tabs)
       const isOnboarding = !(await page.getByRole('tablist').isVisible().catch(() => false));
       if (isOnboarding && body.trim().length > 10) {
         await captureScreen(page, `${L.code}-05-onboarding-step1`, errors);
       } else {
-        // May have gone straight to tabs if there's residual state — document it.
         await page.screenshot({ path: path.join(SHOT_DIR, `${L.code}-05-onboarding-step1.png`), fullPage: true });
+      }
+
+      // ── 6. ONBOARDING STEPS 2→3→4 (pregnant path) ──────────────────────
+      // Steps 2 (date method) and 3 (age/country/first-pregnancy) are pure CLIENT state —
+      // reachable offline. Step 4 is the account form (submission needs live Auth = owner gate G1,
+      // so we capture the form but do NOT submit). Advance via the localized "pregnant" card then
+      // the localized Continue button.
+      const pregnantCard = page.getByText(L.pregnant).first();
+      if (await pregnantCard.isVisible().catch(() => false)) {
+        await pregnantCard.click();
+        await page.waitForTimeout(1500);
+        await captureScreen(page, `${L.code}-06-onboarding-step2-date`, errors);
+
+        // Step 2 → step 3 via Continue (a date default is pre-filled, so no picker interaction needed)
+        const cont2 = page.getByText(L.cont).last();
+        if (await cont2.isVisible().catch(() => false)) {
+          await cont2.click();
+          await page.waitForTimeout(1500);
+          await captureScreen(page, `${L.code}-07-onboarding-step3-profile`, errors);
+
+          // Step 3 → step 4 via Continue
+          const cont3 = page.getByText(L.cont).last();
+          if (await cont3.isVisible().catch(() => false)) {
+            await cont3.click();
+            await page.waitForTimeout(1500);
+            // Step 4 = account form (email/password). Capture only — NO submit (owner gate G1).
+            await captureScreen(page, `${L.code}-08-onboarding-step4-account`, errors);
+          }
+        }
       }
     });
   });

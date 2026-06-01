@@ -5,7 +5,9 @@ languages (FR / EN / AR / TN), independently reviewed by a per-page validation a
 cross-check. Screenshots in `app/audit-screenshots/` (gitignored). Pregnancy app — invariants:
 clinical-safety + GDPR + i18n-parity.
 
-## Verdict: 11/11 reachable pages READY (offline web audit). Store ship gated on owner items below.
+## Verdict: 14/14 reachable page-states READY (offline web audit). Store ship gated on owner items below.
+
+*(11 page-types; onboarding expanded to its 4 steps = 14 distinct screen-states, each × 4 languages.)*
 
 The audit's single NEEDS_FIX finding (Login RTL back-arrow on ar/tn) was **fixed** (commit `b76ab63`)
 and re-verified visually. No raw key leaks, no FR/EN leaking into AR/TN, no wrong text direction,
@@ -21,7 +23,10 @@ no layout breaks, no crashes across any page in any language.
 | 2 | AuthChoice (start journey) | ✅ | ✅ | ✅ | ✅ | `auth-lang-audit/{L}-02-auth-choice.png` |
 | 3 | Register / inscription form | ✅ | ✅ | ✅ | ✅ | `auth-lang-audit/{L}-03-register.png` |
 | 4 | Login form | ✅ | ✅ | ✅ *(fixed)* | ✅ *(fixed)* | `auth-lang-audit/{L}-04-login.png` |
-| 5 | Onboarding step 1 (mode select) | ✅ | ✅ | ✅ | ✅ | `auth-lang-audit/{L}-05-onboarding-step1.png` |
+| 5 | Onboarding **step 1** (mode select) | ✅ | ✅ | ✅ | ✅ | `auth-lang-audit/{L}-05-onboarding-step1.png` |
+| 5b | Onboarding **step 2** (date / week calc) | ✅ | ✅ | ✅ | ✅ | `auth-lang-audit/{L}-06-onboarding-step2-date.png` |
+| 5c | Onboarding **step 3** (age / country / profile) | ✅ | ✅ | ✅ | ✅ | `auth-lang-audit/{L}-07-onboarding-step3-profile.png` |
+| 5d | Onboarding **step 4** (account form — render only, no submit) | ✅ | ✅ | ✅ | ✅ | `auth-lang-audit/{L}-08-onboarding-step4-account.png` |
 | 6 | Home tab *(offline error-card by design)* | ✅ | ✅ | ✅ | ✅ | `multilang/{L}-tab0.png` |
 | 7 | Calendar tab | ✅ | ✅ | ✅ | ✅ | `multilang/{L}-tab1.png` |
 | 8 | Reminders tab (incl. water-tracker) | ✅ | ✅ | ✅ | ✅ | `multilang/{L}-tab2.png` |
@@ -30,7 +35,9 @@ no layout breaks, no crashes across any page in any language.
 | 11 | Chatbot EMERGENCY triage (heavy bleeding → escalation) | ✅ | ✅ | ✅ | ✅ | `chatbot-abuse/{L}-emergency.png` |
 
 `{L}` = fr / en / ar / tn. RTL pages verified: text right-aligned, layout mirrored, chevrons/arrows
-correct direction, no FR/EN leak. **44 screenshots total.**
+correct direction, no FR/EN leak. **56 screenshots total** (14 screen-states × 4 langs). Onboarding
+steps 1–3 are pure client state (fully exercised offline); step 4 is the account form (rendered &
+i18n-verified — submission is backend-gated, not driven here).
 
 **What "READY" means here:** the page renders correctly with correct i18n, direction, and layout in
 all 4 languages in the offline web build. It does NOT prove backend behavior — see Part B.
@@ -48,8 +55,12 @@ ship. Derived from the validation agents' findings:
 
 ### B1 — Device / native (the offline web export cannot exercise)
 - [ ] **RTL on a physical iOS/Android device** (ar/tn): confirm every absolute-positioned affordance
-  (back arrows, icons) mirrors to the correct edge. The web fix is language-derived (correct on both
-  platforms), but native uses `I18nManager.isRTL` for the OS-level flip — eyeball each RTL screen.
+  (back arrows, icons) mirrors to the correct edge. The RTL fixes here are **web-verified only**. The
+  `isRTL` flag was made language-derived (correct on both platforms), BUT the back-arrow positioning
+  uses physical `left`/`right` set inline — on native, `I18nManager.isRTL` + `doLeftAndRightSwapInRTL`
+  can auto-swap physical sides, so the arrow *could* land on the wrong edge on a real device. If a
+  device check shows native breakage, the robust fix is logical `start`/`end` props (noted, not chased
+  now). Eyeball each RTL screen on device.
 - [ ] **Push notifications actually fire**: reminders/water/vitamin notifications schedule and deliver
   with OS permission granted (the "Enable notifications" banner path).
 - [ ] **Real `tel:` dialing**: tapping the emergency CTA opens the dialer with the correct number.
@@ -57,8 +68,9 @@ ship. Derived from the validation agents' findings:
 ### B2 — Backend-gated (needs G1 Anonymous Auth + Firestore live)
 - [ ] **Account creation** (Register) end-to-end: validation, weak/duplicate-email errors, success nav.
 - [ ] **Login** with a real credential: authenticates, retrieves saved data, wrong-password/forgot flows.
-- [ ] **Onboarding completion + persistence**: walk all steps (only step 1 captured here), confirm the
-  selected mode + data persist to Firestore and survive app restart/re-login.
+- [ ] **Onboarding completion + persistence**: all 4 steps now visually verified offline (steps 1–3
+  client-state + step-4 form render). Remaining for device: actually SUBMIT step 4 and confirm the
+  selected mode + entered data persist to Firestore and survive app restart/re-login.
 - [ ] **Deep screens with live data** in all 4 langs (NOT audited — behind the backend gate, showed
   only the offline error card): **Profile, Settings, Health, Weight, Foods, KickCounter, ContractionTimer**.
 - [ ] **Home + Resources>Articles with populated lists**: confirm correct render (no key leak, correct
