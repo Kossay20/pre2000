@@ -1,7 +1,7 @@
 import { createLogger } from '../utils/logger';
 const log = createLogger('SupplementDetailScreen');
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, I18nManager } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
@@ -20,7 +20,9 @@ export const SupplementDetailScreen = () => {
     const navigation = useNavigation();
     const route = useRoute<any>();
     const { supplementId } = route.params || {};
-    const isRTL = I18nManager.isRTL;
+    // AUDIT-FIX (page-by-page validation 2026-06-02): language-derived RTL — I18nManager.isRTL is
+    // false on web (forceRTL skipped to avoid reload loop), breaking absolute-positioned mirroring.
+    const isRTL = i18n.language === 'ar' || i18n.language === 'tn';
 
     // ── ALL HOOKS BEFORE ANY EARLY RETURN ──
     const [supplement, setSupplement] = useState<Supplement | null>(null);

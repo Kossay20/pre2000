@@ -5,7 +5,7 @@ import { analyticsService } from '../services/analyticsService';
 import {
     View, Text, StyleSheet, TextInput, ScrollView,
     TouchableOpacity, KeyboardAvoidingView, Platform,
-    I18nManager, Pressable, Keyboard,
+    Pressable, Keyboard,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { theme } from '../theme';
@@ -23,11 +23,13 @@ import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
 
 export const RegisterScreen = () => {
     useScreenAnalytics('RegisterScreen');
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const { register } = useAuth();
     const navigation = useNavigation<AuthScreenNavigationProp>();
     const { loading, withLoading } = useAuthLoading();
-    const isRTL = I18nManager.isRTL;
+    // AUDIT-FIX (page-by-page validation 2026-06-02): language-derived RTL — I18nManager.isRTL is
+    // false on web (forceRTL skipped to avoid reload loop), breaking absolute-positioned mirroring.
+    const isRTL = i18n.language === 'ar' || i18n.language === 'tn';
 
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -111,9 +113,9 @@ export const RegisterScreen = () => {
                     contentContainerStyle={styles.container}
                     keyboardShouldPersistTaps="handled"
                 >
-                    {/* Back arrow */}
+                    {/* Back arrow — explicit side per isRTL (RN-Web doesn't clear `left:undefined`). */}
                     <TouchableOpacity
-                        style={[styles.backButton, isRTL && styles.backButtonRTL]}
+                        style={[styles.backButton, { [isRTL ? 'right' : 'left']: theme.spacing.l }]}
                         onPress={() => navigation.navigate('AuthChoice' as any)}
                         accessibilityRole="button"
                         hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
@@ -283,12 +285,8 @@ const styles = StyleSheet.create({
     backButton: {
         position: 'absolute',
         top: 54,
-        left: theme.spacing.l,
         padding: 4,
-    },
-    backButtonRTL: {
-        left: undefined,
-        right: theme.spacing.l,
+        // left/right set inline per isRTL (see render) — avoids the RN-Web `left:undefined` gotcha.
     },
     title: {
         fontSize: 28,

@@ -1,7 +1,7 @@
 import React from 'react';
 import {
     View, Text, StyleSheet, TouchableOpacity,
-    I18nManager, SafeAreaView,
+    SafeAreaView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { theme } from '../theme';
@@ -13,8 +13,10 @@ import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
 export const AuthChoiceScreen = () => {
     useScreenAnalytics('AuthChoiceScreen');
     const navigation = useNavigation<any>();
-    const { t } = useTranslation();
-    const isRTL = I18nManager.isRTL;
+    const { t, i18n } = useTranslation();
+    // AUDIT-FIX (page-by-page validation 2026-06-02): language-derived RTL — I18nManager.isRTL is
+    // false on web (forceRTL skipped to avoid reload loop), breaking absolute-positioned mirroring.
+    const isRTL = i18n.language === 'ar' || i18n.language === 'tn';
 
     return (
         <SafeAreaView style={styles.safeArea}>

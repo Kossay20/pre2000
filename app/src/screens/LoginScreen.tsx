@@ -4,7 +4,7 @@ import React, { useState, useRef } from 'react';
 import {
     View, Text, StyleSheet, TextInput, ScrollView,
     TouchableOpacity, KeyboardAvoidingView, Platform,
-    I18nManager, Pressable, Keyboard,
+    Pressable, Keyboard,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { auth } from '../config/firebase';
@@ -28,7 +28,7 @@ import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
 export const LoginScreen = () => {
     useScreenAnalytics('LoginScreen');
     const { login } = useAuth();
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const navigation = useNavigation<any>();
     const { loading, withLoading } = useAuthLoading();
 
@@ -39,7 +39,12 @@ export const LoginScreen = () => {
     const [showPassword, setShowPassword] = useState(false);
 
     const passwordRef = useRef<TextInput>(null);
-    const isRTL = I18nManager.isRTL;
+    // AUDIT-FIX (page-by-page validation 2026-06-02): derive RTL from the active LANGUAGE, not
+    // I18nManager.isRTL. On web, setupRTL() skips forceRTL (avoids a reload loop), so
+    // I18nManager.isRTL stays false even in ar/tn — which left the absolute-positioned back-arrow
+    // stranded on the LEFT instead of mirroring to the RIGHT. Language-derived isRTL is correct on
+    // BOTH web and native (they agree on native). Same proven pattern as RtlAwareChevron/CalendarScreen.
+    const isRTL = i18n.language === 'ar' || i18n.language === 'tn';
 
     const handleLogin = async () => {
         setError('');
@@ -126,9 +131,11 @@ export const LoginScreen = () => {
                     contentContainerStyle={styles.container}
                     keyboardShouldPersistTaps="handled"
                 >
-                    {/* Back arrow */}
+                    {/* Back arrow — position the side EXPLICITLY (not via a `left:undefined`
+                        override, which react-native-web does not reliably clear, leaving the
+                        button stranded on the left in RTL). Only one of left/right is ever set. */}
                     <TouchableOpacity
-                        style={[styles.backButton, isRTL && styles.backButtonRTL]}
+                        style={[styles.backButton, { [isRTL ? 'right' : 'left']: theme.spacing.l }]}
                         onPress={() => navigation.navigate('AuthChoice')}
                         accessibilityRole="button"
                         hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
@@ -247,12 +254,8 @@ const styles = StyleSheet.create({
     backButton: {
         position: 'absolute',
         top: 54,
-        left: theme.spacing.l,
         padding: 4,
-    },
-    backButtonRTL: {
-        left: undefined,
-        right: theme.spacing.l,
+        // left/right set inline per isRTL (see render) — avoids the RN-Web `left:undefined` gotcha.
     },
     title: {
         fontSize: 28,
