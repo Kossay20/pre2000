@@ -1,0 +1,18 @@
+import { chromium } from 'playwright';
+const BASE='http://localhost:8081';
+const STATE='/Users/1millnonstop/Downloads/pregnancy-app/pre2000/app/e2e/.auth/state.json';
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const b=await chromium.launch();
+const c=await b.newContext({storageState:STATE,baseURL:BASE,viewport:{width:390,height:844}});
+const p=await c.newPage();
+let confirmSeen=null;
+p.on('dialog',async d=>{ confirmSeen=d.message().replace(/\s+/g,' ').slice(0,120); try{await d.accept();}catch(e){} });
+await p.goto(`${BASE}/appointment/add`,{waitUntil:'domcontentloaded'}); await sleep(4000);
+await p.locator('input').first().fill('Echo 22 SA',{timeout:3000}).catch(()=>{});
+await p.getByRole('button',{name:/^Save$|Save changes/i}).first().click({timeout:3000}).catch(()=>{});
+await sleep(3000);
+const t=await p.evaluate(()=>document.body.innerText);
+console.log('guest confirm message:', confirmSeen);
+console.log('after accept -> landed on auth/onboarding?', /Create.*account|Continue as guest|Sign|Log in|journey|Welcome|Get started|I already have/i.test(t));
+console.log('snip:', t.replace(/\s+/g,' ').slice(0,160));
+await b.close();

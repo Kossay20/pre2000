@@ -60,7 +60,9 @@ const styles = StyleSheet.create({
         marginBottom: 24,
     },
     retryButton: {
-        backgroundColor: theme.colors.primary,
+        // A11Y-CONTRAST (R5-CONTRAST-01): route the FILL to accent (#C2185B) so the
+        // white retry label reaches 5.87:1 (was primary #FF6B9D → 2.68:1, AA fail).
+        backgroundColor: theme.colors.accent,
         paddingHorizontal: 24,
         paddingVertical: 12,
         borderRadius: theme.borderRadius.m,

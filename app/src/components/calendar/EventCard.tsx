@@ -215,17 +215,18 @@ const styles = StyleSheet.create({
         paddingHorizontal: theme.spacing.s,
         paddingVertical: 4,
         borderRadius: theme.borderRadius.s,
-        backgroundColor: theme.colors.secondary,
+        // A11Y-CONTRAST (R5-CONTRAST-02): use a LIGHT pink fill so the accent label
+        // reaches AA. The old secondary fill (#FF8FA3) only gave accent text 2.72:1;
+        // accent (#C2185B) on surfacePinkTint (#FCE4EC) = 4.88:1.
+        backgroundColor: theme.colors.surfacePinkTint,
     },
     userTag: {
         backgroundColor: theme.colors.indigoAccentMuted,
     },
     tagText: {
         fontSize: 11,
-        // A11Y-CONTRAST-01: route text pink to accent #C2185B (design token for
-        // actionable/text pink). NOTE: the base `tag` fill is `secondary` (#FF8FA3),
-        // so this label still reads ~2.72:1 — full AA needs the tag BACKGROUND fixed
-        // (separate decorative-fill defect, out of this contrast pass's scope).
+        // A11Y-CONTRAST-01 / R5-CONTRAST-02: accent #C2185B label on the light
+        // surfacePinkTint `tag` fill = 4.88:1 (AA pass).
         color: theme.colors.accent,
         fontWeight: '500' as const,
     },

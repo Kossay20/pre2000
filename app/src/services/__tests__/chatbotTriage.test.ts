@@ -340,3 +340,111 @@ describe('Chatbot triage — food/drink queries must NOT mis-route to a symptom 
     expect((r.suggestions?.[0]?.topic || '').toLowerCase()).toContain('nutrition');
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CB-R5-01 (P1 CLINICAL — over-escalation). EN 'liver' is overwhelmingly a FOOD word in
+// pregnancy questions, yet it is a single-token keyword of the HELLP emergency flag — a lone
+// occurrence fired a full EMERGENCY + call button ("is liver pate safe" → HELLP). FR 'foie' was
+// already gated; the EN equivalents (liver/hepatic/ribs) were not. Fix: add them to
+// GENERIC_FLAG_TOKENS so a bare mention needs corroboration. The multiword "liver pain" and a
+// "severe … liver" report still escalate.
+describe('Chatbot triage — EN liver as a food must NOT escalate (CB-R5-01)', () => {
+  const benignLiver = [
+    'is liver pate safe',
+    'can I eat beef liver',
+    'chicken liver is rich in iron',
+  ];
+  for (const text of benignLiver) {
+    it(`"${text}" → no red_flag AND no ⚠️/🚨 emergency message`, async () => {
+      const r: any = await analyzeMessage(text);
+      expect({ phrase: text, type: r.type, wrongFlag: r.redFlag?.red_flag_id })
+        .not.toMatchObject({ type: 'red_flag' });
+      expect(r.redFlag).toBeUndefined();
+      const msg: string = typeof r.message === 'string' ? r.message : '';
+      expect({ phrase: text, msg }).toMatchObject({ msg: expect.not.stringContaining('⚠️') });
+      expect({ phrase: text, msg }).toMatchObject({ msg: expect.not.stringContaining('🚨') });
+    });
+  }
+
+  // Guard: a corroborated liver report STILL escalates (HELLP must not be weakened).
+  const stillEscalatesLiver = [
+    'liver pain',                 // multiword keyword → strong match
+    'I have severe liver pain',   // intensifier 'severe' + multiword
+  ];
+  for (const text of stillEscalatesLiver) {
+    it(`"${text}" → STILL escalates (HELLP)`, async () => {
+      const r: any = await analyzeMessage(text);
+      expect({ phrase: text, escalates: escalates(r) }).toMatchObject({ escalates: true });
+    });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CB-R5-02 (P1 CLINICAL — over-escalation). The everyday word 'week' fuzzy-corrected to 'weak'
+// (a single-token keyword of the fetal-distress flag) because they share a first letter and
+// differ by one edit → "see you next week" / "my appointment is next week" escalated to a
+// fetal-distress URGENT. Fix: a FuzzyMatcher allow-list never treats week/weeks (and other
+// frequent safe words) as typos, AND a lone 'weak' is gated to require a baby/movement concept.
+describe('Chatbot triage — "week" must NOT fuzzy-correct to "weak" / escalate (CB-R5-02)', () => {
+  const benignWeek = [
+    'my appointment is next week',
+    'see you next week',
+    'the baby is due in two weeks',
+  ];
+  for (const text of benignWeek) {
+    it(`"${text}" → no red_flag`, async () => {
+      const r: any = await analyzeMessage(text);
+      expect({ phrase: text, type: r.type, wrongFlag: r.redFlag?.red_flag_id })
+        .not.toMatchObject({ type: 'red_flag' });
+      expect(r.redFlag).toBeUndefined();
+    });
+  }
+
+  // Guard: a REAL "weak" report with baby context still escalates (fetal distress).
+  it('"my baby is weak and barely moving" → STILL escalates (fetal distress)', async () => {
+    const r: any = await analyzeMessage('my baby is weak and barely moving');
+    expect(escalates(r)).toBe(true);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CB-R5-03 (P1 CLINICAL — UNDER-escalation, MOST IMPORTANT). Natural reduced-fetal-movement
+// phrasings did NOT escalate: the negation/reduction cue pushed the baby + movement tokens into
+// the negative bucket, so only rigid exact phrases + the AR substring escalated, leaving these
+// to return a benign info card. Fix: reduced fetal movement is detected as a negation-aware
+// concept (baby + movement + reduction/negation cue) that FORCES the fetal-movements red flag.
+describe('Chatbot triage — natural reduced-fetal-movement phrasings MUST escalate (CB-R5-03)', () => {
+  const reducedMovement: { lang: string; text: string }[] = [
+    // EN
+    { lang: 'en', text: 'my baby is not moving anymore' },
+    { lang: 'en', text: "I don't feel my baby move" },
+    { lang: 'en', text: 'I feel fewer movements today' },
+    // FR
+    { lang: 'fr', text: 'mon bébé ne bouge plus' },
+    { lang: 'fr', text: 'je ne sens plus mon bébé bouger' },
+    { lang: 'fr', text: 'bébé ne bouge pas depuis hier' },
+  ];
+  for (const c of reducedMovement) {
+    it(`[${c.lang}] "${c.text}" → escalates (fetal movements)`, async () => {
+      const r: any = await analyzeMessage(c.text);
+      expect({ phrase: c.text, type: r.type, severity: r.redFlag?.severity, escalates: escalates(r) })
+        .toMatchObject({ escalates: true });
+    });
+  }
+
+  // CRITICAL control: a baby+movement phrase with NO reduction cue (benign reassurance) must
+  // NOT escalate — the reduction/negation cue is required.
+  const benignMovement: { lang: string; text: string }[] = [
+    { lang: 'en', text: 'baby moves a lot' },
+    { lang: 'en', text: 'my baby is kicking a lot today' },
+    { lang: 'fr', text: 'bébé bouge beaucoup' },
+  ];
+  for (const c of benignMovement) {
+    it(`[${c.lang}] "${c.text}" → NOT a red_flag (benign movement)`, async () => {
+      const r: any = await analyzeMessage(c.text);
+      expect({ phrase: c.text, type: r.type, wrongFlag: r.redFlag?.red_flag_id })
+        .not.toMatchObject({ type: 'red_flag' });
+      expect(r.redFlag).toBeUndefined();
+    });
+  }
+});

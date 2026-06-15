@@ -150,7 +150,7 @@ export const ArticleDetailScreen = () => {
                         setError(null);
                         setLoading(true);
                     }}
-                    style={{ marginTop: 16, padding: 14, backgroundColor: theme.colors.primary, borderRadius: theme.borderRadius.m }}
+                    style={{ marginTop: 16, padding: 14, backgroundColor: theme.colors.accent, borderRadius: theme.borderRadius.m }}
                     accessibilityRole="button"
                     accessibilityLabel={t('common.retry')}
                 >

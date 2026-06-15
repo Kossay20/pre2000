@@ -63,9 +63,14 @@ export const BabyEvolutionScreen = () => {
     }, [currentMonth]);
 
     const handleScroll = (event: any) => {
-        const offsetX = event.nativeEvent.contentOffset.x;
+        // R5-BABYEVO-RTL-01: with the RTL `row-reverse` content, contentOffset.x can be
+        // negative, which previously yielded "Month -7 / 9". Normalize the offset
+        // (abs) so paging works in both directions, then CLAMP the derived month into
+        // [1, allMonths.length] to guard the label + allMonths[activeMonth-1] lookup.
+        const offsetX = Math.abs(event.nativeEvent.contentOffset.x);
         const index = Math.round(offsetX / (CARD_WIDTH + 16));
-        setActiveMonth(index + 1);
+        const clamped = Math.min(allMonths.length, Math.max(1, index + 1));
+        setActiveMonth(clamped);
     };
 
     const renderMonthCard = (monthData: BabyGrowthMonth, index: number) => {

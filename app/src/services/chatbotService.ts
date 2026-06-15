@@ -245,8 +245,17 @@ export const _analyzeMessage = async (text: string): Promise<ChatResponse> => {
     const GENERIC_FLAG_TOKENS = new Set([
         // EN
         'red', 'blood', 'bright', 'bleeding', 'loss', 'pain',
+        // CB-R5-01 FIX (SAFETY — over-escalation): 'liver' is overwhelmingly a FOOD word in
+        // EN pregnancy questions ("is liver pate safe", "can I eat beef liver", "chicken liver
+        // is rich in iron") yet it is a single-token keyword of the HELLP emergency flag, so a
+        // lone occurrence fired a full EMERGENCY + call button. Gate the EN liver-flag tokens
+        // (mirroring the FR 'foie'/'hépatique' already below) so a bare mention needs
+        // corroboration (an intensity word or a 2nd generic concept). The multiword keyword
+        // "liver pain" stays a STRONG single-hit trigger (substring path), and "severe … liver"
+        // still escalates via the intensifier 'severe'.
+        'liver', 'hepatic', 'ribs',
         // FR
-        'rouge', 'sang', 'foie', 'douleur', 'hépatique',
+        'rouge', 'sang', 'foie', 'douleur', 'hépatique', 'côtes',
     ]);
     // Intensity / quantity / blood-loss corroborators (whole tokens, post-normalization).
     const INTENSIFIER_TOKENS = new Set([
@@ -264,6 +273,66 @@ export const _analyzeMessage = async (text: string): Promise<ChatResponse> => {
     // A generic single-token match counts only when corroborated: an intensity/quantity word
     // is present, OR at least two distinct generic flag concepts co-occur (e.g. douleur+foie).
     const genericTokensCorroborated = hasIntensifier || presentGenericTokens.size >= 2;
+
+    // CB-R5-03 FIX (SAFETY — UNDER-escalation, reduced fetal movement). Natural phrasings of
+    // "my baby isn't moving anymore" carry a negation/reduction cue ("not"/"no longer"/"ne…plus"
+    // /"ne…pas"/"stopped") that pushes the baby + movement tokens into the NEGATIVE bucket, so the
+    // céphalée-style token path saw them as negated and the only escalators left were rigid exact
+    // phrases ("my baby stopped moving") + the AR substring. Reduced fetal movement is a strong
+    // clinical concept that MUST survive negation: detect a baby concept co-occurring with a
+    // movement concept AND a reduction/negation cue, then FORCE the fetal-movements red flag
+    // below. Concept tokens are read from BOTH positive and negative (negation moved them), plus
+    // the raw normalized text. CRITICAL: a reduction/negation cue is REQUIRED, so benign
+    // "baby moves a lot" / "bébé bouge beaucoup" (no cue) stay NON-escalating.
+    const allConceptTokens = [...positive, ...negative];
+    const BABY_TOKENS = new Set([
+        'baby', 'bébé', 'bebe', 'foetus', 'fœtus', 'bibi', 'bebi', 'bb',
+    ]);
+    const MOVEMENT_TOKENS = new Set([
+        // EN (not in the FR-centric SYNONYMS map, so they stay as raw tokens)
+        'move', 'moves', 'moving', 'moved', 'movement', 'movements', 'kick', 'kicks', 'kicking', 'kicked',
+        // FR + arabizi (also appear via synonym expansion of 'mouvement')
+        'bouge', 'bouger', 'bouges', 'bougé', 'bougeait', 'mouvement', 'mouvements', 'coup', 'coups', 'haraka',
+    ]);
+    // Movement NOUNS (kick/movement/mouvement…) inherently denote FETAL movement in this app, so
+    // "I no longer feel movements" / "je ne sens plus de mouvements" needs no explicit baby word.
+    // Bare verbs (move/moving/bouge) still require an explicit baby concept, so a user statement
+    // about themselves ("I don't want to move") cannot trip the fetal-movement flag.
+    const MOVEMENT_NOUN_TOKENS = new Set([
+        'movement', 'movements', 'kick', 'kicks', 'mouvement', 'mouvements',
+    ]);
+    // Reduction / negation cues that, next to a baby+movement concept, signal DECREASED movement.
+    // Whole-word match on the raw normalized text (negation already consumed these in the tokenizer).
+    const RFM_REDUCTION_CUES = [
+        // EN
+        'not', 'no', "n't", 'dont', "don't", 'never', 'anymore', 'stopped', 'stop', 'stops',
+        'less', 'fewer', 'reduced', 'decreased', "hasn't", "haven't", "isn't", "doesn't",
+        // FR
+        'ne', 'pas', 'plus', 'moins', 'arrêté', 'arrete', 'arrêt', 'diminué', 'diminue', 'réduit',
+    ];
+    const hasBabyConcept = allConceptTokens.some(w => BABY_TOKENS.has(w))
+        || /\b(baby|b[ée]b[ée]|bebe)\b/.test(normalizedText);
+    const hasMovementConcept = allConceptTokens.some(w => MOVEMENT_TOKENS.has(w))
+        || /\b(mov(e|es|ed|ing|ement|ements)|kick(s|ed|ing)?|boug(e|er|es|é)|mouvements?)\b/.test(normalizedText);
+    const hasMovementNoun = allConceptTokens.some(w => MOVEMENT_NOUN_TOKENS.has(w))
+        || /\b(mov(ement|ements)|kicks?|mouvements?)\b/.test(normalizedText);
+    const hasReductionCue = RFM_REDUCTION_CUES.some(cue =>
+        new RegExp(`(^|[^a-zà-ÿ])${cue.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}([^a-zà-ÿ]|$)`, 'i').test(normalizedText));
+    // Fire when a reduction/negation cue accompanies EITHER an explicit baby+movement pairing OR a
+    // (fetal) movement NOUN on its own. The cue is always required → benign "baby moves a lot" /
+    // "bébé bouge beaucoup" / "I feel fewer movements" needs the cue but no false-positive cue.
+    const reducedFetalMovement = hasReductionCue && ((hasBabyConcept && hasMovementConcept) || hasMovementNoun);
+
+    // CB-R5-03 FIX (SAFETY — over-escalation companion): the fetal-movement flag also has GENERIC
+    // single-token keywords ("movements"/"mouvements"/"faibles") that, on their own, escalated
+    // POSITIVE phrasings like "baby movements are strong" / "fetal movements are normal" to an
+    // URGENT call button (cry-wolf). Gate those bare tokens like 'weak' below: they count only in a
+    // reduction context — a reduction/negation cue OR a weakness descriptor ('weak'/'faible'). True
+    // reduced-movement reports still escalate (forced path above for cue phrasings; the gated 'weak'
+    // keyword for "fetal movements are weak"; multiword "(baby) stopped moving" strong-matches).
+    const FETAL_GENERIC_TOKENS = new Set(['movements', 'mouvements', 'faibles', 'faible']);
+    const hasWeaknessDescriptor = /\b(weak|faibles?)\b/.test(normalizedText);
+    const fetalReductionContext = hasReductionCue || hasWeaknessDescriptor;
 
     // 2. Check Red Flags (Critical) — use cache
     const redFlags = await getRedFlagsCached();
@@ -323,7 +392,19 @@ export const _analyzeMessage = async (text: string): Promise<ChatResponse> => {
                     // merely contain the word ("I painted the nursery red", "j'ai mangé du foie de
                     // veau") from escalating, while keeping real reports ("beaucoup de sang",
                     // "bleeding a lot") and all specific clinical tokens as triggers.
-                    if (!GENERIC_FLAG_TOKENS.has(keyword) || genericTokensCorroborated) {
+                    // CB-R5-02 FIX (SAFETY — over-escalation): 'weak' is a single-token keyword of
+                    // the fetal-distress flag, but the everyday word 'week' fuzzy-corrects to it
+                    // ("see you next week" → fetal-distress URGENT). Beyond the FuzzyMatcher
+                    // allow-list (which protects week/weeks from correction), gate a LONE 'weak' so
+                    // it only counts with a corroborating baby/movement concept; real reports
+                    // ("my baby is weak", "fetal movements are weak") keep escalating.
+                    const gatedAway =
+                        (GENERIC_FLAG_TOKENS.has(keyword) && !genericTokensCorroborated)
+                        || (keyword === 'weak' && !(hasBabyConcept || hasMovementConcept))
+                        // CB-R5-03: bare fetal "movements"/"mouvements"/"faibles" only in a
+                        // reduction context (cue or weakness) — positive phrasings don't escalate.
+                        || (FETAL_GENERIC_TOKENS.has(keyword) && !fetalReductionContext);
+                    if (!gatedAway) {
                         matchCount++;
                     }
                 }
@@ -356,6 +437,23 @@ export const _analyzeMessage = async (text: string): Promise<ChatResponse> => {
         if (matchCount > 0) {
             const severityScore = SEVERITY_PRIORITY[flag.severity?.toLowerCase() || 'faible'] || 0;
             matchedFlags.push({ flag, severityScore, matchCount });
+        }
+    }
+
+    // CB-R5-03 FIX (SAFETY — UNDER-escalation): FORCE the reduced-fetal-movement red flag when
+    // the negation-aware concept detector above fired (baby + movement + reduction/negation cue).
+    // This survives token-level negation (which otherwise suppressed the movement tokens) so that
+    // natural phrasings — "my baby is not moving anymore", "I don't feel my baby move",
+    // "mon bébé ne bouge plus", "je ne sens plus mon bébé bouger", "bébé ne bouge pas depuis hier"
+    // — escalate to the fetal-movements flag instead of returning a benign info card. Severity
+    // ordering is unchanged: a co-occurring EMERGENCY still outranks this urgent_consult flag.
+    if (reducedFetalMovement) {
+        const fetalFlag = redFlags.find(f =>
+            f.red_flag_id === 'ne sens plus le bébé'
+            || (f.keywords_en || '').toLowerCase().includes('baby not moving'));
+        if (fetalFlag && !matchedFlags.some(m => m.flag.red_flag_id === fetalFlag.red_flag_id)) {
+            const severityScore = SEVERITY_PRIORITY[fetalFlag.severity?.toLowerCase() || 'faible'] || 0;
+            matchedFlags.push({ flag: fetalFlag, severityScore, matchCount: 1 });
         }
     }
 

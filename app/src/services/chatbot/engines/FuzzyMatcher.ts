@@ -5,6 +5,25 @@
 
 export class FuzzyMatcher {
     /**
+     * CB-R5-02 FIX (SAFETY — over-escalation): high-frequency everyday words that must NEVER be
+     * "corrected" into a clinical token. The flat 1-edit budget let common words collapse onto
+     * single-token red-flag keywords that share a first letter and differ by one edit — most
+     * dangerously "week"/"weeks" → "weak" (fetal-distress URGENT), so "see you next week" /
+     * "my appointment is next week" escalated. These are ordinary English words a pregnant user
+     * types constantly; treating them as typos is never correct. (Defense-in-depth: the lone
+     * 'weak' keyword is additionally gated in chatbotService so it needs a baby/movement concept.)
+     * Kept tight to real, frequent collisions so genuine typo tolerance (e.g. "bleding"→
+     * "bleeding") is untouched.
+     */
+    private static readonly NEVER_CORRECT = new Set([
+        'week', 'weeks',          // → weak (fetal distress)
+        'read', 'reed',           // → red  (hemorrhage)
+        'lost', 'lots',           // → loss (hemorrhage) — also legit intensity words
+        'fats', 'figs',           // → fits (eclampsia) — common food words
+        'feed', 'feet', 'need', 'seed', // frequent benign words near food/symptom queries
+    ]);
+
+    /**
      * Calculate Levenshtein distance between two strings
      */
     private static levenshtein(a: string, b: string): number {
@@ -48,6 +67,9 @@ export class FuzzyMatcher {
      */
     static findClosestMatch(word: string, candidates: string[], threshold: number = 2): string | null {
         if (word.length < 4) return null; // Don't correct short words
+
+        // CB-R5-02 FIX (SAFETY): never treat a high-frequency safe word as a typo (week→weak …).
+        if (this.NEVER_CORRECT.has(word.toLowerCase())) return null;
 
         // CB2-FIX (SAFETY): make the edit budget proportional to word length.
         // A flat threshold of 2 let medium words be "corrected" across languages into
