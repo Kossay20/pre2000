@@ -90,7 +90,7 @@ export const SupplementDetailScreen = () => {
                     <Text style={{ color: theme.colors.white, fontWeight: '600' }}>{t('common.retry')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginTop: 12 }}>
-                    <Text style={{ color: theme.colors.primary }}>{t('common.back')}</Text>
+                    <Text style={{ color: theme.colors.accent }}>{t('common.back')}</Text>
                 </TouchableOpacity>
             </View>
         );

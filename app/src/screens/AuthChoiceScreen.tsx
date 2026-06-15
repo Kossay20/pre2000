@@ -182,7 +182,9 @@ const styles = StyleSheet.create({
         borderColor: theme.colors.primary,
     },
     secondaryButtonText: {
-        color: theme.colors.primary,
+        // A11Y-CONTRAST-01: 'Sign in' text #FF6B9D on white button = 2.68:1 (WCAG AA
+        // fail). Route to accent #C2185B = 5.5:1 (pass). Border stays #FF6B9D (decorative).
+        color: theme.colors.accent,
         fontSize: 18,
         fontWeight: 'bold',
     },

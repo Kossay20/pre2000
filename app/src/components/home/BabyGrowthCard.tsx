@@ -193,7 +193,7 @@ const styles = StyleSheet.create({
     monthBadge: {
         fontSize: 14,
         fontWeight: '600',
-        color: theme.colors.primary,
+        color: theme.colors.accent,
         backgroundColor: theme.colors.surfaceBlush,
         paddingHorizontal: 12,
         paddingVertical: 6,
@@ -290,7 +290,7 @@ const styles = StyleSheet.create({
     progressText: {
         fontSize: 14,
         fontWeight: '700',
-        color: theme.colors.primary,
+        color: theme.colors.accent,
         minWidth: 45,
         textAlign: 'right',
     },

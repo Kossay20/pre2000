@@ -85,7 +85,7 @@ export const styles = StyleSheet.create({
         fontWeight: '600',
     },
     linkText: {
-        color: theme.colors.primary,
+        color: theme.colors.accent,
         fontSize: 14,
         fontWeight: '600',
     },
@@ -287,7 +287,7 @@ export const styles = StyleSheet.create({
         fontWeight: '500',
     },
     symptomLabelActive: {
-        color: theme.colors.primary,
+        color: theme.colors.accent,
         fontWeight: '600',
     },
 });

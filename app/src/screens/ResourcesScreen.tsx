@@ -19,7 +19,10 @@ export const ResourcesScreen = () => {
                 // doesn't run its Firestore queries until the user actually visits it.
                 // Saves a duplicate scan on first entry to Resources.
                 lazy: true,
-                tabBarActiveTintColor: theme.colors.primary,
+                // A11Y-CONTRAST-01: active-tab label tint #FF6B9D on white = 2.68:1
+                // (WCAG AA fail). Route to accent #C2185B = 5.5:1 (pass). The indicator
+                // bar below stays #FF6B9D (decorative, non-text).
+                tabBarActiveTintColor: theme.colors.accent,
                 tabBarInactiveTintColor: theme.colors.textLight,
                 tabBarIndicatorStyle: { backgroundColor: theme.colors.primary },
                 tabBarStyle: { backgroundColor: theme.colors.white },

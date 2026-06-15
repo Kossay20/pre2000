@@ -241,7 +241,7 @@ const styles = StyleSheet.create({
         color: theme.colors.textSecondary,
     },
     languageNativeSelected: {
-        color: theme.colors.primary,
+        color: theme.colors.accent,
     },
     checkmark: {
         position: 'absolute',

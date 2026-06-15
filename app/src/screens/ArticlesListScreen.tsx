@@ -295,7 +295,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     readMore: {
-        color: theme.colors.primary,
+        color: theme.colors.accent,
         fontSize: 14,
         fontWeight: 'bold',
     },

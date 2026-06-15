@@ -286,7 +286,7 @@ const styles = StyleSheet.create({
     rowLabelChecked: { color: theme.colors.textLight, textDecorationLine: 'line-through' },
     removeText: { color: theme.colors.error, fontSize: 18, fontWeight: '700', paddingHorizontal: theme.spacing.s },
     addRow: { paddingVertical: theme.spacing.s, paddingHorizontal: theme.spacing.s },
-    addRowText: { ...theme.typography.caption, color: theme.colors.primary, fontWeight: '600' },
+    addRowText: { ...theme.typography.caption, color: theme.colors.accent, fontWeight: '600' },
     modalBackdrop: {
         flex: 1,
         backgroundColor: theme.colors.overlay,

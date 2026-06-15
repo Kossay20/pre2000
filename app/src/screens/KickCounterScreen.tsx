@@ -200,7 +200,7 @@ const styles = StyleSheet.create({
     guideText: { ...theme.typography.body, color: theme.colors.textLight, lineHeight: 20 },
     emptyWrap: { minHeight: 220, justifyContent: 'center' },
     activeWrap: { alignItems: 'center', paddingVertical: theme.spacing.l },
-    bigCount: { fontSize: 72, fontWeight: '700', color: theme.colors.primary },
+    bigCount: { fontSize: 72, fontWeight: '700', color: theme.colors.accent },
     bigCountLabel: { ...theme.typography.body, color: theme.colors.textLight, marginBottom: theme.spacing.s },
     elapsed: { ...theme.typography.caption, color: theme.colors.textLight, marginBottom: theme.spacing.l },
     tapButton: {

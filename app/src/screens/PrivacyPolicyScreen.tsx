@@ -243,7 +243,7 @@ const styles = StyleSheet.create({
     sectionTitle: {
         fontSize: 18,
         fontWeight: '600',
-        color: theme.colors.primary,
+        color: theme.colors.accent,
         marginBottom: 12,
     },
     paragraph: {

@@ -365,7 +365,7 @@ export const styles = StyleSheet.create({
         color: theme.colors.white,
     },
     eventBadgeTextSelected: {
-        color: theme.colors.primary,
+        color: theme.colors.accent,
     },
     eventDot: {
         width: 4,

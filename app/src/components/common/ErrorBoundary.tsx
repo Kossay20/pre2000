@@ -210,7 +210,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 24,
     },
     secondaryButtonText: {
-        color: theme.colors.primary,
+        color: theme.colors.accent,
         fontSize: 15,
         fontWeight: '500',
     },

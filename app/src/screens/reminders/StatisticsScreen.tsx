@@ -312,7 +312,7 @@ const styles = StyleSheet.create({
     },
     backButtonText: {
         fontSize: 16,
-        color: theme.colors.primary,
+        color: theme.colors.accent,
     },
     title: {
         fontSize: 20,

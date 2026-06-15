@@ -177,7 +177,10 @@ const MainTabs = () => {
         // ErrorBoundary, leaking Firestore listeners.
         unmountOnBlur: true,
         headerShown: false,
-        tabBarActiveTintColor: theme.colors.primary,
+        // A11Y-CONTRAST-01: active-tab tint #FF6B9D on white = 2.68:1 (WCAG AA fail).
+        // Route actionable tint to accent #C2185B = 5.5:1 (passes AA). Decorative
+        // pink fills stay #FF6B9D.
+        tabBarActiveTintColor: theme.colors.accent,
         tabBarInactiveTintColor: theme.colors.textLight,
         tabBarStyle: {
           backgroundColor: theme.colors.white,

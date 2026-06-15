@@ -447,7 +447,7 @@ const styles = StyleSheet.create({
         marginTop: 4,
     },
     articleLinkText: {
-        color: theme.colors.primary,
+        color: theme.colors.accent,
         textDecorationLine: 'underline' as const,
     },
     loadingContainer: {
@@ -463,7 +463,7 @@ const styles = StyleSheet.create({
         borderColor: theme.colors.primary,
     },
     retryText: {
-        color: theme.colors.primary,
+        color: theme.colors.accent,
         fontSize: 12,
         fontWeight: 'bold',
     },

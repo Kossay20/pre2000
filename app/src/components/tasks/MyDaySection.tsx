@@ -496,7 +496,7 @@ const styles = StyleSheet.create({
     progressText: {
         fontSize: 14,
         fontWeight: '700',
-        color: theme.colors.primary,
+        color: theme.colors.accent,
         marginBottom: 4,
     },
     progressBarBg: {

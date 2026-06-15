@@ -137,6 +137,6 @@ const styles = StyleSheet.create({
     },
     selectedLabel: {
         fontWeight: 'bold',
-        color: theme.colors.primary,
+        color: theme.colors.accent,
     },
 });

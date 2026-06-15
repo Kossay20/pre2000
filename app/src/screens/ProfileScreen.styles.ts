@@ -346,7 +346,7 @@ export const styles = StyleSheet.create({
     },
     modalHeaderText: {
         fontSize: 16,
-        color: theme.colors.primary,
+        color: theme.colors.accent,
     },
     modalTitle: {
         fontSize: 18,

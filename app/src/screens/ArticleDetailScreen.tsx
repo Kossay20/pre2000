@@ -126,7 +126,7 @@ export const ArticleDetailScreen = () => {
             <View style={styles.centerContainer}>
                 <Text style={theme.typography.body}>{t('article.errorSpecified')}</Text>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginTop: 20 }}>
-                    <Text style={{ color: theme.colors.primary }}>{t('common.back')}</Text>
+                    <Text style={{ color: theme.colors.accent }}>{t('common.back')}</Text>
                 </TouchableOpacity>
             </View>
         );
@@ -157,7 +157,7 @@ export const ArticleDetailScreen = () => {
                     <Text style={{ color: theme.colors.white, fontWeight: '600' }}>{t('common.retry')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginTop: 12 }}>
-                    <Text style={{ color: theme.colors.primary }}>{t('common.back')}</Text>
+                    <Text style={{ color: theme.colors.accent }}>{t('common.back')}</Text>
                 </TouchableOpacity>
             </View>
         );
@@ -168,7 +168,7 @@ export const ArticleDetailScreen = () => {
             <View style={styles.centerContainer}>
                 <Text style={theme.typography.body}>{t('article.notFound')}</Text>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginTop: 20, padding: 10 }}>
-                    <Text style={{ color: theme.colors.primary, fontWeight: 'bold' }}>{t('common.back')}</Text>
+                    <Text style={{ color: theme.colors.accent, fontWeight: 'bold' }}>{t('common.back')}</Text>
                 </TouchableOpacity>
             </View>
         );
@@ -435,7 +435,7 @@ const markdownStyles = {
     heading1: {
         fontSize: 24,
         fontWeight: 'bold',
-        color: theme.colors.primary,
+        color: theme.colors.accent,
         marginTop: theme.spacing.l,
         marginBottom: theme.spacing.m,
         borderBottomWidth: 2,
@@ -491,7 +491,7 @@ const markdownStyles = {
         fontStyle: 'italic',
     },
     link: {
-        color: theme.colors.primary,
+        color: theme.colors.accent,
         textDecorationLine: 'underline' as const,
     },
 };

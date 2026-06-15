@@ -12,17 +12,19 @@ describe('Button helpers', () => {
             expect(v.borderColor).toBeUndefined();
         });
 
-        it('returns transparent + primary text + primary border for outline', () => {
+        it('returns transparent + accent text (AA) + primary border for outline', () => {
+            // A11Y-CONTRAST-01 : outline text routed to accent #C2185B (5.87:1) instead
+            // of primary #FF6B9D (2.68:1 fail). Border stays decorative #FF6B9D.
             const v = resolveButtonVariant('outline', false);
             expect(v.backgroundColor).toBe('transparent');
-            expect(v.textColor).toBe(theme.colors.primary);
+            expect(v.textColor).toBe(theme.colors.accent);
             expect(v.borderColor).toBe(theme.colors.primary);
         });
 
-        it('returns transparent + primary text without border for ghost', () => {
+        it('returns transparent + accent text (AA) without border for ghost', () => {
             const v = resolveButtonVariant('ghost', false);
             expect(v.backgroundColor).toBe('transparent');
-            expect(v.textColor).toBe(theme.colors.primary);
+            expect(v.textColor).toBe(theme.colors.accent);
             expect(v.borderColor).toBeUndefined();
         });
 

@@ -24,7 +24,7 @@ export const CalendarMonthStats: React.FC<CalendarMonthStatsProps> = ({
                 <Text style={styles.statLabel}>{t('calendar.total')}</Text>
             </View>
             <View style={styles.statItem}>
-                <Text style={[styles.statValue, { color: theme.colors.primary }]}>{userEventCount}</Text>
+                <Text style={[styles.statValue, { color: theme.colors.accent }]}>{userEventCount}</Text>
                 <Text style={styles.statLabel}>{t('calendar.myAppointments')}</Text>
             </View>
             <View style={styles.statItem}>

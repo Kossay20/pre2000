@@ -235,8 +235,8 @@ const styles = StyleSheet.create({
     guideText: { ...theme.typography.body, color: theme.colors.textLight, lineHeight: 20 },
     controlBlock: { alignItems: 'center', marginVertical: theme.spacing.l },
     activeWrap: { alignItems: 'center' },
-    activeLabel: { ...theme.typography.body, color: theme.colors.primary, marginBottom: theme.spacing.s },
-    activeTimer: { fontSize: 56, fontWeight: '700', color: theme.colors.primary, marginBottom: theme.spacing.l },
+    activeLabel: { ...theme.typography.body, color: theme.colors.accent, marginBottom: theme.spacing.s },
+    activeTimer: { fontSize: 56, fontWeight: '700', color: theme.colors.accent, marginBottom: theme.spacing.l },
     statsGrid: {
         flexDirection: 'row',
         flexWrap: 'wrap',
@@ -251,7 +251,7 @@ const styles = StyleSheet.create({
         borderRadius: theme.borderRadius.m,
         alignItems: 'center',
     },
-    statValue: { ...theme.typography.h2, color: theme.colors.primary, fontWeight: '700' },
+    statValue: { ...theme.typography.h2, color: theme.colors.accent, fontWeight: '700' },
     statLabel: { ...theme.typography.caption, color: theme.colors.textLight, textAlign: 'center', marginTop: theme.spacing.xs },
     sectionTitle: { ...theme.typography.h3, color: theme.colors.text, marginBottom: theme.spacing.s },
     historyRow: {
@@ -265,7 +265,7 @@ const styles = StyleSheet.create({
     historyDur: { ...theme.typography.caption, color: theme.colors.text, fontWeight: '600' },
     actionRow: { flexDirection: 'row', justifyContent: 'center', marginTop: theme.spacing.l },
     callRow: { padding: theme.spacing.m, alignItems: 'center', marginTop: theme.spacing.l },
-    callText: { ...theme.typography.body, color: theme.colors.primary, fontWeight: '600' },
+    callText: { ...theme.typography.body, color: theme.colors.accent, fontWeight: '600' },
     disclaimer: {
         ...theme.typography.caption,
         color: theme.colors.textLight,

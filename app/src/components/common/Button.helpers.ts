@@ -57,13 +57,17 @@ export function resolveButtonVariant(
                 textColor: theme.colors.white,
             };
         case 'outline':
+            // A11Y-CONTRAST-01: outline/ghost TEXT sits on transparent (= white bg).
+            // primary #FF6B9D = 2.68:1 (WCAG AA fail) → route text to accent #C2185B
+            // = 5.87:1 (pass). The border stays #FF6B9D (decorative, non-text).
             return {
                 backgroundColor: 'transparent',
-                textColor: theme.colors.primary,
+                textColor: theme.colors.accent,
                 borderColor: theme.colors.primary,
             };
         case 'ghost':
-            return { backgroundColor: 'transparent', textColor: theme.colors.primary };
+            // A11Y-CONTRAST-01: ghost text on transparent (white) — route to accent.
+            return { backgroundColor: 'transparent', textColor: theme.colors.accent };
         case 'destructive':
             return { backgroundColor: theme.colors.error, textColor: theme.colors.white };
         case 'success':

@@ -222,7 +222,11 @@ const styles = StyleSheet.create({
     },
     tagText: {
         fontSize: 11,
-        color: theme.colors.primary,
+        // A11Y-CONTRAST-01: route text pink to accent #C2185B (design token for
+        // actionable/text pink). NOTE: the base `tag` fill is `secondary` (#FF8FA3),
+        // so this label still reads ~2.72:1 — full AA needs the tag BACKGROUND fixed
+        // (separate decorative-fill defect, out of this contrast pass's scope).
+        color: theme.colors.accent,
         fontWeight: '500' as const,
     },
     userTagText: {

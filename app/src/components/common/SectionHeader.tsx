@@ -33,7 +33,7 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     action: {
-        color: theme.colors.primary,
+        color: theme.colors.accent,
         fontWeight: 'bold',
         fontSize: 14,
     },

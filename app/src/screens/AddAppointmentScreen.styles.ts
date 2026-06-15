@@ -210,7 +210,7 @@ export const styles = StyleSheet.create({
         backgroundColor: theme.colors.borderLight,
     },
     closePickerText: {
-        color: theme.colors.primary,
+        color: theme.colors.accent,
         fontWeight: '600',
         fontSize: 16,
     },

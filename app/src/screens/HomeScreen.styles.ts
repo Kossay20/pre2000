@@ -390,7 +390,7 @@ export const styles = StyleSheet.create({
         textAlign: 'right',
     },
     highlightValue: {
-        color: theme.colors.primary,
+        color: theme.colors.accent,
         fontWeight: 'bold',
     },
     modalActions: {
@@ -1033,7 +1033,7 @@ export const styles = StyleSheet.create({
     babySizeValue: {
         fontSize: 24,
         fontWeight: 'bold',
-        color: theme.colors.primary,
+        color: theme.colors.accent,
     },
     babyComparisonContainer: {
         backgroundColor: theme.colors.lavenderBlush,
@@ -1050,7 +1050,7 @@ export const styles = StyleSheet.create({
     babyComparisonValue: {
         fontSize: 20,
         fontWeight: 'bold',
-        color: theme.colors.primary,
+        color: theme.colors.accent,
     },
     babyDevText: {
         fontSize: 15,
