@@ -102,6 +102,12 @@ export const ProfileScreen = () => {
                 country,
                 lmp: lmp.toISOString(),
                 dpa: dpa.toISOString(),
+                // F-PROF-01 FIX: include physical data so the guest 'guestProfile'
+                // AsyncStorage write (PregnancyContext.setProfile) persists height &
+                // prePregnancyWeight. Without these, guest BMI/weight-gain break and
+                // the WeightTracker setup gate re-triggers after reload.
+                ...(isFinite(heightNum) && heightNum > 0 ? { height: heightNum } : {}),
+                ...(isFinite(weightNum) && weightNum > 0 ? { prePregnancyWeight: weightNum } : {}),
             };
 
             // 1. Update PregnancyContext (local state + guest AsyncStorage)

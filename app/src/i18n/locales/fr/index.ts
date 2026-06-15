@@ -25,6 +25,11 @@ import cycle8Fr from './cycle8.json';
 // Explicit deep-merge of the `errors` sub-block — auth wins, common is base.
 const mergedErrors = { ...(commonFr as any).errors, ...(authFr as any).errors };
 
+// AUTH-01 FIX: commonFr.home holds the TTC/Curious/postpartum keys, but
+// `home: homeFr` would overwrite the whole subtree (home.json lacks those 8 keys).
+// Deep-merge `home` — home.json wins, common.home is the base (mirrors `errors`).
+const mergedHome = { ...(commonFr as any).home, ...(homeFr as any) };
+
 export default {
     ...authFr,
     ...commonFr,
@@ -36,7 +41,7 @@ export default {
     calendar: calendarFr,
     dashboard: dashboardFr,
     weight: weightFr,
-    home: homeFr,
+    home: mergedHome,
     tasks: tasksFr,
     babyGrowth: babyGrowthFr,
     reminders: remindersFr,

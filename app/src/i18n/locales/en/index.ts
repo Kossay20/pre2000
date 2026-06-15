@@ -20,6 +20,11 @@ import babyGrowthEn from './babyGrowth.json';
 // Explicit deep-merge of the `errors` sub-block — auth wins, common is base.
 const mergedErrorsEn = { ...(commonEn as any).errors, ...(authEn as any).errors };
 
+// AUTH-01 FIX: commonEn.home holds the TTC/Curious/postpartum keys, but
+// `home: homeEn` would overwrite the whole subtree (home.json lacks those 8 keys).
+// Deep-merge `home` — home.json wins, common.home is the base (mirrors `errors`).
+const mergedHomeEn = { ...(commonEn as any).home, ...(homeEn as any) };
+
 export default {
     ...authEn,
     ...commonEn,
@@ -31,7 +36,7 @@ export default {
     calendar: calendarEn,
     dashboard: dashboardEn,
     weight: weightEn,
-    home: homeEn,
+    home: mergedHomeEn,
     tasks: tasksEn,
     reminders: remindersEn,
     forbiddenFoods: forbiddenFoodsEn,

@@ -253,6 +253,17 @@ const AppContent = () => {
             SupplementDetail: 'supplement/:supplementId',
             WeekRecommendations: 'recommendations',
             Diagnostic: 'diagnostic',
+            HealthDashboard: 'health',
+            WeightTracker: 'weight',
+            Profile: 'profile',
+            Settings: 'settings',
+            ForbiddenFoods: 'forbidden-foods',
+            KickCounter: 'kick-counter',
+            ContractionTimer: 'contraction-timer',
+            HospitalBag: 'hospital-bag',
+            RamadanPregnancy: 'ramadan',
+            BabyEvolution: 'baby-evolution',
+            LanguageSelect: 'language',
           }
         },
         Calendrier: {
@@ -264,6 +275,7 @@ const AppContent = () => {
         Rappels: {
           screens: {
             RemindersMain: 'reminders',
+            Statistics: 'statistics',
           }
         },
         Ressources: {

@@ -4,9 +4,10 @@
  * Tests the daily checklist generation and progress tracking
  */
 
-import { generateDailyChecklist } from '../dailyChecklistService';
+import { generateDailyChecklist, getHistoricalData } from '../dailyChecklistService';
 import { UserEvent } from '../../types';
 import { format } from 'date-fns';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Mock the remindersV2Service
 // Mock the remindersV2Service
@@ -163,5 +164,42 @@ describe('checklist item structure', () => {
         reminderItems.forEach(item => {
             expect(item.reminderId).toBeDefined();
         });
+    });
+});
+
+// ============================================
+// TEST: getHistoricalData hydration tracking
+// Regression guard for the 'hydration' vs 'hyd' id/category mismatch
+// (saved hydration item id is 'reminder-rem_hyd_water').
+// ============================================
+
+describe('getHistoricalData hydration', () => {
+    const KEY_PREFIX = '@daily_checklist_v2_';
+
+    afterEach(() => {
+        jest.clearAllMocks();
+    });
+
+    test('reflects saved hydration current (>0) for reminder-rem_hyd_water', async () => {
+        const todayStr = format(new Date(), 'yyyy-MM-dd');
+        const key = `${KEY_PREFIX}${todayStr}`;
+
+        // Saved daily blob: hydration item with current liters consumed > 0
+        const savedBlob = [
+            { id: 'reminder-rem_hyd_water', completed: false, current: 1.5 },
+            { id: 'reminder-test-essential-slot-0', completed: true },
+        ];
+
+        jest.mocked(AsyncStorage.getAllKeys).mockResolvedValueOnce([key]);
+        jest.mocked(AsyncStorage.getItem).mockImplementation(async (k: string) =>
+            k === key ? JSON.stringify(savedBlob) : null
+        );
+
+        const stats = await getHistoricalData(30);
+
+        expect(stats.dates).toContain(todayStr);
+        const idx = stats.dates.indexOf(todayStr);
+        expect(stats.hydration[idx]).toBe(1.5);
+        expect(stats.hydration[idx]).toBeGreaterThan(0);
     });
 });

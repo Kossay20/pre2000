@@ -224,7 +224,7 @@ describe('evaluateWeightStatus', () => {
     it('returns normal when weight is inside the recommended range', () => {
         const res = evaluateWeightStatus(73, 60, 165, 40);
         expect(res.status).toBe('normal');
-        expect(res.messageKey).toBe('weight:status.normal');
+        expect(res.messageKey).toBe('weight.status.normal');
         expect(res.gain).toBeCloseTo(13, 5);
     });
 
@@ -232,7 +232,7 @@ describe('evaluateWeightStatus', () => {
         // current 70, min 71.5 -> belowMin 1.5
         const res = evaluateWeightStatus(70, 60, 165, 40);
         expect(res.status).toBe('low');
-        expect(res.messageKey).toBe('weight:status.lowSlight');
+        expect(res.messageKey).toBe('weight.status.lowSlight');
         expect(res.gain).toBeCloseTo(10, 5);
     });
 
@@ -240,7 +240,7 @@ describe('evaluateWeightStatus', () => {
         // current 68, min 71.5 -> belowMin 3.5
         const res = evaluateWeightStatus(68, 60, 165, 40);
         expect(res.status).toBe('low');
-        expect(res.messageKey).toBe('weight:status.lowSignificant');
+        expect(res.messageKey).toBe('weight.status.lowSignificant');
         expect(res.gain).toBeCloseTo(8, 5);
     });
 
@@ -248,7 +248,7 @@ describe('evaluateWeightStatus', () => {
         // current 77, max 76 -> aboveMax 1
         const res = evaluateWeightStatus(77, 60, 165, 40);
         expect(res.status).toBe('high');
-        expect(res.messageKey).toBe('weight:status.highSlight');
+        expect(res.messageKey).toBe('weight.status.highSlight');
         expect(res.gain).toBeCloseTo(17, 5);
     });
 
@@ -256,7 +256,7 @@ describe('evaluateWeightStatus', () => {
         // current 79, max 76 -> aboveMax 3
         const res = evaluateWeightStatus(79, 60, 165, 40);
         expect(res.status).toBe('high');
-        expect(res.messageKey).toBe('weight:status.highSignificant');
+        expect(res.messageKey).toBe('weight.status.highSignificant');
         expect(res.gain).toBeCloseTo(19, 5);
     });
 
@@ -264,7 +264,7 @@ describe('evaluateWeightStatus', () => {
         // week 10, gain -2 (between -3 and 0) -> nausea/normal even though below range
         const res = evaluateWeightStatus(58, 60, 165, 10);
         expect(res.status).toBe('normal');
-        expect(res.messageKey).toBe('weight:status.t1Nausea');
+        expect(res.messageKey).toBe('weight.status.t1Nausea');
         expect(res.gain).toBeCloseTo(-2, 5);
     });
 
@@ -272,13 +272,13 @@ describe('evaluateWeightStatus', () => {
         // week 10, gain -4 -> beyond the nausea tolerance, normal band logic applies
         const res = evaluateWeightStatus(56, 60, 165, 10);
         expect(res.status).toBe('low');
-        expect(res.messageKey).toBe('weight:status.lowSignificant');
+        expect(res.messageKey).toBe('weight.status.lowSignificant');
         expect(res.gain).toBeCloseTo(-4, 5);
     });
 
     it('nausea filter applies up to and including week 14', () => {
         const res = evaluateWeightStatus(58.5, 60, 165, 14);
-        expect(res.messageKey).toBe('weight:status.t1Nausea');
+        expect(res.messageKey).toBe('weight.status.t1Nausea');
         expect(res.status).toBe('normal');
     });
 
@@ -286,7 +286,7 @@ describe('evaluateWeightStatus', () => {
         // week 15, gain -2 -> no nausea exemption; below the (still tiny) range -> low
         const res = evaluateWeightStatus(58, 60, 165, 15);
         expect(res.status).toBe('low');
-        expect(res.messageKey).not.toBe('weight:status.t1Nausea');
+        expect(res.messageKey).not.toBe('weight.status.t1Nausea');
     });
 
     it('does not apply nausea filter when gain >= 0 in T1', () => {
@@ -294,9 +294,9 @@ describe('evaluateWeightStatus', () => {
         // is skipped. At week 10 the recommended range is tiny (min ~60.385), so
         // a flat 60kg sits just below min -> classified as low/lowSlight.
         const res = evaluateWeightStatus(60, 60, 165, 10);
-        expect(res.messageKey).not.toBe('weight:status.t1Nausea');
+        expect(res.messageKey).not.toBe('weight.status.t1Nausea');
         expect(res.status).toBe('low');
-        expect(res.messageKey).toBe('weight:status.lowSlight');
+        expect(res.messageKey).toBe('weight.status.lowSlight');
         expect(res.gain).toBeCloseTo(0, 5);
     });
 
@@ -304,13 +304,13 @@ describe('evaluateWeightStatus', () => {
         // week 40 range min = 71.5
         const res = evaluateWeightStatus(71.5, 60, 165, 40);
         expect(res.status).toBe('normal');
-        expect(res.messageKey).toBe('weight:status.normal');
+        expect(res.messageKey).toBe('weight.status.normal');
     });
 
     it('exactly at max boundary (aboveMax == 0) is treated as normal', () => {
         const res = evaluateWeightStatus(76, 60, 165, 40);
         expect(res.status).toBe('normal');
-        expect(res.messageKey).toBe('weight:status.normal');
+        expect(res.messageKey).toBe('weight.status.normal');
     });
 });
 

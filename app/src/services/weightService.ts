@@ -130,20 +130,20 @@ export const evaluateWeightStatus = (
     // NEW (T1 Nausea filter):
     // If the loss is slight (e.g., > -3kg) in Trimester 1, classify as normal.
     if (currentWeek <= 14 && gain < 0 && gain > -3) {
-        return { status: 'normal', messageKey: 'weight:status.t1Nausea', gain };
+        return { status: 'normal', messageKey: 'weight.status.t1Nausea', gain };
     }
 
     // Slight deviation (< 2kg) vs significant deviation
     if (belowMin > 2) {
-        return { status: 'low', messageKey: 'weight:status.lowSignificant', gain };
+        return { status: 'low', messageKey: 'weight.status.lowSignificant', gain };
     } else if (belowMin > 0) {
-        return { status: 'low', messageKey: 'weight:status.lowSlight', gain };
+        return { status: 'low', messageKey: 'weight.status.lowSlight', gain };
     } else if (aboveMax > 2) {
-        return { status: 'high', messageKey: 'weight:status.highSignificant', gain };
+        return { status: 'high', messageKey: 'weight.status.highSignificant', gain };
     } else if (aboveMax > 0) {
-        return { status: 'high', messageKey: 'weight:status.highSlight', gain };
+        return { status: 'high', messageKey: 'weight.status.highSlight', gain };
     } else {
-        return { status: 'normal', messageKey: 'weight:status.normal', gain };
+        return { status: 'normal', messageKey: 'weight.status.normal', gain };
     }
 };
 

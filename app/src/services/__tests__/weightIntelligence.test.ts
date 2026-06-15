@@ -145,7 +145,7 @@ describe('detectTrend — branch: stable', () => {
         const t = detectTrend(series([60, 60.1]))!;
         expect(t.type).toBe('stable');
         expect(t.severity).toBe('normal');
-        expect(t.messageKey).toBe('weight:trend.stable');
+        expect(t.messageKey).toBe('weight.trend.stable');
         expect(t.messageParams).toBeUndefined();
         expect(Math.abs(t.weeklyRate)).toBeLessThan(0.2);
     });
@@ -163,7 +163,7 @@ describe('detectTrend — branch: rapid_gain', () => {
         const t = detectTrend(series([60, 61.5]))!;
         expect(t.type).toBe('rapid_gain');
         expect(t.severity).toBe('warning');
-        expect(t.messageKey).toBe('weight:trend.rapidGain');
+        expect(t.messageKey).toBe('weight.trend.rapidGain');
         expect(t.weeklyRate).toBeCloseTo(1.5, 10);
         expect(t.messageParams).toEqual({ rate: '1.5' });
     });
@@ -188,7 +188,7 @@ describe('detectTrend — branch: rapid_loss', () => {
         const t = detectTrend(series([60, 59.2]))!;
         expect(t.type).toBe('rapid_loss');
         expect(t.severity).toBe('warning');
-        expect(t.messageKey).toBe('weight:trend.rapidLoss');
+        expect(t.messageKey).toBe('weight.trend.rapidLoss');
         expect(t.weeklyRate).toBeCloseTo(-0.8, 10);
         expect(t.messageParams).toEqual({ rate: '-0.8' });
     });
@@ -207,7 +207,7 @@ describe('detectTrend — branch: increasing', () => {
         const t = detectTrend(series([60, 60.5]))!;
         expect(t.type).toBe('increasing');
         expect(t.severity).toBe('normal');
-        expect(t.messageKey).toBe('weight:trend.increasing');
+        expect(t.messageKey).toBe('weight.trend.increasing');
         expect(t.weeklyRate).toBeCloseTo(0.5, 10);
         expect(t.messageParams).toEqual({ rate: '0.5' });
     });
@@ -228,7 +228,7 @@ describe('detectTrend — branch: increasing', () => {
         expect(t.weeklyRate).toBe(0.2);
         expect(t.type).toBe('decreasing');
         expect(t.severity).toBe('attention');
-        expect(t.messageKey).toBe('weight:trend.decreasing');
+        expect(t.messageKey).toBe('weight.trend.decreasing');
     });
 });
 
@@ -238,7 +238,7 @@ describe('detectTrend — branch: decreasing', () => {
         const t = detectTrend(series([60, 59.7]))!;
         expect(t.type).toBe('decreasing');
         expect(t.severity).toBe('attention');
-        expect(t.messageKey).toBe('weight:trend.decreasing');
+        expect(t.messageKey).toBe('weight.trend.decreasing');
         expect(t.weeklyRate).toBeCloseTo(-0.3, 10);
         expect(t.messageParams).toEqual({ rate: '-0.3' });
     });
@@ -323,40 +323,40 @@ describe('detectTrend — sorting and last-4 windowing', () => {
 describe('getSmartSuggestions — trimester base suggestions', () => {
     test('T1 (week <= 13): nausea + vitamins', () => {
         const s = getSmartSuggestions(10, 'normal');
-        expect(s[0]).toMatchObject({ textKey: 'weight:suggestions.t1Nausea', category: 'nutrition' });
-        expect(s[1]).toMatchObject({ textKey: 'weight:suggestions.t1Vitamins', category: 'medical' });
+        expect(s[0]).toMatchObject({ textKey: 'weight.suggestions.t1Nausea', category: 'nutrition' });
+        expect(s[1]).toMatchObject({ textKey: 'weight.suggestions.t1Vitamins', category: 'medical' });
     });
 
     test('week 13 is still T1 (boundary <= 13)', () => {
         const s = getSmartSuggestions(13, 'normal');
-        expect(s[0].textKey).toBe('weight:suggestions.t1Nausea');
+        expect(s[0].textKey).toBe('weight.suggestions.t1Nausea');
     });
 
     test('week 14 is T2 (boundary)', () => {
         const s = getSmartSuggestions(14, 'normal');
-        expect(s[0].textKey).toBe('weight:suggestions.t2Protein');
+        expect(s[0].textKey).toBe('weight.suggestions.t2Protein');
     });
 
     test('T2 (14..27): protein + walk', () => {
         const s = getSmartSuggestions(20, 'normal');
-        expect(s[0]).toMatchObject({ textKey: 'weight:suggestions.t2Protein', category: 'nutrition' });
-        expect(s[1]).toMatchObject({ textKey: 'weight:suggestions.t2Walk', category: 'activity' });
+        expect(s[0]).toMatchObject({ textKey: 'weight.suggestions.t2Protein', category: 'nutrition' });
+        expect(s[1]).toMatchObject({ textKey: 'weight.suggestions.t2Walk', category: 'activity' });
     });
 
     test('week 27 is still T2 (boundary <= 27)', () => {
         const s = getSmartSuggestions(27, 'normal');
-        expect(s[0].textKey).toBe('weight:suggestions.t2Protein');
+        expect(s[0].textKey).toBe('weight.suggestions.t2Protein');
     });
 
     test('week 28 is T3 (boundary)', () => {
         const s = getSmartSuggestions(28, 'normal');
-        expect(s[0].textKey).toBe('weight:suggestions.t3Hydration');
+        expect(s[0].textKey).toBe('weight.suggestions.t3Hydration');
     });
 
     test('T3 (>= 28): hydration + rest', () => {
         const s = getSmartSuggestions(35, 'normal');
-        expect(s[0]).toMatchObject({ textKey: 'weight:suggestions.t3Hydration', category: 'hydration' });
-        expect(s[1]).toMatchObject({ textKey: 'weight:suggestions.t3Rest', category: 'rest' });
+        expect(s[0]).toMatchObject({ textKey: 'weight.suggestions.t3Hydration', category: 'hydration' });
+        expect(s[1]).toMatchObject({ textKey: 'weight.suggestions.t3Rest', category: 'rest' });
     });
 });
 
@@ -368,20 +368,20 @@ describe('getSmartSuggestions — status modifiers', () => {
     test('status low adds statusLow suggestion', () => {
         const s = getSmartSuggestions(10, 'low');
         const keys = s.map((x) => x.textKey);
-        expect(keys).toContain('weight:suggestions.statusLow');
+        expect(keys).toContain('weight.suggestions.statusLow');
     });
 
     test('status high adds statusHigh suggestion', () => {
         const s = getSmartSuggestions(10, 'high');
         const keys = s.map((x) => x.textKey);
-        expect(keys).toContain('weight:suggestions.statusHigh');
+        expect(keys).toContain('weight.suggestions.statusHigh');
     });
 
     test('status normal adds neither statusLow nor statusHigh', () => {
         const s = getSmartSuggestions(10, 'normal');
         const keys = s.map((x) => x.textKey);
-        expect(keys).not.toContain('weight:suggestions.statusLow');
-        expect(keys).not.toContain('weight:suggestions.statusHigh');
+        expect(keys).not.toContain('weight.suggestions.statusLow');
+        expect(keys).not.toContain('weight.suggestions.statusHigh');
     });
 });
 
@@ -393,46 +393,46 @@ describe('getSmartSuggestions — trend modifiers', () => {
     const rapidGainTrend: Trend = {
         type: 'rapid_gain',
         weeklyRate: 1.5,
-        messageKey: 'weight:trend.rapidGain',
+        messageKey: 'weight.trend.rapidGain',
         severity: 'warning',
     };
     const stableTrend: Trend = {
         type: 'stable',
         weeklyRate: 0,
-        messageKey: 'weight:trend.stable',
+        messageKey: 'weight.trend.stable',
         severity: 'normal',
     };
     const decreasingTrend: Trend = {
         type: 'decreasing',
         weeklyRate: -0.3,
-        messageKey: 'weight:trend.decreasing',
+        messageKey: 'weight.trend.decreasing',
         severity: 'attention',
     };
 
     test('rapid_gain trend adds rapidGain medical suggestion', () => {
         const s = getSmartSuggestions(10, 'normal', rapidGainTrend);
-        const match = s.find((x) => x.textKey === 'weight:suggestions.rapidGain');
+        const match = s.find((x) => x.textKey === 'weight.suggestions.rapidGain');
         expect(match).toMatchObject({ category: 'medical', icon: '⚖️' });
     });
 
     test('stable trend adds stable nutrition suggestion', () => {
         const s = getSmartSuggestions(10, 'normal', stableTrend);
-        const match = s.find((x) => x.textKey === 'weight:suggestions.stable');
+        const match = s.find((x) => x.textKey === 'weight.suggestions.stable');
         expect(match).toMatchObject({ category: 'nutrition' });
     });
 
     test('other trend types (decreasing) add no trend-specific suggestion', () => {
         const s = getSmartSuggestions(10, 'normal', decreasingTrend);
         const keys = s.map((x) => x.textKey);
-        expect(keys).not.toContain('weight:suggestions.rapidGain');
-        expect(keys).not.toContain('weight:suggestions.stable');
+        expect(keys).not.toContain('weight.suggestions.rapidGain');
+        expect(keys).not.toContain('weight.suggestions.stable');
     });
 
     test('undefined trend is safe (optional-chaining branch) and adds no trend suggestion', () => {
         const s = getSmartSuggestions(10, 'normal', undefined);
         const keys = s.map((x) => x.textKey);
-        expect(keys).not.toContain('weight:suggestions.rapidGain');
-        expect(keys).not.toContain('weight:suggestions.stable');
+        expect(keys).not.toContain('weight.suggestions.rapidGain');
+        expect(keys).not.toContain('weight.suggestions.stable');
     });
 });
 
@@ -446,7 +446,7 @@ describe('getSmartSuggestions — invariants', () => {
         const trend: Trend = {
             type: 'rapid_gain',
             weeklyRate: 1.5,
-            messageKey: 'weight:trend.rapidGain',
+            messageKey: 'weight.trend.rapidGain',
             severity: 'warning',
         };
         const s = getSmartSuggestions(10, 'low', trend);
@@ -457,7 +457,7 @@ describe('getSmartSuggestions — invariants', () => {
         // T1 (2) + listenBody (1) = 3 -> all kept
         const s = getSmartSuggestions(10, 'normal');
         const keys = s.map((x) => x.textKey);
-        expect(keys).toContain('weight:suggestions.listenBody');
+        expect(keys).toContain('weight.suggestions.listenBody');
         expect(s.length).toBeLessThanOrEqual(4);
     });
 
@@ -466,23 +466,23 @@ describe('getSmartSuggestions — invariants', () => {
         const trend: Trend = {
             type: 'stable',
             weeklyRate: 0,
-            messageKey: 'weight:trend.stable',
+            messageKey: 'weight.trend.stable',
             severity: 'normal',
         };
         const s = getSmartSuggestions(10, 'high', trend);
         expect(s).toHaveLength(4);
         const keys = s.map((x) => x.textKey);
         // listenBody is appended last, so it is the one sliced off.
-        expect(keys).not.toContain('weight:suggestions.listenBody');
-        expect(keys).toContain('weight:suggestions.stable');
+        expect(keys).not.toContain('weight.suggestions.listenBody');
+        expect(keys).toContain('weight.suggestions.stable');
     });
 
-    test('every suggestion has a non-empty icon and a weight:suggestions.* key', () => {
+    test('every suggestion has a non-empty icon and a weight.suggestions.* key', () => {
         const s = getSmartSuggestions(20, 'normal');
         for (const item of s) {
             expect(typeof item.icon).toBe('string');
             expect(item.icon.length).toBeGreaterThan(0);
-            expect(item.textKey.startsWith('weight:suggestions.')).toBe(true);
+            expect(item.textKey.startsWith('weight.suggestions.')).toBe(true);
             expect(['hydration', 'nutrition', 'activity', 'rest', 'medical']).toContain(item.category);
         }
     });
@@ -494,29 +494,29 @@ describe('getSmartSuggestions — invariants', () => {
 
 describe('getTrimesterMessage', () => {
     test('week <= 13 => t1', () => {
-        expect(getTrimesterMessage(1)).toBe('weight:trimester.t1');
-        expect(getTrimesterMessage(13)).toBe('weight:trimester.t1');
+        expect(getTrimesterMessage(1)).toBe('weight.trimester.t1');
+        expect(getTrimesterMessage(13)).toBe('weight.trimester.t1');
     });
 
     test('week 14 => t2 (boundary)', () => {
-        expect(getTrimesterMessage(14)).toBe('weight:trimester.t2');
+        expect(getTrimesterMessage(14)).toBe('weight.trimester.t2');
     });
 
     test('week <= 27 => t2', () => {
-        expect(getTrimesterMessage(20)).toBe('weight:trimester.t2');
-        expect(getTrimesterMessage(27)).toBe('weight:trimester.t2');
+        expect(getTrimesterMessage(20)).toBe('weight.trimester.t2');
+        expect(getTrimesterMessage(27)).toBe('weight.trimester.t2');
     });
 
     test('week 28 => t3 (boundary)', () => {
-        expect(getTrimesterMessage(28)).toBe('weight:trimester.t3');
+        expect(getTrimesterMessage(28)).toBe('weight.trimester.t3');
     });
 
     test('week > 27 => t3', () => {
-        expect(getTrimesterMessage(40)).toBe('weight:trimester.t3');
+        expect(getTrimesterMessage(40)).toBe('weight.trimester.t3');
     });
 
     test('edge: week 0 / negative still maps to t1 (no lower bound guard)', () => {
-        expect(getTrimesterMessage(0)).toBe('weight:trimester.t1');
-        expect(getTrimesterMessage(-5)).toBe('weight:trimester.t1');
+        expect(getTrimesterMessage(0)).toBe('weight.trimester.t1');
+        expect(getTrimesterMessage(-5)).toBe('weight.trimester.t1');
     });
 });

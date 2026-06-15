@@ -120,6 +120,41 @@ describe('Chatbot triage — clearly benign input must NOT over-escalate', () =>
   }
 });
 
+// CB-NEW-01/02/03 — benign false-escalation corpus (3 P1 clinical-safety fixes).
+// These everyday food/hydration/fatigue questions previously mis-fired an emergency:
+//   • CB-NEW-01: synonym "hydratation" (from "boire"/"eau") substring-matched the red-flag
+//     keyword "déshydratation" → severe-vomiting flag on "puis-je boire de l'eau ?".
+//   • CB-NEW-02: the pre-eclampsia visual-sign flag had generic single tokens
+//     ("yeux"/"taches"/"les"/...) → typo-corrected "peux"→"yeux" escalated "manger du fromage".
+//   • CB-NEW-03: the suggestion path prepended a linked red-flag ⚠️ standard_message for
+//     low-confidence (non-chip-click) topic matches → "je suis fatiguée" showed a vomiting
+//     warning. The warning text is now gated behind a deliberate exact chip click.
+// Each MUST return neither a red_flag nor a ⚠️/🚨 emergency standard_message (typed free-text).
+describe('Chatbot triage — benign food/hydration/fatigue questions must NOT escalate (CB-NEW-01/02/03)', () => {
+  const benignNew: { lang: string; text: string }[] = [
+    { lang: 'fr', text: 'puis-je boire du café ?' },
+    { lang: 'fr', text: "puis-je boire de l'eau ?" },
+    { lang: 'fr', text: 'est-ce que je peux manger du fromage ?' },
+    { lang: 'fr', text: 'je suis fatiguée' },
+    { lang: 'fr', text: 'combien de café par jour ?' },
+    { lang: 'en', text: 'can I eat cheese?' },
+  ];
+  for (const c of benignNew) {
+    it(`[${c.lang}] "${c.text}" → no red_flag AND no ⚠️ emergency message`, async () => {
+      const r: any = await analyzeMessage(c.text);
+      // (1) must not route to the red_flag path
+      expect({ phrase: c.text, type: r.type, wrongFlag: r.redFlag?.red_flag_id })
+        .not.toMatchObject({ type: 'red_flag' });
+      // (2) must not carry a red_flag object
+      expect(r.redFlag).toBeUndefined();
+      // (3) the response text must not contain an emergency/severe-symptom warning banner.
+      const msg: string = typeof r.message === 'string' ? r.message : '';
+      expect({ phrase: c.text, msg }).toMatchObject({ msg: expect.not.stringContaining('⚠️') });
+      expect({ phrase: c.text, msg }).toMatchObject({ msg: expect.not.stringContaining('🚨') });
+    });
+  }
+});
+
 // CB4-FIX — abuse-e2e reasoning audit found that the additive score let a multi-symptom URGENT
 // flag outrank a higher-severity EMERGENCY. Severity must win; match count is only a tiebreaker.
 const EMERGENCY_SEV = ['emergency', 'critique'];

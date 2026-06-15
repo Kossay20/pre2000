@@ -91,7 +91,34 @@ export const PregnancyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                             // they survive app restart (Firestore for auth users,
                             // AsyncStorage 'user_profile' for the cached snapshot).
                             emergencyContacts: user.emergencyContacts,
+                            // PT-01 / F-PROF-01 FIX: carry physical data from the auth
+                            // profile when present (auth users persist these via
+                            // AuthContext.updateProfile → Firestore/'user_profile').
+                            ...(user.height !== undefined ? { height: user.height } : {}),
+                            ...(user.prePregnancyWeight !== undefined ? { prePregnancyWeight: user.prePregnancyWeight } : {}),
                         };
+                        // PT-01 / F-PROF-01 FIX: for guests, height & prePregnancyWeight are
+                        // written ONLY to the 'guestProfile' AsyncStorage entry (by
+                        // WeightTracker setup / ProfileScreen via setProfile) and are NOT
+                        // present on the AuthContext user object. Without merging them here
+                        // the WeightTracker setup gate (profile.height/prePregnancyWeight)
+                        // re-triggers on every reload and Profile inputs come back empty.
+                        if (user.isGuest) {
+                            try {
+                                const storedGuest = await AsyncStorage.getItem('guestProfile');
+                                if (storedGuest) {
+                                    const guestData = JSON.parse(storedGuest) as Profile;
+                                    if (guestData.prePregnancyWeight !== undefined && profileData.prePregnancyWeight === undefined) {
+                                        profileData.prePregnancyWeight = guestData.prePregnancyWeight;
+                                    }
+                                    if (guestData.height !== undefined && profileData.height === undefined) {
+                                        profileData.height = guestData.height;
+                                    }
+                                }
+                            } catch (mergeErr) {
+                                log.warn('[PregnancyContext] ⚠️ Failed to merge guestProfile physical data', mergeErr);
+                            }
+                        }
                         setProfileState(profileData);
                         computeInfo(profileData);
                         log.debug('[PregnancyContext] ⚡️ Used profile from AuthContext');

@@ -206,6 +206,20 @@ export const AddAppointmentScreen = () => {
             // Prevent default behavior of leaving the screen
             e.preventDefault();
 
+            // CAL-02: Alert.alert is a no-op on react-native-web, which trapped the
+            // user (Cancel/back/tab all blocked) because preventDefault() ran but no
+            // dialog ever appeared. On web, use the synchronous window.confirm and
+            // dispatch the blocked action immediately when the user confirms.
+            if (Platform.OS === 'web') {
+                const confirmDiscard = window.confirm(
+                    `${t('addAppointment.discardTitle')}\n\n${t('addAppointment.discardMsg')}`
+                );
+                if (confirmDiscard) {
+                    navigation.dispatch(e.data.action);
+                }
+                return;
+            }
+
             // Prompt the user before leaving
             Alert.alert(
                 t('addAppointment.discardTitle'),
@@ -308,6 +322,19 @@ export const AddAppointmentScreen = () => {
 
         // Guest check
         if (user?.isGuest) {
+            // CAL-01: Alert.alert is a no-op on react-native-web, so a guest tapping
+            // Save previously got zero feedback. On web, surface the prompt via
+            // window.confirm (OK = create account → AuthChoice) so the dead-end is fixed.
+            if (Platform.OS === 'web') {
+                const goToAuth = window.confirm(
+                    `${t('addAppointment.guestAlertTitle')}\n\n${t('addAppointment.guestAlertMsg')}`
+                );
+                if (goToAuth) {
+                    navigation.navigate('AuthChoice');
+                }
+                return;
+            }
+
             Alert.alert(
                 t('addAppointment.guestAlertTitle'),
                 t('addAppointment.guestAlertMsg'),

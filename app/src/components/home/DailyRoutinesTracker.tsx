@@ -134,13 +134,13 @@ export const DailyRoutinesTracker: React.FC<UnifiedDaySummaryProps> = ({
 
     // Simplified, less visually loaded text strings for better psychology
     if (todayAppointments.length > 0) {
-        appointmentMessage = todayAppointments.length > 1 ? `${todayAppointments.length} RDV aujourd'hui` : `1 RDV aujourd'hui`;
+        appointmentMessage = t('home.reminders.appointmentsToday', { count: todayAppointments.length });
         appointmentPriority = 'high';
     } else if (tomorrowAppointments.length > 0) {
-        appointmentMessage = tomorrowAppointments.length > 1 ? `${tomorrowAppointments.length} RDV demain` : `1 RDV demain`;
+        appointmentMessage = t('home.reminders.appointmentsTomorrow', { count: tomorrowAppointments.length });
         appointmentPriority = 'medium';
     } else if (thisWeekAppointments.length > 0) {
-        appointmentMessage = thisWeekAppointments.length > 1 ? `${thisWeekAppointments.length} RDV cette semaine` : `1 RDV cette semaine`;
+        appointmentMessage = t('home.reminders.appointmentsWeek', { count: thisWeekAppointments.length });
         appointmentPriority = 'low';
     }
 

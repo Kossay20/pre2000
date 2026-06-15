@@ -261,15 +261,21 @@ export const _analyzeMessage = async (text: string): Promise<ChatResponse> => {
                     strongMatch = true;
                 }
             } else {
-                // Path A: token-based (latin/Arabizi/normalized) — Levenshtein-friendly.
-                // CB2-FIX (SAFETY): require a meaningful overlap. The old `keyword.includes(word)`
-                // let a short common token substring-match a long keyword — "eat" ⊂ "breathing",
-                // "la" ⊂ "éclampsie" — escalating benign input to emergency flags. Now the shorter
-                // side of any substring match must be ≥4 chars; otherwise an exact token is required.
+                // Path A: token-based (latin/Arabizi/normalized).
+                // CB-NEW-01-FIX (SAFETY): single-word keywords now require EXACT token equality
+                // (or whole-word membership inside a multi-token synonym phrase), NOT substring.
+                // The previous `keyword.includes(word)` substring path let a benign token be a
+                // substring of a danger keyword — e.g. the synonym "hydratation" (expanded from
+                // "boire"/"eau") is a substring of the red-flag keyword "déshydratation", so
+                // "puis-je boire de l'eau ?" falsely escalated to the severe-vomiting flag.
+                // Typo-tolerance is already handled upstream in KeywordEngine (Levenshtein
+                // correction + synonym expansion produce canonical tokens), so exact equality
+                // here is sufficient and removes the cross-word substring false positives.
+                // (Multi-token synonym phrases like "بقع أمام العينين" / "shreb ma" still match a
+                // single-word keyword that appears as one of their whole words.)
                 if (positive.some(word =>
                         word === keyword
-                        || (keyword.length >= 4 && word.includes(keyword))
-                        || (word.length >= 4 && keyword.includes(word)))) {
+                        || (word.includes(' ') && word.split(/\s+/).includes(keyword)))) {
                     matchCount++;
                 }
                 // Path B (U-FIX-1): direct substring match on the raw normalized text.
@@ -345,7 +351,7 @@ export const _analyzeMessage = async (text: string): Promise<ChatResponse> => {
     // BUG-03 FIX: removed !textIsArabic guard — Arabic users deserve suggestions too.
     // For Arabic-script input, we match directly on label_ar words instead of via positive[]
     const suggestions = await getSuggestionsCached();
-    const matchedSuggestions: { suggestion: ChatbotSuggestion; score: number }[] = [];
+    const matchedSuggestions: { suggestion: ChatbotSuggestion; score: number; exact: boolean }[] = [];
 
     // Extract raw Arabic tokens from input for direct AR label matching
     const arabicTokens = textIsArabic
@@ -363,7 +369,7 @@ export const _analyzeMessage = async (text: string): Promise<ChatResponse> => {
         const exactMatchStr = text.toLowerCase().trim();
         if (exactMatchStr === labelFr || exactMatchStr === labelAr || exactMatchStr === labelTn || exactMatchStr === labelEn) {
             log.info(`✅ EXACT match found for suggestion: ${suggestion.suggestion_id}`);
-            matchedSuggestions.push({ suggestion, score: 100 });
+            matchedSuggestions.push({ suggestion, score: 100, exact: true });
             continue; // Skip further keyword matching
         }
 
@@ -431,7 +437,7 @@ export const _analyzeMessage = async (text: string): Promise<ChatResponse> => {
 
 
         if (score > 0) {
-            matchedSuggestions.push({ suggestion, score });
+            matchedSuggestions.push({ suggestion, score, exact: false });
         }
     }
 
@@ -471,7 +477,18 @@ export const _analyzeMessage = async (text: string): Promise<ChatResponse> => {
         let message = "";
         const topic = topSuggestion.topic.toLowerCase();
 
-        if (linkedRedFlags.length > 0) {
+        // CB-NEW-03-FIX (SAFETY): the linked red-flag standard_message (a ⚠️ severe-symptom
+        // warning) must ONLY be surfaced when the user DELIBERATELY tapped this symptom chip
+        // (exact label match). For typed free-text it produced cry-wolf warnings on benign
+        // input (e.g. "je suis fatiguée" / "combien de café par jour ?" / "puis-je boire de
+        // l'eau ?" surfaced a severe-vomiting / pre-eclampsia / headache warning). As the
+        // SUG1-FIX note below documents, a NUMERIC score threshold is unreliable here —
+        // cross-language label scoring inflates benign typed queries to 80-90 (e.g. synonym
+        // expansion of "boire"/"eau" scored "J'ai de violents maux de tête" at 90). The only
+        // trustworthy high-confidence signal is the exact chip click, so we gate on that.
+        const isExactChipClick = matchedSuggestions[0].exact === true;
+
+        if (linkedRedFlags.length > 0 && isExactChipClick) {
             const rfMessage = getLocalizedContent(linkedRedFlags[0], 'standard_message', i18n.language);
             message = rfMessage
                 ? `⚠️ ${rfMessage}\n\n${i18n.t('common.chatResponse.redFlagHigh')}`

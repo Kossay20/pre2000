@@ -172,7 +172,8 @@ const mapReminderToChecklistItem = (
     }
 
     // Special handling for hydration type
-    if (reminder.category_id === 'hydration') {
+    // NOTE: REMINDERS_V2 hydration reminders use category_id 'hyd' (canonical), not 'hydration'.
+    if (reminder.category_id === 'hyd') {
         baseItem.type = 'hydration';
         baseItem.target = 2.0; // Default 2L
         baseItem.current = 0;
@@ -314,7 +315,9 @@ export const getHistoricalData = async (days: number = 30) => {
             const rate = total > 0 ? (completed / total) * 100 : 0;
 
             // Hydration
-            const hydrationItem = items.find((i: any) => i.id.includes('hydration'));
+            // NOTE: saved hydration item id is 'reminder-rem_hyd_water' (category 'hyd'),
+            // so match on 'hyd' rather than the non-existent 'hydration' substring.
+            const hydrationItem = items.find((i: any) => i.id.includes('hyd'));
             const hydrationLevel = hydrationItem ? (hydrationItem.current || 0) : 0;
 
             // Vitamins (assuming id contains 'vitamin')
