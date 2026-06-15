@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../theme';
@@ -40,13 +40,15 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
     onPressToday,
     t,
 }) => {
-    // AUDIT-FIX (massive-audit 2026-05-30 P1): the original code swapped BOTH the icon glyphs
-    // (chevron-forward↔back) AND applied flexDirection:'row-reverse' on the header row. The two
-    // mirrors cancelled each other → both arrows pointed INWARD in AR/TN. Standard calendar UX
-    // in Arabic/Hebrew keeps the same directional convention as LTR: ← = earlier (prev), → =
-    // later (next), matching Apple iOS Calendar Arabic locale. Remove both swaps.
-    // The a11y labels were also wrong in RTL (label said "previousWeek" but button called
-    // onNextWeek). Removing the onPress swap fixes that too.
+    // CAL-R2-04 (P2): on web the flex row auto-reverses for RTL (ar/tn) via document.dir, but
+    // Ionicons glyphs are NOT mirrored there (I18nManager.isRTL stays false on web, so Ionicons'
+    // built-in RTL flip never kicks in) → prev/next chevrons end up pointing the wrong way.
+    // On NATIVE, Ionicons already mirrors chevron-back/forward automatically, so we must swap
+    // ONLY on web to avoid double-mirroring. Handlers + a11y labels stay put (previousWeek stays
+    // on onPrevWeek, nextWeek on onNextWeek) — only the visual glyph swaps.
+    const swapChevrons = Platform.OS === 'web' && isRTL;
+    const prevChevron = swapChevrons ? 'chevron-forward' : 'chevron-back';
+    const nextChevron = swapChevrons ? 'chevron-back' : 'chevron-forward';
 
     return (
         <LinearGradient
@@ -62,7 +64,7 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                     accessibilityLabel={t('a11y.previousWeek')}
                     accessibilityRole="button"
                 >
-                    <Ionicons name="chevron-back" size={24} color={theme.colors.white} />
+                    <Ionicons name={prevChevron} size={24} color={theme.colors.white} />
                 </TouchableOpacity>
 
                 <View style={styles.headerTitleContainer}>
@@ -78,7 +80,7 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                     accessibilityLabel={t('a11y.nextWeek')}
                     accessibilityRole="button"
                 >
-                    <Ionicons name="chevron-forward" size={24} color={theme.colors.white} />
+                    <Ionicons name={nextChevron} size={24} color={theme.colors.white} />
                 </TouchableOpacity>
             </View>
 
@@ -90,6 +92,8 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                         accessibilityRole="button"
                         accessibilityLabel={t('calendar.week')}
                         accessibilityState={{ selected: calendarView === 'week' }}
+                        // CAL-R2-03: RN-web 0.21.2 drops accessibilityState.selected → expose aria explicitly.
+                        {...(Platform.OS === 'web' ? { 'aria-selected': calendarView === 'week' } : {})}
                     >
                         <Text style={[styles.selectorText, calendarView === 'week' && styles.selectorTextActive]}>
                             {t('calendar.week')}
@@ -101,6 +105,8 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                         accessibilityRole="button"
                         accessibilityLabel={t('calendar.month')}
                         accessibilityState={{ selected: calendarView === 'month' }}
+                        // CAL-R2-03: RN-web 0.21.2 drops accessibilityState.selected → expose aria explicitly.
+                        {...(Platform.OS === 'web' ? { 'aria-selected': calendarView === 'month' } : {})}
                     >
                         <Text style={[styles.selectorText, calendarView === 'month' && styles.selectorTextActive]}>
                             {t('calendar.month')}
@@ -114,6 +120,8 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                     accessibilityRole="button"
                     accessibilityLabel={t('calendar.suggestions')}
                     accessibilityState={{ expanded: showSuggestions }}
+                    // CAL-R2-03: RN-web 0.21.2 drops accessibilityState.expanded → expose aria explicitly.
+                    {...(Platform.OS === 'web' ? { 'aria-expanded': showSuggestions } : {})}
                 >
                     <Ionicons name="bulb" size={16} color={theme.colors.white} style={{ marginEnd: 4 }} />
                     <Text style={styles.suggestionText}>

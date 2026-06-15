@@ -1,9 +1,10 @@
 import { createLogger } from '../utils/logger';
 const log = createLogger('LanguageSelectScreen');
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 // Cycle 3 F206 : toast non-bloquant à la place de Alert.alert pour le succès.
 import { useToast } from '../context/ToastContext';
+import { showAlert } from '../utils/alert';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation, CommonActions } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -70,7 +71,7 @@ export const LanguageSelectScreen = () => {
             showToast(i18n.getFixedT(languageCode)('common.languageUpdated'), 'success');
         } catch (error) {
             log.error('Error saving language:', error);
-            Alert.alert(t('common.error'), t('common.languageChangeError'));
+            showAlert(t('common.error'), t('common.languageChangeError'));
         } finally {
             setLoading(false);
         }

@@ -7,9 +7,9 @@ import {
     ScrollView,
     TouchableOpacity,
     ActivityIndicator,
-    Alert,
     Linking,
 } from 'react-native';
+import { showAlert } from '../utils/alert';
 import { LineChart } from 'react-native-chart-kit';
 import { Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -226,7 +226,9 @@ export const HealthDashboardScreen = () => {
             onPress: onProceed,
         });
 
-        Alert.alert(t(clinicalAlert.titleKey), t(clinicalAlert.messageKey), buttons);
+        // SAFETY-CRITICAL: showAlert fires the proceed callback on web (Alert.alert is a
+        // no-op there) so "save anyway" is never silently lost.
+        showAlert(t(clinicalAlert.titleKey), t(clinicalAlert.messageKey), buttons);
     };
 
     const handleAddWeight = async () => {
@@ -235,7 +237,7 @@ export const HealthDashboardScreen = () => {
         const weightValue = parseFloat(newWeight.replace(',', '.'));
         const validation = validateHealthEntry({ type: 'weight', value: weightValue });
         if (!validation.valid) {
-            Alert.alert(t('common.error'), t(validation.error || 'common.error'));
+            showAlert(t('common.error'), t(validation.error || 'common.error'));
             return;
         }
 
@@ -249,7 +251,7 @@ export const HealthDashboardScreen = () => {
                 loadData();
             } catch (err) {
                 log.error('[HealthDashboard] Error saving weight:', err);
-                Alert.alert(t('common.error'), t('dashboard.errorSaving'));
+                showAlert(t('common.error'), t('dashboard.errorSaving'));
             }
         };
 
@@ -274,7 +276,7 @@ export const HealthDashboardScreen = () => {
         const dia = parseInt(newBPDiastolic, 10);
         const validation = validateHealthEntry({ type: 'blood_pressure', systolic: sys, diastolic: dia });
         if (!validation.valid) {
-            Alert.alert(t('common.error'), t(validation.error || 'common.error'));
+            showAlert(t('common.error'), t(validation.error || 'common.error'));
             return;
         }
 
@@ -289,7 +291,7 @@ export const HealthDashboardScreen = () => {
                 loadData();
             } catch (err) {
                 log.error('[HealthDashboard] Error saving BP:', err);
-                Alert.alert(t('common.error'), t('dashboard.errorSaving'));
+                showAlert(t('common.error'), t('dashboard.errorSaving'));
             }
         };
 
@@ -311,7 +313,7 @@ export const HealthDashboardScreen = () => {
         if (!user?.uid || !pregnancyInfo?.week || !newGlucose) return;
         const value = parseFloat(newGlucose.replace(',', '.'));
         if (isNaN(value) || value <= 0 || value > 30) {
-            Alert.alert(t('common.error'), t('dashboard.glucoseTarget'));
+            showAlert(t('common.error'), t('dashboard.glucoseTarget'));
             return;
         }
 
@@ -330,7 +332,7 @@ export const HealthDashboardScreen = () => {
                 loadData();
             } catch (err) {
                 log.error('[HealthDashboard] Error saving glucose:', err);
-                Alert.alert(t('common.error'), t('dashboard.errorSaving'));
+                showAlert(t('common.error'), t('dashboard.errorSaving'));
             }
         };
 
@@ -359,7 +361,7 @@ export const HealthDashboardScreen = () => {
         } catch (err) {
             log.error('[HealthDashboard] Error saving symptoms:', err);
             setSymptoms(prev);
-            Alert.alert(t('common.error'), t('dashboard.errorSaving'));
+            showAlert(t('common.error'), t('dashboard.errorSaving'));
         }
     };
 
@@ -619,7 +621,7 @@ export const HealthDashboardScreen = () => {
                 <View style={styles.sectionHeader}>
                     <Text style={styles.sectionTitle}>{t('dashboard.appointments')}</Text>
                     <TouchableOpacity
-                        onPress={() => Alert.alert(t('dashboard.soonAvailable'), t('dashboard.soonAvailableDesc'))}
+                        onPress={() => showAlert(t('dashboard.soonAvailable'), t('dashboard.soonAvailableDesc'))}
                         accessibilityRole="button"
                         accessibilityLabel={t('dashboard.seeAll')}
                     >

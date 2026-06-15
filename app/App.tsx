@@ -247,6 +247,17 @@ const AppContent = () => {
     prefixes: ['mama-bebe://', 'exp+mama-bebe://', 'https://mama-bebe.com'],
     config: {
       screens: {
+        // R2-01 FIX: AuthStack routes were absent from the linking config, so
+        // /Login /Register /AuthChoice /Onboarding silently fell through to the
+        // Language fallback. Each AuthStack route now gets a distinct path.
+        // NOTE: 'language' is already taken by Home > LanguageSelect below, so
+        // the auth Language screen uses 'welcome' instead.
+        Language: 'welcome',
+        AuthChoice: 'auth',
+        Register: 'register',
+        Login: 'login',
+        Onboarding: 'onboarding',
+        PrivacyPolicy: 'privacy',
         Home: {
           screens: {
             ArticleDetail: 'article/:articleId',

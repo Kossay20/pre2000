@@ -3,7 +3,7 @@ const log = createLogger('TasksTab');
 import React, { useState, useEffect } from 'react';
 import { theme } from '../../theme';
 import { RtlAwareChevron } from '../../components/common/RtlAwareChevron';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList, ActivityIndicator, RefreshControl, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList, ActivityIndicator, RefreshControl } from 'react-native';
 import { confirmAction } from '../../utils/uiUtils';
 import { getShadowStyle } from '../../utils/styleUtils';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
@@ -276,16 +276,14 @@ export const TasksTab = () => {
 
                     // Guest check
                     if (user?.isGuest) {
-                        Alert.alert(
+                        // WEB-ALERT: confirmAction fires onConfirm on web too (Alert.alert is a no-op there).
+                        confirmAction(
                             t('tasks.modeGuestTitle'),
                             t('tasks.modeGuestMsg'),
-                            [
-                                { text: t('common.cancel'), style: 'cancel' },
-                                {
-                                    text: t('tasks.createAccount'),
-                                    onPress: () => navigation.navigate('AuthChoice')
-                                }
-                            ]
+                            () => navigation.navigate('AuthChoice'),
+                            undefined,
+                            t('common.cancel'),
+                            t('tasks.createAccount')
                         );
                         return;
                     }

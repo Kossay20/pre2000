@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity, Platform } from 'react-native';
 import { format, Locale } from 'date-fns';
 import { styles } from '../../screens/CalendarScreen.styles';
 
@@ -42,6 +42,8 @@ export const CalendarMonthDay: React.FC<CalendarMonthDayProps> = ({
             accessibilityRole="button"
             accessibilityLabel={format(day, 'EEEE d MMMM yyyy', { locale: dateLocale })}
             accessibilityState={{ selected: isSelected }}
+            // CAL-R2-03: RN-web 0.21.2 drops accessibilityState.selected → expose aria explicitly.
+            {...(Platform.OS === 'web' ? { 'aria-selected': isSelected } : {})}
             accessibilityHint={userEventCount > 0 ? t('calendar.suggestionsCount', { count: userEventCount }) : undefined}
         >
             <Text

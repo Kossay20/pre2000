@@ -19,6 +19,10 @@ import {
 } from './remindersV2Service';
 import { ReminderDefinition, ReminderUserSetting } from '../types/remindersV2';
 import { getLocalizedTrilang } from '../utils/i18nHelpers';
+// F-HS-02-REGR: Statistics hydration must reflect the REAL water tracker
+// (HydrationCard → hydrationService, 'hydration_data_v1'), not the herbal-tea
+// checklist item (rem_hyd_herbal_tea, category 'hyd').
+import { loadHydrationData } from './hydrationService';
 
 const log = createLogger('DailyChecklistService');
 const DAILY_CHECKLIST_KEY_PREFIX = '@daily_checklist_v2_';
@@ -302,6 +306,21 @@ export const getHistoricalData = async (days: number = 30) => {
             vitamins: [] as number[]
         };
 
+        // F-HS-02-REGR: source today's hydration from the REAL water tracker.
+        // hydrationService persists only the current day's intake (ml, daily-reset)
+        // under 'hydration_data_v1' — this is what the big HydrationCard shows.
+        // Past days have no real water history, so they report 0 rather than the
+        // herbal-tea ('hyd') checklist value, which previously mislabeled cups of
+        // tea as "liters of water".
+        const todayStr = format(new Date(), 'yyyy-MM-dd');
+        let todayWaterLiters = 0;
+        try {
+            const water = await loadHydrationData();
+            todayWaterLiters = (water.currentIntake || 0) / 1000;
+        } catch (waterErr) {
+            log.error('Error loading real water intake for stats:', waterErr);
+        }
+
         for (const key of relevantKeys) {
             const dateStr = key.replace(DAILY_CHECKLIST_KEY_PREFIX, '');
             const dataStr = await AsyncStorage.getItem(key);
@@ -318,11 +337,10 @@ export const getHistoricalData = async (days: number = 30) => {
             const completed = active.filter((i: any) => i.completed).length;
             const rate = total > 0 ? (completed / total) * 100 : 0;
 
-            // Hydration
-            // NOTE: saved hydration item id is 'reminder-rem_hyd_water' (category 'hyd'),
-            // so match on 'hyd' rather than the non-existent 'hydration' substring.
-            const hydrationItem = items.find((i: any) => i.id.includes('hyd'));
-            const hydrationLevel = hydrationItem ? (hydrationItem.current || 0) : 0;
+            // F-HS-02-REGR: REAL water (liters) from hydrationService for today only.
+            // The checklist 'hyd' item is herbal tea (rem_hyd_water is excluded from the
+            // checklist), so it must NOT feed the "Hydration (L)" water chart.
+            const hydrationLevel = dateStr === todayStr ? todayWaterLiters : 0;
 
             // Vitamins (assuming id contains 'vitamin')
             const vitaminItem = items.find((i: any) => i.id.includes('vitamin'));

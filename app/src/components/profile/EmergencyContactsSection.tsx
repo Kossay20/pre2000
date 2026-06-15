@@ -1,8 +1,10 @@
 import { theme } from '../../theme';
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, Linking, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Linking, ScrollView } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { usePregnancy, EmergencyContact } from '../../context/PregnancyContext';
+import { showAlert } from '../../utils/alert';
+import { confirmAction } from '../../utils/uiUtils';
 import { createLogger } from '../../utils/logger';
 
 const log = createLogger('EmergencyContactsSection');
@@ -25,14 +27,14 @@ export const EmergencyContactsSection = () => {
     const handleCall = (number: string) => {
         const sanitized = sanitizeTelNumber(number);
         if (!sanitized) {
-            Alert.alert(t('common.error'), t('emergency.invalidNumber') || t('common.error'));
+            showAlert(t('common.error'), t('emergency.invalidNumber') || t('common.error'));
             return;
         }
         const url = `tel:${sanitized}`;
         Linking.canOpenURL(url)
             .then(supported => {
                 if (!supported) {
-                    Alert.alert(t('common.error'), t('emergency.callError'));
+                    showAlert(t('common.error'), t('emergency.callError'));
                 } else {
                     return Linking.openURL(url);
                 }
@@ -42,12 +44,12 @@ export const EmergencyContactsSection = () => {
 
     const handleAdd = async () => {
         if (!newName.trim() || !newNumber.trim()) {
-            Alert.alert(t('common.error'), t('emergency.validationError'));
+            showAlert(t('common.error'), t('emergency.validationError'));
             return;
         }
 
         if (!TEL_VALIDATION_REGEX.test(newNumber.trim())) {
-            Alert.alert(t('common.error'), t('emergency.invalidNumber'));
+            showAlert(t('common.error'), t('emergency.invalidNumber'));
             return;
         }
 
@@ -72,32 +74,28 @@ export const EmergencyContactsSection = () => {
             log.info('Contact added');
         } catch (error) {
             log.error('Error adding contact', error);
-            Alert.alert(t('common.error'), t('emergency.addError'));
+            showAlert(t('common.error'), t('emergency.addError'));
         }
     };
 
     const handleDelete = (id: string) => {
-        Alert.alert(
+        confirmAction(
             t('emergency.deleteConfirm'),
             t('profile.deleteContactConfirm'),
-            [
-                { text: t('common.cancel'), style: 'cancel' },
-                {
-                    text: t('common.delete'),
-                    style: 'destructive',
-                    onPress: async () => {
-                        try {
-                            const updatedContacts = contacts.filter(c => c.id !== id);
-                            await setProfile({
-                                ...profile!,
-                                emergencyContacts: updatedContacts
-                            });
-                        } catch (error) {
-                            log.error('Error deleting contact', error);
-                        }
-                    }
+            async () => {
+                try {
+                    const updatedContacts = contacts.filter(c => c.id !== id);
+                    await setProfile({
+                        ...profile!,
+                        emergencyContacts: updatedContacts
+                    });
+                } catch (error) {
+                    log.error('Error deleting contact', error);
                 }
-            ]
+            },
+            undefined,
+            t('common.cancel'),
+            t('common.delete')
         );
     };
 

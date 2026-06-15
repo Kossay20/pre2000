@@ -1,7 +1,7 @@
 import { createLogger } from '../utils/logger';
 const log = createLogger('CalendarScreen');
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
-import { View, Text, FlatList, ActivityIndicator, TouchableOpacity, Alert, ScrollView, Animated, Platform } from 'react-native';
+import { View, Text, FlatList, ActivityIndicator, TouchableOpacity, ScrollView, Animated, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../context/AuthContext';
 import { auth, db } from '../config/firebase'; // FIX: Import auth and db for direct access
@@ -33,6 +33,8 @@ import { getLocalizedContent } from '../utils/i18nHelpers';
 import { calculateCurrentWeek } from '../utils/pregnancyCalculator';
 import { CalendarScreenNavigationProp } from '../types/navigation';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
+import { showAlert } from '../utils/alert';
+import { confirmAction } from '../utils/uiUtils';
 import { styles } from './CalendarScreen.styles';
 
 type ViewMode = 'suggestions' | 'myEvents' | 'all';
@@ -371,35 +373,32 @@ export const CalendarScreen = () => {
             // Cycle 3 F203 : Alert avec CTA "Create account" — avant pas de chemin
             // direct, l'utilisatrice savait juste qu'il fallait un compte sans
             // savoir où aller. Maintenant 1-tap vers Register.
-            Alert.alert(
+            // WEB-ALERT: confirmAction fires the callback on web too (Alert.alert is a no-op there).
+            confirmAction(
                 t('calendar.guestModeTitle'),
                 t('calendar.guestModeMessage'),
-                [
-                    { text: t('common.cancel'), style: 'cancel' },
-                    {
-                        text: t('common.createAccount'),
-                        onPress: () => navigation.getParent()?.navigate('AuthChoice'),
-                    },
-                ]
+                () => navigation.getParent()?.navigate('AuthChoice'),
+                undefined,
+                t('common.cancel'),
+                t('common.createAccount')
             );
             return;
         }
 
         log.debug('[CalendarScreen] Deleting event with ID:', eventId);
 
-        // Use window.confirm on web, Alert.alert on native
-        const confirmDelete = Platform.OS === 'web'
-            ? window.confirm(t('calendar.deleteEventMessage'))
-            : await new Promise<boolean>((resolve) => {
-                Alert.alert(
-                    t('calendar.deleteEventTitle'),
-                    t('calendar.deleteEventMessage'),
-                    [
-                        { text: t('calendar.cancel'), style: "cancel", onPress: () => resolve(false) },
-                        { text: t('calendar.delete'), style: "destructive", onPress: () => resolve(true) }
-                    ]
-                );
-            });
+        // WEB-ALERT: confirmAction bridges web (window.confirm) + native (Alert) and
+        // fires the callbacks on both, so the destructive confirm works on web too.
+        const confirmDelete = await new Promise<boolean>((resolve) => {
+            confirmAction(
+                t('calendar.deleteEventTitle'),
+                t('calendar.deleteEventMessage'),
+                () => resolve(true),
+                () => resolve(false),
+                t('calendar.cancel'),
+                t('calendar.delete')
+            );
+        });
 
         if (!confirmDelete) {
             log.debug('[CalendarScreen] Delete cancelled');
@@ -417,11 +416,8 @@ export const CalendarScreen = () => {
             }
         } catch (error) {
             log.error('[CalendarScreen] Delete error:', error);
-            if (Platform.OS === 'web') {
-                window.alert(t('calendar.cannotDeleteEvent'));
-            } else {
-                Alert.alert(t('calendar.error'), t('calendar.cannotDeleteEvent'));
-            }
+            // WEB-ALERT: showAlert renders on web (window.alert) and native (Alert.alert).
+            showAlert(t('calendar.error'), t('calendar.cannotDeleteEvent'));
         }
     };
 

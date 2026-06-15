@@ -19,7 +19,8 @@ import {
     TouchableOpacity,
     Switch,
     ActivityIndicator,
-    Animated
+    Animated,
+    Platform
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { usePregnancy } from '../../context/PregnancyContext';
@@ -407,6 +408,8 @@ export const RemindersTab = () => {
                     accessibilityLabel={title}
                     accessibilityHint={expanded ? t('a11y.collapseSection') : t('a11y.expandSection')}
                     accessibilityState={{ expanded }}
+                    // CAL-R2-03: RN-web 0.21.2 drops accessibilityState.expanded → expose aria explicitly.
+                    {...(Platform.OS === 'web' ? { 'aria-expanded': expanded } : {})}
                 >
                     <View style={styles.sectionHeaderLeft}>
                         <View style={styles.sectionIconContainer}>

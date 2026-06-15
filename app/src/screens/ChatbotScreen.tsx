@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TextInput, FlatList, TouchableOpacity, KeyboardAvoidingView, Platform, ActivityIndicator, Linking, Alert, Keyboard } from 'react-native';
+import { View, Text, StyleSheet, TextInput, FlatList, TouchableOpacity, KeyboardAvoidingView, Platform, ActivityIndicator, Linking, Keyboard } from 'react-native';
+import { showAlert } from '../utils/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { analyzeMessage, fetchSuggestions } from '../services/chatbotService';
 import { ChatbotSuggestion, Article, ChatResponse } from '../types';
@@ -158,7 +159,7 @@ export const ChatbotScreen = () => {
                                 style={styles.callButton}
                                 onPress={() => {
                                     Linking.openURL(`tel:${emergencyNumber}`).catch(() =>
-                                        Alert.alert(t('common.chatEmergency'), t('common.chatEmergencyAction'))
+                                        showAlert(t('common.chatEmergency'), t('common.chatEmergencyAction'))
                                     );
                                 }}
                                 accessibilityRole="button"

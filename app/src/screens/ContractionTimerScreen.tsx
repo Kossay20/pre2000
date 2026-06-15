@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-    Alert,
     Linking,
     ScrollView,
     Share,
@@ -19,6 +18,7 @@ import { EmptyState } from '../components/common/EmptyState';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
 import { useAuth } from '../context/AuthContext';
 import { resolveEmergencyNumber } from '../utils/clinicalChecks';
+import { confirmAction } from '../utils/uiUtils';
 import {
     ContractionTimerState,
     buildShareSummary,
@@ -73,20 +73,16 @@ export const ContractionTimerScreen: React.FC = () => {
     }, []);
 
     const onClear = useCallback(() => {
-        Alert.alert(
+        confirmAction(
             t('cycle8.contractionTimer.clearConfirmTitle'),
             t('cycle8.contractionTimer.clearConfirmMsg'),
-            [
-                { text: t('common.cancel', { defaultValue: 'Annuler' }), style: 'cancel' },
-                {
-                    text: t('cycle8.contractionTimer.clear'),
-                    style: 'destructive',
-                    onPress: async () => {
-                        const next = await clearAll();
-                        setState(next);
-                    },
-                },
-            ],
+            async () => {
+                const next = await clearAll();
+                setState(next);
+            },
+            undefined,
+            t('common.cancel', { defaultValue: 'Annuler' }),
+            t('cycle8.contractionTimer.clear'),
         );
     }, [t]);
 

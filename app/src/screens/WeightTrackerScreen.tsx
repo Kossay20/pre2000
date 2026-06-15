@@ -15,7 +15,6 @@ import {
     ScrollView,
     TouchableOpacity,
     TextInput,
-    Alert,
     RefreshControl,
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -35,6 +34,8 @@ import {
 } from '../services/weightService';
 import { detectTrend, getSmartSuggestions, getTrimesterMessage } from '../services/weightIntelligence';
 import { createLogger } from '../utils/logger';
+import { showAlert } from '../utils/alert';
+import { confirmAction } from '../utils/uiUtils';
 import { useDateLocale } from '../hooks/useDateLocale';
 import { useTranslation } from 'react-i18next';
 import { trackPositiveAction } from '../services/inAppReviewService';
@@ -129,26 +130,21 @@ export const WeightTrackerScreen = () => {
 
         // P0.2: Détection douce lb/kg pour 120-200 kg (zone ambiguë) - AVANT validation
         if (!isNaN(weight) && weight >= 120 && weight <= 200) {
-            Alert.alert(
+            confirmAction(
                 t('weight.unitCheckTitle'),
                 t('weight.unitCheckMsg', { weight, converted: (weight * 0.453592).toFixed(1) }),
-                [
-                    {
-                        text: t('weight.yesKg'),
-                        onPress: () => {
-                            // Continue avec validation normale
-                            continueValidation(weight);
-                        }
-                    },
-                    {
-                        text: t('weight.oopsLb'),
-                        onPress: () => {
-                            const convertedWeight = parseFloat((weight * 0.453592).toFixed(1));
-                            setNewWeight(convertedWeight.toString());
-                            Alert.alert(t('weight.convertedTitle'), t('weight.convertedMsg', { original: weight, converted: convertedWeight }));
-                        }
-                    }
-                ]
+                // Confirm = "Yes it's kg" → continue normal validation
+                () => {
+                    continueValidation(weight);
+                },
+                // Cancel = "Oops it's lb" → convert lb → kg
+                () => {
+                    const convertedWeight = parseFloat((weight * 0.453592).toFixed(1));
+                    setNewWeight(convertedWeight.toString());
+                    showAlert(t('weight.convertedTitle'), t('weight.convertedMsg', { original: weight, converted: convertedWeight }));
+                },
+                t('weight.oopsLb'),
+                t('weight.yesKg'),
             );
             return;
         }
@@ -161,13 +157,13 @@ export const WeightTrackerScreen = () => {
         if (isNaN(weight) || weight < 35 || weight > 200) {
             // Si > 200, probablement des livres (lb)
             if (weight > 200) {
-                Alert.alert(
+                showAlert(
                     t('weight.verifyTitle'),
                     t('weight.highWeightMsg', { weight, converted: (weight * 0.453592).toFixed(1) }),
                     [{ text: t('weight.understood') }]
                 );
             } else {
-                Alert.alert(t('weight.verifyTitle'), t('weight.invalidWeight'));
+                showAlert(t('weight.verifyTitle'), t('weight.invalidWeight'));
             }
             return;
         }
@@ -176,25 +172,22 @@ export const WeightTrackerScreen = () => {
         const today = new Date().toISOString().split('T')[0];
         const existingToday = weightHistory.find((e: WeightEntry) => e.date.split('T')[0] === today);
         if (existingToday) {
-            Alert.alert(
+            confirmAction(
                 t('weight.entryExistsTitle'),
                 t('weight.entryExistsMsg', { weight: existingToday.weight }),
-                [
-                    { text: t('common.cancel'), style: 'cancel' },
-                    {
-                        text: t('weight.replace'),
-                        onPress: async () => {
-                            try {
-                                const userId = user?.uid;
-                                if (!userId) return;
-                                await deleteWeightEntry(userId, existingToday.id!);
-                                await saveAndConfirm(weight);
-                            } catch (error) {
-                                log.error('Error replacing entry:', error);
-                            }
-                        }
+                async () => {
+                    try {
+                        const userId = user?.uid;
+                        if (!userId) return;
+                        await deleteWeightEntry(userId, existingToday.id!);
+                        await saveAndConfirm(weight);
+                    } catch (error) {
+                        log.error('Error replacing entry:', error);
                     }
-                ]
+                },
+                undefined,
+                t('common.cancel'),
+                t('weight.replace'),
             );
             return;
         }
@@ -208,17 +201,13 @@ export const WeightTrackerScreen = () => {
             const weightLoss = lastEntry.weight - weight;
 
             if (weightLoss > 3) {
-                Alert.alert(
+                confirmAction(
                     t('weight.lossTitle'),
                     t('weight.lossMsg', { loss: weightLoss.toFixed(1) }),
-                    [
-                        { text: t('weight.correctInput'), style: 'cancel' },
-                        {
-                            text: t('weight.saveAnyway'),
-                            style: 'destructive',
-                            onPress: () => saveAndConfirm(weight)
-                        }
-                    ]
+                    () => saveAndConfirm(weight),
+                    undefined,
+                    t('weight.correctInput'),
+                    t('weight.saveAnyway'),
                 );
                 return;
             }
@@ -229,13 +218,13 @@ export const WeightTrackerScreen = () => {
             const lastEntry = weightHistory[0];
             const variation = Math.abs(weight - lastEntry.weight);
             if (variation > 2) {
-                Alert.alert(
+                confirmAction(
                     t('weight.variationTitle'),
                     t('weight.variationMsg', { variation: variation.toFixed(1), last: lastEntry.weight }),
-                    [
-                        { text: t('weight.correct'), style: 'cancel' },
-                        { text: t('weight.isCorrect'), onPress: () => saveAndConfirm(weight) }
-                    ]
+                    () => saveAndConfirm(weight),
+                    undefined,
+                    t('weight.correct'),
+                    t('weight.isCorrect'),
                 );
                 return;
             }
@@ -249,7 +238,7 @@ export const WeightTrackerScreen = () => {
         try {
             const userId = user?.uid;
             if (!userId) {
-                Alert.alert(t('common.error'), t('weight.errorSave'));
+                showAlert(t('common.error'), t('weight.errorSave'));
                 return;
             }
             await saveWeightEntry({
@@ -265,10 +254,10 @@ export const WeightTrackerScreen = () => {
             // Engagement: Track positive action
             trackPositiveAction('add_weight');
 
-            Alert.alert(t('weight.savedTitle'), t('weight.savedMsg'));
+            showAlert(t('weight.savedTitle'), t('weight.savedMsg'));
         } catch (error) {
             log.error('Error saving weight:', error);
-            Alert.alert(t('common.error'), t('weight.errorSave'));
+            showAlert(t('common.error'), t('weight.errorSave'));
         } finally {
             setSaving(false);
         }
@@ -279,11 +268,11 @@ export const WeightTrackerScreen = () => {
         const heightNum = parseFloat(setupHeight.replace(',', '.'));
 
         if (isNaN(weight) || weight < 30 || weight > 200) {
-            Alert.alert(t('common.error'), t('weight.invalidWeight'));
+            showAlert(t('common.error'), t('weight.invalidWeight'));
             return;
         }
         if (isNaN(heightNum) || heightNum < 100 || heightNum > 250) {
-            Alert.alert(t('common.error'), t('weight.invalidHeight'));
+            showAlert(t('common.error'), t('weight.invalidHeight'));
             return;
         }
 
@@ -310,38 +299,34 @@ export const WeightTrackerScreen = () => {
 
             await setProfile(cleanProfile as any); // P0.4: Allow setting profile even if initially null
             setShowSetup(false);
-            Alert.alert(t('common.configSaved'), t('common.configSavedMsg'));
+            showAlert(t('common.configSaved'), t('common.configSavedMsg'));
         } catch (error) {
             log.error('Error saving setup:', error);
-            Alert.alert(t('common.error'), t('weight.errorSave'));
+            showAlert(t('common.error'), t('weight.errorSave'));
         } finally {
             setSavingSetup(false);
         }
     };
 
     const handleDeleteEntry = (entryId: string) => {
-        Alert.alert(
+        confirmAction(
             t('weight.resetConfirmTitle'),
             t('weight.resetConfirmMsg'),
-            [
-                { text: t('common.cancel'), style: 'cancel' },
-                {
-                    text: t('weight.delete'),
-                    style: 'destructive',
-                    onPress: async () => {
-                        try {
-                            const userId = user?.uid;
-                            if (!userId) return;
-                            await deleteWeightEntry(userId, entryId!);
-                            await loadData();
-                            Alert.alert(t('weight.resetDoneTitle'), t('weight.resetDoneMsg'));
-                        } catch (error) {
-                            log.error('Error resetting data:', error);
-                            Alert.alert(t('common.error'), t('weight.errorReset'));
-                        }
-                    }
+            async () => {
+                try {
+                    const userId = user?.uid;
+                    if (!userId) return;
+                    await deleteWeightEntry(userId, entryId!);
+                    await loadData();
+                    showAlert(t('weight.resetDoneTitle'), t('weight.resetDoneMsg'));
+                } catch (error) {
+                    log.error('Error resetting data:', error);
+                    showAlert(t('common.error'), t('weight.errorReset'));
                 }
-            ]
+            },
+            undefined,
+            t('common.cancel'),
+            t('weight.delete'),
         );
     };
 
@@ -361,7 +346,7 @@ export const WeightTrackerScreen = () => {
         setTapCount(newCount);
         if (newCount >= 3) {
             setShowDebugMode(!showDebugMode);
-            Alert.alert(showDebugMode ? 'Debug OFF' : 'Debug ON');
+            showAlert('', showDebugMode ? 'Debug OFF' : 'Debug ON');
             setTapCount(0);
         }
         setTimeout(() => setTapCount(0), 1500);
@@ -369,18 +354,20 @@ export const WeightTrackerScreen = () => {
 
     // Reset all weight data
     const handleResetData = async () => {
-        Alert.alert(t('common.resetConfirmShort'), t('common.resetConfirmMsgShort'), [
-            { text: t('common.no') },
-            {
-                text: t('common.yes'), onPress: async () => {
-                    const userId = user?.uid;
-                    if (!userId) return;
-                    const history = await getWeightHistory(userId);
-                    for (const e of history) await deleteWeightEntry(userId, e.id!);
-                    await loadData();
-                }
-            }
-        ]);
+        confirmAction(
+            t('common.resetConfirmShort'),
+            t('common.resetConfirmMsgShort'),
+            async () => {
+                const userId = user?.uid;
+                if (!userId) return;
+                const history = await getWeightHistory(userId);
+                for (const e of history) await deleteWeightEntry(userId, e.id!);
+                await loadData();
+            },
+            undefined,
+            t('common.no'),
+            t('common.yes'),
+        );
     };
 
     // Get current status (use real data only)
@@ -557,7 +544,7 @@ export const WeightTrackerScreen = () => {
                             <Text style={styles.infoTitle}>{t('weight.targetWeekNumber', { week: currentWeek })}</Text>
                             <TouchableOpacity
                                 style={styles.infoButton}
-                                onPress={() => Alert.alert(
+                                onPress={() => showAlert(
                                     t('weight.howItWorks'),
                                     t('weight.howItWorksDesc'),
                                     [{ text: t('weight.understood') }]

@@ -3,6 +3,8 @@ const log = createLogger('ProfileScreen');
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator, KeyboardAvoidingView, Platform, Modal } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { showAlert } from '../utils/alert';
+import { confirmAction } from '../utils/uiUtils';
 import { useAuth } from '../context/AuthContext';
 import { usePregnancy } from '../context/PregnancyContext';
 import { useCurrentWeek } from '../services/useCurrentWeek';
@@ -78,13 +80,13 @@ export const ProfileScreen = () => {
 
     const handleSave = async () => {
         if (!firstName.trim()) {
-            Alert.alert(t('common.error'), t('profile.errorFirstName'));
+            showAlert(t('common.error'), t('profile.errorFirstName'));
             return;
         }
 
         const { isInvalid } = calculatePregnancyWeek(lmp);
         if (isInvalid) {
-            Alert.alert(
+            showAlert(
                 t('common.error'),
                 t('profile.errorInvalidDate')
             );
@@ -127,9 +129,9 @@ export const ProfileScreen = () => {
                 ...(isFinite(weightNum) && weightNum > 0 ? { prePregnancyWeight: weightNum } : {}),
             });
 
-            Alert.alert(t('common.success'), t('profile.successUpdate'));
+            showAlert(t('common.success'), t('profile.successUpdate'));
         } catch (error) {
-            Alert.alert(t('common.error'), t('profile.errorUpdate'));
+            showAlert(t('common.error'), t('profile.errorUpdate'));
             log.error('Error updating profile:', error);
         } finally {
             setLoading(false);
@@ -137,64 +139,56 @@ export const ProfileScreen = () => {
     };
 
     const handleLogout = async () => {
-        Alert.alert(
+        confirmAction(
             t('profile.logoutConfirmTitle'),
             t('profile.logoutConfirmMsg'),
-            [
-                { text: t('common.cancel'), style: 'cancel' },
-                {
-                    text: t('profile.logout'),
-                    style: 'destructive',
-                    onPress: async () => {
-                        try {
-                            await logout();
-                        } catch (error) {
-                            log.error('Logout error:', error);
-                        }
-                    },
-                },
-            ]
+            async () => {
+                try {
+                    await logout();
+                } catch (error) {
+                    log.error('Logout error:', error);
+                }
+            },
+            undefined,
+            t('common.cancel'),
+            t('profile.logout')
         );
     };
 
     const handleResetProfile = async () => {
-        Alert.alert(
+        confirmAction(
             t('profile.resetConfirmTitle'),
             t('profile.resetConfirmMsg'),
-            [
-                { text: t('common.cancel'), style: 'cancel' },
-                {
-                    text: t('profile.reset'),
-                    style: 'destructive',
-                    onPress: async () => {
-                        try {
-                            setLoading(true);
-                            await resetProfile();
-                            Alert.alert(
-                                t('profile.resetDoneTitle'),
-                                t('profile.resetDoneMsg'),
-                                [
-                                    {
-                                        text: t('common.ok'),
-                                        onPress: () => {
-                                            // Navigate to AuthChoice
-                                            navigation.reset({
-                                                index: 0,
-                                                routes: [{ name: 'AuthChoice' } as any],
-                                            });
-                                        },
-                                    },
-                                ]
-                            );
-                        } catch (error) {
-                            log.error('Reset profile error:', error);
-                            Alert.alert(t('common.error'), t('profile.errorReset'));
-                        } finally {
-                            setLoading(false);
-                        }
-                    },
-                },
-            ]
+            async () => {
+                try {
+                    setLoading(true);
+                    await resetProfile();
+                    showAlert(
+                        t('profile.resetDoneTitle'),
+                        t('profile.resetDoneMsg'),
+                        [
+                            {
+                                text: t('common.ok'),
+                                onPress: () => {
+                                    // Navigate to AuthChoice
+                                    navigation.reset({
+                                        index: 0,
+                                        routes: [{ name: 'AuthChoice' } as any],
+                                    });
+                                },
+                            },
+                        ]
+                    );
+                } catch (error) {
+                    log.error('Reset profile error:', error);
+                    showAlert(t('common.error'), t('profile.errorReset'));
+                } finally {
+                    setLoading(false);
+                }
+            },
+            undefined,
+            t('common.cancel'),
+            t('profile.reset')
         );
     };
 
@@ -203,7 +197,7 @@ export const ProfileScreen = () => {
     // the flow and navigates back to AuthChoice.
     const runReauthAndDelete = async (password: string) => {
         if (!password) {
-            Alert.alert(t('common.error'), t('profile.reauthMissingPassword'));
+            showAlert(t('common.error'), t('profile.reauthMissingPassword'));
             return;
         }
         try {
@@ -218,7 +212,7 @@ export const ProfileScreen = () => {
             });
         } catch (reauthErr: any) {
             log.error('Reauthenticate-and-delete error:', reauthErr);
-            Alert.alert(t('common.error'), t('profile.deleteAccountError'));
+            showAlert(t('common.error'), t('profile.deleteAccountError'));
         } finally {
             setReauthLoading(false);
             setLoading(false);
@@ -511,56 +505,53 @@ export const ProfileScreen = () => {
                                 accessibilityLabel={t('a11y.deleteAccount')}
                                 accessibilityHint={t('a11y.deleteAccountHint')}
                                 onPress={async () => {
-                                    Alert.alert(
+                                    confirmAction(
                                         t('profile.deleteAccountTitle'),
                                         t('profile.deleteAccountMsg'),
-                                        [
-                                            { text: t('common.cancel'), style: 'cancel' },
-                                            {
-                                                text: t('common.delete'),
-                                                style: 'destructive',
-                                                onPress: async () => {
-                                                    try {
-                                                        setLoading(true);
-                                                        await deleteAccount();
-                                                        navigation.reset({
-                                                            index: 0,
-                                                            routes: [{ name: 'AuthChoice' } as any],
-                                                        });
-                                                    } catch (error: any) {
-                                                        if (error?.code === 'REAUTH_REQUIRED' || error?.message === 'REAUTH_REQUIRED') {
-                                                            // F4: Firestore data was purged but auth.delete() needs fresh
-                                                            // credentials — re-prompt for the password and retry.
-                                                            if (Platform.OS === 'ios') {
-                                                                Alert.prompt(
-                                                                    t('profile.reauthTitle'),
-                                                                    t('profile.reauthMessage'),
-                                                                    [
-                                                                        { text: t('common.cancel'), style: 'cancel' },
-                                                                        {
-                                                                            text: t('common.confirm'),
-                                                                            style: 'destructive',
-                                                                            onPress: (password?: string) => {
-                                                                                runReauthAndDelete(password ?? '');
-                                                                            },
-                                                                        },
-                                                                    ],
-                                                                    'secure-text',
-                                                                );
-                                                            } else {
-                                                                setReauthPassword('');
-                                                                setReauthModalVisible(true);
-                                                            }
-                                                        } else {
-                                                            log.error('Delete account error:', error);
-                                                            Alert.alert(t('common.error'), t('profile.deleteAccountError'));
-                                                        }
-                                                    } finally {
-                                                        setLoading(false);
+                                        async () => {
+                                            try {
+                                                setLoading(true);
+                                                await deleteAccount();
+                                                navigation.reset({
+                                                    index: 0,
+                                                    routes: [{ name: 'AuthChoice' } as any],
+                                                });
+                                            } catch (error: any) {
+                                                if (error?.code === 'REAUTH_REQUIRED' || error?.message === 'REAUTH_REQUIRED') {
+                                                    // F4: Firestore data was purged but auth.delete() needs fresh
+                                                    // credentials — re-prompt for the password and retry.
+                                                    // Alert.prompt is iOS-only; Android/web fall back to the modal below.
+                                                    if (Platform.OS === 'ios') {
+                                                        Alert.prompt(
+                                                            t('profile.reauthTitle'),
+                                                            t('profile.reauthMessage'),
+                                                            [
+                                                                { text: t('common.cancel'), style: 'cancel' },
+                                                                {
+                                                                    text: t('common.confirm'),
+                                                                    style: 'destructive',
+                                                                    onPress: (password?: string) => {
+                                                                        runReauthAndDelete(password ?? '');
+                                                                    },
+                                                                },
+                                                            ],
+                                                            'secure-text',
+                                                        );
+                                                    } else {
+                                                        setReauthPassword('');
+                                                        setReauthModalVisible(true);
                                                     }
+                                                } else {
+                                                    log.error('Delete account error:', error);
+                                                    showAlert(t('common.error'), t('profile.deleteAccountError'));
                                                 }
+                                            } finally {
+                                                setLoading(false);
                                             }
-                                        ]
+                                        },
+                                        undefined,
+                                        t('common.cancel'),
+                                        t('common.delete')
                                     );
                                 }}
                             >

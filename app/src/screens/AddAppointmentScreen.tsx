@@ -8,7 +8,6 @@ import {
     TouchableOpacity,
     Platform,
     ScrollView,
-    Alert,
     Switch,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -26,6 +25,8 @@ import { useTranslation } from 'react-i18next';
 import { useDateLocale } from '../hooks/useDateLocale';
 import { getPickerLocale } from '../utils/pickerLocale';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
+import { showAlert } from '../utils/alert';
+import { confirmAction } from '../utils/uiUtils';
 import { styles } from './AddAppointmentScreen.styles';
 
 
@@ -228,20 +229,18 @@ export const AddAppointmentScreen = () => {
                 return;
             }
 
-            // Prompt the user before leaving
-            Alert.alert(
+            // Prompt the user before leaving (native — web handled above via window.confirm).
+            // WEB-ALERT: confirmAction keeps the destructive "discard" callback (dispatch the
+            // blocked action) and the "keep editing" cancel label.
+            confirmAction(
                 t('addAppointment.discardTitle'),
                 t('addAppointment.discardMsg'),
-                [
-                    { text: t('addAppointment.keepEditing'), style: 'cancel', onPress: () => { } },
-                    {
-                        text: t('addAppointment.discard'),
-                        style: 'destructive',
-                        // If the user confirmed, then we dispatch the action we blocked earlier
-                        // This will continue the action that had triggered the removal of the screen
-                        onPress: () => navigation.dispatch(e.data.action),
-                    },
-                ]
+                // If the user confirmed, then we dispatch the action we blocked earlier
+                // This will continue the action that had triggered the removal of the screen
+                () => navigation.dispatch(e.data.action),
+                undefined,
+                t('addAppointment.keepEditing'),
+                t('addAppointment.discard')
             );
         });
 
@@ -304,7 +303,8 @@ export const AddAppointmentScreen = () => {
 
     const handleSave = async () => {
         if (!isTitleValid) {
-            Alert.alert(t('addAppointment.missingTitleTitle'), t('addAppointment.missingTitleMsg'));
+            // WEB-ALERT: showAlert surfaces the message on web too (Alert.alert is a no-op there).
+            showAlert(t('addAppointment.missingTitleTitle'), t('addAppointment.missingTitleMsg'));
             return;
         }
 
@@ -324,7 +324,8 @@ export const AddAppointmentScreen = () => {
 
         if (!effectiveUid) {
             log.error('[AddAppointmentScreen] No UID available. User may not be authenticated.');
-            Alert.alert(t('addAppointment.notConnectedTitle'), t('addAppointment.notConnectedMsg'));
+            // WEB-ALERT: showAlert surfaces the message on web too (Alert.alert is a no-op there).
+            showAlert(t('addAppointment.notConnectedTitle'), t('addAppointment.notConnectedMsg'));
             return;
         }
 
@@ -343,16 +344,15 @@ export const AddAppointmentScreen = () => {
                 return;
             }
 
-            Alert.alert(
+            // WEB-ALERT: confirmAction fires the "create account" callback on native;
+            // the web path above already handles guests via window.confirm.
+            confirmAction(
                 t('addAppointment.guestAlertTitle'),
                 t('addAppointment.guestAlertMsg'),
-                [
-                    { text: t('addAppointment.cancel'), style: 'cancel' },
-                    {
-                        text: t('addAppointment.guestAlertCreate'),
-                        onPress: () => navigation.navigate('AuthChoice')
-                    }
-                ]
+                () => navigation.navigate('AuthChoice'),
+                undefined,
+                t('addAppointment.cancel'),
+                t('addAppointment.guestAlertCreate')
             );
             return;
         }
@@ -421,13 +421,15 @@ export const AddAppointmentScreen = () => {
             } catch (notifError) {
                 log.error('[AddAppointmentScreen] Failed to schedule reminders (non-blocking):', notifError);
                 // We don't throw here to ensure the RDV is kept
-                Alert.alert(t('addAppointment.reminderInfoTitle'), t('addAppointment.reminderInfoMsg'));
+                // WEB-ALERT: showAlert surfaces this info on web too (Alert.alert is a no-op there).
+                showAlert(t('addAppointment.reminderInfoTitle'), t('addAppointment.reminderInfoMsg'));
             }
 
             navigation.goBack();
         } catch (error: any) {
             log.error('Error saving appointment:', error);
-            Alert.alert(t('addAppointment.errorSaveTitle'), t('addAppointment.errorSaveMsg', { error: error.message || t('common.unknownError') }));
+            // WEB-ALERT: showAlert surfaces the save error on web too (Alert.alert is a no-op there).
+            showAlert(t('addAppointment.errorSaveTitle'), t('addAppointment.errorSaveMsg', { error: error.message || t('common.unknownError') }));
         } finally {
             setSaving(false);
         }
@@ -467,6 +469,8 @@ export const AddAppointmentScreen = () => {
                                 accessibilityRole="button"
                                 accessibilityLabel={t('addAppointment.typeMedical')}
                                 accessibilityState={{ selected: type === 'medical' }}
+                                // CAL-R2-03: RN-web 0.21.2 drops accessibilityState.selected → expose aria explicitly.
+                                {...(Platform.OS === 'web' ? { 'aria-selected': type === 'medical' } : {})}
                             >
                                 <Text style={[styles.typeText, type === 'medical' && styles.typeTextActive]}>{t('addAppointment.typeMedical')}</Text>
                             </TouchableOpacity>
@@ -476,6 +480,8 @@ export const AddAppointmentScreen = () => {
                                 accessibilityRole="button"
                                 accessibilityLabel={t('addAppointment.typeOther')}
                                 accessibilityState={{ selected: type === 'other' }}
+                                // CAL-R2-03: RN-web 0.21.2 drops accessibilityState.selected → expose aria explicitly.
+                                {...(Platform.OS === 'web' ? { 'aria-selected': type === 'other' } : {})}
                             >
                                 <Text style={[styles.typeText, type === 'other' && styles.typeTextActive]}>{t('addAppointment.typeOther')}</Text>
                             </TouchableOpacity>
@@ -516,6 +522,8 @@ export const AddAppointmentScreen = () => {
                                     accessibilityLabel={`${t('addAppointment.dateLabel')}: ${format(date, 'dd MMMM yyyy', { locale: dateLocale })}`}
                                     accessibilityHint={t('a11y.selectDate')}
                                     accessibilityState={{ expanded: showDatePicker }}
+                                    // CAL-R2-03: this picker button renders on NATIVE only (web uses the
+                                    // <TextInput> branch above), so no web aria is needed here.
                                 >
                                     <Text style={styles.dateText}>
                                         {format(date, 'dd MMMM yyyy', { locale: dateLocale })}
@@ -547,6 +555,8 @@ export const AddAppointmentScreen = () => {
                                     accessibilityLabel={`${t('addAppointment.timeLabel')}: ${format(date, 'HH:mm')}`}
                                     accessibilityHint={t('a11y.selectTime')}
                                     accessibilityState={{ expanded: showTimePicker }}
+                                    // CAL-R2-03: this picker button renders on NATIVE only (web uses the
+                                    // <TextInput> branch above), so no web aria is needed here.
                                 >
                                     <Text style={styles.dateText}>
                                         {format(date, 'HH:mm')}

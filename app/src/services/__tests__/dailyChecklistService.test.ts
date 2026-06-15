@@ -62,6 +62,14 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
     multiRemove: jest.fn(() => Promise.resolve())
 }));
 
+// F-HS-02-REGR: getHistoricalData now reads today's REAL water from hydrationService
+// (loadHydrationData → currentIntake in ml). Mock it so tests control the value and
+// to avoid pulling the real service (notifications/i18n) into the suite.
+jest.mock('../hydrationService', () => ({
+    loadHydrationData: jest.fn(async () => ({ currentIntake: 0, dailyGoal: 3000 })),
+}));
+import { loadHydrationData } from '../hydrationService';
+
 // Helper to create test events
 const createTestEvent = (overrides: Partial<UserEvent> = {}): UserEvent => ({
     event_id: 'test-event-1',
@@ -168,25 +176,30 @@ describe('checklist item structure', () => {
 });
 
 // ============================================
-// TEST: getHistoricalData hydration tracking
-// Regression guard for the 'hydration' vs 'hyd' id/category mismatch
-// (saved hydration item id is 'reminder-rem_hyd_water').
+// TEST: getHistoricalData hydration tracking (F-HS-02-REGR)
+// The "Hydration (L)" series must reflect the REAL water tracker
+// (hydrationService.loadHydrationData → currentIntake ml) for TODAY,
+// NOT the herbal-tea checklist item (rem_hyd_herbal_tea, category 'hyd').
 // ============================================
 
-describe('getHistoricalData hydration', () => {
+describe('getHistoricalData hydration (real water source)', () => {
     const KEY_PREFIX = '@daily_checklist_v2_';
 
     afterEach(() => {
         jest.clearAllMocks();
     });
 
-    test('reflects saved hydration current (>0) for reminder-rem_hyd_water', async () => {
+    test("today's hydration reads real water from hydrationService (ml → L)", async () => {
         const todayStr = format(new Date(), 'yyyy-MM-dd');
         const key = `${KEY_PREFIX}${todayStr}`;
 
-        // Saved daily blob: hydration item with current liters consumed > 0
+        // Real water tracker: 1800ml consumed today → 1.8L expected on the chart.
+        jest.mocked(loadHydrationData).mockResolvedValueOnce({ currentIntake: 1800, dailyGoal: 3000 } as any);
+
+        // Checklist blob deliberately carries a herbal-tea 'hyd' item with a bogus
+        // `current` — it must NOT leak into the water series.
         const savedBlob = [
-            { id: 'reminder-rem_hyd_water', completed: false, current: 1.5 },
+            { id: 'reminder-rem_hyd_herbal_tea', completed: false, current: 9.9 },
             { id: 'reminder-test-essential-slot-0', completed: true },
         ];
 
@@ -199,8 +212,53 @@ describe('getHistoricalData hydration', () => {
 
         expect(stats.dates).toContain(todayStr);
         const idx = stats.dates.indexOf(todayStr);
-        expect(stats.hydration[idx]).toBe(1.5);
-        expect(stats.hydration[idx]).toBeGreaterThan(0);
+        // Real water (1.8L), NOT the herbal-tea current (9.9).
+        expect(stats.hydration[idx]).toBeCloseTo(1.8, 5);
+        expect(stats.hydration[idx]).not.toBe(9.9);
+    });
+
+    test('herbal-tea checklist current does NOT feed the water series when no real water logged', async () => {
+        const todayStr = format(new Date(), 'yyyy-MM-dd');
+        const key = `${KEY_PREFIX}${todayStr}`;
+
+        // No real water consumed today.
+        jest.mocked(loadHydrationData).mockResolvedValueOnce({ currentIntake: 0, dailyGoal: 3000 } as any);
+
+        const savedBlob = [
+            { id: 'reminder-rem_hyd_herbal_tea', completed: false, current: 2.0 },
+        ];
+
+        jest.mocked(AsyncStorage.getAllKeys).mockResolvedValueOnce([key]);
+        jest.mocked(AsyncStorage.getItem).mockImplementation(async (k: string) =>
+            k === key ? JSON.stringify(savedBlob) : null
+        );
+
+        const stats = await getHistoricalData(30);
+        const idx = stats.dates.indexOf(todayStr);
+        // Tea is not water → 0, not 2.0.
+        expect(stats.hydration[idx]).toBe(0);
+    });
+
+    test('past days report 0 water (no per-day real history)', async () => {
+        const todayStr = format(new Date(), 'yyyy-MM-dd');
+        const yesterdayStr = format(new Date(Date.now() - 86400000), 'yyyy-MM-dd');
+        const todayKey = `${KEY_PREFIX}${todayStr}`;
+        const yKey = `${KEY_PREFIX}${yesterdayStr}`;
+
+        jest.mocked(loadHydrationData).mockResolvedValueOnce({ currentIntake: 1000, dailyGoal: 3000 } as any);
+
+        const blob = [{ id: 'reminder-rem_hyd_herbal_tea', completed: false, current: 1.25 }];
+
+        jest.mocked(AsyncStorage.getAllKeys).mockResolvedValueOnce([yKey, todayKey]);
+        jest.mocked(AsyncStorage.getItem).mockImplementation(async (k: string) =>
+            (k === todayKey || k === yKey) ? JSON.stringify(blob) : null
+        );
+
+        const stats = await getHistoricalData(30);
+        const todayIdx = stats.dates.indexOf(todayStr);
+        const yIdx = stats.dates.indexOf(yesterdayStr);
+        expect(stats.hydration[todayIdx]).toBeCloseTo(1.0, 5); // real water today
+        expect(stats.hydration[yIdx]).toBe(0); // no real history for past days
     });
 });
 

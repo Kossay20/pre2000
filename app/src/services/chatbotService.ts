@@ -373,26 +373,42 @@ export const _analyzeMessage = async (text: string): Promise<ChatResponse> => {
             continue; // Skip further keyword matching
         }
 
-        const labelWords = `${labelFr} ${labelAr} ${labelTn} ${labelEn}`.split(/\s+/).filter(Boolean);
-        const topicWords = suggestion.topic?.toLowerCase().split(/\s+/) || [];
+        // CB-R2-02 FIX: tokenize labels into a clean WHOLE-WORD set. The previous loose
+        // bidirectional substring test (`w.includes(u) || u.includes(w)`) let 1-letter label
+        // tokens — the FR elision "à"/"a" and the EN article "a"/pronoun "i" — match almost any
+        // user word that contains that letter ("fromage"⊃"a", "merci"⊃"i"), so benign nutrition
+        // queries scored 80 on the bleeding/headache symptom chips. We now require token equality
+        // and drop tokens shorter than 2 chars (elisions/articles) so they can't act as wildcards.
+        const cleanTokens = (s: string): Set<string> =>
+            new Set(
+                s.split(/[\s'’]+/)            // also split FR elisions (j'ai → j + ai)
+                 .map(w => w.replace(/[^\p{L}\p{N}]/gu, '').trim())
+                 .filter(w => w.length >= 2)
+            );
+        const labelTokenSet = cleanTokens(`${labelFr} ${labelAr} ${labelTn} ${labelEn}`);
+        const topicTokenSet = cleanTokens(suggestion.topic?.toLowerCase() || '');
 
         let score = 0;
 
-        // Score by label match (French/Arabizi keywords via KeywordEngine positive[])
+        // Score by label match — WHOLE-WORD equality (CB-R2-02). A user token contributes only
+        // when it IS one of the label tokens (or one whole word of a multi-token user phrase like
+        // "shreb ma" / "ras youja3"), never as a cross-word substring.
         positive.forEach(userWord => {
-            if (labelWords.some(w => w.includes(userWord) || userWord.includes(w))) score += 10;
+            const parts = userWord.includes(' ') ? userWord.split(/\s+/).filter(p => p.length >= 2) : [userWord];
+            if (parts.some(p => labelTokenSet.has(p))) score += 10;
         });
 
-        // Score by topic match
+        // Score by topic match — WHOLE-WORD equality (CB-R2-02).
         positive.forEach(userWord => {
-            if (topicWords.some(w => w.includes(userWord) || userWord.includes(w))) score += 5;
+            const parts = userWord.includes(' ') ? userWord.split(/\s+/).filter(p => p.length >= 2) : [userWord];
+            if (parts.some(p => topicTokenSet.has(p))) score += 5;
         });
 
-        // BUG-03 FIX: Direct Arabic token scoring against label_ar
+        // BUG-03 FIX: Direct Arabic token scoring against label_ar — WHOLE-WORD equality (CB-R2-02)
         if (textIsArabic && arabicTokens.length > 0) {
-            const arLabelWords = labelAr.split(/\s+/).filter(Boolean);
+            const arLabelTokens = cleanTokens(labelAr);
             arabicTokens.forEach(tok => {
-                if (arLabelWords.some(w => w.includes(tok) || tok.includes(w))) score += 10;
+                if (arLabelTokens.has(tok)) score += 10;
             });
         }
 
@@ -422,19 +438,33 @@ export const _analyzeMessage = async (text: string): Promise<ChatResponse> => {
                 'anxiété':       ['خايفة', 'أفكار', 'نفسية'],
             };
 
+            const bridgeLabelTokens = cleanTokens(`${labelTn} ${labelAr}`);
             positive.forEach(concept => {
                 const tnKeywords = CONCEPT_TN_BRIDGE[concept] || [];
                 if (tnKeywords.length > 0) {
-                    const tnLabelWords = labelTn.split(/\s+/);
-                    const arLabelWords = labelAr.split(/\s+/);
-                    const allLabelWords = [...tnLabelWords, ...arLabelWords];
                     tnKeywords.forEach(kw => {
-                        if (allLabelWords.some(w => w.includes(kw) || kw.includes(w))) score += 8;
+                        // CB-R2-02 FIX: whole-word equality (was loose substring includes).
+                        if (bridgeLabelTokens.has(kw)) score += 8;
                     });
                 }
             });
         }
 
+        // CB-R2-02 FIX: prefer NUTRITION/topic matches for food & drink queries. A benign
+        // "manger du fromage" / "puis-je boire du café" expands (via synonyms) to many tokens
+        // that incidentally overlap symptom-chip labels. When the user clearly asked about food
+        // or drink, boost nutrition/alimentation suggestions and de-prioritise symptom chips so
+        // the dietary topic surfaces instead of a bleeding/headache symptom.
+        const FOOD_DRINK_CONCEPTS = ['manger', 'alimentation', 'nourriture', 'eau', 'boire', 'fromage', 'café', 'cafe'];
+        const isFoodDrinkQuery = !textIsArabic && positive.some(w => FOOD_DRINK_CONCEPTS.includes(w));
+        if (isFoodDrinkQuery && score > 0) {
+            const topicId = ((suggestion as any).topic_id || suggestion.topic || '').toLowerCase();
+            if (topicId.includes('nutrition') || topicId.includes('alimentation')) {
+                score += 30; // surface the dietary topic
+            } else if (topicId.includes('symptom')) {
+                score = 0;   // a food/drink question is not a symptom report
+            }
+        }
 
         if (score > 0) {
             matchedSuggestions.push({ suggestion, score, exact: false });
@@ -443,9 +473,19 @@ export const _analyzeMessage = async (text: string): Promise<ChatResponse> => {
 
 
 
-    if (matchedSuggestions.length > 0) {
-        matchedSuggestions.sort((a, b) => b.score - a.score);
-        const topSuggestion = matchedSuggestions[0].suggestion;
+    // CB-R2-02 FIX: minimum-confidence floor. With whole-word scoring a genuine concept hit
+    // scores >= 10 (label) and real symptom queries corroborate via topic (+5) or multiple
+    // tokens. A lone incidental token (e.g. a greeting fuzzy-corrected to one symptom word)
+    // must NOT surface a symptom chip — let those fall through to the semantic/fallback path.
+    // Exact chip clicks score 100 and always pass.
+    const MIN_SUGGESTION_SCORE = 15;
+    const confidentSuggestions = matchedSuggestions.filter(
+        m => m.exact || m.score >= MIN_SUGGESTION_SCORE
+    );
+
+    if (confidentSuggestions.length > 0) {
+        confidentSuggestions.sort((a, b) => b.score - a.score);
+        const topSuggestion = confidentSuggestions[0].suggestion;
 
         // Fetch linked articles
         const articleIds = topSuggestion.linked_article_ids ? topSuggestion.linked_article_ids.split(',').map(id => id.trim()) : [];
@@ -486,7 +526,7 @@ export const _analyzeMessage = async (text: string): Promise<ChatResponse> => {
         // cross-language label scoring inflates benign typed queries to 80-90 (e.g. synonym
         // expansion of "boire"/"eau" scored "J'ai de violents maux de tête" at 90). The only
         // trustworthy high-confidence signal is the exact chip click, so we gate on that.
-        const isExactChipClick = matchedSuggestions[0].exact === true;
+        const isExactChipClick = confidentSuggestions[0].exact === true;
 
         if (linkedRedFlags.length > 0 && isExactChipClick) {
             const rfMessage = getLocalizedContent(linkedRedFlags[0], 'standard_message', i18n.language);
@@ -544,7 +584,7 @@ export const _analyzeMessage = async (text: string): Promise<ChatResponse> => {
             message,
             articles: linkedArticles,
             suggestions: [topSuggestion],
-            matchScore: matchedSuggestions[0].score,
+            matchScore: confidentSuggestions[0].score,
         };
     }
 

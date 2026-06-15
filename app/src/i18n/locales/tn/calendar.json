@@ -5,7 +5,7 @@
     "today": "اليوم",
     "suggestions": "اقتراحات",
     "suggestionsCount": "{{count}} اقتراحات",
-    "suggestionsForWeek": "اقتراحات الجمعة هذي",
+    "suggestionsForWeek": "اقتراحات الأسبوع هذا",
     "suggestionsForMonth": "اقتراحات الشهر هذا",
     "thisMonth": "الشهر هذا",
     "total": "المجموع",
@@ -30,7 +30,7 @@
         "saturday": "س",
         "sunday": "ح"
     },
-    "noAppointments": "ما عندكش مواعيد الجمعة هذي",
-    "appointmentsThisWeek": "{{count}} مواعيد الجمعة هذي",
+    "noAppointments": "ما عندكش مواعيد الأسبوع هذا",
+    "appointmentsThisWeek": "{{count}} مواعيد الأسبوع هذا",
     "myAppointment": "الموعد متاعي"
 }

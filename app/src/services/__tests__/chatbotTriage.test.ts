@@ -204,3 +204,91 @@ describe('Chatbot triage — suggestion path: low-score match must NOT expose em
     }
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CB-R2-01 (P1) — negation SCOPE. The KeywordEngine reset its negation window after a
+// SINGLE content word, so in "je n'ai pas de maux de tête" the head noun "tête" leaked as
+// POSITIVE; its arabizi synonyms (tasdiya / ras youja3) match the céphalée red-flag keyword_tn
+// → a FALSE urgent_consult. The window now spans the full noun phrase until a hard reset
+// (connector mais/et/and/… or clause punctuation). These negated-headache phrasings MUST NOT
+// route to the red_flag path.
+describe('Chatbot triage — negated headache must NOT escalate (CB-R2-01)', () => {
+  const negatedHeadache = [
+    "je n'ai pas de maux de tête",
+    'aucun maux de tête',
+    'pas de maux de tête',
+  ];
+  for (const text of negatedHeadache) {
+    it(`"${text}" → NOT a red_flag`, async () => {
+      const r: any = await analyzeMessage(text);
+      expect({ phrase: text, type: r.type, wrongFlag: r.redFlag?.red_flag_id })
+        .not.toMatchObject({ type: 'red_flag' });
+      expect(r.redFlag).toBeUndefined();
+    });
+  }
+
+  // Controls: other negated symptoms still suppressed …
+  it('"je n\'ai pas de fièvre" → NOT a red_flag', async () => {
+    const r: any = await analyzeMessage("je n'ai pas de fièvre");
+    expect(r.type).not.toBe('red_flag');
+  });
+  it('"je ne saigne pas" → NOT a red_flag', async () => {
+    const r: any = await analyzeMessage('je ne saigne pas');
+    expect(r.type).not.toBe('red_flag');
+  });
+
+  // … and the widened negation window must NOT swallow real emergencies.
+  it('"je saigne beaucoup" → STILL escalates (hemorrhage)', async () => {
+    const r: any = await analyzeMessage('je saigne beaucoup');
+    expect(escalates(r)).toBe(true);
+  });
+  it('"maux de tête violents" → STILL escalates (céphalée)', async () => {
+    const r: any = await analyzeMessage('maux de tête violents');
+    expect(escalates(r)).toBe(true);
+  });
+  // Hard-reset boundary: a connector re-opens positive scope after a negated symptom.
+  it('"je n\'ai pas de fièvre et mal à la tête" → STILL escalates (headache after "et")', async () => {
+    const r: any = await analyzeMessage("je n'ai pas de fièvre et mal à la tête");
+    expect(escalates(r)).toBe(true);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CB-R2-02 (P2) — suggestion MIS-ROUTING. Loose bidirectional substring scoring let 1-letter
+// label tokens (FR elision "à"/"a", EN article "a"/pronoun "i") match almost any user word, so
+// benign nutrition queries scored 80 on the bleeding (cs06) / headache (cs09) symptom chips.
+// Fix: whole-word token equality + a min-confidence floor + a nutrition/topic preference for
+// food & drink queries. These food/drink questions MUST NOT surface a bleeding/headache chip.
+describe('Chatbot triage — food/drink queries must NOT mis-route to a symptom chip (CB-R2-02)', () => {
+  const SYMPTOM_FALSE_CHIPS = ['cs06', 'cs09']; // bleeding / violent headache
+  const foodDrink = [
+    'manger du fromage',
+    'puis-je boire du café',
+    'puis-je boire du café ?',
+    'est-ce que je peux manger du fromage ?',
+  ];
+  for (const text of foodDrink) {
+    it(`"${text}" → not the bleeding/headache symptom suggestion`, async () => {
+      const r: any = await analyzeMessage(text);
+      // never the direct red_flag path
+      expect(r.type).not.toBe('red_flag');
+      expect(r.redFlag).toBeUndefined();
+      // if it routes as a suggestion, it must not be the bleeding/headache chip
+      if (r.type === 'suggestion') {
+        expect(SYMPTOM_FALSE_CHIPS).not.toContain(r.suggestions?.[0]?.suggestion_id);
+        expect((r.suggestions?.[0]?.topic || '').toLowerCase()).not.toContain('symptom');
+      }
+      // and no emergency banner text leaks into the message
+      const msg: string = typeof r.message === 'string' ? r.message : '';
+      expect(msg).not.toContain('⚠️');
+      expect(msg).not.toContain('🚨');
+    });
+  }
+
+  // Control: a deliberately-typed food TOPIC query still surfaces nutrition help.
+  it('"quels aliments éviter ?" → still surfaces the nutrition suggestion', async () => {
+    const r: any = await analyzeMessage('quels aliments éviter ?');
+    expect(r.type).toBe('suggestion');
+    expect((r.suggestions?.[0]?.topic || '').toLowerCase()).toContain('nutrition');
+  });
+});

@@ -10,11 +10,12 @@ import {
     TouchableOpacity,
     ScrollView,
     Switch,
-    Alert,
     Linking,
     ActivityIndicator,
     Platform,
 } from 'react-native';
+import { showAlert } from '../utils/alert';
+import { confirmAction } from '../utils/uiUtils';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { usePregnancy } from '../context/PregnancyContext';
@@ -221,9 +222,9 @@ export const SettingsScreen = () => {
                         if (granted) {
                             alert(t('common.permissionsGranted'));
                         } else {
-                            // On iOS, if permission is already denied, we must open settings
-                            // Alert, Linking, Platform already imported at top
-                            Alert.alert(
+                            // On iOS, if permission is already denied, we must open settings.
+                            // showAlert fires the confirm callback on web too (window.confirm).
+                            showAlert(
                                 t('common.permissionsDenied'),
                                 t('common.permissionsDeniedMsg'),
                                 [
@@ -305,7 +306,7 @@ export const SettingsScreen = () => {
                             setLoading(true);
                             const userId = auth.currentUser?.uid;
                             if (!userId) {
-                                Alert.alert(t('common.error'), t('common.loginRequired'));
+                                showAlert(t('common.error'), t('common.loginRequired'));
                                 return;
                             }
 
@@ -315,7 +316,7 @@ export const SettingsScreen = () => {
                             // P3.6 FIX: pass the real Profile (firstName, lmp, country) — was passing
                             // pregnancyInfo (just week/day) which produced a structurally invalid PDF profile block.
                             if (!profile) {
-                                Alert.alert(t('common.error'), t('common.profileRequired') || t('common.error'));
+                                showAlert(t('common.error'), t('common.profileRequired') || t('common.error'));
                                 return;
                             }
                             await generateAndSharePDF({
@@ -326,7 +327,7 @@ export const SettingsScreen = () => {
                             }, t, dateLocale, 'Journal_Grossesse.pdf', i18n.language);
                         } catch (e) {
                             logger.error("SettingsScreen", "PDF Export Error", e);
-                            Alert.alert(t('common.error'), t('export.errorMessage') || t('common.error'));
+                            showAlert(t('common.error'), t('export.errorMessage') || t('common.error'));
                         } finally {
                             setLoading(false);
                         }
@@ -351,17 +352,15 @@ export const SettingsScreen = () => {
                     // P3.6 FIX: pass real Profile, not pregnancyInfo (week/day only).
                     // C3/F6: explicit confirmation — exported file contains ALL medical data in plain text.
                     onPress={() => {
-                        Alert.alert(
+                        // C3/F6: explicit destructive confirm — exported file is plaintext medical data.
+                        // confirmAction fires onConfirm on web too (Alert.alert is a no-op there).
+                        confirmAction(
                             t('export.warningTitle'),
                             t('export.warningMessage'),
-                            [
-                                { text: t('common.cancel'), style: 'cancel' },
-                                {
-                                    text: t('common.continue'),
-                                    style: 'destructive',
-                                    onPress: () => exportUserData(user, profile, t),
-                                },
-                            ],
+                            () => exportUserData(user, profile, t),
+                            undefined,
+                            t('common.cancel'),
+                            t('common.continue'),
                         );
                     }}
                 >

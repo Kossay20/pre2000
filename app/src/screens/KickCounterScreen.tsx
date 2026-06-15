@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-    Alert,
     ScrollView,
     StyleSheet,
     Text,
@@ -15,6 +14,7 @@ import { Button } from '../components/common/Button';
 import { Card } from '../components/common/Card';
 import { EmptyState } from '../components/common/EmptyState';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
+import { confirmAction } from '../utils/uiUtils';
 import {
     KickCounterState,
     cancelSession,
@@ -80,20 +80,16 @@ export const KickCounterScreen: React.FC = () => {
     }, []);
 
     const onCancel = useCallback(() => {
-        Alert.alert(
+        confirmAction(
             t('cycle8.kickCounter.cancelSession'),
             '',
-            [
-                { text: t('common.cancel', { defaultValue: 'Annuler' }), style: 'cancel' },
-                {
-                    text: t('cycle8.kickCounter.cancelSession'),
-                    style: 'destructive',
-                    onPress: async () => {
-                        const next = await cancelSession();
-                        setState(next);
-                    },
-                },
-            ],
+            async () => {
+                const next = await cancelSession();
+                setState(next);
+            },
+            undefined,
+            t('common.cancel', { defaultValue: 'Annuler' }),
+            t('cycle8.kickCounter.cancelSession'),
         );
     }, [t]);
 

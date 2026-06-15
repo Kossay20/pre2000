@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { theme } from '../../theme';
 import { getShadowStyle } from '../../utils/styleUtils';
 import { useTranslation } from 'react-i18next';
@@ -58,6 +58,8 @@ export const WeeklyStrip: React.FC<WeeklyStripProps> = React.memo(({
                 accessibilityRole="button"
                 accessibilityLabel={a11yLabel}
                 accessibilityState={{ selected: isSelected }}
+                // CAL-R2-03: RN-web 0.21.2 drops accessibilityState.selected → expose aria explicitly.
+                {...(Platform.OS === 'web' ? { 'aria-selected': isSelected } : {})}
                 accessibilityHint={hasRDV ? t('a11y.openAppointment') : undefined}
             >
                 <Text style={[styles.dayName, isSelected && styles.selectedText]}>

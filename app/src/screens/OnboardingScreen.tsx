@@ -12,8 +12,8 @@ import {
     Dimensions,
     Animated,
     BackHandler,
-    Alert,
 } from 'react-native';
+import { showAlert } from '../utils/alert';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Localization from 'expo-localization';
@@ -201,7 +201,7 @@ export const OnboardingScreen = () => {
         });
         if (!validation.valid) {
             const message = validation.error ? t(validation.error) : t('common.unknownError');
-            Alert.alert(t('common.error'), message);
+            showAlert(t('common.error'), message);
             return;
         }
 
@@ -1075,7 +1075,7 @@ export const OnboardingScreen = () => {
         });
         if (!ttcValidation.valid) {
             const message = ttcValidation.error ? t(ttcValidation.error) : t('common.unknownError');
-            Alert.alert(t('common.error'), message);
+            showAlert(t('common.error'), message);
             return;
         }
 
@@ -1172,7 +1172,7 @@ export const OnboardingScreen = () => {
         });
         if (!curiousValidation.valid) {
             const message = curiousValidation.error ? t(curiousValidation.error) : t('common.unknownError');
-            Alert.alert(t('common.error'), message);
+            showAlert(t('common.error'), message);
             return;
         }
 

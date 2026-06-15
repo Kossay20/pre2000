@@ -8,8 +8,10 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { format } from 'date-fns';
+import { showAlert } from '../../utils/alert';
+import { confirmAction } from '../../utils/uiUtils';
 import { useDateLocale } from '../../hooks/useDateLocale';
 import { useTranslation } from 'react-i18next';
 import i18n from '../../i18n';
@@ -276,7 +278,7 @@ export const MyDaySection: React.FC<Props> = React.memo(({
         if (allCompleted) {
             log.info('All items completed! 🎉');
             setTimeout(() => {
-                Alert.alert(t('common.success'), t('reminders.myDay.allDone'));
+                showAlert(t('common.success'), t('reminders.myDay.allDone'));
             }, 500);
         }
     };
@@ -422,13 +424,13 @@ export const MyDaySection: React.FC<Props> = React.memo(({
                                             onDeleteTask && onDeleteTask(item.id);
                                         } else {
                                             // For reminders/appointments: Skip for today
-                                            Alert.alert(
+                                            confirmAction(
                                                 t('reminders.myDay.hideTodayTitle'),
                                                 t('reminders.myDay.hideTodayMsg'),
-                                                [
-                                                    { text: t('reminders.myDay.cancel'), style: "cancel" },
-                                                    { text: t('reminders.myDay.hide'), onPress: () => handleSkipItem(item.id) }
-                                                ]
+                                                () => handleSkipItem(item.id),
+                                                undefined,
+                                                t('reminders.myDay.cancel'),
+                                                t('reminders.myDay.hide')
                                             );
                                         }
                                     }}

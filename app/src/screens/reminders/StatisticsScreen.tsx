@@ -196,27 +196,33 @@ export const StatisticsScreen = () => {
             {/* Global Progress Chart */}
             <View style={styles.chartCard}>
                 <Text style={styles.chartTitle}>{t('globalSuccess')}</Text>
-                <LineChart
-                    data={{
-                        labels: data.dates.map(d => format(parseISO(d), 'dd/MM', { locale: dateLocale })),
-                        datasets: [{ data: data.completionRates }]
-                    }}
-                    width={screenWidth - 48}
-                    height={220}
-                    yAxisSuffix="%"
-                    chartConfig={{
-                        backgroundColor: theme.colors.white,
-                        backgroundGradientFrom: theme.colors.white,
-                        backgroundGradientTo: theme.colors.white,
-                        decimalPlaces: 0,
-                        color: (opacity = 1) => hexToRgba(theme.colors.accent, opacity),
-                        labelColor: (opacity = 1) => hexToRgba(theme.colors.black, opacity),
-                        style: { borderRadius: 16 },
-                        propsForDots: { r: "6", strokeWidth: "2", stroke: theme.colors.accent }
-                    }}
-                    bezier
-                    style={styles.chart}
-                />
+                {/* F-HS-NEW-01: a chart with a single point is degenerate (renders as a
+                    flat dot). Require >=2 days, else show a 'log more days' placeholder. */}
+                {data.completionRates.length >= 2 ? (
+                    <LineChart
+                        data={{
+                            labels: data.dates.map(d => format(parseISO(d), 'dd/MM', { locale: dateLocale })),
+                            datasets: [{ data: data.completionRates }]
+                        }}
+                        width={screenWidth - 48}
+                        height={220}
+                        yAxisSuffix="%"
+                        chartConfig={{
+                            backgroundColor: theme.colors.white,
+                            backgroundGradientFrom: theme.colors.white,
+                            backgroundGradientTo: theme.colors.white,
+                            decimalPlaces: 0,
+                            color: (opacity = 1) => hexToRgba(theme.colors.accent, opacity),
+                            labelColor: (opacity = 1) => hexToRgba(theme.colors.black, opacity),
+                            style: { borderRadius: 16 },
+                            propsForDots: { r: "6", strokeWidth: "2", stroke: theme.colors.accent }
+                        }}
+                        bezier
+                        style={styles.chart}
+                    />
+                ) : (
+                    <Text style={styles.chartPlaceholder}>{t('chartNeedMoreDays')}</Text>
+                )}
             </View>
 
 
@@ -224,26 +230,31 @@ export const StatisticsScreen = () => {
             {/* Hydration Chart */}
             <View style={styles.chartCard}>
                 <Text style={styles.chartTitle}>{t('hydrationLiters')}</Text>
-                <BarChart
-                    data={{
-                        labels: data.dates.map(d => format(parseISO(d), 'dd/MM', { locale: dateLocale })),
-                        datasets: [{ data: data.hydration }]
-                    }}
-                    width={screenWidth - 48}
-                    height={220}
-                    yAxisLabel=""
-                    yAxisSuffix="L"
-                    chartConfig={{
-                        backgroundColor: theme.colors.white,
-                        backgroundGradientFrom: theme.colors.white,
-                        backgroundGradientTo: theme.colors.white,
-                        decimalPlaces: 1,
-                        color: (opacity = 1) => hexToRgba(theme.colors.blue600, opacity),
-                        labelColor: (opacity = 1) => hexToRgba(theme.colors.black, opacity),
-                        barPercentage: 0.5,
-                    }}
-                    style={styles.chart}
-                />
+                {/* F-HS-NEW-01: same single-point guard as the success chart. */}
+                {data.hydration.length >= 2 ? (
+                    <BarChart
+                        data={{
+                            labels: data.dates.map(d => format(parseISO(d), 'dd/MM', { locale: dateLocale })),
+                            datasets: [{ data: data.hydration }]
+                        }}
+                        width={screenWidth - 48}
+                        height={220}
+                        yAxisLabel=""
+                        yAxisSuffix="L"
+                        chartConfig={{
+                            backgroundColor: theme.colors.white,
+                            backgroundGradientFrom: theme.colors.white,
+                            backgroundGradientTo: theme.colors.white,
+                            decimalPlaces: 1,
+                            color: (opacity = 1) => hexToRgba(theme.colors.blue600, opacity),
+                            labelColor: (opacity = 1) => hexToRgba(theme.colors.black, opacity),
+                            barPercentage: 0.5,
+                        }}
+                        style={styles.chart}
+                    />
+                ) : (
+                    <Text style={styles.chartPlaceholder}>{t('chartNeedMoreDays')}</Text>
+                )}
             </View>
 
             {/* Vitamins Consistency */}
@@ -425,6 +436,14 @@ const styles = StyleSheet.create({
     chart: {
         marginVertical: 8,
         borderRadius: 16,
+    },
+    // F-HS-NEW-01: placeholder shown when a chart has fewer than 2 data points.
+    chartPlaceholder: {
+        fontSize: 14,
+        color: theme.colors.textSecondary,
+        textAlign: 'center',
+        paddingVertical: 40,
+        lineHeight: 20,
     },
     loadingText: {
         marginTop: 12,
