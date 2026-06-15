@@ -317,7 +317,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: theme.colors.primary,
+        backgroundColor: theme.colors.accent,
         paddingVertical: 14,
         paddingHorizontal: 20,
         borderRadius: 14,

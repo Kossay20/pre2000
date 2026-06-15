@@ -117,7 +117,7 @@ export const styles = StyleSheet.create({
         color: theme.colors.textSecondary,
     },
     curiousBannerCta: {
-        backgroundColor: theme.colors.primary,
+        backgroundColor: theme.colors.accent,
         paddingVertical: 8,
         paddingHorizontal: 12,
         borderRadius: 8,

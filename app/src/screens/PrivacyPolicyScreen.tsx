@@ -218,7 +218,7 @@ const styles = StyleSheet.create({
         backgroundColor: theme.colors.borderLight,
     },
     tabButtonActive: {
-        backgroundColor: theme.colors.primary,
+        backgroundColor: theme.colors.accent,
     },
     tabText: {
         fontSize: 14,
@@ -285,7 +285,7 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
     contactButton: {
-        backgroundColor: theme.colors.primary,
+        backgroundColor: theme.colors.accent,
         padding: 16,
         borderRadius: 12,
         alignItems: 'center',

@@ -522,7 +522,7 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
                                                         />
                                                         {tempTimeDate && (
                                                             <TouchableOpacity
-                                                                style={{ backgroundColor: theme.colors.primary, paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20, marginTop: 12 }}
+                                                                style={{ backgroundColor: theme.colors.accent, paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20, marginTop: 12 }}
                                                                 onPress={() => {
                                                                     setReminderDate(tempTimeDate);
                                                                     setTempTimeDate(null);

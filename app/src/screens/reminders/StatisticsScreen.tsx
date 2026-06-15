@@ -406,7 +406,7 @@ const styles = StyleSheet.create({
         borderRadius: 8,
     },
     rangeButtonActive: {
-        backgroundColor: theme.colors.primary,
+        backgroundColor: theme.colors.accent,
     },
     rangeText: {
         color: theme.colors.textSecondary,

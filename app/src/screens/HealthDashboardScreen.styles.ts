@@ -74,7 +74,7 @@ export const styles = StyleSheet.create({
         color: theme.colors.text,
     },
     addButton: {
-        backgroundColor: theme.colors.primary,
+        backgroundColor: theme.colors.accent,
         paddingHorizontal: 12,
         paddingVertical: 6,
         borderRadius: theme.borderRadius.m,

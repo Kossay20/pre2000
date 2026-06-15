@@ -278,8 +278,8 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     checkboxChecked: {
-        backgroundColor: theme.colors.primary,
-        borderColor: theme.colors.primary,
+        backgroundColor: theme.colors.accent,
+        borderColor: theme.colors.accent,
     },
     checkboxMark: { color: theme.colors.white, fontWeight: '700' },
     rowLabel: { ...theme.typography.body, flex: 1, color: theme.colors.text },

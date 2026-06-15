@@ -448,3 +448,77 @@ describe('Chatbot triage — natural reduced-fetal-movement phrasings MUST escal
     });
   }
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CB-R6-01 (P1 CLINICAL — UNDER-escalation, rupture of membranes). The universal layperson
+// phrasings of waters breaking did NOT escalate: the 'liquide chaud' flag only carried the
+// clinical "liquide chaud,écoulement,vaginal", so "my water broke" / "je perds les eaux" /
+// "la poche des eaux a rompu" tokenized to harmless words and returned a benign info card.
+// Two incidental MIS-routes also surfaced: "perte des eaux" hit the hemorrhage EMERGENCY via
+// the generic token "perte", and "j'ai un liquide chaud" hit the fever flag via the
+// "chaud"→fièvre synonym. Fix: canonical multi-word ROM keywords were added in all 4 langs and
+// a negation-aware ROM concept detector FORCES the 'liquide chaud' flag and SUPPRESSES the two
+// colliding flags. These MUST escalate to the ROM/discharge flag (urgent_consult).
+describe('Chatbot triage — rupture of membranes MUST escalate to the ROM flag (CB-R6-01)', () => {
+  const romCases: { lang: string; text: string }[] = [
+    // EN — layperson "water(s) broke" / leaking fluid
+    { lang: 'en', text: 'my water broke' },
+    { lang: 'en', text: 'my waters broke' },
+    { lang: 'en', text: 'I think my water broke' },
+    { lang: 'en', text: 'water is leaking' },
+    { lang: 'en', text: 'I am leaking fluid' },
+    { lang: 'en', text: 'I think I am leaking amniotic fluid' },
+    // FR — perte / poche des eaux
+    { lang: 'fr', text: 'je perds les eaux' },
+    { lang: 'fr', text: "j'ai perdu les eaux" },
+    { lang: 'fr', text: 'la poche des eaux a rompu' },
+    { lang: 'fr', text: 'perte des eaux' },              // was → hemorrhage EMERGENCY (wrong)
+    { lang: 'fr', text: "j'ai un liquide chaud" },        // was → fever (wrong)
+    // AR canonical
+    { lang: 'ar', text: 'انفجار كيس الماء' },
+    { lang: 'ar', text: 'نزل ماء الولادة' },
+    { lang: 'ar', text: 'تمزق كيس الماء' },
+  ];
+  for (const c of romCases) {
+    it(`[${c.lang}] "${c.text}" → escalates to the ROM flag 'liquide chaud'`, async () => {
+      const r: any = await analyzeMessage(c.text);
+      // (1) it escalates with the right severity …
+      expect({ phrase: c.text, type: r.type, severity: r.redFlag?.severity, escalates: escalates(r) })
+        .toMatchObject({ escalates: true });
+      // (2) … and specifically to the ROM/discharge flag — NOT the hemorrhage or fever mis-route.
+      expect({ phrase: c.text, flag: r.redFlag?.red_flag_id })
+        .toMatchObject({ flag: 'liquide chaud' });
+      expect(r.redFlag?.red_flag_id).not.toMatch(/hemorragie|hémorragie|température/i);
+    });
+  }
+
+  // CRITICAL controls: benign phrasings that merely share a word must NOT mis-fire.
+  //  • "écoulement nasal" (a runny nose) shares the generic discharge token "écoulement".
+  //  • "I drank a warm tea" shares "warm" but has no break/leak/water cue.
+  const benignRom: { lang: string; text: string }[] = [
+    { lang: 'fr', text: 'écoulement nasal' },
+    { lang: 'en', text: 'I drank a warm tea' },
+    { lang: 'en', text: 'I had a warm drink' },
+  ];
+  for (const c of benignRom) {
+    it(`[${c.lang}] "${c.text}" → NOT a red_flag (benign, no ROM context)`, async () => {
+      const r: any = await analyzeMessage(c.text);
+      expect({ phrase: c.text, type: r.type, wrongFlag: r.redFlag?.red_flag_id })
+        .not.toMatchObject({ type: 'red_flag' });
+      expect(r.redFlag).toBeUndefined();
+    });
+  }
+
+  // Regression controls: a real fever / a real hemorrhage on a DIFFERENT phrasing must still win
+  // their own flags — the ROM suppression is scoped only to ROM-detected messages.
+  it('"j\'ai de la fièvre" → STILL escalates to the fever flag (suppression is ROM-scoped)', async () => {
+    const r: any = await analyzeMessage("j'ai de la fièvre");
+    expect(escalates(r)).toBe(true);
+    expect(r.redFlag?.red_flag_id).toMatch(/température/i);
+  });
+  it('"je perds beaucoup de sang" → STILL escalates to a hemorrhage EMERGENCY', async () => {
+    const r: any = await analyzeMessage('je perds beaucoup de sang');
+    expect(escalates(r)).toBe(true);
+    expect((r.redFlag?.severity || '').toLowerCase()).toBe('emergency');
+  });
+});

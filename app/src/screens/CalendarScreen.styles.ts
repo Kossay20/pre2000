@@ -348,7 +348,7 @@ export const styles = StyleSheet.create({
     eventBadge: {
         position: 'absolute',
         bottom: 2,
-        backgroundColor: theme.colors.primary,
+        backgroundColor: theme.colors.accent,
         minWidth: 16,
         height: 16,
         borderRadius: theme.borderRadius.s,
@@ -393,8 +393,8 @@ export const styles = StyleSheet.create({
         borderColor: theme.colors.disabled,
     },
     activeFilterChip: {
-        backgroundColor: theme.colors.primary,
-        borderColor: theme.colors.primary,
+        backgroundColor: theme.colors.accent,
+        borderColor: theme.colors.accent,
     },
     filterText: {
         fontSize: 14,

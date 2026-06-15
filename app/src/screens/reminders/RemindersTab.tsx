@@ -343,7 +343,7 @@ export const RemindersTab = () => {
                 </Text>
                 <TouchableOpacity
                     onPress={loadData}
-                    style={{ backgroundColor: theme.colors.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 20 }}
+                    style={{ backgroundColor: theme.colors.accent, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 20 }}
                     accessibilityRole="button"
                     accessibilityLabel={t('common.retry')}
                 >

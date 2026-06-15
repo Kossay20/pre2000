@@ -345,7 +345,7 @@ const styles = StyleSheet.create({
     },
     userMessage: {
         alignSelf: 'flex-end',
-        backgroundColor: theme.colors.primary,
+        backgroundColor: theme.colors.accent,
     },
     botMessage: {
         alignSelf: 'flex-start',
@@ -503,7 +503,7 @@ const styles = StyleSheet.create({
         marginTop: 2,
     },
     botBetaBadge: {
-        backgroundColor: theme.colors.primary,
+        backgroundColor: theme.colors.accent,
         paddingHorizontal: 8,
         paddingVertical: 4,
         borderRadius: 6,
@@ -527,7 +527,7 @@ const styles = StyleSheet.create({
         width: 48,
         height: 48,
         borderRadius: 24,
-        backgroundColor: theme.colors.primary,
+        backgroundColor: theme.colors.accent,
         justifyContent: 'center',
         alignItems: 'center',
         marginStart: 8,

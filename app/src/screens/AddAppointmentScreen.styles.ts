@@ -89,7 +89,7 @@ export const styles = StyleSheet.create({
         color: theme.colors.text,
     },
     saveButton: {
-        backgroundColor: theme.colors.primary,
+        backgroundColor: theme.colors.accent,
     },
     saveButtonDisabled: {
         opacity: 0.5,
@@ -113,8 +113,8 @@ export const styles = StyleSheet.create({
         alignItems: 'center',
     },
     typeButtonActive: {
-        backgroundColor: theme.colors.primary,
-        borderColor: theme.colors.primary,
+        backgroundColor: theme.colors.accent,
+        borderColor: theme.colors.accent,
     },
     typeText: {
         fontSize: 14,

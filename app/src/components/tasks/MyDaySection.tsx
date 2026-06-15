@@ -573,8 +573,8 @@ const styles = StyleSheet.create({
         backgroundColor: theme.colors.white,
     },
     checkboxChecked: {
-        backgroundColor: theme.colors.primary,
-        borderColor: theme.colors.primary,
+        backgroundColor: theme.colors.accent,
+        borderColor: theme.colors.accent,
     },
     checkmark: {
         color: theme.colors.white,

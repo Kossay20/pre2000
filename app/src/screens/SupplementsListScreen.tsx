@@ -126,7 +126,7 @@ export const SupplementsListScreen = () => {
                 </Text>
                 <TouchableOpacity
                     onPress={() => setRefreshKey(k => k + 1)}
-                    style={{ backgroundColor: theme.colors.primary, padding: 12, borderRadius: 8 }}
+                    style={{ backgroundColor: theme.colors.accent, padding: 12, borderRadius: 8 }}
                     accessibilityRole="button"
                     accessibilityLabel={t('common.retry')}
                 >

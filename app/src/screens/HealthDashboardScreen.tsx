@@ -401,7 +401,7 @@ export const HealthDashboardScreen = () => {
                 <Text style={{ fontSize: 48, marginBottom: 16 }}>⚠️</Text>
                 <Text style={styles.loadingText}>{error}</Text>
                 <TouchableOpacity
-                    style={{ marginTop: 16, padding: 12, backgroundColor: theme.colors.primary, borderRadius: theme.borderRadius.m }}
+                    style={{ marginTop: 16, padding: 12, backgroundColor: theme.colors.accent, borderRadius: theme.borderRadius.m }}
                     onPress={loadData}
                     accessibilityRole="button"
                     accessibilityLabel={t('common.retry')}

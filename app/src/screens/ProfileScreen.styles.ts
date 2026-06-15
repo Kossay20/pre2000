@@ -70,7 +70,7 @@ export const styles = StyleSheet.create({
         paddingHorizontal: 12,
         paddingVertical: 6,
         borderRadius: theme.borderRadius.m,
-        backgroundColor: theme.colors.primary,
+        backgroundColor: theme.colors.accent,
     },
     editButtonText: {
         color: theme.colors.white,
@@ -135,8 +135,8 @@ export const styles = StyleSheet.create({
         backgroundColor: theme.colors.white,
     },
     countryButtonSelected: {
-        backgroundColor: theme.colors.primary,
-        borderColor: theme.colors.primary,
+        backgroundColor: theme.colors.accent,
+        borderColor: theme.colors.accent,
     },
     countryButtonText: {
         fontSize: 14,
@@ -220,7 +220,7 @@ export const styles = StyleSheet.create({
         color: theme.colors.textSecondary,
     },
     saveButton: {
-        backgroundColor: theme.colors.primary,
+        backgroundColor: theme.colors.accent,
         paddingVertical: 14,
         borderRadius: theme.borderRadius.m,
         alignItems: 'center',

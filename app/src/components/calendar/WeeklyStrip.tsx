@@ -110,7 +110,7 @@ const styles = StyleSheet.create({
         borderRadius: 12,
     },
     selectedDayContainer: {
-        backgroundColor: theme.colors.primary,
+        backgroundColor: theme.colors.accent,
         ...getShadowStyle(4, theme.colors.primary, 0.3, 4, { width: 0, height: 2 }),
     },
     todayContainer: {

@@ -340,8 +340,8 @@ const styles = StyleSheet.create({
         borderColor: theme.colors.disabled,
     },
     categoryChipActive: {
-        backgroundColor: theme.colors.primary,
-        borderColor: theme.colors.primary,
+        backgroundColor: theme.colors.accent,
+        borderColor: theme.colors.accent,
     },
     categoryChipText: {
         fontSize: 13,

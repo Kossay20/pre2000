@@ -245,7 +245,7 @@ export const styles = StyleSheet.create({
         color: theme.colors.neutral400,
     },
     addButton: {
-        backgroundColor: theme.colors.primary,
+        backgroundColor: theme.colors.accent,
         borderRadius: 16,
         padding: 18,
         alignItems: 'center',
@@ -397,7 +397,7 @@ export const styles = StyleSheet.create({
         flex: 1,
         padding: 14,
         borderRadius: 12,
-        backgroundColor: theme.colors.primary,
+        backgroundColor: theme.colors.accent,
         alignItems: 'center',
     },
     saveButtonDisabled: {
@@ -595,7 +595,7 @@ export const styles = StyleSheet.create({
         backgroundColor: theme.colors.neutral75,
     },
     setupButton: {
-        backgroundColor: theme.colors.primary,
+        backgroundColor: theme.colors.accent,
         borderRadius: 12,
         padding: 16,
         alignItems: 'center',

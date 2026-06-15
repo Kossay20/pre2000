@@ -204,7 +204,7 @@ const styles = StyleSheet.create({
     bigCountLabel: { ...theme.typography.body, color: theme.colors.textLight, marginBottom: theme.spacing.s },
     elapsed: { ...theme.typography.caption, color: theme.colors.textLight, marginBottom: theme.spacing.l },
     tapButton: {
-        backgroundColor: theme.colors.primary,
+        backgroundColor: theme.colors.accent,
         paddingVertical: theme.spacing.l,
         paddingHorizontal: theme.spacing.xl,
         borderRadius: 100,

@@ -177,7 +177,7 @@ const styles = StyleSheet.create({
         gap: 10,
     },
     timeBadge: {
-        backgroundColor: theme.colors.primary,
+        backgroundColor: theme.colors.accent,
         paddingHorizontal: 10,
         paddingVertical: 4,
         borderRadius: 8,

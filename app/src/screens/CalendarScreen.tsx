@@ -449,7 +449,7 @@ export const CalendarScreen = () => {
                 <Text style={{ fontSize: 48, marginBottom: 16 }}>📅</Text>
                 <Text style={styles.loadingText}>{error}</Text>
                 <TouchableOpacity
-                    style={{ marginTop: 16, padding: 14, backgroundColor: theme.colors.primary, borderRadius: theme.borderRadius.m }}
+                    style={{ marginTop: 16, padding: 14, backgroundColor: theme.colors.accent, borderRadius: theme.borderRadius.m }}
                     onPress={() => loadData()}
                     accessibilityRole="button"
                     accessibilityLabel={t('common.retry')}
@@ -583,7 +583,7 @@ export const CalendarScreen = () => {
                             <Text style={styles.emptyStateText}>{t('calendar.noEventsForDay')}</Text>
                             <Text style={styles.emptyStateSubtext}>{t('calendar.enjoyRest')}</Text>
                             <TouchableOpacity
-                                style={[styles.todayButton, { marginTop: 16, backgroundColor: theme.colors.primary, paddingHorizontal: 24 }]}
+                                style={[styles.todayButton, { marginTop: 16, backgroundColor: theme.colors.accent, paddingHorizontal: 24 }]}
                                 onPress={() => navigation.navigate('AddAppointment', { selectedDate: selectedDate.toISOString() })}
                                 accessibilityRole="button"
                                 accessibilityLabel={t('a11y.addAppointment')}

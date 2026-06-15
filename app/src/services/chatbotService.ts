@@ -334,6 +334,31 @@ export const _analyzeMessage = async (text: string): Promise<ChatResponse> => {
     const hasWeaknessDescriptor = /\b(weak|faibles?)\b/.test(normalizedText);
     const fetalReductionContext = hasReductionCue || hasWeaknessDescriptor;
 
+    // CB-R6-01 FIX (SAFETY — UNDER-escalation, rupture of membranes). The universal layperson
+    // ways of reporting waters breaking ("my water broke", "I'm leaking fluid", "je perds les
+    // eaux", "la poche des eaux a rompu") did NOT escalate: the 'liquide chaud' flag only carried
+    // the clinical phrasing "liquide chaud,écoulement,vaginal", and the everyday terms tokenized
+    // to harmless words (water/broke; perte/eau→hydratation synonyms) that matched NO flag — so the
+    // bot returned a benign info card. Worse, two incidental MIS-routes appeared: "perte des eaux"
+    // hit the hemorrhage EMERGENCY via the generic token "perte", and "j'ai un liquide chaud"
+    // hit the fever flag via the "chaud"→fièvre synonym. Fix: (1) canonical multi-word ROM
+    // keywords were added to the flag in all 4 langs (strong-match, negation-surviving); (2) a
+    // negation-aware ROM CONCEPT detector below FORCES the 'liquide chaud' flag and (3) SUPPRESSES
+    // the incidental hemorrhage/fever matches so the correct flag wins regardless of severity order.
+    // The concept fires on a FLUID/water/membrane concept co-occurring with a BREAK/leak/loss cue,
+    // or an explicit ROM phrase — so benign "écoulement nasal" (nasal, no break/water cue) and
+    // "I drank a warm tea" (no break/leak cue) stay NON-escalating.
+    const ROM_FLUID_RE = /\b(water|waters|amniotic\s+fluid|fluid|membranes?|eaux|poche\s+des\s+eaux|كيس\s*الماء|ماء\s*الولادة)\b/i;
+    const ROM_BREAK_RE = /\b(broke|broken|break|breaking|burst|bursting|ruptured?|rupturing|leak|leaks|leaking|leaked|gush|gushing|perte\s+des\s+eaux|perds\s+les\s+eaux|perdu\s+les\s+eaux|perdre\s+les\s+eaux|rompu|rompue|rupture|انفجار|تمزق|نزول|نزل|تقصف|تقصفت)\b/i;
+    // ROM_EXPLICIT also includes the flag's own canonical clinical sign — a warm fluid /
+    // "liquide chaud" — so that phrasing routes to the ROM/discharge flag instead of the fever
+    // flag it currently collides with via the "chaud"→fièvre synonym. These are specific phrases
+    // (not lone generic words), so they cannot over-fire on benign input like "a warm tea".
+    const ROM_EXPLICIT_RE = /\b(perte\s+des\s+eaux|poche\s+des\s+eaux|rupture\s+des\s+membranes|membranes?\s+ruptured|amniotic\s+fluid|liquide\s+chaud|warm\s+liquid|سائل\s*دافئ|انفجار\s*كيس\s*الماء|تمزق\s*كيس\s*الماء|نزول\s*ماء\s*الولادة|تقصف\s*كيس\s*الماء)\b/i;
+    const ruptureOfMembranes =
+        ROM_EXPLICIT_RE.test(normalizedText)
+        || (ROM_FLUID_RE.test(normalizedText) && ROM_BREAK_RE.test(normalizedText));
+
     // 2. Check Red Flags (Critical) — use cache
     const redFlags = await getRedFlagsCached();
     const matchedFlags: { flag: RedFlag; severityScore: number; matchCount: number }[] = [];
@@ -403,7 +428,16 @@ export const _analyzeMessage = async (text: string): Promise<ChatResponse> => {
                         || (keyword === 'weak' && !(hasBabyConcept || hasMovementConcept))
                         // CB-R5-03: bare fetal "movements"/"mouvements"/"faibles" only in a
                         // reduction context (cue or weakness) — positive phrasings don't escalate.
-                        || (FETAL_GENERIC_TOKENS.has(keyword) && !fetalReductionContext);
+                        || (FETAL_GENERIC_TOKENS.has(keyword) && !fetalReductionContext)
+                        // CB-R6-01: a lone generic discharge word ("écoulement"/"discharge") is
+                        // overwhelmingly benign out of context ("écoulement nasal" = a runny nose),
+                        // yet it is a single-token keyword of the ROM/discharge flag. Gate it so it
+                        // only counts with a vaginal/genital or rupture-of-membranes context. Real
+                        // vaginal discharge ("vaginal discharge", "écoulement vaginal") still fires
+                        // via the co-present "vaginal" keyword / ROM concept.
+                        || ((keyword === 'écoulement' || keyword === 'discharge')
+                            && !ruptureOfMembranes
+                            && !/\b(vagin\w*|génital\w*|genital\w*|مهبل\w*)\b/i.test(normalizedText));
                     if (!gatedAway) {
                         matchCount++;
                     }
@@ -454,6 +488,37 @@ export const _analyzeMessage = async (text: string): Promise<ChatResponse> => {
         if (fetalFlag && !matchedFlags.some(m => m.flag.red_flag_id === fetalFlag.red_flag_id)) {
             const severityScore = SEVERITY_PRIORITY[fetalFlag.severity?.toLowerCase() || 'faible'] || 0;
             matchedFlags.push({ flag: fetalFlag, severityScore, matchCount: 1 });
+        }
+    }
+
+    // CB-R6-01 FIX (SAFETY — rupture of membranes): when the ROM concept detector fired, FORCE the
+    // ROM/discharge flag and SUPPRESS the two incidental flags the ROM phrasing collides with —
+    // hemorrhage (generic token "perte" in "perte des eaux") and fever (the "chaud"→fièvre synonym
+    // in "j'ai un liquide chaud"). Without the suppression the severity-first sort would pick the
+    // hemorrhage EMERGENCY for "perte des eaux", and array order would pick fever for the warm-fluid
+    // phrasing — both clinically WRONG for a waters-breaking report. The suppression is scoped to
+    // those two specific mis-routes; any genuinely co-described hemorrhage/fever still escalates via
+    // its own specific keywords ("hémorragie", "fever"…) on a different phrasing.
+    if (ruptureOfMembranes) {
+        const romFlag = redFlags.find(f =>
+            f.red_flag_id === 'liquide chaud'
+            || (f.keywords_en || '').toLowerCase().includes('amniotic fluid'));
+        if (romFlag) {
+            // Drop the incidental colliding matches so ROM wins regardless of severity ordering.
+            for (let i = matchedFlags.length - 1; i >= 0; i--) {
+                const id = matchedFlags[i].flag.red_flag_id;
+                if (id === 'hemorragie_postpartum' || id === 'température élevée') {
+                    matchedFlags.splice(i, 1);
+                }
+            }
+            const existing = matchedFlags.find(m => m.flag.red_flag_id === romFlag.red_flag_id);
+            if (existing) {
+                // Boost so it stays the top match even if another flag tied on severity+count.
+                existing.matchCount = Math.max(existing.matchCount, 2);
+            } else {
+                const severityScore = SEVERITY_PRIORITY[romFlag.severity?.toLowerCase() || 'faible'] || 0;
+                matchedFlags.push({ flag: romFlag, severityScore, matchCount: 2 });
+            }
         }
     }
 

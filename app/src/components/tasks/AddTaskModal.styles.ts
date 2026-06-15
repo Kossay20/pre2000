@@ -175,8 +175,8 @@ export const styles = StyleSheet.create({
         alignItems: 'center',
     },
     dateOptionButtonActive: {
-        backgroundColor: theme.colors.primary,
-        borderColor: theme.colors.primary,
+        backgroundColor: theme.colors.accent,
+        borderColor: theme.colors.accent,
     },
     dateOptionText: {
         fontSize: 13,

@@ -165,7 +165,7 @@ export const ArticlesListScreen = () => {
                 </Text>
                 <TouchableOpacity
                     onPress={retryLoad}
-                    style={{ backgroundColor: theme.colors.primary, padding: 10, borderRadius: 8 }}
+                    style={{ backgroundColor: theme.colors.accent, padding: 10, borderRadius: 8 }}
                     accessibilityRole="button"
                     accessibilityLabel={t('common.retry')}
                 >
