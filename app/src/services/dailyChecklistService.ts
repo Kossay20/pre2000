@@ -310,8 +310,12 @@ export const getHistoricalData = async (days: number = 30) => {
             const items = JSON.parse(dataStr);
 
             // Calculate daily stats
-            const total = items.length;
-            const completed = items.filter((i: any) => i.completed).length;
+            // F-HS-03 FIX: exclude SKIPPED tasks from both numerator and denominator.
+            // The Tasks UI hides skipped items, so counting them in the denominator
+            // under-reported the completion rate (a skipped task is not a missed task).
+            const active = items.filter((i: any) => !i.skipped);
+            const total = active.length;
+            const completed = active.filter((i: any) => i.completed).length;
             const rate = total > 0 ? (completed / total) * 100 : 0;
 
             // Hydration

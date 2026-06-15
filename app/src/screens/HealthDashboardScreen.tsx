@@ -102,7 +102,9 @@ export const HealthDashboardScreen = () => {
             setError(null);
             try {
                 const [healthStats, weights, bps, glucoses, todaySymptoms] = await Promise.all([
-                    getHealthStats(user.uid, pregnancyInfo.week),
+                    // F-HS-04: pass pre-pregnancy weight so weight-gain uses the clinical
+                    // baseline (matches WeightTracker) instead of the first logged entry.
+                    getHealthStats(user.uid, pregnancyInfo.week, user.prePregnancyWeight),
                     // P3.7 FIX: use merged source — was reading healthMetrics only,
                     // weight_entries (WeightTrackerScreen inputs) appeared in stats but not in graph.
                     getMergedWeightHistory(user.uid),
@@ -153,7 +155,8 @@ export const HealthDashboardScreen = () => {
         setError(null);
         try {
             const [healthStats, weights, bps, glucoses, todaySymptoms] = await Promise.all([
-                getHealthStats(user.uid, pregnancyInfo.week),
+                // F-HS-04: clinical pre-pregnancy baseline for weight-gain (see initial load).
+                getHealthStats(user.uid, pregnancyInfo.week, user.prePregnancyWeight),
                 getMergedWeightHistory(user.uid),
                 getBloodPressureHistory(user.uid),
                 getGlucoseHistory(user.uid),

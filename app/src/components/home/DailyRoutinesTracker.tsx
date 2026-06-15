@@ -193,7 +193,7 @@ export const DailyRoutinesTracker: React.FC<UnifiedDaySummaryProps> = ({
                         <View style={styles.leftContent}>
                             <Text style={styles.emoji}>✨</Text>
                             <Text style={[styles.title, { color: theme.colors.white }]}>
-                                {t('home.myDay', 'Ma Journée')} {completedItems}/{totalItems}
+                                {t('reminders.myDay.title')} {completedItems}/{totalItems}
                             </Text>
                         </View>
                         <View style={styles.rightContent}>

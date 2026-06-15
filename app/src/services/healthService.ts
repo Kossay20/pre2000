@@ -290,12 +290,46 @@ export const getSymptomsHistory = async (userId: string, limitDays = 30): Promis
 
 
 /**
+ * F-HS-05 FIX: Deduplicate weight entries by calendar day.
+ * The legacy `healthMetrics` and V2 `weight_entries` collections can both hold an
+ * entry for the same date (e.g. user logged on the dashboard then re-logged in the
+ * WeightTracker). A plain concat double-counted those days, inflating the graph and
+ * skewing initial/current/gain stats. We group by ISO date (YYYY-MM-DD) and keep the
+ * most recently created entry per day, then sort ascending by date.
+ */
+const dedupeWeightByDate = (entries: HealthMetric[]): HealthMetric[] => {
+    const byDay = new Map<string, HealthMetric>();
+    const createdAtMs = (m: HealthMetric): number => {
+        const t = m.created_at ? new Date(m.created_at).getTime() : NaN;
+        // Fallback to the entry date when created_at is missing/invalid so we still
+        // compare deterministically rather than treating it as 0 (epoch).
+        return Number.isNaN(t) ? new Date(m.date).getTime() : t;
+    };
+
+    for (const entry of entries) {
+        const dayKey = entry.date.slice(0, 10); // ISO date → YYYY-MM-DD
+        const existing = byDay.get(dayKey);
+        if (!existing || createdAtMs(entry) >= createdAtMs(existing)) {
+            // On ties (equal created_at) the later iterated entry wins; V2 entries are
+            // concatenated after legacy ones, so the newer source is preferred.
+            byDay.set(dayKey, entry);
+        }
+    }
+
+    return Array.from(byDay.values()).sort(
+        (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+    );
+};
+
+/**
  * P3.7 FIX: Single source of truth for weight history.
  * Merges entries from `healthMetrics` (legacy / dashboard inputs) and `weight_entries`
  * (WeightTrackerScreen inputs) into a unified HealthMetric[] sorted by date.
  *
  * Use this helper anywhere a complete weight view is needed (graphs, stats, exports).
  * Avoids the bug where the dashboard graph showed only one half of the user's data.
+ *
+ * F-HS-05: same-date entries are deduplicated (most-recent created_at wins per day).
  */
 export const getMergedWeightHistory = async (userId: string): Promise<HealthMetric[]> => {
     if (!userId || userId.startsWith('guest_')) {
@@ -317,12 +351,14 @@ export const getMergedWeightHistory = async (userId: string): Promise<HealthMetr
         created_at: w.date,
     }));
 
-    return [...oldEntries, ...v2AsHealthMetric].sort(
-        (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-    );
+    return dedupeWeightByDate([...oldEntries, ...v2AsHealthMetric]);
 };
 
-export const getHealthStats = async (userId: string, currentWeek: number): Promise<HealthStats> => {
+export const getHealthStats = async (
+    userId: string,
+    currentWeek: number,
+    prePregnancyWeight?: number,
+): Promise<HealthStats> => {
     // P0 FIX: Block Firestore reads for guest users
     if (!userId || userId.startsWith('guest_')) {
         log.warn('[HealthService] Guest user blocked from health stats (guest mode)');
@@ -363,13 +399,25 @@ export const getHealthStats = async (userId: string, currentWeek: number): Promi
             created_at: w.date,
         }));
 
-        // Merge and deduplicate by date (prefer the most recent entry for same date)
-        const allWeights = [...weightHistoryOld, ...weightFromV2]
-            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        // F-HS-05 FIX: real deduplication by calendar day (was a plain concat despite the
+        // comment claiming dedup → same-date entries double-counted). Most-recent created_at
+        // wins per day. Result is sorted ascending by date.
+        const allWeights = dedupeWeightByDate([...weightHistoryOld, ...weightFromV2]);
 
         const weightCurrent = allWeights.length > 0 ? (allWeights[allWeights.length - 1].value as number) : undefined;
-        const weightInitial = allWeights.length > 0 ? (allWeights[0].value as number) : undefined;
-        const weightGain = weightCurrent && weightInitial ? weightCurrent - weightInitial : 0;
+        // F-HS-04 FIX: the weight-gain baseline must be the user's pre-pregnancy weight
+        // (clinical reference, matches WeightTrackerScreen), NOT the first LOGGED entry —
+        // which is typically recorded mid-pregnancy and understates the real gain.
+        // Fall back to the earliest logged entry only when prePregnancyWeight is unknown.
+        const weightInitial =
+            prePregnancyWeight && prePregnancyWeight > 0
+                ? prePregnancyWeight
+                : allWeights.length > 0
+                    ? (allWeights[0].value as number)
+                    : undefined;
+        const weightGain = weightCurrent !== undefined && weightInitial !== undefined
+            ? weightCurrent - weightInitial
+            : 0;
 
         const lastBP = bpHistory.length > 0
             ? {

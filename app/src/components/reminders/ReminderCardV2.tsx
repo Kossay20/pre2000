@@ -14,7 +14,8 @@ import {
     Text,
     StyleSheet,
     Switch,
-    TouchableOpacity
+    TouchableOpacity,
+    Platform
 } from 'react-native';
 import {
     ReminderDefinition,
@@ -22,7 +23,7 @@ import {
     ContextProfile
 } from '../../types/remindersV2';
 import { updateReminderIntensity } from '../../services/remindersV2Service';
-import { getLocalizedTrilang } from '../../utils/i18nHelpers';
+import { getLocalizedTrilang, formatTime } from '../../utils/i18nHelpers';
 import { useAuth } from '../../context/AuthContext';
 import { useTranslation } from 'react-i18next';
 
@@ -71,7 +72,7 @@ export const ReminderCardV2: React.FC<ReminderCardV2Props> = ({
         // V2.2: Include labels if set
         const timeLabels = setting?.time_labels || {};
         return times.map(t => {
-            const formatted = t.replace(':', 'h');
+            const formatted = formatTime(t, i18n.language);
             const label = timeLabels[t];
             return label ? `${formatted}: ${label}` : formatted;
         }).join(' • ');
@@ -113,6 +114,11 @@ export const ReminderCardV2: React.FC<ReminderCardV2Props> = ({
                     onValueChange={onToggle}
                     trackColor={{ false: theme.colors.neutral300, true: theme.colors.accent }}
                     thumbColor={isEnabled ? theme.colors.white : theme.colors.iosGroupedBackground}
+                    accessibilityRole="switch"
+                    accessibilityLabel={getLocalizedContent(reminder.title)}
+                    accessibilityHint={t('a11y.toggleReminder')}
+                    accessibilityState={{ checked: isEnabled }}
+                    {...(Platform.OS === 'web' ? { 'aria-checked': isEnabled } : {})}
                 />
             </View>
 

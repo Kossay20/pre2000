@@ -61,6 +61,12 @@ export const styles = StyleSheet.create({
         ...theme.typography.body,
         color: theme.colors.text,
     },
+    // CAL-07: localized human-readable read-out shown under the web date control
+    dateReadout: {
+        fontSize: 12,
+        color: theme.colors.textLight,
+        marginTop: theme.spacing.xs,
+    },
     actions: {
         flexDirection: 'row',
         gap: theme.spacing.m,

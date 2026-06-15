@@ -46,7 +46,7 @@ import { ReminderEditModal } from '../../components/reminders/ReminderEditModal'
 import { HydrationCard } from '../../components/reminders/HydrationCard';
 import { useTranslation } from 'react-i18next';
 import { Trilang } from '../../types/remindersV2';
-import { getLocalizedTrilang } from '../../utils/i18nHelpers';
+import { getLocalizedTrilang, formatTime } from '../../utils/i18nHelpers';
 import { theme } from '../../theme';
 import { RtlAwareChevron } from '../../components/common/RtlAwareChevron';
 import { syncRemindersToNotifications } from '../../services/remindersScheduler';
@@ -149,7 +149,7 @@ const EssentialsList: React.FC<EssentialsListProps> = ({
     // Format times for display (same as ReminderCardV2)
     const formatTimes = (times: string[]): string => {
         if (!times || times.length === 0) return '';
-        return times.map(t => t.replace(':', 'h')).join(' • ');
+        return times.map(time => formatTime(time, i18n.language)).join(' • ');
     };
 
     // Get frequency label (same as ReminderCardV2)

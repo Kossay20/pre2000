@@ -297,6 +297,11 @@ export interface UserEvent {
     date: string; // ISO date string
     week: number; // Calculated from LMP
     type: 'appointment';
+    // CAL-04: user-selected nature of the appointment (Medical vs Personal).
+    // `type` stays the literal 'appointment' (consumed across the app); this
+    // optional field persists the selector so re-opening an event restores it.
+    // Absent on legacy events → callers fall back to the type-based heuristic.
+    category?: 'medical' | 'other';
     location?: string; // NEW: Address/Location
     notes?: string;
     created_at: string; // Timestamp
@@ -323,6 +328,7 @@ export interface CombinedEvent {
     priorityColor?: string;
     notes?: string;
     location?: string; // For user events
+    category?: 'medical' | 'other'; // CAL-04: persisted Medical/Personal nature (user events)
 }
 
 // V3 NEW TYPES

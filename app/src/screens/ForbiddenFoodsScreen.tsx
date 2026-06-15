@@ -113,7 +113,7 @@ export const ForbiddenFoodsScreen = () => {
             <View style={styles.header}>
                 <Text style={styles.title}>🍽️ {t('common.toAvoid')}</Text>
                 <Text style={styles.subtitle}>
-                    {t('common.defaultWarning')}
+                    {t('forbiddenFoods.subtitle')}
                 </Text>
             </View>
 

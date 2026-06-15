@@ -21,7 +21,7 @@ import { scheduleRDVReminders, cancelRDVReminders, getRDVReminders, getRDVPrefer
 import { analyticsService } from '../services/analyticsService';
 import { trackPositiveAction } from '../services/inAppReviewService';
 import { theme } from '../theme';
-import { format } from 'date-fns';
+import { format, isValid } from 'date-fns';
 import { useTranslation } from 'react-i18next';
 import { useDateLocale } from '../hooks/useDateLocale';
 import { getPickerLocale } from '../utils/pickerLocale';
@@ -57,7 +57,15 @@ export const AddAppointmentScreen = () => {
     }, []);
 
     const [title, setTitle] = useState(editingEvent?.title || '');
-    const [type, setType] = useState<'medical' | 'other'>(editingEvent?.type === 'appointment' ? 'medical' : 'other'); // Simplified mapping
+    // CAL-04: prefer the persisted `category` (Medical/Personal) so re-opening an
+    // event restores the real choice. Legacy events without `category` fall back to
+    // the old type-based heuristic (every user event has type 'appointment' → 'medical').
+    const initialType = (
+        editingEvent?.category === 'medical' || editingEvent?.category === 'other'
+            ? editingEvent.category
+            : (editingEvent?.type === 'appointment' ? 'medical' : 'other')
+    ) as 'medical' | 'other';
+    const [type, setType] = useState<'medical' | 'other'>(initialType);
 
     // FIX: Ensure valid date initialization with smart time defaults
     const getInitialDate = () => {
@@ -161,7 +169,7 @@ export const AddAppointmentScreen = () => {
         title: editingEvent?.title || '',
         dateMs: date.getTime(),
         location: editingEvent?.location || '',
-        type: (editingEvent?.type === 'appointment' ? 'medical' : 'other') as 'medical' | 'other',
+        type: initialType,
         notes: editingEvent?.notes || editingEvent?.description || '',
         reminderJ1: editingEvent ? false : true,
         reminderJ: editingEvent ? false : true,
@@ -365,6 +373,7 @@ export const AddAppointmentScreen = () => {
                     date: date.toISOString(),
                     week,
                     type: 'appointment',
+                    category: type, // CAL-04: persist the real Medical/Personal selection
                     location: location.trim() || undefined,
                     notes: notes.trim() || undefined,
                 });
@@ -377,6 +386,7 @@ export const AddAppointmentScreen = () => {
                     date: date.toISOString(),
                     week,
                     type: 'appointment',
+                    category: type, // CAL-04: persist the real Medical/Personal selection
                     location: location.trim() || undefined,
                     notes: notes.trim() || undefined,
                 });
@@ -477,14 +487,23 @@ export const AddAppointmentScreen = () => {
                         <View style={[styles.inputGroup, { flex: 1 }]}>
                             <Text style={styles.label}>{t('addAppointment.dateLabel')}</Text>
                             {Platform.OS === 'web' ? (
-                                <TextInput
-                                    style={styles.dateButton}
-                                    value={format(date, 'yyyy-MM-dd')}
-                                    onChangeText={(text) => handleWebDateChange({ target: { value: text } })}
-                                    placeholder="YYYY-MM-DD"
-                                    // @ts-ignore - Web specific attribute
-                                    inputMode="none"
-                                />
+                                <>
+                                    <TextInput
+                                        style={styles.dateButton}
+                                        value={format(date, 'yyyy-MM-dd')}
+                                        onChangeText={(text) => handleWebDateChange({ target: { value: text } })}
+                                        placeholder="YYYY-MM-DD"
+                                        // @ts-ignore - Web specific attribute
+                                        inputMode="none"
+                                    />
+                                    {/* CAL-07: the control keeps a valid yyyy-MM-dd value (required for
+                                        parsing), but raw ISO is unfriendly — show a localized read-out. */}
+                                    {isValid(date) && (
+                                        <Text style={styles.dateReadout}>
+                                            {format(date, 'dd MMM yyyy', { locale: dateLocale })}
+                                        </Text>
+                                    )}
+                                </>
                             ) : (
                                 <TouchableOpacity
                                     style={[styles.dateButton, showDatePicker && { borderColor: theme.colors.primary, borderWidth: 2 }]}
@@ -605,6 +624,10 @@ export const AddAppointmentScreen = () => {
                                 onValueChange={setReminderJ1}
                                 trackColor={{ false: theme.colors.disabled, true: theme.colors.primarySoft }}
                                 thumbColor={reminderJ1 ? theme.colors.primary : theme.colors.neutral400}
+                                accessibilityRole="switch"
+                                accessibilityLabel={t('addAppointment.reminderJ1')}
+                                accessibilityState={{ checked: reminderJ1 }}
+                                {...(Platform.OS === 'web' ? { 'aria-checked': reminderJ1 } : {})}
                             />
                         </View>
 
@@ -619,6 +642,10 @@ export const AddAppointmentScreen = () => {
                                 onValueChange={setReminderJ}
                                 trackColor={{ false: theme.colors.disabled, true: theme.colors.primarySoft }}
                                 thumbColor={reminderJ ? theme.colors.primary : theme.colors.neutral400}
+                                accessibilityRole="switch"
+                                accessibilityLabel={t('addAppointment.reminderJ')}
+                                accessibilityState={{ checked: reminderJ }}
+                                {...(Platform.OS === 'web' ? { 'aria-checked': reminderJ } : {})}
                             />
                         </View>
 
@@ -633,6 +660,10 @@ export const AddAppointmentScreen = () => {
                                 onValueChange={setReminderH2}
                                 trackColor={{ false: theme.colors.disabled, true: theme.colors.primarySoft }}
                                 thumbColor={reminderH2 ? theme.colors.primary : theme.colors.neutral400}
+                                accessibilityRole="switch"
+                                accessibilityLabel={t('addAppointment.reminderH2')}
+                                accessibilityState={{ checked: reminderH2 }}
+                                {...(Platform.OS === 'web' ? { 'aria-checked': reminderH2 } : {})}
                             />
                         </View>
                     </View>

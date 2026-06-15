@@ -209,6 +209,7 @@ export const CalendarScreen = () => {
                 type: event.type,
                 week: event.week,
                 source: 'user' as const,
+                category: event.category, // CAL-04: carry Medical/Personal so edit re-opens with it + card can show it
             });
         });
 

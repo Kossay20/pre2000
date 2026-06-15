@@ -59,11 +59,13 @@ export const RegisterScreen = () => {
         theme.colors.orange500,
         theme.colors.green500,
     ][passwordStrength];
+    // AUTH-03: meter uses SHORT hint keys (not the long validation sentences) so the
+    // fixed-width label can't collide with the bar — esp. in AR.
     const strengthLabel = [
         '',
         t('errors.passwordLength', { defaultValue: 'Min. 10 caractères' }),
-        t('errors.passwordComplexity', { defaultValue: 'Ajouter un chiffre' }),
-        t('errors.passwordUppercase', { defaultValue: 'Ajouter une majuscule' }),
+        t('errors.passwordHintAddDigit', { defaultValue: 'Ajouter un chiffre' }),
+        t('errors.passwordHintAddUpper', { defaultValue: 'Ajouter une majuscule' }),
         '✓',
     ][passwordStrength];
 
@@ -189,13 +191,17 @@ export const RegisterScreen = () => {
                                         style={[
                                             styles.strengthBarFill,
                                             {
-                                                width: `${(passwordStrength / 3) * 100}%` as any,
+                                                width: `${(passwordStrength / 4) * 100}%` as any,
                                                 backgroundColor: strengthColor,
                                             },
                                         ]}
                                     />
                                 </View>
-                                <Text style={[styles.strengthLabel, { color: strengthColor }]}>
+                                <Text
+                                    style={[styles.strengthLabel, { color: strengthColor }]}
+                                    numberOfLines={1}
+                                    ellipsizeMode="tail"
+                                >
                                     {strengthLabel}
                                 </Text>
                             </View>
@@ -368,6 +374,7 @@ const styles = StyleSheet.create({
         fontSize: 11,
         fontWeight: '500',
         minWidth: 90,
+        flexShrink: 1,
         textAlign: 'right',
     },
     button: {

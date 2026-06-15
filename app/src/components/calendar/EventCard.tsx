@@ -67,7 +67,15 @@ export const EventCard: React.FC<EventCardProps> = React.memo(({ event, onEdit, 
                 <View style={styles.tagsContainer}>
                     <View style={[styles.tag, isUserEvent && styles.userTag]}>
                         <Text style={[styles.tagText, isUserEvent && styles.userTagText]}>
-                            {isUserEvent ? t('calendar.myAppointment') : event.type}
+                            {/* CAL-04: surface the persisted Medical/Personal nature when present;
+                                fall back to the generic "my appointment" label for legacy events. */}
+                            {isUserEvent
+                                ? (event.category === 'medical'
+                                    ? t('addAppointment.typeMedical')
+                                    : event.category === 'other'
+                                        ? t('addAppointment.typeOther')
+                                        : t('calendar.myAppointment'))
+                                : event.type}
                         </Text>
                     </View>
                     {event.importance && !isUserEvent && (

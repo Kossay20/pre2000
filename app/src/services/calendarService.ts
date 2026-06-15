@@ -405,6 +405,7 @@ export const getCombinedEventsForWeek = (
             source: 'user',
             notes: ue.notes,
             location: ue.location, // BUGFIX: was dropped → user-event address vanished in combined view
+            category: ue.category, // CAL-04: carry persisted Medical/Personal nature into the combined view
             priorityColor: theme.colors.indigoAccent, // Purple for user events
         });
     });

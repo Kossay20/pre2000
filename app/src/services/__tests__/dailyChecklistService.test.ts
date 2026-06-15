@@ -203,3 +203,66 @@ describe('getHistoricalData hydration', () => {
         expect(stats.hydration[idx]).toBeGreaterThan(0);
     });
 });
+
+// ============================================
+// TEST: getHistoricalData completion rate (F-HS-03)
+// Skipped tasks must be excluded from BOTH numerator and denominator,
+// matching the Tasks UI which hides skipped items.
+// ============================================
+
+describe('getHistoricalData completion rate (skipped excluded)', () => {
+    const KEY_PREFIX = '@daily_checklist_v2_';
+
+    afterEach(() => {
+        jest.clearAllMocks();
+    });
+
+    const runWithBlob = async (blob: any[]) => {
+        const todayStr = format(new Date(), 'yyyy-MM-dd');
+        const key = `${KEY_PREFIX}${todayStr}`;
+        jest.mocked(AsyncStorage.getAllKeys).mockResolvedValueOnce([key]);
+        jest.mocked(AsyncStorage.getItem).mockImplementation(async (k: string) =>
+            k === key ? JSON.stringify(blob) : null
+        );
+        const stats = await getHistoricalData(30);
+        const idx = stats.dates.indexOf(todayStr);
+        return stats.completionRates[idx];
+    };
+
+    test('excludes skipped tasks from the denominator (2/2 active = 100%, not 2/4)', async () => {
+        // 2 completed, 2 skipped → UI shows only the 2 active, both done → 100%.
+        const rate = await runWithBlob([
+            { id: 'a', completed: true },
+            { id: 'b', completed: true },
+            { id: 'c', completed: false, skipped: true },
+            { id: 'd', completed: false, skipped: true },
+        ]);
+        expect(rate).toBe(100);
+    });
+
+    test('skipped tasks are not counted as completed (1 done /2 active = 50%)', async () => {
+        // A skipped item with completed:true must NOT inflate the numerator.
+        const rate = await runWithBlob([
+            { id: 'a', completed: true },
+            { id: 'b', completed: false },
+            { id: 'c', completed: true, skipped: true },
+        ]);
+        expect(rate).toBe(50);
+    });
+
+    test('all tasks skipped → 0% (guarded division, no NaN)', async () => {
+        const rate = await runWithBlob([
+            { id: 'a', completed: false, skipped: true },
+            { id: 'b', completed: true, skipped: true },
+        ]);
+        expect(rate).toBe(0);
+    });
+
+    test('no skipped tasks → behaves as before (1/2 = 50%)', async () => {
+        const rate = await runWithBlob([
+            { id: 'a', completed: true },
+            { id: 'b', completed: false },
+        ]);
+        expect(rate).toBe(50);
+    });
+});

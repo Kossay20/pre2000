@@ -57,6 +57,23 @@ export const getDateLocale = (language: string = i18n.language) => {
 };
 
 /**
+ * Locale-aware time formatter for reminder times stored as "HH:mm".
+ *
+ * FR (and TN, which follows the Maghreb/French convention — see pickerLocale.ts)
+ * display "09h00"; EN and AR keep the standard "09:00" colon separator.
+ * Falls back to the original string when there is no ':' to format.
+ */
+export const formatTime = (
+    time: string,
+    language: string = i18n.language
+): string => {
+    if (!time) return '';
+    const langCode = language.split('-')[0];
+    const useH = langCode === 'fr' || langCode === 'tn';
+    return useH ? time.replace(':', 'h') : time;
+};
+
+/**
  * Helper for Trilang objects (Reminders V2)
  * { fr: "...", ar: "...", en: "...", tn: "..." }
  */

@@ -171,6 +171,8 @@ export const SettingsScreen = () => {
                         thumbColor={babyMessageEnabled ? theme.colors.white : theme.colors.iosGroupedBackground}
                         accessibilityLabel={t('common.a11y.toggleBabyMessage')}
                         accessibilityRole="switch"
+                        accessibilityState={{ checked: babyMessageEnabled }}
+                        {...(Platform.OS === 'web' ? { 'aria-checked': babyMessageEnabled } : {})}
                     />
                 </View>
 

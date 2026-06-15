@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import {
     Linking,
+    Platform,
     ScrollView,
     StyleSheet,
     Text,
@@ -176,6 +177,7 @@ export const RamadanPregnancyScreen: React.FC = () => {
                     onPress={onConsulted}
                     accessibilityRole="checkbox"
                     accessibilityState={{ checked: state.consultedDoctor }}
+                    {...(Platform.OS === 'web' ? { 'aria-checked': state.consultedDoctor } : {})}
                 >
                     <View style={[styles.checkbox, state.consultedDoctor && styles.checkboxChecked]}>
                         {state.consultedDoctor && <Text style={styles.checkboxMark}>✓</Text>}

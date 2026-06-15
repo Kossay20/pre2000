@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import {
     Modal,
+    Platform,
     Pressable,
     ScrollView,
     StyleSheet,
@@ -131,6 +132,7 @@ export const HospitalBagChecklistScreen: React.FC = () => {
                                         accessibilityRole="checkbox"
                                         accessibilityState={{ checked }}
                                         accessibilityLabel={labelFor(item, i18n.language)}
+                                        {...(Platform.OS === 'web' ? { 'aria-checked': checked } : {})}
                                     >
                                         <View style={[styles.checkbox, checked && styles.checkboxChecked]}>
                                             {checked && <Text style={styles.checkboxMark}>✓</Text>}

@@ -29,6 +29,7 @@ import {
     getLocalizedContent,
     getDateLocale,
     getLocalizedTrilang,
+    formatTime,
 } from '../i18nHelpers';
 import { fr, enUS, ar, arTN } from 'date-fns/locale';
 
@@ -409,6 +410,56 @@ describe('getLocalizedTrilang', () => {
         it('tn requested, tn empty + ar empty + fr empty -> ""', () => {
             const t = { fr: '', ar: '', tn: '' } as any;
             expect(getLocalizedTrilang(t, 'tn')).toBe('');
+        });
+    });
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// 4. formatTime — locale-aware "HH:mm" reminder-time formatter
+//    FR/TN -> "09h00" (Maghreb/French convention), EN/AR -> "09:00".
+// ════════════════════════════════════════════════════════════════════════════
+describe('formatTime', () => {
+    describe('explicit language argument', () => {
+        it("fr -> 'h' separator", () => {
+            expect(formatTime('09:00', 'fr')).toBe('09h00');
+        });
+        it("tn -> 'h' separator (follows FR/Maghreb)", () => {
+            expect(formatTime('09:00', 'tn')).toBe('09h00');
+        });
+        it("en -> ':' separator (unchanged)", () => {
+            expect(formatTime('09:00', 'en')).toBe('09:00');
+        });
+        it("ar -> ':' separator (unchanged)", () => {
+            expect(formatTime('09:00', 'ar')).toBe('09:00');
+        });
+        it('only replaces the first colon (HH:mm has one)', () => {
+            expect(formatTime('21:30', 'fr')).toBe('21h30');
+        });
+        it('region-suffixed code is normalized (fr-FR behaves like fr)', () => {
+            expect(formatTime('08:15', 'fr-FR')).toBe('08h15');
+        });
+        it('unknown language falls back to colon (no h)', () => {
+            expect(formatTime('09:00', 'de')).toBe('09:00');
+        });
+    });
+
+    describe('default-param branch (reads i18n.language)', () => {
+        it("uses i18n.language when omitted ('fr' -> h)", () => {
+            mockI18n.language = 'fr';
+            expect(formatTime('07:45')).toBe('07h45');
+        });
+        it("uses i18n.language when omitted ('en' -> colon)", () => {
+            mockI18n.language = 'en';
+            expect(formatTime('07:45')).toBe('07:45');
+        });
+    });
+
+    describe('edge cases', () => {
+        it('empty string -> ""', () => {
+            expect(formatTime('', 'fr')).toBe('');
+        });
+        it('string without a colon is returned unchanged', () => {
+            expect(formatTime('0900', 'fr')).toBe('0900');
         });
     });
 });
