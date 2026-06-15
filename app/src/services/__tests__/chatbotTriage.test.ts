@@ -522,3 +522,168 @@ describe('Chatbot triage — rupture of membranes MUST escalate to the ROM flag 
     expect((r.redFlag?.severity || '').toLowerCase()).toBe('emergency');
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CB-R7-01 / CB-R7-02 (P1 CLINICAL — over-escalation, forced-path negation/reassurance bypass).
+// The reducedFetalMovement and ruptureOfMembranes detectors FORCED their red flag onto the match
+// list AFTER the negation guard, so NEGATED/REASSURING phrasings over-escalated:
+//   "my water has not broken yet" / "je n'ai pas perdu les eaux"        → liquide-chaud URGENT
+//   "baby is moving normally, no concerns" / "bébé bouge bien pas de souci" → fetal-movement URGENT
+// Fix: the fetal path aborts when a REASSURANCE token co-occurs (normally/bien/no concerns/pas de
+// souci…); the ROM path aborts when a negation SCOPES a rupture/fluid cue (and the negated ROM
+// multiword keyword is suppressed too). Genuine reports keep escalating (controls below).
+describe('Chatbot triage — negated/reassuring ROM & fetal-movement must NOT escalate (CB-R7-01/02)', () => {
+  const benign: { lang: string; text: string }[] = [
+    { lang: 'en', text: 'my water has not broken yet' },
+    { lang: 'fr', text: "je n'ai pas perdu les eaux" },
+    { lang: 'fr', text: 'je nai pas perdu les eaux' },          // no-apostrophe variant
+    { lang: 'en', text: 'baby is moving normally, no concerns' },
+    { lang: 'fr', text: 'bébé bouge bien pas de souci' },
+    { lang: 'fr', text: 'bébé bouge normalement tout va bien' },
+  ];
+  for (const c of benign) {
+    it(`[${c.lang}] "${c.text}" → NOT a red_flag`, async () => {
+      const r: any = await analyzeMessage(c.text);
+      expect({ phrase: c.text, type: r.type, wrongFlag: r.redFlag?.red_flag_id })
+        .not.toMatchObject({ type: 'red_flag' });
+      expect(r.redFlag).toBeUndefined();
+    });
+  }
+
+  // Controls: GENUINE ROM / reduced-movement (no reassurance, affirmative event) STILL escalate.
+  const stillEscalates: { lang: string; text: string; flag?: string }[] = [
+    { lang: 'en', text: 'my water broke', flag: 'liquide chaud' },
+    { lang: 'fr', text: 'je perds les eaux', flag: 'liquide chaud' },
+    { lang: 'en', text: 'my baby is not moving anymore' },
+    { lang: 'en', text: 'my baby has not moved all day' },
+    { lang: 'fr', text: 'mon bébé ne bouge plus' },
+    { lang: 'fr', text: 'bébé ne bouge pas depuis hier' },
+  ];
+  for (const c of stillEscalates) {
+    it(`[${c.lang}] "${c.text}" → STILL escalates${c.flag ? ` (${c.flag})` : ''}`, async () => {
+      const r: any = await analyzeMessage(c.text);
+      expect({ phrase: c.text, escalates: escalates(r) }).toMatchObject({ escalates: true });
+      if (c.flag) expect(r.redFlag?.red_flag_id).toBe(c.flag);
+    });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CB-R7-03 (P1 CLINICAL — over-escalation, Arabic substring + ungated generics). The AR matcher
+// did normalizedText.includes(keyword) and unconditionally set matchCount++/strongMatch, bypassing
+// the generic-token gating. The 2-char blood token "دم" is a SUBSTRING of the benign "القادم"
+// (next), so "متى موعد السونار القادم" (when is my next ultrasound) fired a hemorrhage EMERGENCY.
+// Fix: AR keywords match on WORD BOUNDARIES (clitic-aware so "الانتحار"→"انتحار" still matches but
+// "القادم"↛"دم"), and generic AR tokens require corroboration like the latin path.
+describe('Chatbot triage — Arabic generic-substring must NOT escalate (CB-R7-03)', () => {
+  const benignAr = [
+    'متى موعد السونار القادم',   // when is my next ultrasound (القادم ⊃ دم)
+    'متى الفحص القادم عندي',     // when is my next check-up
+    'ما هي الأطعمة المفيدة للحامل', // what foods are good for a pregnant woman
+  ];
+  for (const text of benignAr) {
+    it(`[ar] "${text}" → NOT a red_flag`, async () => {
+      const r: any = await analyzeMessage(text);
+      expect({ phrase: text, type: r.type, wrongFlag: r.redFlag?.red_flag_id })
+        .not.toMatchObject({ type: 'red_flag' });
+      expect(r.redFlag).toBeUndefined();
+    });
+  }
+
+  // Controls: REAL Arabic emergencies still escalate (specific tokens + clitic-prefixed forms).
+  const stillEscalatesAr: { text: string }[] = [
+    { text: 'عندي نزيف' },              // I have bleeding
+    { text: 'عندي نزيف قوي' },          // heavy bleeding (intensifier)
+    { text: 'النزيف لا يتوقف' },        // the bleeding won't stop (clitic ال+نزيف)
+    { text: 'أريد أن أموت' },           // want to die
+    { text: 'أفكر في الانتحار' },       // thinking of suicide (clitic ال+انتحار)
+    { text: 'لا أشعر بحركة الجنين منذ الصباح' }, // no fetal movement
+  ];
+  for (const c of stillEscalatesAr) {
+    it(`[ar] "${c.text}" → STILL escalates`, async () => {
+      const r: any = await analyzeMessage(c.text);
+      expect({ phrase: c.text, escalates: escalates(r) }).toMatchObject({ escalates: true });
+    });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CB-R7-04 (P1 CLINICAL — over-escalation, FR chaud→fièvre). The synonym 'chaud(e)'→fièvre made a
+// warm DRINK/FOOD escalate to the fever flag: "j'ai bu une tisane chaude" → température élevée
+// URGENT (the EN "warm tea" analogue was already safe). Fix: a warm-drink/food context with no
+// explicit fever lexeme suppresses the fever flag. Real fever still escalates (explicit lexeme/degree).
+describe('Chatbot triage — warm drink/food must NOT escalate to fever (CB-R7-04)', () => {
+  const benignWarm = [
+    "j'ai bu une tisane chaude",
+    "j'ai bu un thé chaud ce matin",
+    'un café chaud le matin est-il ok',
+    "j'ai mangé une soupe chaude",
+    'I drank a warm tea',
+    'I had a hot chocolate',
+  ];
+  for (const text of benignWarm) {
+    it(`"${text}" → no red_flag AND no ⚠️/🚨 message`, async () => {
+      const r: any = await analyzeMessage(text);
+      expect({ phrase: text, type: r.type, wrongFlag: r.redFlag?.red_flag_id })
+        .not.toMatchObject({ type: 'red_flag' });
+      expect(r.redFlag).toBeUndefined();
+      const msg: string = typeof r.message === 'string' ? r.message : '';
+      expect({ phrase: text, msg }).toMatchObject({ msg: expect.not.stringContaining('⚠️') });
+      expect({ phrase: text, msg }).toMatchObject({ msg: expect.not.stringContaining('🚨') });
+    });
+  }
+
+  // Controls: a REAL fever (explicit lexeme / temperature) STILL escalates to the fever flag.
+  const stillFever = ["j'ai de la fièvre", "j'ai une forte fièvre", "j'ai 39 de fièvre", 'I have a high fever of 39 degrees'];
+  for (const text of stillFever) {
+    it(`"${text}" → STILL escalates (fever)`, async () => {
+      const r: any = await analyzeMessage(text);
+      expect({ phrase: text, escalates: escalates(r) }).toMatchObject({ escalates: true });
+      expect(r.redFlag?.red_flag_id).toMatch(/température/i);
+    });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CB-R7-05 / CB-R7-06 (P1 CLINICAL — UNDER-escalation, inflected forms). Safety-category misses:
+//   • suicidal gerunds "ending my life" / "ending it all" (keyword was literal "end my life")
+//   • presyncope "going to faint" / "feel faint" (keywords had "fainted" but not these phrasings)
+// Fix: inflected/gerund variants added to chatbot_data.ts. A bare 'faint' token is gated against
+// the common BENIGN "faint line"/"faint heartbeat" object descriptions (both word orders) so it
+// does not over-fire — genuine presyncope uses the multiword phrases.
+describe('Chatbot triage — suicidal gerunds & presyncope MUST escalate (CB-R7-05/06)', () => {
+  const mustEscalate: { lang: string; text: string; rx: RegExp }[] = [
+    { lang: 'en', text: 'I feel like ending my life', rx: /suicid/i },
+    { lang: 'en', text: 'I am thinking of ending it all', rx: /suicid/i },
+    { lang: 'en', text: 'I want to take my own life', rx: /suicid/i },
+    { lang: 'en', text: "I don't want to be here anymore", rx: /suicid/i },
+    { lang: 'en', text: 'I think I am going to faint', rx: /perte de conscience/i },
+    { lang: 'en', text: 'I feel faint and dizzy', rx: /perte de conscience/i },
+    { lang: 'en', text: 'I am about to faint', rx: /perte de conscience/i },
+    { lang: 'fr', text: "je vais m'évanouir", rx: /perte de conscience/i },
+  ];
+  for (const c of mustEscalate) {
+    it(`[${c.lang}] "${c.text}" → escalates to the right flag`, async () => {
+      const r: any = await analyzeMessage(c.text);
+      expect({ phrase: c.text, escalates: escalates(r), flag: r.redFlag?.red_flag_id })
+        .toMatchObject({ escalates: true });
+      expect(r.redFlag?.red_flag_id).toMatch(c.rx);
+    });
+  }
+
+  // Controls: a "faint LINE/heartbeat" (a benign object description) must NOT escalate.
+  const benignFaint = [
+    'I see a faint line on my test',
+    'is a faint positive still a positive',
+    'the second line is very faint',
+    'the heartbeat sounded faint on the doppler',
+  ];
+  for (const text of benignFaint) {
+    it(`"${text}" → NOT a red_flag (benign 'faint' object description)`, async () => {
+      const r: any = await analyzeMessage(text);
+      expect({ phrase: text, type: r.type, wrongFlag: r.redFlag?.red_flag_id })
+        .not.toMatchObject({ type: 'red_flag' });
+      expect(r.redFlag).toBeUndefined();
+    });
+  }
+});

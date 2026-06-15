@@ -318,10 +318,47 @@ export const _analyzeMessage = async (text: string): Promise<ChatResponse> => {
         || /\b(mov(ement|ements)|kicks?|mouvements?)\b/.test(normalizedText);
     const hasReductionCue = RFM_REDUCTION_CUES.some(cue =>
         new RegExp(`(^|[^a-zà-ÿ])${cue.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}([^a-zà-ÿ]|$)`, 'i').test(normalizedText));
+
+    // CB-R7-01/02 FIX (SAFETY — over-escalation, negation/reassurance bypass). The two
+    // forced-concept detectors below (reducedFetalMovement, ruptureOfMembranes) push their red flag
+    // onto matchedFlags AFTER the per-flag negation guard runs, so a NEGATED or REASSURING statement
+    // previously over-escalated:
+    //   "baby is moving normally, no concerns" / "bébé bouge bien pas de souci" → fetal-movement URGENT
+    //   "my water has not broken yet" / "je n'ai pas perdu les eaux"            → liquide-chaud URGENT
+    // The bare-negation tokens here (no/not/pas/ne…) live in RFM_REDUCTION_CUES because a GENUINE
+    // reduced-movement report uses them ("baby has not moved", "ne bouge pas"). The reliable signal
+    // that a statement is NOT an emergency is a co-occurring REASSURANCE token (normally/fine/well/
+    // no concerns/bien/pas de souci/ça va) — no genuine reduced-movement or waters-broken report
+    // carries one. Reuse the KeywordEngine negation list (kept in sync) for the ROM guard below.
+    const NEGATION_CUES = [
+        // French
+        'ne', 'pas', 'aucun', 'aucune', 'sans', 'ni', 'jamais', 'guère', 'plus',
+        // English
+        'not', 'no', 'without', 'never', 'dont', "don't", 'cannot', "can't", 'cant', 'neither',
+        "n't", "hasn't", "haven't", "isn't", "doesn't", "didn't",
+        // Arabic standard + Tunisian dialect
+        'لا', 'ليس', 'ليست', 'لم', 'لن', 'غير', 'مش', 'msh', 'manish', 'manach', 'ma3andish',
+    ];
+    const REASSURANCE_TOKENS = [
+        // EN
+        'normally', 'normal', 'fine', 'well', 'good', 'okay', 'concern', 'concerns',
+        // FR
+        'normalement', 'bien', 'souci', 'soucis',
+    ];
+    const hasReassurance =
+        REASSURANCE_TOKENS.some(t =>
+            new RegExp(`(^|[^a-zà-ÿ])${t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}([^a-zà-ÿ]|$)`, 'i').test(normalizedText))
+        || /\b(no\s+concerns?|pas\s+de\s+souci|ça\s+va|ca\s+va|tout\s+va\s+bien|all\s+good)\b/i.test(normalizedText);
+
     // Fire when a reduction/negation cue accompanies EITHER an explicit baby+movement pairing OR a
     // (fetal) movement NOUN on its own. The cue is always required → benign "baby moves a lot" /
     // "bébé bouge beaucoup" / "I feel fewer movements" needs the cue but no false-positive cue.
-    const reducedFetalMovement = hasReductionCue && ((hasBabyConcept && hasMovementConcept) || hasMovementNoun);
+    // CB-R7-01: ABORT when a reassurance token co-occurs — "baby is moving normally, no concerns" /
+    // "bébé bouge bien pas de souci" use a bare negation but are explicitly reassuring, so they must
+    // NOT escalate. Genuine reports ("baby not moving anymore", "ne bouge plus", "has not moved all
+    // day") carry no reassurance token and still fire.
+    const reducedFetalMovement = hasReductionCue && !hasReassurance
+        && ((hasBabyConcept && hasMovementConcept) || hasMovementNoun);
 
     // CB-R5-03 FIX (SAFETY — over-escalation companion): the fetal-movement flag also has GENERIC
     // single-token keywords ("movements"/"mouvements"/"faibles") that, on their own, escalated
@@ -355,9 +392,108 @@ export const _analyzeMessage = async (text: string): Promise<ChatResponse> => {
     // flag it currently collides with via the "chaud"→fièvre synonym. These are specific phrases
     // (not lone generic words), so they cannot over-fire on benign input like "a warm tea".
     const ROM_EXPLICIT_RE = /\b(perte\s+des\s+eaux|poche\s+des\s+eaux|rupture\s+des\s+membranes|membranes?\s+ruptured|amniotic\s+fluid|liquide\s+chaud|warm\s+liquid|سائل\s*دافئ|انفجار\s*كيس\s*الماء|تمزق\s*كيس\s*الماء|نزول\s*ماء\s*الولادة|تقصف\s*كيس\s*الماء)\b/i;
+    // CB-R7-02 FIX (SAFETY — over-escalation, negation bypass). A NEGATED waters-report —
+    // "my water has not broken yet" / "je n'ai pas perdu les eaux" — escalated two ways: it FORCED
+    // the ROM concept past the negation guard, AND the canonical multi-word ROM keywords
+    // (perte/perdu les eaux, poche des eaux, water broke…) strong-matched, which by design survives
+    // token negation. No GENUINE waters-broken report scopes a negation onto the ROM cue (it is an
+    // affirmative event), so detect a negation that SCOPES a ROM cue — a negation token within a
+    // short window BEFORE a break/fluid term ("not broken", "has not broken", "pas perdu",
+    // "pas de perte"…) — and abort ROM in that case. Scoped (not message-wide) so a genuine
+    // "my water broke, no pain" still escalates (the "no" doesn't scope the ROM verb).
+    const ROM_CUE_FRAG = 'broke|broken|break|breaking|burst|ruptur\\w*|leak\\w*|gush\\w*|perdu|perdre|perds|perte|rompu\\w*|eaux|water\\w*|fluid|membran\\w*';
+    const NEG_FRAG = "not|no|n'?t|pas|jamais|aucun\\w*|sans|never|don'?t|doesn'?t|didn'?t|hasn'?t|haven'?t|isn'?t|cannot|can'?t";
+    const romNegated = new RegExp(
+        `(^|[^a-zà-ÿ])(${NEG_FRAG})([^a-zà-ÿ]+\\w+){0,3}[^a-zà-ÿ]+(${ROM_CUE_FRAG})\\b`, 'i'
+    ).test(normalizedText);
     const ruptureOfMembranes =
-        ROM_EXPLICIT_RE.test(normalizedText)
-        || (ROM_FLUID_RE.test(normalizedText) && ROM_BREAK_RE.test(normalizedText));
+        !romNegated
+        && (ROM_EXPLICIT_RE.test(normalizedText)
+            || (ROM_FLUID_RE.test(normalizedText) && ROM_BREAK_RE.test(normalizedText)));
+
+    // CB-R7-04 FIX (SAFETY — over-escalation, FR chaud→fièvre on a warm drink/food). The FR
+    // synonym map expands 'chaud(e)' → fièvre (and its arabizi température synonyms s5ana/skhana/…),
+    // so "j'ai bu une tisane chaude" produced fever tokens that matched the 'température élevée'
+    // flag → URGENT (the EN "warm tea" analogue was already safe because EN 'warm' is not a fever
+    // synonym). Detect a warm drink/food context (a beverage/food word next to chaud/chaude) and,
+    // when the ONLY fever signal is that warmth word — i.e. the user did NOT type an explicit fever
+    // lexeme (fièvre/fever/température/حرارة/حمى/سخانة…) nor a febrile temperature in degrees —
+    // suppress the fever flag below. Mirrors the FOOD_DRINK de-prioritisation already used for
+    // symptom chips. Real fever ("j'ai de la fièvre", "forte fièvre", "40 de fièvre", "high fever")
+    // carries an explicit lexeme/degree and still escalates.
+    // Accent-aware whole-word test (JS \b breaks around à-ÿ — "café"/"thé" end in a non-\w char,
+    // so \bcafé\b never matches). Mirror the boundary convention used by hasReductionCue above.
+    const accentWord = (alts: string, text: string): boolean =>
+        new RegExp(`(^|[^a-zà-ÿ])(${alts})([^a-zà-ÿ]|$)`, 'i').test(text);
+    const hasWarmDrinkFood = accentWord('tisane|infusion|th[ée]|boisson|caf[ée]|soupe|lait|bouillon|gr?og|chocolat|cha[iy]|bu|boire|bois|boi[ts]|sirop', normalizedText);
+    const hasWarmDescriptor = accentWord('chaud|chaude|chauds|chaudes|warm|hot|ti[èe]de', normalizedText);
+    const hasExplicitFeverLexeme =
+        accentWord('fi[èe]vre|fever|temp[ée]rature|temperature|febrile|f[ée]brile|s5ana|skhana|skhona|s7ana|s4ana|s5oun|te7rak|7ama', normalizedText)
+        || /حمى|سخانة|حرارة/.test(normalizedText)
+        // a febrile temperature in degrees ("39 °C", "39 degrés", "39 de fièvre")
+        || /\b(3[7-9]|4[0-2])([.,]\d)?\s*(°|degr|de\s+fi[èe]vre|de\s+temp)/i.test(normalizedText);
+    const warmDrinkNotFever = hasWarmDrinkFood && hasWarmDescriptor && !hasExplicitFeverLexeme;
+
+    // CB-R7-03 FIX (SAFETY — over-escalation, Arabic substring + ungated generics). The Arabic
+    // matcher (Path B below) did `normalizedText.includes(keyword)` and set matchCount++ AND
+    // strongMatch=true UNCONDITIONALLY, bypassing the generic-token gating used for latin keywords.
+    // Two problems followed:
+    //   (1) The 2-char blood token "دم" is a SUBSTRING of the benign "القادم" (next), so
+    //       "متى موعد السونار القادم" (when is my next ultrasound) fired a hemorrhage EMERGENCY.
+    //   (2) A lone generic AR word (دم/أحمر/ألم…) escalated with no corroboration, mirroring the
+    //       over-escalation the latin GENERIC_FLAG_TOKENS gating already prevents.
+    // FIX (a): match single-word AR keywords on WORD BOUNDARIES — tokenize normalizedText on
+    // whitespace/punctuation and match a keyword to a WHOLE token, allowing only leading Arabic
+    // CLITICS (the definite article ال + the proclitics و/ف/ب/ك/ل) to be stripped. This is a PREFIX
+    // operation, so "القادم" (= ال+قادم) never reduces to the blood token "دم", while "الانتحار"
+    // (= ال+انتحار) correctly matches the keyword "انتحار". Substring-inside-a-word is eliminated.
+    // FIX (b): gate generic AR tokens like the latin path — a lone generic counts only when
+    // corroborated by an AR intensifier (كثير/بغزارة/قوي/فجأة/شديد…) or a 2nd distinct generic
+    // concept, and a lone uncorroborated generic NEVER sets strongMatch. Specific AR tokens
+    // (نزيف/انتحار/تشنجات/إغماء/صداع…) remain single-hit triggers, unaffected.
+    const arabicWordTokens = textIsArabic
+        ? normalizedText.split(/[\s.,;:!?()«»"'\-،؛؟·]+/).filter(Boolean)
+        : [];
+    // Strip leading Arabic clitics (longest first) to expose the lexical stem of each token.
+    const AR_CLITICS = ['وبال', 'فبال', 'وال', 'فال', 'بال', 'كال', 'لل', 'ولل', 'فلل', 'ال', 'و', 'ف', 'ب', 'ك', 'ل'];
+    const stripArClitic = (tok: string): string => {
+        for (const c of AR_CLITICS) {
+            if (tok.length > c.length + 1 && tok.startsWith(c)) return tok.slice(c.length);
+        }
+        return tok;
+    };
+    // For each token keep BOTH its raw form and its clitic-stripped stem; a keyword matches if it
+    // equals either. (We never strip down to a fragment of a longer root — stripping is prefix-only.)
+    const arabicTokenForms = new Set<string>();
+    for (const tok of arabicWordTokens) {
+        arabicTokenForms.add(tok);
+        arabicTokenForms.add(stripArClitic(tok));
+    }
+    const arTokenMatchesKeyword = (keyword: string): boolean => arabicTokenForms.has(keyword);
+    // Generic AR tokens: colour / substance / sensation / food words that are benign on their own
+    // (parallel to the latin GENERIC_FLAG_TOKENS). Specific clinical AR tokens are intentionally NOT
+    // listed so they keep firing on a single hit.
+    const GENERIC_AR_TOKENS = new Set([
+        'دم',      // blood
+        'أحمر',    // red
+        'احمر',
+        'فاتح',    // bright / light-coloured
+        'ألم',     // pain
+        'الم',
+        'فقدان',   // loss
+        'كبد',     // liver (food)
+        'كبدي',    // hepatic
+        'حركات',   // movements
+        'حركة',    // movement
+        'ضعيفة',   // weak
+    ]);
+    // AR intensity / quantity corroborators (parallel to INTENSIFIER_TOKENS).
+    const AR_INTENSIFIER_RE = /(كثير|بغزارة|غزير|غزيرة|قوي|قوية|شديد|شديدة|فجأة|مفاجئ|كتير|برشة|بزاف|كبير|كبيرة|نازف|ينزف)/;
+    const hasArIntensifier = AR_INTENSIFIER_RE.test(normalizedText);
+    const presentGenericArTokens = new Set(
+        [...arabicTokenForms].filter(w => GENERIC_AR_TOKENS.has(w))
+    );
+    const arGenericCorroborated = hasArIntensifier || presentGenericArTokens.size >= 2;
 
     // 2. Check Red Flags (Critical) — use cache
     const redFlags = await getRedFlagsCached();
@@ -437,16 +573,39 @@ export const _analyzeMessage = async (text: string): Promise<ChatResponse> => {
                         // via the co-present "vaginal" keyword / ROM concept.
                         || ((keyword === 'écoulement' || keyword === 'discharge')
                             && !ruptureOfMembranes
-                            && !/\b(vagin\w*|génital\w*|genital\w*|مهبل\w*)\b/i.test(normalizedText));
+                            && !/\b(vagin\w*|génital\w*|genital\w*|مهبل\w*)\b/i.test(normalizedText))
+                        // CB-R7-06: the bare 'faint' token was added so presyncope escalates
+                        // ("going to faint", "feel faint"), but 'faint' is ALSO a very common BENIGN
+                        // pregnancy word describing an OBJECT — a "faint line"/"faint positive" on a
+                        // test, a "faint heartbeat" on doppler (in EITHER order: "faint line" /
+                        // "the line is faint"). Suppress the LONE 'faint' token in those contexts.
+                        // Genuine presyncope uses the MULTIWORD keywords ("going to faint"/"feel
+                        // faint"/"about to faint"), which match via the strong-phrase path and are
+                        // unaffected by this single-token gate.
+                        || (keyword === 'faint'
+                            && (/\bfaint\s+(line|lines|positive|negative|second\s+line|heartbeat|heart\s*beat|spot|spots|mark|marks|pink|blue|dye|bfp)\b/i.test(normalizedText)
+                                // reverse order, but only an OBJECT-describing copula context
+                                // ("the line is faint", "heartbeat sounded faint", "is very faint"),
+                                // never a self-symptom ("I might faint") which has no such noun+copula.
+                                || /\b(line|lines|positive|test|heartbeat|heart\s*beat|spot|spots|mark|marks|pulse|dye|bfp)\b[^.?!]{0,20}\b(is|are|was|were|looks?|looked|sound(s|ed)?|seems?|appears?|stayed|remains?|gets?|got)\b[^.?!]{0,15}\bfaint\b/i.test(normalizedText)));
                     if (!gatedAway) {
                         matchCount++;
                     }
                 }
-                // Path B (U-FIX-1): direct substring match on the raw normalized text.
-                // Critical for Arabic/Tunisian script which doesn't go through the latin tokenizer.
-                else if (textIsArabic && keyword.length >= 2 && normalizedText.includes(keyword)) {
-                    matchCount++;
-                    strongMatch = true;
+                // Path B (U-FIX-1 + CB-R7-03): WORD-BOUNDARY match for Arabic/Tunisian script, which
+                // doesn't go through the latin tokenizer. We match a single-word AR keyword as a WHOLE
+                // token (so the 2-char "دم" can't match inside "القادم"), and gate generic AR tokens
+                // exactly like the latin path — a lone generic needs corroboration and never counts as
+                // a strong match. Specific AR tokens stay single-hit, strong triggers.
+                else if (textIsArabic && keyword.length >= 2 && arTokenMatchesKeyword(keyword)) {
+                    const arGatedAway = GENERIC_AR_TOKENS.has(keyword) && !arGenericCorroborated;
+                    if (!arGatedAway) {
+                        matchCount++;
+                        // Only a SPECIFIC (non-generic) AR token is a strong, negation-surviving match.
+                        if (!GENERIC_AR_TOKENS.has(keyword)) {
+                            strongMatch = true;
+                        }
+                    }
                 }
             }
             // Negation guard (only via tokenized path — negation in arabic NLP is harder)
@@ -465,6 +624,23 @@ export const _analyzeMessage = async (text: string): Promise<ChatResponse> => {
         // CB3-FIX: but never let token-negation cancel a STRONG (literal-phrase) match.
         if (negatedCount > 0 && !strongMatch) {
             log.debug(`Ignoring flag ${flag.red_flag_id} due to negation.`);
+            continue;
+        }
+
+        // CB-R7-04 FIX (SAFETY — over-escalation): a warm DRINK/FOOD with no explicit fever lexeme
+        // must NOT escalate to the fever flag via the FR 'chaud'→fièvre synonym expansion. Skip the
+        // 'température élevée' flag entirely in that context (real fever keeps escalating — it carries
+        // an explicit fièvre/fever/degree token, so warmDrinkNotFever is false there).
+        if (warmDrinkNotFever && flag.red_flag_id === 'température élevée') {
+            log.debug('Suppressing fever flag — warm drink/food context, no explicit fever lexeme.');
+            continue;
+        }
+        // CB-R7-02 FIX (SAFETY — over-escalation): a NEGATED waters-report ("water has not broken",
+        // "je n'ai pas perdu les eaux") must not escalate via the canonical multi-word ROM keywords,
+        // which strong-match and would otherwise survive token negation. romNegated is scoped to a
+        // negation that governs the ROM cue, so a genuine waters-broken report still escalates.
+        if (romNegated && flag.red_flag_id === 'liquide chaud') {
+            log.debug('Suppressing ROM flag — negation scopes the rupture/fluid cue.');
             continue;
         }
 
