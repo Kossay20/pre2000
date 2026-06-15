@@ -1,0 +1,20 @@
+import { chromium } from 'playwright';
+const BASE='http://localhost:8081';
+const STATE='/Users/1millnonstop/Downloads/pregnancy-app/pre2000/app/e2e/.auth/state.json';
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const b=await chromium.launch();
+const c=await b.newContext({storageState:STATE,baseURL:BASE,viewport:{width:390,height:844}});
+// neutralize worker to remove wasm noise entirely
+await c.route('**/worker-*.js',route=>route.fulfill({status:200,contentType:'application/javascript',body:'self.onmessage=function(){};'}));
+await c.route('**/*.wasm',route=>route.abort());
+const p=await c.newPage();
+const all=[];
+p.on('console',m=>all.push(`[${m.type()}] ${m.text()}`));
+p.on('pageerror',e=>all.push(`[PAGEERROR] ${e.stack||e.message}`));
+await p.goto(`${BASE}/`,{waitUntil:'domcontentloaded'}); await sleep(7000);
+console.log('=== ROOT / errors (worker neutralized, non-firebase) ===');
+const f=all.filter(l=>!/insufficient permissions|FirebaseError|babyMessageService|tipsService|React DevTools|Setting a timer|AsyncStorage has been extracted|Download the React|wasm|WebAssembly|sqlite|DatabaseService/i.test(l));
+const seen=new Set();
+f.filter(l=>/error|Error|PAGEERROR|warn/i.test(l)).forEach(l=>{const k=l.slice(0,100); if(!seen.has(k)){seen.add(k); console.log(l.slice(0,700));}});
+console.log('=== total console lines:', all.length, '| filtered errors:', f.filter(l=>/error|PAGEERROR/i.test(l)).length);
+await b.close();

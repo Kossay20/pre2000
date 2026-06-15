@@ -9,11 +9,13 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { theme } from '../theme';
 import { Button } from '../components/common/Button';
 import { Card } from '../components/common/Card';
+import { sanitizeTelNumber } from '../components/profile/EmergencyContactsSection.helpers';
+import { usePregnancy } from '../context/PregnancyContext';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
 import {
     DayStatus,
@@ -107,6 +109,8 @@ const pickSectionLabel = (sec: SectionItems, lang: string): string => {
 export const RamadanPregnancyScreen: React.FC = () => {
     useScreenAnalytics('RamadanPregnancyScreen');
     const { t, i18n } = useTranslation();
+    const navigation = useNavigation();
+    const { profile } = usePregnancy();
     const lang = i18n.language;
     const [state, setState] = useState<RamadanState>({
         daysToMakeUp: [],
@@ -152,9 +156,30 @@ export const RamadanPregnancyScreen: React.FC = () => {
         setState(next);
     }, []);
 
+    // R3-RAMADAN-01: the button previously called Linking.openURL('tel:') with no
+    // number — a dead dial. Now we look up the user's saved doctor emergency
+    // contact (profile.emergencyContacts where type === 'doctor') and dial it,
+    // reusing the sanitize + canOpenURL guard from EmergencyContactsSection. If no
+    // doctor number is on file we navigate to Profile (which hosts the emergency
+    // contacts editor) so the user can add one, rather than firing an empty tel:.
     const onCallDoctor = useCallback(() => {
-        Linking.openURL('tel:').catch(() => {});
-    }, []);
+        const doctor = profile?.emergencyContacts?.find((c) => c.type === 'doctor');
+        const sanitized = doctor ? sanitizeTelNumber(doctor.number) : null;
+        if (!sanitized) {
+            // @ts-ignore — global nav augmentation: Profile is reachable from the Home stack
+            navigation.navigate('Profile');
+            return;
+        }
+        const url = `tel:${sanitized}`;
+        Linking.canOpenURL(url)
+            .then((supported) => {
+                if (supported) return Linking.openURL(url);
+                // Dialer unavailable (e.g. web/tablet) — fall back to the contacts editor.
+                // @ts-ignore — global nav augmentation
+                navigation.navigate('Profile');
+            })
+            .catch(() => {});
+    }, [profile, navigation]);
 
     const missed = computeMissedCount(state);
     const fidyaRemaining = computeFidyaRemaining(state);

@@ -61,7 +61,19 @@ export class FuzzyMatcher {
         let bestMatch = null;
         let minDistance = Infinity;
 
+        const firstChar = word.charAt(0).toLowerCase();
+
         for (const candidate of candidates) {
+            // CB-R3-01 FIX (SAFETY): never "correct" a word into a candidate that begins with a
+            // DIFFERENT letter. A first-letter substitution changes the word's identity entirely
+            // while keeping the edit distance minimal, so a perfectly ordinary word collides with
+            // an unrelated clinical keyword — e.g. EN "painted" → "fainted" (p→f, distance 1) made
+            // "I painted the nursery red" escalate to an eclampsia EMERGENCY. Genuine typos
+            // (keyboard slips, doubled/dropped letters) overwhelmingly preserve the first letter
+            // ("bleding"→"bleeding"), so this guard removes the cross-word false-corrections
+            // without weakening real typo tolerance.
+            if (candidate.charAt(0).toLowerCase() !== firstChar) continue;
+
             const distance = this.levenshtein(word, candidate);
             if (distance <= effThreshold && distance < minDistance) {
                 minDistance = distance;

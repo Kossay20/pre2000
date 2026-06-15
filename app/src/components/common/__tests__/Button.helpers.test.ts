@@ -3,9 +3,11 @@ import { theme } from '../../../theme';
 
 describe('Button helpers', () => {
     describe('resolveButtonVariant', () => {
-        it('returns primary palette by default', () => {
+        it('returns accent (AA-passing) bg + white text by default', () => {
+            // A11Y-CONTRAST-01 : primary actionable fill routed to accent #C2185B (5.87:1)
+            // instead of decorative #FF6B9D (2.68:1, WCAG AA fail).
             const v = resolveButtonVariant('primary', false);
-            expect(v.backgroundColor).toBe(theme.colors.primary);
+            expect(v.backgroundColor).toBe(theme.colors.accent);
             expect(v.textColor).toBe(theme.colors.white);
             expect(v.borderColor).toBeUndefined();
         });

@@ -224,6 +224,47 @@ export const _analyzeMessage = async (text: string): Promise<ChatResponse> => {
     // with the standard token-based path for latin/Arabizi.
     const normalizedText = text.toLowerCase().trim();
 
+    // CB-R3-01 FIX (SAFETY — generic-keyword over-escalation): a handful of red-flag
+    // keywords are generic standalone words (color/substance/sensation) whose mere presence
+    // in a benign sentence previously triggered a full EMERGENCY (red_flag + call button):
+    //   "I painted the nursery red" / "is red wine ok"  → red    → hemorrhage emergency
+    //   "the sky is so bright"                            → bright → hemorrhage emergency
+    //   "I gave blood at the clinic"                      → blood  → hemorrhage emergency
+    //   "I have mild back pain"                           → pain   → severe-cramps urgent
+    //   "j'ai mangé du foie de veau"                      → foie   → HELLP emergency
+    // ROOT: a single EXACT token match (matchCount>0) escalated with no co-occurrence/context.
+    // FIX: a GENERIC single-token keyword only COUNTS toward a flag when it is corroborated —
+    // i.e. the message ALSO contains an intensity/quantity word (heavy/a lot/beaucoup/abondant…
+    // including blood-loss verbs perds/losing) OR a SECOND distinct generic flag concept
+    // (e.g. "douleur"+"foie" → HELLP). A lone generic word no longer escalates by itself.
+    // Strong multi-word literal phrases ("heavy bleeding"/"saignements"→"sang"+intensifier,
+    // "can't breathe") and SPECIFIC clinical tokens (hémorragie, nzif, suicidal, fever,
+    // tasdiya/ras youja3…) remain single-hit triggers and are UNAFFECTED. Real single-symptom
+    // emergencies keep escalating because they carry a quantity/intensity word
+    // ("je perds beaucoup de sang", "I am bleeding a lot") or a specific token.
+    const GENERIC_FLAG_TOKENS = new Set([
+        // EN
+        'red', 'blood', 'bright', 'bleeding', 'loss', 'pain',
+        // FR
+        'rouge', 'sang', 'foie', 'douleur', 'hépatique',
+    ]);
+    // Intensity / quantity / blood-loss corroborators (whole tokens, post-normalization).
+    const INTENSIFIER_TOKENS = new Set([
+        // EN
+        'heavy', 'heavily', 'severe', 'severely', 'lot', 'lots', 'much', 'sudden', 'suddenly',
+        'profuse', 'gushing', 'soaking', 'constant', 'extreme', 'extremely', 'losing', 'lose', 'lost',
+        // FR
+        'beaucoup', 'abondant', 'abondants', 'abondante', 'abondantes', 'sévère', 'sévères',
+        'violent', 'violents', 'violente', 'violentes', 'gros', 'grosse', 'important', 'importante',
+        'soudain', 'soudaine', 'fort', 'forte', 'énorme', 'énormément', 'perds', 'perd', 'perdre', 'perdu',
+    ]);
+    // Which generic flag concepts actually appear in this message, and is there an intensifier?
+    const presentGenericTokens = new Set(positive.filter(w => GENERIC_FLAG_TOKENS.has(w)));
+    const hasIntensifier = positive.some(w => INTENSIFIER_TOKENS.has(w));
+    // A generic single-token match counts only when corroborated: an intensity/quantity word
+    // is present, OR at least two distinct generic flag concepts co-occur (e.g. douleur+foie).
+    const genericTokensCorroborated = hasIntensifier || presentGenericTokens.size >= 2;
+
     // 2. Check Red Flags (Critical) — use cache
     const redFlags = await getRedFlagsCached();
     const matchedFlags: { flag: RedFlag; severityScore: number; matchCount: number }[] = [];
@@ -276,7 +317,15 @@ export const _analyzeMessage = async (text: string): Promise<ChatResponse> => {
                 if (positive.some(word =>
                         word === keyword
                         || (word.includes(' ') && word.split(/\s+/).includes(keyword)))) {
-                    matchCount++;
+                    // CB-R3-01 FIX (SAFETY): a GENERIC keyword (red/blood/bright/sang/foie/pain/
+                    // douleur/loss…) only counts when corroborated by an intensity/quantity word
+                    // or a second distinct generic concept. This prevents benign sentences that
+                    // merely contain the word ("I painted the nursery red", "j'ai mangé du foie de
+                    // veau") from escalating, while keeping real reports ("beaucoup de sang",
+                    // "bleeding a lot") and all specific clinical tokens as triggers.
+                    if (!GENERIC_FLAG_TOKENS.has(keyword) || genericTokensCorroborated) {
+                        matchCount++;
+                    }
                 }
                 // Path B (U-FIX-1): direct substring match on the raw normalized text.
                 // Critical for Arabic/Tunisian script which doesn't go through the latin tokenizer.

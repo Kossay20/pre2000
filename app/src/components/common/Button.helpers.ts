@@ -46,10 +46,14 @@ export function resolveButtonVariant(
 
     switch (variant) {
         case 'primary':
-            return { backgroundColor: theme.colors.primary, textColor: theme.colors.white };
+            // A11Y-CONTRAST-01 : primary fill #FF6B9D on white = 2.68:1 (WCAG AA fail).
+            // Route actionable pink to accent #C2185B = 5.87:1 (passes AA with white text).
+            return { backgroundColor: theme.colors.accent, textColor: theme.colors.white };
         case 'secondary':
+            // A11Y-CONTRAST-01 : secondary fill #FF8FA3 on white = 2.16:1 (fail).
+            // accentDarkPink #D81B60 = 4.95:1 (passes AA) — distinct from primary accent.
             return {
-                backgroundColor: theme.colors.secondary,
+                backgroundColor: theme.colors.accentDarkPink,
                 textColor: theme.colors.white,
             };
         case 'outline':

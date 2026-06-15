@@ -23,7 +23,7 @@ if (!__DEV__) {
     tracesSampleRate: 0.2, // Capture 20% of transactions for performance monitoring
   });
 }
-import { NavigationContainer, useNavigation } from '@react-navigation/native';
+import { NavigationContainer, useNavigation, getStateFromPath } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -245,6 +245,29 @@ const AppContent = () => {
   // silently no-op.
   const linking = {
     prefixes: ['mama-bebe://', 'exp+mama-bebe://', 'https://mama-bebe.com'],
+    // R3-ROUTE-01: catch-all for unknown / mistyped / wrong-case deep links.
+    // React Navigation's default getStateFromPath returns `undefined` for a path
+    // that matches no screen (e.g. /Profile with a capital P, or /totally-unknown).
+    // When the resolved state is undefined the NavigationContainer renders nothing
+    // and any subsequent interaction tripped the global ErrorBoundary instead of
+    // showing a screen. Here we delegate to the default resolver and, on a miss,
+    // fall back to a valid state that lands the user on Home (HomeMain) rather than
+    // erroring. This also normalises capitalised paths by retrying lowercase.
+    getStateFromPath: (path: string, options: any) => {
+      const resolved = getStateFromPath(path, options);
+      if (resolved) return resolved;
+      // Retry once with a lowercased path so /Profile, /Settings, /Ramadan etc.
+      // resolve to their (lowercase) configured routes instead of falling through.
+      const lower = path.toLowerCase();
+      if (lower !== path) {
+        const retried = getStateFromPath(lower, options);
+        if (retried) return retried;
+      }
+      // Final fallback: send unknown URLs to the Home tab's main screen.
+      return getStateFromPath('/', options) ?? {
+        routes: [{ name: 'Home', state: { routes: [{ name: 'HomeMain' }] } }],
+      };
+    },
     config: {
       screens: {
         // R2-01 FIX: AuthStack routes were absent from the linking config, so

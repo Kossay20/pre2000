@@ -242,6 +242,7 @@ export const ProfileScreen = () => {
                         accessibilityRole="button"
                         accessibilityLabel={c.label}
                         accessibilityState={{ selected: country === c.key }}
+                        {...(Platform.OS === 'web' ? { 'aria-selected': country === c.key } : {})}
                     >
                         <Text
                             style={[

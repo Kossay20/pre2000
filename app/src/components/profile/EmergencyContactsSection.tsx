@@ -1,6 +1,6 @@
 import { theme } from '../../theme';
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Linking, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Linking, ScrollView, Platform } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { usePregnancy, EmergencyContact } from '../../context/PregnancyContext';
 import { showAlert } from '../../utils/alert';
@@ -189,6 +189,7 @@ export const EmergencyContactsSection = () => {
                                 accessibilityRole="button"
                                 accessibilityLabel={getTypeLabel(type)}
                                 accessibilityState={{ selected: newType === type }}
+                                {...(Platform.OS === 'web' ? { 'aria-selected': newType === type } : {})}
                             >
                                 <Text style={[
                                     styles.typeButtonText,

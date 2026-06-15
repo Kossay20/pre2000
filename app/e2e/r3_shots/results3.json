@@ -1,0 +1,44 @@
+{
+  "_sanity": {
+    "homeOops": true,
+    "snip": "😔 Oops! A small error occurred. Don't worry, your data is safe. Retry"
+  },
+  "kick": {
+    "onKick": false,
+    "counted": false,
+    "cancelWorked": false,
+    "cancelDialogs": [],
+    "kickPersist": false,
+    "errs": []
+  },
+  "contraction": {
+    "onContr": false,
+    "recorded": false,
+    "clearWorked": false,
+    "clearDialogs": [],
+    "contrPersist": false,
+    "errs": []
+  },
+  "statsEmpty": {
+    "oops": true,
+    "emptyState": false,
+    "snip": "😔 Oops! A small error occurred. Don't worry, your data is safe. Retry   Home   Calendar   Reminders   Resources   Chatbot",
+    "errs": []
+  },
+  "statsSeeded": {
+    "oops": true,
+    "hasHydrationChart": false,
+    "hasSuccessChart": false,
+    "svgLabels": [],
+    "nineLabel": [],
+    "onePoint5Label": [],
+    "snip": "😔 Oops! A small error occurred. Don't worry, your data is safe. Retry   Home   Calendar   Reminders   Resources   Chatbot",
+    "errs": []
+  },
+  "statsSingle": {
+    "oops": true,
+    "guardCount": 0,
+    "snip": "😔 Oops! A small error occurred. Don't worry, your data is safe. Retry   Home   Calendar   Reminders   Resources   Chatbot",
+    "errs": []
+  }
+}

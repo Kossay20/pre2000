@@ -1,0 +1,21 @@
+import { chromium } from 'playwright';
+const BASE = 'http://localhost:8081';
+const STATE = '/Users/1millnonstop/Downloads/pregnancy-app/pre2000/app/e2e/.auth/state.json';
+const route = process.argv[2] || 'KickCounter';
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+const browser = await chromium.launch();
+const ctx = await browser.newContext({ storageState: STATE, baseURL: BASE, viewport: { width: 390, height: 844 } });
+const page = await ctx.newPage();
+const all = [];
+page.on('console', m => all.push(`[${m.type()}] ${m.text()}`));
+page.on('pageerror', e => all.push(`[PAGEERROR] ${e.stack || e.message}`));
+await page.goto(`${BASE}/${route}`, { waitUntil: 'domcontentloaded' });
+await sleep(5000);
+const body = (await page.evaluate(() => document.body.innerText)).replace(/\s+/g,' ').trim().slice(0, 200);
+console.log('=== ROUTE:', route, '===');
+console.log('BODY:', body);
+console.log('--- CONSOLE (filtered to errors/relevant) ---');
+const interesting = all.filter(l => /error|Error|crash|undefined|null|cannot|TypeError|boundary|caught|Oops|kick|contraction|Statistic|reminders|checklist/i.test(l) && !/magic word|ArrayBuffer instantiation|DatabaseService|workerMessageHandler|insufficient permissions|Download the React DevTools/i.test(l));
+interesting.slice(-40).forEach(l => console.log(l.slice(0, 400)));
+await browser.close();

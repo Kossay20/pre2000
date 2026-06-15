@@ -412,7 +412,7 @@ const styles = StyleSheet.create({
         paddingVertical: 8,
     },
     crossNavText: {
-        color: theme.colors.primary,
+        color: theme.colors.accent,
         fontSize: 14,
         fontWeight: '600',
         textAlign: 'center',

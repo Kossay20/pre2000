@@ -155,6 +155,54 @@ describe('Chatbot triage — benign food/hydration/fatigue questions must NOT es
   }
 });
 
+// CB-R3-01 — generic-keyword over-escalation (P1 CLINICAL). Benign sentences that merely
+// CONTAIN a generic red-flag keyword (a colour/substance/sensation word) used to escalate to a
+// full EMERGENCY (red_flag + call button) because a single EXACT token match was enough:
+//   "I painted the nursery red" / "is red wine ok"  → "red"    → hemorrhage EMERGENCY
+//   "the sky is so bright"                            → "bright" → hemorrhage EMERGENCY
+//   "I gave blood at the clinic"                      → "blood"  → hemorrhage EMERGENCY
+//   "I have mild back pain"                           → "pain"   → severe-cramps URGENT
+//   "j'ai mangé du foie de veau"                      → "foie"   → HELLP EMERGENCY
+// ("I painted the nursery red" ALSO fuzzy-mis-corrected "painted"→"fainted" → eclampsia.)
+// Fix: a generic single-token keyword only counts when corroborated (an intensity/quantity word
+// or a second distinct generic concept), and fuzzy correction no longer changes a word's first
+// letter. These MUST NOT route to the red_flag path nor carry a ⚠️/🚨 emergency banner.
+describe('Chatbot triage — generic words in benign sentences must NOT escalate (CB-R3-01)', () => {
+  const benignGeneric: { lang: string; text: string }[] = [
+    { lang: 'en', text: 'I painted the nursery red' },
+    { lang: 'en', text: 'the sky is so bright' },
+    { lang: 'en', text: 'I gave blood at the clinic' },
+    { lang: 'en', text: 'is red wine ok' },
+    { lang: 'en', text: 'I have mild back pain' },
+    { lang: 'fr', text: "j'ai mangé du foie de veau" },
+  ];
+  for (const c of benignGeneric) {
+    it(`[${c.lang}] "${c.text}" → no red_flag AND no ⚠️/🚨 emergency message`, async () => {
+      const r: any = await analyzeMessage(c.text);
+      expect({ phrase: c.text, type: r.type, wrongFlag: r.redFlag?.red_flag_id })
+        .not.toMatchObject({ type: 'red_flag' });
+      expect(r.redFlag).toBeUndefined();
+      const msg: string = typeof r.message === 'string' ? r.message : '';
+      expect({ phrase: c.text, msg }).toMatchObject({ msg: expect.not.stringContaining('⚠️') });
+      expect({ phrase: c.text, msg }).toMatchObject({ msg: expect.not.stringContaining('🚨') });
+    });
+  }
+
+  // Guard: a CORROBORATED generic word (intensity/quantity word present, or a second generic
+  // concept) MUST still escalate — the fix must not weaken real single-symptom emergencies.
+  const stillEscalates: { lang: string; text: string }[] = [
+    { lang: 'fr', text: 'je perds beaucoup de sang' },   // sang + intensifier (beaucoup/perds)
+    { lang: 'en', text: 'I am bleeding a lot' },          // bleeding + intensifier (a lot)
+    { lang: 'fr', text: "j'ai une douleur au foie" },     // douleur + foie (two generic concepts)
+  ];
+  for (const c of stillEscalates) {
+    it(`[${c.lang}] "${c.text}" → STILL escalates (corroborated)`, async () => {
+      const r: any = await analyzeMessage(c.text);
+      expect({ phrase: c.text, escalates: escalates(r) }).toMatchObject({ escalates: true });
+    });
+  }
+});
+
 // CB4-FIX — abuse-e2e reasoning audit found that the additive score let a multi-symptom URGENT
 // flag outrank a higher-severity EMERGENCY. Severity must win; match count is only a tiebreaker.
 const EMERGENCY_SEV = ['emergency', 'critique'];

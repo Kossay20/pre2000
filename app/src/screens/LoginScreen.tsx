@@ -324,7 +324,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     forgotPasswordText: {
-        color: theme.colors.primary,
+        color: theme.colors.accent,
         fontSize: 14,
         textDecorationLine: 'underline',
     },
@@ -348,7 +348,7 @@ const styles = StyleSheet.create({
         paddingVertical: 8,
     },
     crossNavText: {
-        color: theme.colors.primary,
+        color: theme.colors.accent,
         fontSize: 14,
         fontWeight: '600',
         textAlign: 'center',

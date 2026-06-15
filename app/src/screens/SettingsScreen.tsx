@@ -192,6 +192,7 @@ export const SettingsScreen = () => {
                                     accessibilityLabel={t('common.a11y.selectHour', { hour })}
                                     accessibilityRole="button"
                                     accessibilityState={{ selected: babyMessageHour === hour }}
+                                    {...(Platform.OS === 'web' ? { 'aria-selected': babyMessageHour === hour } : {})}
                                 >
                                     <Text style={[
                                         styles.hourButtonText,

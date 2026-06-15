@@ -42,13 +42,20 @@ export class ErrorBoundary extends Component<Props, State> {
     }
 
     private handleRetry = () => {
+        // R3-GLOBAL-02: clearing hasError re-mounts the subtree so the previously
+        // failing screen gets a fresh attempt. If the same render throws again,
+        // getDerivedStateFromError re-trips the boundary (no infinite loop — React
+        // unwinds once per render) and the user still has the "Back to home" escape.
         this.setState({ hasError: false, error: null, errorId: null });
     };
 
     private handleReturnHome = () => {
-        // PHASE 2.4 FIX: full app reset on web (re-mount React tree); on native
-        // we cannot navigate from here without nav ref — handleRetry() is fallback.
-        if (Platform.OS === 'web' && typeof window !== 'undefined') {
+        // R3-GLOBAL-02: on web, a hard navigation to '/' fully re-mounts the React
+        // tree AND resets the URL, so a bad deep-link that tripped the boundary is
+        // discarded (otherwise retry would re-render the same broken route). On
+        // native there is no nav ref here without a circular import, so we clear the
+        // error state, which returns the user to a freshly-mounted (working) tree.
+        if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location) {
             window.location.href = '/';
         } else {
             this.handleRetry();
@@ -97,21 +104,26 @@ export class ErrorBoundary extends Component<Props, State> {
                             <Text style={styles.buttonText}>{i18n.t('errorBoundary.retry')}</Text>
                         </TouchableOpacity>
 
-                        {/* PHASE 2.4 FIX: secondary action — Return Home (web only useful) */}
-                        {Platform.OS === 'web' && (
-                            <TouchableOpacity
-                                style={styles.secondaryButton}
-                                onPress={this.handleReturnHome}
-                                activeOpacity={0.8}
-                                accessibilityRole="button"
-                                accessibilityLabel={i18n.t('errorBoundary.returnHome', { defaultValue: 'Retour à l\'accueil' })}
-                                testID="error_boundary_home"
-                            >
-                                <Text style={styles.secondaryButtonText}>
-                                    {i18n.t('errorBoundary.returnHome', { defaultValue: 'Retour à l\'accueil' })}
-                                </Text>
-                            </TouchableOpacity>
-                        )}
+                        {/* R3-GLOBAL-02: secondary action — Back to home. Rendered on
+                            ALL platforms (previously web-gated, which made it silently
+                            absent whenever the Platform check failed to evaluate to the
+                            web branch). On web it does a hard reset to '/'; on native it
+                            falls back to clearing the error state. The returnHome key
+                            exists in all 4 locales, so no defaultValue override is
+                            needed (an override would force French onto non-FR users if
+                            the key were ever missing). */}
+                        <TouchableOpacity
+                            style={styles.secondaryButton}
+                            onPress={this.handleReturnHome}
+                            activeOpacity={0.8}
+                            accessibilityRole="button"
+                            accessibilityLabel={i18n.t('errorBoundary.returnHome')}
+                            testID="error_boundary_home"
+                        >
+                            <Text style={styles.secondaryButtonText}>
+                                {i18n.t('errorBoundary.returnHome')}
+                            </Text>
+                        </TouchableOpacity>
                     </View>
                 </View>
             );
