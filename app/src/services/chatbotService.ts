@@ -1,7 +1,7 @@
 import { createLogger } from '../utils/logger';
 import { ChatResponse, RedFlag, Article, ChatbotSuggestion } from '../types';
 import { LocalChatbotRepository } from './chatbot/data/local_data';
-import { KeywordEngine } from './chatbot/engines/KeywordEngine';
+import { KeywordEngine, SYNONYMS } from './chatbot/engines/KeywordEngine';
 import { vectorEngine, VectorEngine } from './chatbot/engines/VectorEngine';
 import i18n from '../i18n';
 import { getLocalizedContent } from '../utils/i18nHelpers';
@@ -29,6 +29,111 @@ const SEVERITY_PRIORITY: Record<string, number> = {
     'élevé': 2,
     'modéré': 1,
     'faible': 0,
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CB-R8-01 FIX (SAFETY — over-escalation, ungated generic SYNONYM single token).
+// ROOT-CLASS FIX (same family as CB-R3-01 / CB-R5-01): a generic concept must be GATED
+// (require corroboration) no matter WHICH lexical form of it reaches the matcher. The
+// chatbot's generic-token gating below lists only the FR/EN base words (douleur/pain/sang/…),
+// but KeywordEngine.SYNONYMS expands every base concept into dialectal/arabizi variants
+// ('douleur' → 'mal','wji3a','wja3','wa3ra','وجيعة',…). Several red-flag keywords use those
+// VARIANTS as single-word keywords (e.g. 'crampes sévères'.keywords_tn has 'wji3a'), so a lone
+// pain SYNONYM was an UN-gated single hit → "j'ai mal au dos" / "j'ai mal aux seins" escalated
+// to the 'crampes sévères' URGENT flag. EN "I have mild back pain" was already safe only because
+// 'pain' happened to be in the base list.
+//
+// Fix: build, ONCE at module load, the *synonym-closure* of a base generic-token set. For each
+// base token we add the token itself, every synonym of any SYNONYMS group it belongs to (whether
+// it is the group KEY or one of the VALUES), so the gating set contains EVERY form reachable from
+// a generic concept. Membership checks below use this expanded set, so 'wji3a'/'وجيعة' are gated
+// exactly like 'douleur'. Specific MULTIWORD clinical keywords ('crampes sévères','wji3 qawi',
+// 'karch youja3','douleur unilatérale violente') are unaffected — they match via the strong
+// multiword path and only LONE single generic-synonym tokens get gated.
+//
+// IMPORTANT (SAFETY — under-escalation guard): a few SYNONYMS groups deliberately MIX a generic
+// substance word with SPECIFIC clinical-emergency terms. The clearest case is 'saignement', which
+// pairs the generic blood word 'sang'/'دم'/'dam' (gated by design) with the SPECIFIC hemorrhage
+// lexemes 'nzif'/'نزيف'/'saigne'/'yanzef'… that the existing design (CB-R7-03 / the AR matcher)
+// requires to fire on a SINGLE hit ("عندي نزيف" = "I have bleeding" → emergency, no intensifier).
+// So the closure SUBTRACTS an explicit SPECIFIC-token allow-list: those tokens are never gated even
+// when reached through a generic base concept's group. This keeps over-escalation closed (lone pain
+// synonyms gated) WITHOUT re-opening under-escalation (lone hemorrhage terms still single-hit).
+const expandGenericTokensWithSynonyms = (
+    baseTokens: Iterable<string>,
+    keepSpecific: Set<string>,
+): Set<string> => {
+    const expanded = new Set<string>(baseTokens);
+    // Index every synonym group so a token (key OR value) resolves to its whole group.
+    const groups: string[][] = Object.entries(SYNONYMS).map(([key, values]) => [key, ...values]);
+    // Iterate to a fixed point so chained membership (a token that is in two groups) is fully
+    // closed. In practice one pass suffices, but the loop guards against future overlapping maps.
+    let grew = true;
+    while (grew) {
+        grew = false;
+        for (const group of groups) {
+            // If ANY member of this group is already considered generic, the WHOLE group is —
+            // EXCEPT members that are explicitly SPECIFIC clinical triggers (never gated).
+            if (group.some(member => expanded.has(member))) {
+                for (const member of group) {
+                    if (!expanded.has(member) && !keepSpecific.has(member)) {
+                        expanded.add(member);
+                        grew = true;
+                    }
+                }
+            }
+        }
+    }
+    // Defensive: ensure no specific token leaked into the generic set (e.g. if a base token were
+    // ever mistakenly added to keepSpecific too — base wins is wrong for safety, so specific wins).
+    for (const t of keepSpecific) expanded.delete(t);
+    return expanded;
+};
+
+// SPECIFIC single-word clinical-emergency tokens that MUST always fire on a single hit and must
+// NEVER be folded into the generic (gated) set, even though they share a SYNONYMS group with a
+// generic base concept. These are the active-bleeding / hemorrhage lexemes from the 'saignement'
+// group (the only generic-base group that mixes in specific terms). 'sang'/'دم'/'dam'/'spotting'
+// stay GENERIC (a lone blood-substance mention needs corroboration); the terms below denote an
+// active bleed and are clinical triggers (mirrors the AR matcher's specific-token design, CB-R7-03).
+const SPECIFIC_CLINICAL_TOKENS = new Set<string>([
+    'saignement', 'saigne', 'nzif', 'nazef', 'نزيف', 'yanzef', 'nzef', 'shwit dam',
+]);
+
+// Base generic flag tokens — colour/substance/sensation/food words that are benign on their own
+// and only count toward a red flag when CORROBORATED (intensity/quantity word, or a 2nd distinct
+// generic concept). See the long CB-R3-01/CB-R5-01 rationale at the matcher below.
+const BASE_GENERIC_FLAG_TOKENS = [
+    // EN
+    'red', 'blood', 'bright', 'bleeding', 'loss', 'pain',
+    // CB-R5-01 FIX (SAFETY — over-escalation): 'liver' is overwhelmingly a FOOD word in
+    // EN pregnancy questions ("is liver pate safe", "can I eat beef liver", "chicken liver
+    // is rich in iron") yet it is a single-token keyword of the HELLP emergency flag, so a
+    // lone occurrence fired a full EMERGENCY + call button. Gate the EN liver-flag tokens
+    // (mirroring the FR 'foie'/'hépatique' below) so a bare mention needs corroboration. The
+    // multiword keyword "liver pain" stays a STRONG single-hit trigger (substring path).
+    'liver', 'hepatic', 'ribs',
+    // FR
+    'rouge', 'sang', 'foie', 'douleur', 'hépatique', 'côtes',
+];
+// CB-R8-01: the gating set is the SYNONYM-CLOSURE of the base tokens, computed ONCE at module
+// load. Any token reachable from a generic concept through KeywordEngine.SYNONYMS (e.g. 'douleur'
+// → 'mal','wji3a','wja3','wa3ra','وجيعة'; 'sang' ← 'saignement'.synonyms; 'foie'… ) is therefore
+// gated identically to the base word, closing the over-escalation class for ALL languages/variants.
+const GENERIC_FLAG_TOKENS = expandGenericTokensWithSynonyms(BASE_GENERIC_FLAG_TOKENS, SPECIFIC_CLINICAL_TOKENS);
+
+// CB-R8-01: map every (generic) token to a CANONICAL concept id so the "≥2 distinct generic
+// CONCEPTS corroborate" rule counts CONCEPTS, not synonym variants of the same concept. Without
+// this, the synonym closure would DEFEAT the gate: one 'douleur'/'mal' expands in the token stream
+// to many generic tokens (douleur, mal, wji3a, wja3, وجيعة, …), all now in GENERIC_FLAG_TOKENS, so
+// size≥2 would be trivially true. We collapse them to a single concept ('douleur'), so a lone pain
+// word stays gated while a genuine 2-concept co-occurrence (e.g. douleur+foie) still corroborates.
+const SYNONYM_GROUPS: string[][] = Object.entries(SYNONYMS).map(([key, values]) => [key, ...values]);
+const tokenToCanonicalConcept = (token: string): string => {
+    for (const group of SYNONYM_GROUPS) {
+        if (group.includes(token)) return group[0]; // the SYNONYMS key is the canonical concept
+    }
+    return token; // a base generic token not present in any synonym group is its own concept
 };
 
 /**
@@ -242,21 +347,9 @@ export const _analyzeMessage = async (text: string): Promise<ChatResponse> => {
     // tasdiya/ras youja3…) remain single-hit triggers and are UNAFFECTED. Real single-symptom
     // emergencies keep escalating because they carry a quantity/intensity word
     // ("je perds beaucoup de sang", "I am bleeding a lot") or a specific token.
-    const GENERIC_FLAG_TOKENS = new Set([
-        // EN
-        'red', 'blood', 'bright', 'bleeding', 'loss', 'pain',
-        // CB-R5-01 FIX (SAFETY — over-escalation): 'liver' is overwhelmingly a FOOD word in
-        // EN pregnancy questions ("is liver pate safe", "can I eat beef liver", "chicken liver
-        // is rich in iron") yet it is a single-token keyword of the HELLP emergency flag, so a
-        // lone occurrence fired a full EMERGENCY + call button. Gate the EN liver-flag tokens
-        // (mirroring the FR 'foie'/'hépatique' already below) so a bare mention needs
-        // corroboration (an intensity word or a 2nd generic concept). The multiword keyword
-        // "liver pain" stays a STRONG single-hit trigger (substring path), and "severe … liver"
-        // still escalates via the intensifier 'severe'.
-        'liver', 'hepatic', 'ribs',
-        // FR
-        'rouge', 'sang', 'foie', 'douleur', 'hépatique', 'côtes',
-    ]);
+    // CB-R8-01: gating now uses the module-level SYNONYM-CLOSED set (GENERIC_FLAG_TOKENS),
+    // so a lone generic SYNONYM (e.g. the 'douleur' arabizi variant 'wji3a'/'وجيعة' used as a
+    // single-word keyword of 'crampes sévères') is gated exactly like its base concept.
     // Intensity / quantity / blood-loss corroborators (whole tokens, post-normalization).
     const INTENSIFIER_TOKENS = new Set([
         // EN
@@ -267,12 +360,17 @@ export const _analyzeMessage = async (text: string): Promise<ChatResponse> => {
         'violent', 'violents', 'violente', 'violentes', 'gros', 'grosse', 'important', 'importante',
         'soudain', 'soudaine', 'fort', 'forte', 'énorme', 'énormément', 'perds', 'perd', 'perdre', 'perdu',
     ]);
-    // Which generic flag concepts actually appear in this message, and is there an intensifier?
-    const presentGenericTokens = new Set(positive.filter(w => GENERIC_FLAG_TOKENS.has(w)));
+    // Which generic flag CONCEPTS actually appear in this message, and is there an intensifier?
+    // CB-R8-01: collapse synonym variants to their canonical concept so e.g. {douleur, mal, wji3a}
+    // (one pain concept, three synonym tokens) counts as ONE, not three — otherwise the synonym
+    // closure would auto-satisfy the ≥2 rule and defeat the gate.
+    const presentGenericConcepts = new Set(
+        positive.filter(w => GENERIC_FLAG_TOKENS.has(w)).map(tokenToCanonicalConcept)
+    );
     const hasIntensifier = positive.some(w => INTENSIFIER_TOKENS.has(w));
     // A generic single-token match counts only when corroborated: an intensity/quantity word
-    // is present, OR at least two distinct generic flag concepts co-occur (e.g. douleur+foie).
-    const genericTokensCorroborated = hasIntensifier || presentGenericTokens.size >= 2;
+    // is present, OR at least two distinct generic flag CONCEPTS co-occur (e.g. douleur+foie).
+    const genericTokensCorroborated = hasIntensifier || presentGenericConcepts.size >= 2;
 
     // CB-R5-03 FIX (SAFETY — UNDER-escalation, reduced fetal movement). Natural phrasings of
     // "my baby isn't moving anymore" carry a negation/reduction cue ("not"/"no longer"/"ne…plus"
@@ -473,6 +571,11 @@ export const _analyzeMessage = async (text: string): Promise<ChatResponse> => {
     // Generic AR tokens: colour / substance / sensation / food words that are benign on their own
     // (parallel to the latin GENERIC_FLAG_TOKENS). Specific clinical AR tokens are intentionally NOT
     // listed so they keep firing on a single hit.
+    // CB-R8-01: also fold in any Arabic-script SYNONYM of a base generic concept (e.g. 'وجيعة',
+    // a 'douleur' synonym) so the native-AR path gates them identically to the latin path. The
+    // module-level GENERIC_FLAG_TOKENS already carries every synonym-reachable form; we union its
+    // Arabic-script members here. Specific clinical AR tokens are NOT in that closure, so they keep
+    // firing on a single hit.
     const GENERIC_AR_TOKENS = new Set([
         'دم',      // blood
         'أحمر',    // red
@@ -486,14 +589,18 @@ export const _analyzeMessage = async (text: string): Promise<ChatResponse> => {
         'حركات',   // movements
         'حركة',    // movement
         'ضعيفة',   // weak
+        // Arabic-script generic synonyms reached through KeywordEngine.SYNONYMS (douleur→وجيعة, …)
+        ...[...GENERIC_FLAG_TOKENS].filter(t => /[؀-ۿ]/.test(t)),
     ]);
     // AR intensity / quantity corroborators (parallel to INTENSIFIER_TOKENS).
     const AR_INTENSIFIER_RE = /(كثير|بغزارة|غزير|غزيرة|قوي|قوية|شديد|شديدة|فجأة|مفاجئ|كتير|برشة|بزاف|كبير|كبيرة|نازف|ينزف)/;
     const hasArIntensifier = AR_INTENSIFIER_RE.test(normalizedText);
-    const presentGenericArTokens = new Set(
-        [...arabicTokenForms].filter(w => GENERIC_AR_TOKENS.has(w))
+    // CB-R8-01: collapse AR generic synonym variants to their canonical concept too, so a single
+    // concept appearing as several synonym forms doesn't auto-satisfy the ≥2-concepts rule.
+    const presentGenericArConcepts = new Set(
+        [...arabicTokenForms].filter(w => GENERIC_AR_TOKENS.has(w)).map(tokenToCanonicalConcept)
     );
-    const arGenericCorroborated = hasArIntensifier || presentGenericArTokens.size >= 2;
+    const arGenericCorroborated = hasArIntensifier || presentGenericArConcepts.size >= 2;
 
     // 2. Check Red Flags (Critical) — use cache
     const redFlags = await getRedFlagsCached();
@@ -559,8 +666,18 @@ export const _analyzeMessage = async (text: string): Promise<ChatResponse> => {
                     // allow-list (which protects week/weeks from correction), gate a LONE 'weak' so
                     // it only counts with a corroborating baby/movement concept; real reports
                     // ("my baby is weak", "fetal movements are weak") keep escalating.
+                    // CB-R8-01: a keyword is GENERIC if it is in the latin synonym-closed set OR the
+                    // AR generic set — for Arabic-script input both Path A (raw AR token in positive[])
+                    // and Path B can reach the same keyword, so Path A must apply the SAME gate to AR
+                    // generics (e.g. a lone 'ألم'/pain) it applies to latin generics, using whichever
+                    // corroboration (latin or AR intensifier / 2nd concept) is present. This closed a
+                    // residual leak where "عندي ألم خفيف في الظهر" (mild back pain) escalated via Path A
+                    // because 'ألم' was absent from the latin-only gate.
+                    const keywordIsGenericGated =
+                        (GENERIC_FLAG_TOKENS.has(keyword) || GENERIC_AR_TOKENS.has(keyword))
+                        && !(genericTokensCorroborated || arGenericCorroborated);
                     const gatedAway =
-                        (GENERIC_FLAG_TOKENS.has(keyword) && !genericTokensCorroborated)
+                        keywordIsGenericGated
                         || (keyword === 'weak' && !(hasBabyConcept || hasMovementConcept))
                         // CB-R5-03: bare fetal "movements"/"mouvements"/"faibles" only in a
                         // reduction context (cue or weakness) — positive phrasings don't escalate.

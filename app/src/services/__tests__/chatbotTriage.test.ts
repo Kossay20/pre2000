@@ -687,3 +687,59 @@ describe('Chatbot triage — suicidal gerunds & presyncope MUST escalate (CB-R7-
     });
   }
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CB-R8-01 (P1 CLINICAL — over-escalation, ungated generic SYNONYM single token). Common BENIGN
+// FR pain complaints escalated to the 'crampes sévères' URGENT flag (+ call button): "j'ai mal au
+// dos", "j'ai mal aux seins c'est normal", "légère douleur au dos", "j'ai mal aux jambes le soir",
+// "douleur ligamentaire ronde normale" (EN "I have mild back pain" was already safe).
+// ROOT CLASS (same family as CB-R3-01 / CB-R5-01): the generic-token gating listed only the FR/EN
+// base words (douleur/pain/…), but KeywordEngine.SYNONYMS expands 'douleur'→'mal','wji3a','wja3',
+// 'وجيعة'… and the 'crampes sévères' flag carries those arabizi VARIANTS as single-word keywords_tn
+// (e.g. 'wji3a'). A lone pain SYNONYM was therefore an UN-gated single hit. Fix: the gating set is
+// now the SYNONYM-CLOSURE of the base generic tokens (built once at module load), so every form
+// reachable from a generic concept ('wji3a'/'وجيعة'/'mal'…) is gated exactly like 'douleur', AND
+// the "≥2 distinct concepts corroborate" rule counts CANONICAL concepts (not synonym variants), so
+// the closure can't auto-satisfy the gate. SPECIFIC bleeding lexemes (nzif/نزيف/saigne…) are kept
+// out of the closure so single-hit hemorrhage escalation is unaffected. These benign pain phrasings
+// MUST NOT route to the red_flag path nor carry a ⚠️/🚨 emergency banner.
+describe('Chatbot triage — benign pain complaints (generic synonym) must NOT escalate (CB-R8-01)', () => {
+  const benignPain: { lang: string; text: string }[] = [
+    { lang: 'fr', text: "j'ai mal au dos" },
+    { lang: 'fr', text: "j'ai mal aux seins c'est normal" },
+    { lang: 'fr', text: "j'ai une légère douleur au dos" },
+    { lang: 'fr', text: "j'ai mal aux jambes le soir" },
+    { lang: 'fr', text: 'douleur ligamentaire ronde normale' },
+    { lang: 'en', text: 'I have mild back pain' },                 // already-safe EN control
+    { lang: 'ar', text: 'عندي ألم خفيف في الظهر' },               // AR mild back pain (Path A leak)
+    { lang: 'tn', text: 'wji3a khafifa fl dahr' },                 // arabizi mild back pain
+  ];
+  for (const c of benignPain) {
+    it(`[${c.lang}] "${c.text}" → no red_flag AND no ⚠️/🚨 emergency message`, async () => {
+      const r: any = await analyzeMessage(c.text);
+      expect({ phrase: c.text, type: r.type, wrongFlag: r.redFlag?.red_flag_id })
+        .not.toMatchObject({ type: 'red_flag' });
+      expect(r.redFlag).toBeUndefined();
+      const msg: string = typeof r.message === 'string' ? r.message : '';
+      expect({ phrase: c.text, msg }).toMatchObject({ msg: expect.not.stringContaining('⚠️') });
+      expect({ phrase: c.text, msg }).toMatchObject({ msg: expect.not.stringContaining('🚨') });
+    });
+  }
+
+  // Controls: CORROBORATED severe pain (intensifier, multiword clinical phrase, or a 2nd distinct
+  // generic concept) MUST still escalate — the synonym-aware gate must not weaken real emergencies.
+  const stillEscalates: { lang: string; text: string; rx?: RegExp }[] = [
+    { lang: 'fr', text: 'crampes sévères', rx: /crampes/ },           // multiword strong-match
+    { lang: 'fr', text: 'douleur unilatérale violente' },             // intensifier 'violente'
+    { lang: 'en', text: 'one-sided severe pain' },                    // intensifier 'severe'
+    { lang: 'tn', text: 'wji3 qawi fl karch' },                       // arabizi multiword 'wji3 qawi'
+    { lang: 'fr', text: "j'ai une douleur au foie" },                 // 2 concepts (douleur + foie)
+  ];
+  for (const c of stillEscalates) {
+    it(`[${c.lang}] "${c.text}" → STILL escalates (corroborated)`, async () => {
+      const r: any = await analyzeMessage(c.text);
+      expect({ phrase: c.text, escalates: escalates(r) }).toMatchObject({ escalates: true });
+      if (c.rx) expect(r.redFlag?.red_flag_id).toMatch(c.rx);
+    });
+  }
+});
