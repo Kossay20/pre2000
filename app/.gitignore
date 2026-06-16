@@ -55,3 +55,12 @@ GoogleService-Info.plist
 # T6 V1_AUTONOMOUS_RUN audit captures (transient, recréés à chaque run)
 /audit-screenshots/
 e2e/.auth/
+
+# audit screenshot artifacts (binary, throwaway)
+e2e/r3_shots/
+e2e/r4_shots/
+e2e/r5_shots/
+e2e/r7_shots/
+
+# audit screenshot artifacts (binary, throwaway)
+e2e/r*_shots/
