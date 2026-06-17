@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Text, TextInput, View } from 'react-native';
+import { Platform, Text, TextInput, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as Sentry from '@sentry/react-native';
 import { logger } from './src/utils/logger';
@@ -394,7 +394,11 @@ function App() {
   useEffect(() => {
     setupRTL();
     configureNotifications();
-    databaseService.init().catch(err => console.error('DB Init Error', err));
+    // SQLite is mobile-only; on web the chatbot uses the in-memory repository.
+    // Skip DB init on web to avoid the (stubbed) wa-sqlite.wasm CompileError noise.
+    if (Platform.OS !== 'web') {
+      databaseService.init().catch(err => console.error('DB Init Error', err));
+    }
 
     // STARTUP-FIX-01: Purge stale past RDV reminders from AsyncStorage on each launch.
     // Prevents unbounded growth of the '@rdv_reminders' key over time.

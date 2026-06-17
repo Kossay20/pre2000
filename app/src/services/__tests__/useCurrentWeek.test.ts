@@ -323,7 +323,16 @@ describe('useCurrentWeek — fetch success', () => {
 });
 
 describe('useCurrentWeek — fetch errors', () => {
-    it('sets weekDataNotFound error when the document does not exist', async () => {
+    // CLUSTER-2: when Firestore yields nothing/throws, the hook now falls back to the
+    // bundled local week. The error branches therefore only surface for a week that is
+    // NOT in the bundled 1..40 set (week 99), so these tests pin week 99.
+    const week99 = () => mockUsePregnancy.mockReturnValue({
+        pregnancyInfo: { week: 99, dayInWeek: 1, isInvalid: false, mode: 'pregnant' },
+        loading: false,
+    });
+
+    it('sets weekDataNotFound error when the document does not exist (no local fallback)', async () => {
+        week99();
         mockGetDoc.mockResolvedValue(makeWeekDoc(null)); // exists() === false
         const { result, effects } = renderHook();
         await runEffect(effects);
@@ -332,7 +341,8 @@ describe('useCurrentWeek — fetch errors', () => {
         expect(result.current.loading).toBe(false);
     });
 
-    it('sets loadingFailed error and logs a warning on a generic throw', async () => {
+    it('sets loadingFailed error and logs a warning on a generic throw (no local fallback)', async () => {
+        week99();
         mockGetDoc.mockRejectedValue(Object.assign(new Error('boom'), { name: 'FirebaseError' }));
         const { result, effects } = renderHook();
         await runEffect(effects);
@@ -341,7 +351,8 @@ describe('useCurrentWeek — fetch errors', () => {
         expect(mockWarn).toHaveBeenCalledWith('Error fetching week data:', 'boom');
     });
 
-    it('sets loadingFailed error but does NOT warn for an AbortError', async () => {
+    it('sets loadingFailed error but does NOT warn for an AbortError (no local fallback)', async () => {
+        week99();
         mockGetDoc.mockRejectedValue(Object.assign(new Error('aborted'), { name: 'AbortError' }));
         const { result, effects } = renderHook();
         await runEffect(effects);
@@ -349,12 +360,51 @@ describe('useCurrentWeek — fetch errors', () => {
         expect(mockWarn).not.toHaveBeenCalled();
     });
 
-    it('sets loadingFailed error but does NOT warn when code is "unavailable"', async () => {
+    it('sets loadingFailed error but does NOT warn when code is "unavailable" (no local fallback)', async () => {
+        week99();
         mockGetDoc.mockRejectedValue(Object.assign(new Error('offline'), { code: 'unavailable' }));
         const { result, effects } = renderHook();
         await runEffect(effects);
         expect(result.current.error).toBe('common.errors.loadingFailed');
         expect(mockWarn).not.toHaveBeenCalled();
+    });
+});
+
+describe('useCurrentWeek — CLUSTER-2 bundled local fallback', () => {
+    it('returns the bundled week (error=null) when getDoc rejects with permission-denied (guest)', async () => {
+        // Guest case: Anonymous Auth off → Firestore rejects permission-denied.
+        mockUsePregnancy.mockReturnValue({
+            pregnancyInfo: { week: 12, dayInWeek: 3, isInvalid: false, mode: 'pregnant' },
+            loading: false,
+        });
+        mockGetDoc.mockRejectedValue(
+            Object.assign(new Error('Missing or insufficient permissions.'), { code: 'permission-denied' }),
+        );
+        const { result, effects } = renderHook();
+        await runEffect(effects);
+        // weekData must be the bundled local record for week 12 (real content, not null).
+        expect(result.current.weekData).not.toBeNull();
+        expect(result.current.weekData?.week_number).toBe(12);
+        expect(typeof result.current.weekData?.title_fr).toBe('string');
+        // error cleared so Home renders content instead of "Oups".
+        expect(result.current.error).toBeNull();
+        expect(result.current.loading).toBe(false);
+    });
+
+    it('returns the bundled week (error=null) when offline (code "unavailable")', async () => {
+        mockGetDoc.mockRejectedValue(Object.assign(new Error('offline'), { code: 'unavailable' }));
+        const { result, effects } = renderHook();
+        await runEffect(effects);
+        expect(result.current.weekData?.week_number).toBe(12);
+        expect(result.current.error).toBeNull();
+    });
+
+    it('returns the bundled week (error=null) when Firestore is empty (doc !exists)', async () => {
+        mockGetDoc.mockResolvedValue(makeWeekDoc(null)); // exists() === false
+        const { result, effects } = renderHook();
+        await runEffect(effects);
+        expect(result.current.weekData?.week_number).toBe(12);
+        expect(result.current.error).toBeNull();
     });
 });
 
@@ -409,7 +459,12 @@ describe('useCurrentWeek — isMounted race protection', () => {
 
 describe('useCurrentWeek — refetch', () => {
     it('refetch clears error, sets loading true, and bumps the effect deps (nonce)', async () => {
-        // First render: make it error so we have something to clear.
+        // First render: make it error so we have something to clear. Pin to week 99 so
+        // the CLUSTER-2 local fallback does NOT kick in and an error genuinely surfaces.
+        mockUsePregnancy.mockReturnValue({
+            pregnancyInfo: { week: 99, dayInWeek: 1, isInvalid: false, mode: 'pregnant' },
+            loading: false,
+        });
         mockGetDoc.mockResolvedValueOnce(makeWeekDoc(null));
         const { result, effects } = renderHook();
         await runEffect(effects);

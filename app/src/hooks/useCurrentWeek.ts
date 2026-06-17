@@ -3,6 +3,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { usePregnancy } from '../context/PregnancyContext';
 import { Week } from '../types';
+import { getLocalWeek } from '../services/localContentFallback';
 import { createLogger } from '../utils/logger';
 const log = createLogger('useCurrentWeek');
 
@@ -43,8 +44,17 @@ export const useCurrentWeek = (weekNumber?: number) => {
 
                 if (weekDoc.exists()) {
                     setWeekData(weekDoc.data() as Week);
+                    setError(null);
                 } else {
-                    setError('common.errors.weekDataNotFound');
+                    // CLUSTER-2: Firestore returned no doc (empty collection / missing
+                    // week). Fall back to bundled local data so guests see content.
+                    const local = getLocalWeek(targetWeek);
+                    if (local) {
+                        setWeekData(local);
+                        setError(null);
+                    } else {
+                        setError('common.errors.weekDataNotFound');
+                    }
                 }
             } catch (err: any) {
                 if (!isMounted) return;
@@ -52,7 +62,16 @@ export const useCurrentWeek = (weekNumber?: number) => {
                 if (err.name !== 'AbortError' && err.code !== 'unavailable') {
                     log.warn('Error fetching week data:', err.message);
                 }
-                setError('common.errors.loadingFailed');
+                // CLUSTER-2: Firestore read failed (permission-denied for guests when
+                // Anonymous Auth is off, or offline). Fall back to bundled local data
+                // and clear the error so Home renders content instead of "Oups".
+                const local = getLocalWeek(targetWeek);
+                if (local) {
+                    setWeekData(local);
+                    setError(null);
+                } else {
+                    setError('common.errors.loadingFailed');
+                }
             } finally {
                 if (isMounted) setLoading(false);
             }

@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import * as SQLite from 'expo-sqlite';
 import { createLogger } from '../../../utils/logger';
 import { ARTICLES, RED_FLAGS, SUGGESTIONS } from '../../../data/chatbot_data';
@@ -12,6 +13,14 @@ export class DatabaseService {
     private db: SQLite.SQLiteDatabase | null = null;
 
     async init() {
+        // SQLite is mobile-only. On web the wa-sqlite.wasm import is stubbed
+        // (metro.config.js PHASE 1.1), so opening a DB throws a CompileError /
+        // 'Incorrect MIME type' wasm error. The web chatbot uses the in-memory
+        // LocalChatbotRepository instead, so skip DB init entirely on web —
+        // getDatabase() then stays null and SqliteChatbotRepository null-guards.
+        if (Platform.OS === 'web') {
+            return;
+        }
         try {
             this.db = await SQLite.openDatabaseAsync(DB_NAME);
             await this.createTables();

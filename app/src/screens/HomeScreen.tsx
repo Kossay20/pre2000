@@ -275,13 +275,17 @@ export const HomeScreen = () => {
         );
     }
 
-    const cleanTitle = getLocalizedContent(weekData, 'title', i18n.language).replace(/###\s*/g, '').trim();
+    const cleanTitle = getLocalizedContent(weekData, 'title', i18n.language).replace(/#{1,4}\s*/g, '').trim();
     const babyFacts = getLocalizedContent(weekData, 'baby_facts', i18n.language)?.split('•').filter(f => f.trim()).map(f => f.trim()) || [];
     const momTips = getLocalizedContent(weekData, 'mom_tips', i18n.language)?.split('•').filter(t => t.trim()).map(t => t.trim()) || [];
 
     const displayName = profile?.firstName || user?.firstName || t('home.futureMom');
     const userEmail = user?.email || t('profile.guestUser');
-    const trimesterText = t('common.trimester_' + weekData.trimester);
+    // Trimester label is derived from the week number (T1 ≤13, T2 ≤27, else T3), NOT
+    // the raw `trimester` data field — that field is a localized ordinal ("2ème") which
+    // builds a non-existent key (common.trimester_2ème) and leaks the raw key in the UI.
+    const trimesterNum = currentWeekNumber <= 13 ? 1 : currentWeekNumber <= 27 ? 2 : 3;
+    const trimesterText = t('common.trimester_' + trimesterNum);
 
 
 
@@ -426,7 +430,7 @@ export const HomeScreen = () => {
 
                         {/* Week Title (without repeating 'Semaine X') */}
                         <Text style={styles.weekSubtitle}>
-                            {getLocalizedContent(weekData, 'title', i18n.language).replace(/^#{1,4}\s*/g, '').replace(/^(Semaine|Week|الأسبوع)\s*\d+\s*[-–]\s*/i, '').trim()} {weekData.emoji}
+                            {cleanTitle.replace(/^(Semaine|Week|الأسبوع)\s*\d+\s*[-–]\s*/i, '').trim()} {weekData.emoji}
                         </Text>
 
 

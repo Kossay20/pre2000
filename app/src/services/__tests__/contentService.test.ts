@@ -68,9 +68,25 @@ describe('contentService.getArticlesByIds', () => {
     expect(getDocs).toHaveBeenCalledTimes(2);
   });
 
-  it('returns [] and does not throw when Firestore errors', async () => {
+  it('returns [] and does not throw when Firestore errors AND the id is not bundled', async () => {
     (getDocs as jest.Mock).mockRejectedValueOnce(new Error('boom'));
     expect(await getArticlesByIds(['a1'])).toEqual([]);
+  });
+
+  // CLUSTER-2: bundled local fallback when Firestore fails (guest permission-denied / offline)
+  it('falls back to bundled local article when Firestore rejects (real bundled id)', async () => {
+    (getDocs as jest.Mock).mockRejectedValueOnce(new Error('permission-denied'));
+    const r = await getArticlesByIds(['a01_symptômes_de_grossesse']);
+    expect(r).toHaveLength(1);
+    expect(r[0].article_id).toBe('a01_symptômes_de_grossesse');
+    expect(typeof r[0].title_fr).toBe('string');
+  });
+
+  it('backfills only the missing ids from bundled data when Firestore returns a partial/empty result', async () => {
+    // Mock returns no docs (empty collection) → both ids must come from bundled JSON.
+    (getDocs as jest.Mock).mockResolvedValueOnce({ docs: [] });
+    const r = await getArticlesByIds(['a01_symptômes_de_grossesse', 'a02_alimentation_pendant_la']);
+    expect(r.map(a => a.article_id)).toEqual(['a01_symptômes_de_grossesse', 'a02_alimentation_pendant_la']);
   });
 });
 
@@ -81,6 +97,15 @@ describe('contentService.getSupplementsByIds', () => {
     expect(getDocs).toHaveBeenCalledTimes(1);
     await getSupplementsByIds(['s1']);
     expect(getDocs).toHaveBeenCalledTimes(1); // cache hit
+  });
+
+  // CLUSTER-2: bundled local fallback for supplements
+  it('falls back to bundled local supplement when Firestore rejects (real bundled id)', async () => {
+    (getDocs as jest.Mock).mockRejectedValueOnce(new Error('permission-denied'));
+    const r = await getSupplementsByIds(['s01_acide_folique']);
+    expect(r).toHaveLength(1);
+    expect(r[0].supplement_id).toBe('s01_acide_folique');
+    expect(typeof r[0].name_fr).toBe('string');
   });
 });
 

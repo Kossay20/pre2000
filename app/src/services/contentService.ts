@@ -12,6 +12,7 @@ const log = createLogger('contentService');
 import { collection, documentId, getDocs, query, where, doc, getDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { Article, Supplement, ArticleAntigravity } from '../types';
+import { getLocalArticle, getLocalSupplement, getLocalAntigravityArticle } from './localContentFallback';
 
 // ─── In-Memory Cache ──────────────────────────────────────────────────────────
 const articleCache = new Map<string, Article>();
@@ -50,8 +51,18 @@ export const getArticlesByIds = async (ids: string[]): Promise<Article[]> => {
                 });
             }
         } catch (error) {
+            // CLUSTER-2: Firestore failed (permission-denied for guests / offline).
+            // Don't bail with [] — fall through to the bundled-local backfill below.
             log.error('[ContentService] ❌ Error fetching articles:', error);
-            return [];
+        }
+
+        // CLUSTER-2: Backfill any id still missing (Firestore error OR doc absent)
+        // from bundled local JSON so guests/offline see real content.
+        for (const id of uncached) {
+            if (!articleCache.has(id)) {
+                const local = getLocalArticle(id);
+                if (local) articleCache.set(id, local);
+            }
         }
     } else {
         log.info(`[ContentService] ⚡ All ${ids.length} articles served from cache`);
@@ -81,8 +92,16 @@ export const getSupplementsByIds = async (ids: string[]): Promise<Supplement[]> 
                 });
             }
         } catch (error) {
+            // CLUSTER-2: see getArticlesByIds — fall through to bundled-local backfill.
             log.error('[ContentService] ❌ Error fetching supplements:', error);
-            return [];
+        }
+
+        // CLUSTER-2: Backfill any id still missing from bundled local JSON.
+        for (const id of uncached) {
+            if (!supplementCache.has(id)) {
+                const local = getLocalSupplement(id);
+                if (local) supplementCache.set(id, local);
+            }
         }
     } else {
         log.info(`[ContentService] ⚡ All ${ids.length} supplements served from cache`);
@@ -109,12 +128,25 @@ export const getAntigravityArticle = async (articleId: string): Promise<ArticleA
             return data;
         } else {
             log.warn(`[ContentService] ⚠️ Article not found: ${articleId}`);
-            return null;
+            // CLUSTER-2: fall back to bundled local article (adapted shape).
+            return localAntigravityFallback(articleId);
         }
     } catch (error) {
         log.error('[ContentService] ❌ Error fetching Antigravity article:', error);
-        return null;
+        // CLUSTER-2: Firestore failed (permission-denied for guests / offline).
+        return localAntigravityFallback(articleId);
     }
+};
+
+/** CLUSTER-2: shared local fallback for the single-article detail path. */
+const localAntigravityFallback = (articleId: string): ArticleAntigravity | null => {
+    const local = getLocalAntigravityArticle(articleId);
+    if (local) {
+        antigravityCache.set(articleId, local);
+        log.info(`[ContentService] 📦 Served bundled article: ${articleId}`);
+        return local;
+    }
+    return null;
 };
 
 export const getAntigravityArticlesByCategory = async (category: string): Promise<ArticleAntigravity[]> => {
