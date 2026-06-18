@@ -28,9 +28,18 @@ import { usePregnancy } from '../context/PregnancyContext';
 import { theme } from '../theme';
 import { RtlAwareChevron } from '../components/common/RtlAwareChevron';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
+import { localizeUnit } from '../utils/localizedFormat';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = width - 48;
+
+// #12: localize the unit suffix of the fruit-comparison size (e.g. "14cm", "2mm")
+// for ar/tn so it reads in Arabic script (سم / مم) alongside the rest of the screen.
+// The numeric prefix keeps Western digits (per localizedFormat convention) and the
+// fr/en strings are returned byte-identical (localizeUnit is identity for Latin locales),
+// preserving their original spacing. Unknown/odd shapes pass through untouched.
+const localizeComparisonSize = (size: string, language: string): string =>
+    size.replace(/^([\d.,\s]+)(mm|cm)$/, (_, value, unit) => `${value}${localizeUnit(unit, language)}`);
 
 export const BabyEvolutionScreen = () => {
     useScreenAnalytics('BabyEvolutionScreen');
@@ -125,7 +134,7 @@ export const BabyEvolutionScreen = () => {
                         <Text style={styles.comparisonEmoji}>{monthData.comparison.emoji}</Text>
                         <View style={styles.comparisonInfo}>
                             <Text style={styles.comparisonItem}>{t(monthData.comparison.item)}</Text>
-                            <Text style={styles.comparisonSize}>{monthData.comparison.size}</Text>
+                            <Text style={styles.comparisonSize}>{localizeComparisonSize(monthData.comparison.size, i18n.language)}</Text>
                         </View>
                     </View>
 

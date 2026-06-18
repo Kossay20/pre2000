@@ -38,6 +38,8 @@ import { Article, Supplement, UserEvent, Tip, BabyMessage } from '../types';
 import { format, addDays } from 'date-fns';
 import { useTranslation } from 'react-i18next';
 import { getLocalizedContent } from '../utils/i18nHelpers';
+import { formatMeasure } from '../utils/localizedFormat';
+import { useRtl } from '../hooks/useRtl';
 import { useDateLocale } from '../hooks/useDateLocale';
 // V3 NEW COMPONENTS
 import { BabyFactsCard } from '../components/home/BabyFactsCard';
@@ -60,9 +62,10 @@ export const HomeScreen = () => {
     const [overrideDay, setOverrideDay] = useState<number | null>(null);
     const { weekData, loading, error, currentWeekNumber, currentDay, isInvalid, refetch } = useCurrentWeek(overrideWeek ?? undefined);
     const { t, i18n } = useTranslation();
+    const { isRTL } = useRtl();
     const dateLocale = useDateLocale();
     const { user } = useAuth();
-    const { profile } = usePregnancy();
+    const { profile, pregnancyInfo } = usePregnancy();
     const navigation = useNavigation();
 
     const [articles, setArticles] = useState<Article[]>([]);
@@ -214,6 +217,18 @@ export const HomeScreen = () => {
         }
     }, [currentWeekNumber, fadeAnim]);
 
+    // #9 — Return to the user's *real* current week after time-travelling with the
+    // week chevrons. Clearing the overrides hands control back to useCurrentWeek,
+    // which recomputes from pregnancyInfo (the real week/day).
+    const handleReturnToToday = useCallback(() => {
+        setOverrideWeek(null);
+        setOverrideDay(null);
+        Animated.sequence([
+            Animated.timing(fadeAnim, { toValue: 0.7, duration: 150, useNativeDriver: false }),
+            Animated.timing(fadeAnim, { toValue: 1, duration: 150, useNativeDriver: false }),
+        ]).start();
+    }, [fadeAnim]);
+
 
 
     // Cycle 3 F211 — Mode TTC : home dédié minimal (pas de grossesse en cours).
@@ -286,6 +301,13 @@ export const HomeScreen = () => {
     // builds a non-existent key (common.trimester_2ème) and leaks the raw key in the UI.
     const trimesterNum = currentWeekNumber <= 13 ? 1 : currentWeekNumber <= 27 ? 2 : 3;
     const trimesterText = t('common.trimester_' + trimesterNum);
+
+    // #9 — "Preview" state: the chevrons turned Home into a time-machine and the
+    // displayed week is NOT the user's real current week (pregnancyInfo.week).
+    // Drives the "return to this week" pill + a subtle preview cue on the badge.
+    const realCurrentWeek = pregnancyInfo?.week;
+    const isPreviewingWeek =
+        overrideWeek !== null && !!realCurrentWeek && overrideWeek !== realCurrentWeek;
 
 
 
@@ -406,7 +428,7 @@ export const HomeScreen = () => {
                                         style={{ fontWeight: 'bold' }}
                                     />
                                 </TouchableOpacity>
-                                <View style={styles.weekBadge}>
+                                <View style={[styles.weekBadge, isPreviewingWeek && styles.weekBadgePreview]}>
                                     <Text style={styles.weekTitle}>{t('common.week')} {currentWeekNumber}</Text>
                                     <Text style={styles.trimesterBadge}>{trimesterText}</Text>
                                 </View>
@@ -428,6 +450,22 @@ export const HomeScreen = () => {
                             </View>
                         )}
 
+                        {/* #9 — Time-machine "preview" affordance: when the displayed week is
+                            not the real current week, show a cue + a one-tap return pill. */}
+                        {!user?.isTTC && isPreviewingWeek && (
+                            <TouchableOpacity
+                                onPress={handleReturnToToday}
+                                activeOpacity={0.85}
+                                testID="home_return_to_today"
+                                accessibilityRole="button"
+                                accessibilityLabel={t('home.currentWeek')}
+                                style={[styles.todayPill, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+                            >
+                                <Text style={styles.todayPillIcon}>👁️</Text>
+                                <Text style={styles.todayPillText}>{t('home.currentWeek')}</Text>
+                            </TouchableOpacity>
+                        )}
+
                         {/* Week Title (without repeating 'Semaine X') */}
                         <Text style={styles.weekSubtitle}>
                             {cleanTitle.replace(/^(Semaine|Week|الأسبوع)\s*\d+\s*[-–]\s*/i, '').trim()} {weekData.emoji}
@@ -435,30 +473,33 @@ export const HomeScreen = () => {
 
 
 
-                        {/* Minimal Quick Links - Single Row */}
-                        <View style={styles.quickLinksRow}>
-                            {/* Cycle 3 F305 : a11y labels explicites pour VoiceOver/TalkBack
-                                (avant : seulement emoji + texte court → screen reader lit "calendrier" sans contexte). */}
+                        {/* Quick Actions — real pressable pill buttons (#9).
+                            Cycle 3 F305 : a11y labels explicites pour VoiceOver/TalkBack.
+                            Each pill is min 44x44, RTL-safe (icon/label flip), keeps its
+                            original onPress/testID/accessibilityLabel. */}
+                        <View style={styles.quickActionsRow}>
                             <TouchableOpacity
                                 onPress={() => navigation.navigate('Calendrier')}
-                                activeOpacity={0.7}
+                                activeOpacity={0.85}
                                 testID="home_quick_appointments"
                                 accessibilityRole="button"
                                 accessibilityLabel={t('home.myAppointments')}
+                                style={[styles.quickActionPill, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
                             >
-                                <Text style={styles.quickLink}>📅 {t('home.myAppointments')}</Text>
+                                <Text style={styles.quickActionPillIcon}>📅</Text>
+                                <Text style={styles.quickActionPillLabel} numberOfLines={1}>{t('home.myAppointments')}</Text>
                             </TouchableOpacity>
-                            <Text style={styles.linkDivider}>•</Text>
                             <TouchableOpacity
                                 onPress={() => navigation.navigate('Rappels', { screen: 'RemindersMain', params: { screen: 'TasksTab', params: { action: 'add' } } })}
-                                activeOpacity={0.7}
+                                activeOpacity={0.85}
                                 testID="home_quick_add_task"
                                 accessibilityRole="button"
                                 accessibilityLabel={t('home.addTask', 'Tâche')}
+                                style={[styles.quickActionPill, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
                             >
-                                <Text style={styles.quickLink}>➕ {t('home.addTask', 'Tâche')}</Text>
+                                <Text style={styles.quickActionPillIcon}>➕</Text>
+                                <Text style={styles.quickActionPillLabel} numberOfLines={1}>{t('home.addTask', 'Tâche')}</Text>
                             </TouchableOpacity>
-                            <Text style={styles.linkDivider}>•</Text>
                             <TouchableOpacity
                                 onPress={() => {
                                     let targetDate = new Date();
@@ -472,22 +513,25 @@ export const HomeScreen = () => {
                                         params: { selectedDate: targetDate.toISOString() }
                                     });
                                 }}
-                                activeOpacity={0.7}
+                                activeOpacity={0.85}
                                 testID="home_quick_add_appointment"
                                 accessibilityRole="button"
                                 accessibilityLabel={t('home.addAppointment', 'RDV')}
+                                style={[styles.quickActionPill, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
                             >
-                                <Text style={styles.quickLink}>➕ {t('home.addAppointment', 'RDV')}</Text>
+                                <Text style={styles.quickActionPillIcon}>➕</Text>
+                                <Text style={styles.quickActionPillLabel} numberOfLines={1}>{t('home.addAppointment', 'RDV')}</Text>
                             </TouchableOpacity>
-                            <Text style={styles.linkDivider}>•</Text>
                             <TouchableOpacity
                                 onPress={() => navigation.navigate('Ressources', { screen: 'ResourcesMain', params: { openSearch: true } })}
-                                activeOpacity={0.7}
+                                activeOpacity={0.85}
                                 testID="home_quick_search"
                                 accessibilityRole="button"
                                 accessibilityLabel={t('common.search')}
+                                style={[styles.quickActionPill, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
                             >
-                                <Text style={styles.quickLink}>🔍 {t('common.search')}</Text>
+                                <Text style={styles.quickActionPillIcon}>🔍</Text>
+                                <Text style={styles.quickActionPillLabel} numberOfLines={1}>{t('common.search')}</Text>
                             </TouchableOpacity>
                         </View>
 
@@ -552,11 +596,11 @@ export const HomeScreen = () => {
                             {/* 2. Size & Weight Mini-Cards */}
                             <View style={styles.heroStatsRow}>
                                 <View style={styles.heroStatCard}>
-                                    <Text style={styles.heroStatValue}>{weekData.baby_size_cm} cm</Text>
+                                    <Text style={styles.heroStatValue}>{formatMeasure(weekData.baby_size_cm, 'cm', i18n.language)}</Text>
                                     <Text style={styles.heroStatLabel}>{t('common.size')}</Text>
                                 </View>
                                 <View style={styles.heroStatCard}>
-                                    <Text style={styles.heroStatValue}>{weekData.baby_weight_g} g</Text>
+                                    <Text style={styles.heroStatValue}>{formatMeasure(weekData.baby_weight_g, 'g', i18n.language)}</Text>
                                     <Text style={styles.heroStatLabel}>{t('common.weight')}</Text>
                                 </View>
                             </View>

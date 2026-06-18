@@ -20,12 +20,14 @@ import {
     Switch,
     ActivityIndicator,
     Animated,
+    Linking,
     Platform
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { usePregnancy } from '../../context/PregnancyContext';
 import { useAuth } from '../../context/AuthContext';
 import { requestNotificationPermissions } from '../../services/notificationService';
+import { showAlert } from '../../utils/alert';
 import {
     getEssentialReminders,
     getCategories,
@@ -71,14 +73,38 @@ const PermissionBanner = () => {
         setPermissionsGranted(granted);
     };
 
+    // Actionable: reuse the same flow as the Settings "Demander les permissions" handler.
+    // Request OS permission; on grant, hide the banner; on denial, offer to open Settings.
+    const handlePress = async () => {
+        const granted = await requestNotificationPermissions();
+        if (granted) {
+            setPermissionsGranted(true);
+            return;
+        }
+        showAlert(
+            t('common.permissionsDenied'),
+            t('common.permissionsDeniedMsg'),
+            [
+                { text: t('common.cancel'), style: 'cancel' },
+                { text: t('common.openSettings'), onPress: () => Linking.openSettings() },
+            ]
+        );
+    };
+
     if (permissionsGranted) return null;
 
     return (
-        <View style={styles.permissionBanner}>
+        <TouchableOpacity
+            style={styles.permissionBanner}
+            onPress={handlePress}
+            accessibilityRole="button"
+            accessibilityLabel={t('common.enableNotifications')}
+            accessibilityHint={t('common.requestPermissions')}
+        >
             <Text style={styles.permissionText}>
                 {t('common.enableNotifications')}
             </Text>
-        </View>
+        </TouchableOpacity>
     );
 };
 

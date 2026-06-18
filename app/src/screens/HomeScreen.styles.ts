@@ -477,6 +477,76 @@ export const styles = StyleSheet.create({
         color: theme.colors.white,
         opacity: 0.5,
     },
+    // #9 — Quick action pill buttons (replaces the tiny text quick-links).
+    // Sit on the pink header gradient → translucent white surface + white text
+    // (mirrors the existing quickNavButton treatment). 2x2 wrap, 44pt min target.
+    quickActionsRow: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        justifyContent: 'center',
+        marginTop: 12,
+        marginBottom: 12,
+        gap: 8,
+    },
+    quickActionPill: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: 44,
+        flexGrow: 1,
+        flexBasis: '45%',
+        maxWidth: '48%',
+        backgroundColor: theme.colors.whiteAlpha25,
+        borderRadius: theme.borderRadius.l,
+        paddingVertical: 10,
+        paddingHorizontal: 14,
+        gap: 6,
+        borderWidth: 1,
+        borderColor: theme.colors.whiteAlpha40,
+    },
+    quickActionPillIcon: {
+        fontSize: 16,
+    },
+    quickActionPillLabel: {
+        fontSize: 13,
+        fontWeight: '700',
+        color: theme.colors.white,
+        flexShrink: 1,
+    },
+    // #9 — "Return to current week" pill, shown only while previewing another week.
+    todayPill: {
+        alignSelf: 'center',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: 36,
+        marginTop: 4,
+        marginBottom: 4,
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+        borderRadius: 20,
+        gap: 6,
+        backgroundColor: theme.colors.accent,
+        shadowColor: theme.colors.black,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+        elevation: 3,
+    },
+    todayPillIcon: {
+        fontSize: 13,
+    },
+    todayPillText: {
+        fontSize: 13,
+        fontWeight: '700',
+        color: theme.colors.white,
+    },
+    // #9 — Subtle "preview" cue on the week badge when time-travelling.
+    weekBadgePreview: {
+        borderWidth: 1,
+        borderColor: theme.colors.whiteAlpha50,
+        borderRadius: 14,
+        paddingHorizontal: 12,
+        paddingVertical: 4,
+    },
     quickActionsContainer: {
         flexDirection: 'row',
         gap: 10,

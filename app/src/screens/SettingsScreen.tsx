@@ -148,14 +148,18 @@ export const SettingsScreen = () => {
     return (
         <ScrollView style={styles.container}>
             <View style={styles.header}>
-                <Text style={styles.headerTitle}>⚙️ {t('common.settings')}</Text>
+                <View style={styles.headerTitleRow}>
+                    <Ionicons name="settings-outline" size={26} color={theme.colors.text} style={styles.headerIcon} />
+                    <Text style={styles.headerTitle}>{t('common.settings')}</Text>
+                </View>
                 <Text style={styles.headerSubtitle}>{t('common.notifications')}</Text>
             </View>
 
             {/* Baby Message Section */}
             <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionTitle}>💕 {t('common.babyMessage')}</Text>
+                <View style={[styles.sectionHeader, styles.sectionHeaderRow]}>
+                    <Ionicons name="heart-outline" size={20} color={theme.colors.accent} style={styles.sectionIcon} />
+                    <Text style={styles.sectionTitle}>{t('common.babyMessage')}</Text>
                 </View>
 
                 <View style={styles.settingRow}>
@@ -209,8 +213,9 @@ export const SettingsScreen = () => {
 
             {/* Permissions Debug Section */}
             <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionTitle}>🔔 {t('common.permissions')}</Text>
+                <View style={[styles.sectionHeader, styles.sectionHeaderRow]}>
+                    <Ionicons name="notifications-outline" size={20} color={theme.colors.text} style={styles.sectionIcon} />
+                    <Text style={styles.sectionTitle}>{t('common.permissions')}</Text>
                 </View>
                 <TouchableOpacity
                     style={styles.settingRow}
@@ -240,7 +245,7 @@ export const SettingsScreen = () => {
                     }}
                 >
                     <View style={styles.settingRowLeft}>
-                        <Text style={styles.menuIcon}>👉</Text>
+                        <Ionicons name="hand-right-outline" size={24} color={theme.colors.accent} style={styles.menuIcon} />
                         <View style={styles.settingInfo}>
                             <Text style={styles.settingLabel}>{t('common.requestPermissions')}</Text>
                             <Text style={styles.settingDescription}>
@@ -271,7 +276,7 @@ export const SettingsScreen = () => {
                     }}
                 >
                     <View style={styles.settingRowLeft}>
-                        <Text style={styles.menuIcon}>▶️</Text>
+                        <Ionicons name="play-circle-outline" size={24} color={theme.colors.accent} style={styles.menuIcon} />
                         <View style={styles.settingInfo}>
                             <Text style={styles.settingLabel}>{t('common.testNotifications')}</Text>
                             <Text style={styles.settingDescription}>
@@ -291,8 +296,9 @@ export const SettingsScreen = () => {
 
             {/* Data & Privacy Section */}
             <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionTitle}>🛡️ {t('common.privacyData.title')}</Text>
+                <View style={[styles.sectionHeader, styles.sectionHeaderRow]}>
+                    <Ionicons name="shield-checkmark-outline" size={20} color={theme.colors.green700} style={styles.sectionIcon} />
+                    <Text style={styles.sectionTitle}>{t('common.privacyData.title')}</Text>
                 </View>
 
                 {/* PDF Journal Export - ENABLED */}
@@ -335,7 +341,7 @@ export const SettingsScreen = () => {
                     }}
                 >
                     <View style={styles.settingRowLeft}>
-                        <Text style={styles.menuIcon}>📕</Text>
+                        <Ionicons name="document-text-outline" size={24} color={theme.colors.accent} style={styles.menuIcon} />
                         <View style={styles.settingInfo}>
                             <Text style={styles.settingLabel}>{t('common.privacyData.exportPDF')}</Text>
                             <Text style={styles.settingDescription}>
@@ -366,7 +372,7 @@ export const SettingsScreen = () => {
                     }}
                 >
                     <View style={styles.settingRowLeft}>
-                        <Text style={styles.menuIcon}>📤</Text>
+                        <Ionicons name="share-outline" size={24} color={theme.colors.accent} style={styles.menuIcon} />
                         <View style={styles.settingInfo}>
                             <Text style={styles.settingLabel}>{t('common.privacyData.export')}</Text>
                             <Text style={styles.settingDescription}>
@@ -379,8 +385,9 @@ export const SettingsScreen = () => {
 
             {/* Legal Section */}
             <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionTitle}>📋 {t('common.legal')}</Text>
+                <View style={[styles.sectionHeader, styles.sectionHeaderRow]}>
+                    <Ionicons name="document-text-outline" size={20} color={theme.colors.text} style={styles.sectionIcon} />
+                    <Text style={styles.sectionTitle}>{t('common.legal')}</Text>
                 </View>
                 <TouchableOpacity
                     style={styles.legalRow}
@@ -389,7 +396,7 @@ export const SettingsScreen = () => {
                     accessibilityLabel={t('common.privacyPolicy')}
                 >
                     <View style={styles.settingRowLeft}>
-                        <Text style={styles.menuIcon}>🔒</Text>
+                        <Ionicons name="lock-closed-outline" size={24} color={theme.colors.text} style={styles.menuIcon} />
                         <Text style={styles.legalText}>{t('common.privacyPolicy')}</Text>
                     </View>
                     <RtlAwareChevron direction="forward" size={20} color={theme.colors.neutral300} />
@@ -399,8 +406,9 @@ export const SettingsScreen = () => {
             {/* Developer Section (Only in DEV) */}
             {__DEV__ && (
                 <View style={[styles.section, { borderColor: theme.colors.purple700, borderWidth: 1 }]}>
-                    <View style={[styles.sectionHeader, { backgroundColor: theme.colors.surfacePurpleTint }]}>
-                        <Text style={[styles.sectionTitle, { color: theme.colors.purple700 }]}>👨‍💻 Developer Tools</Text>
+                    <View style={[styles.sectionHeader, styles.sectionHeaderRow, { backgroundColor: theme.colors.surfacePurpleTint }]}>
+                        <Ionicons name="code-slash-outline" size={20} color={theme.colors.purple700} style={styles.sectionIcon} />
+                        <Text style={[styles.sectionTitle, { color: theme.colors.purple700 }]}>Developer Tools</Text>
                     </View>
 
                     <TouchableOpacity
@@ -408,7 +416,7 @@ export const SettingsScreen = () => {
                         onPress={() => navigation.navigate('Diagnostic')}
                     >
                         <View style={styles.settingRowLeft}>
-                            <Text style={styles.menuIcon}>🩺</Text>
+                            <Ionicons name="medkit-outline" size={24} color={theme.colors.purple700} style={styles.menuIcon} />
                             <View style={styles.settingInfo}>
                                 <Text style={styles.settingLabel}>Run Diagnostics</Text>
                                 <Text style={styles.settingDescription}>
@@ -440,6 +448,13 @@ const styles = StyleSheet.create({
         borderBottomWidth: 1,
         borderBottomColor: theme.colors.disabled,
     },
+    headerTitleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    headerIcon: {
+        marginEnd: 10,
+    },
     headerTitle: {
         fontSize: 28,
         fontWeight: 'bold',
@@ -462,6 +477,13 @@ const styles = StyleSheet.create({
         backgroundColor: theme.colors.surfaceGrayStripe,
         borderBottomWidth: 1,
         borderBottomColor: theme.colors.disabled,
+    },
+    sectionHeaderRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    sectionIcon: {
+        marginEnd: 10,
     },
     sectionTitle: {
         fontSize: 18,
