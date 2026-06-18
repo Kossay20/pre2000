@@ -39,6 +39,7 @@ import { format, addDays } from 'date-fns';
 import { useTranslation } from 'react-i18next';
 import { getLocalizedContent } from '../utils/i18nHelpers';
 import { formatMeasure } from '../utils/localizedFormat';
+import { getReducedMotionSync } from '../hooks/usePrefersReducedMotion';
 import { useRtl } from '../hooks/useRtl';
 import { useDateLocale } from '../hooks/useDateLocale';
 // V3 NEW COMPONENTS
@@ -98,28 +99,31 @@ export const HomeScreen = () => {
             }),
         ]).start();
 
-        // Pulse animation for profile button
-        const pulseLoop = Animated.loop(
-            Animated.sequence([
-                Animated.timing(pulseAnim, {
-                    toValue: 1.05,
-                    duration: 1000,
-                    useNativeDriver: false,
-                }),
-                Animated.timing(pulseAnim, {
-                    toValue: 1,
-                    duration: 1000,
-                    useNativeDriver: false,
-                }),
-            ])
-        );
-        pulseLoop.start();
+        // Pulse animation for profile button — #11/DS-3: skip the perpetual loop when the
+        // OS prefers reduced motion (the animation is decorative, not informational).
+        const pulseLoop = getReducedMotionSync()
+            ? null
+            : Animated.loop(
+                Animated.sequence([
+                    Animated.timing(pulseAnim, {
+                        toValue: 1.05,
+                        duration: 1000,
+                        useNativeDriver: false,
+                    }),
+                    Animated.timing(pulseAnim, {
+                        toValue: 1,
+                        duration: 1000,
+                        useNativeDriver: false,
+                    }),
+                ])
+            );
+        pulseLoop?.start();
 
         // Engagement: Track daily check
         trackPositiveAction('daily_check');
 
         return () => {
-            pulseLoop.stop();
+            pulseLoop?.stop();
         };
     }, []);
 
