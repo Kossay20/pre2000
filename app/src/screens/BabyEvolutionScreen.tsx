@@ -142,9 +142,9 @@ export const BabyEvolutionScreen = () => {
                     <View style={styles.factsContainer}>
                         <Text style={styles.factsTitle}>🌟 {t('babyEvolution.development')}</Text>
                         {monthData.facts.slice(0, 2).map((fact, i) => (
-                            <View key={i} style={styles.factRow}>
-                                <Text style={styles.factBullet}>•</Text>
-                                <Text style={styles.factText}>{t(fact)}</Text>
+                            <View key={i} style={[styles.factRow, isRTL && styles.factRowRtl]}>
+                                <Text style={[styles.factBullet, isRTL && styles.factBulletRtl]}>•</Text>
+                                <Text style={[styles.factText, isRTL && styles.factTextRtl]}>{t(fact)}</Text>
                             </View>
                         ))}
                     </View>
@@ -378,15 +378,27 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         marginBottom: 4,
     },
+    // RTL: the carousel scroller is forced to dir=ltr (scroll fix), so the card internals
+    // need explicit mirroring — bullet on the trailing (right) side next to the Arabic text.
+    factRowRtl: {
+        flexDirection: 'row-reverse',
+    },
     factBullet: {
         fontSize: 14,
         color: theme.colors.accent,
         marginEnd: 8,
     },
+    factBulletRtl: {
+        marginEnd: 0,
+        marginStart: 8,
+    },
     factText: {
         fontSize: 13,
         color: theme.colors.textSecondary,
         flex: 1,
+    },
+    factTextRtl: {
+        textAlign: 'right',
     },
     highlightsContainer: {
         flexDirection: 'row',
