@@ -9,7 +9,7 @@ export const meta = {
 
 // Round is hardcoded per-run to avoid the args-stringification ambiguity that
 // silently defaulted a prior run to round-1 (reviewing stale pre-fix captures).
-const ROUND = 4;
+const ROUND = 5;
 const BASE = `/Users/1millnonstop/Downloads/pregnancy-app/pre2000/app/e2e/audit2/round-${ROUND}`;
 const LANGS = ['fr', 'en', 'ar', 'tn'];
 
@@ -84,7 +84,7 @@ const WAVES = [
   { id: 'W3', mode: 'guest', label: 'calendar+reminders+stats', states: ['06-calendar', '07-add-appointment', '08-reminders', '09-statistics'] },
   { id: 'W4', mode: 'guest', label: 'health+weight+foods', states: ['10-health-dashboard', '11-weight-tracker', '15-forbidden-foods'] },
   { id: 'W5', mode: 'guest', label: 'cycle8 tools', states: ['12-kick-counter', '13-contraction-timer', '14-hospital-bag'] },
-  { id: 'W6', mode: 'guest', label: 'profile+settings+diag+lang', states: ['18-profile', '19-settings', '20-diagnostic', '21-language-select'] },
+  { id: 'W6', mode: 'guest', label: 'profile+settings+diag+lang+guest-upgrade', states: ['18-profile', '19-settings', '20-diagnostic', '21-language-select', '23-guest-upgrade'] },
   { id: 'W7', mode: 'guest', label: 'ramadan+chatbot', states: ['16-ramadan', '22-chatbot'] },
   { id: 'W8', mode: 'fresh', label: 'auth entry', states: ['01-welcome', '02-authchoice', '03-register', '04-login'] },
   { id: 'W9', mode: 'fresh', label: 'onboarding+privacy', states: ['05-onboarding', '06-privacy'] },

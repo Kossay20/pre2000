@@ -51,6 +51,7 @@ const GUEST_ROUTES = [
   { name: '20-diagnostic',       path: '/diagnostic',                 wait: 4500 },
   { name: '21-language-select',  path: '/language',                   wait: 4000 },
   { name: '22-chatbot',          path: '/HomeMain',                   wait: 5000, chatbot: true },
+  { name: '23-guest-upgrade',    path: '/create-account',             wait: 4000 },
 ];
 
 const FRESH_ROUTES = [
