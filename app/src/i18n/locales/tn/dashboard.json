@@ -28,6 +28,8 @@
     "errorLoading": "فما مشكلة في التحميل",
     "errorSaving": "فما مشكلة في التسجيل",
     "guestNotice": "كونكتي بش تتبع صحتك",
+    "guestLockTitle": "تابع صحتك",
+    "guestLockSubtitle": "اعمل كومبت باش تسجل ميزانك والضغط والسكر وبرشا حاجات أخرى.",
     "glucose": "السكر في الدم",
     "glucoseNormal": "السكر عندك معتدل هذا الشهر",
     "glucoseTarget": "الهدف: 3.5 – 5.5 mmol/L (صايمة)",

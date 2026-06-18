@@ -380,7 +380,7 @@ export const CalendarScreen = () => {
                 () => navigation.getParent()?.navigate('Home', { screen: 'GuestUpgrade' }),
                 undefined,
                 t('common.cancel'),
-                t('common.createAccount')
+                t('common.screen.createAccount')
             );
             return;
         }
@@ -582,15 +582,6 @@ export const CalendarScreen = () => {
                             <Text style={styles.emptyEmoji}>📅</Text>
                             <Text style={styles.emptyStateText}>{t('calendar.noEventsForDay')}</Text>
                             <Text style={styles.emptyStateSubtext}>{t('calendar.enjoyRest')}</Text>
-                            <TouchableOpacity
-                                style={[styles.todayButton, { marginTop: 16, backgroundColor: theme.colors.accent, paddingHorizontal: 24 }]}
-                                onPress={() => navigation.navigate('AddAppointment', { selectedDate: selectedDate.toISOString() })}
-                                accessibilityRole="button"
-                                accessibilityLabel={t('a11y.addAppointment')}
-                                accessibilityHint={t('a11y.addAppointmentHint')}
-                            >
-                                <Text style={[styles.todayButtonText, { fontSize: 14 }]}>{t('calendar.addAppointment')}</Text>
-                            </TouchableOpacity>
                         </View>
                     }
                 />

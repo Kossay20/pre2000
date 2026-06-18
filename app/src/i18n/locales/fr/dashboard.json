@@ -28,6 +28,8 @@
     "errorLoading": "Erreur lors du chargement des données",
     "errorSaving": "Erreur lors de l'enregistrement",
     "guestNotice": "Connectez-vous pour suivre votre santé",
+    "guestLockTitle": "Suivez votre santé",
+    "guestLockSubtitle": "Créez un compte pour enregistrer votre poids, votre tension, votre glycémie et bien plus.",
     "glucose": "Glycémie",
     "glucoseNormal": "Glycémie normale ce mois-ci",
     "glucoseTarget": "Objectif : 3,5 – 5,5 mmol/L (à jeun)",

@@ -46,6 +46,8 @@ import {
 import { HealthWeightModal } from '../components/health/HealthWeightModal';
 import { HealthBPModal } from '../components/health/HealthBPModal';
 import { HealthGlucoseModal } from '../components/health/HealthGlucoseModal';
+import { EmptyState } from '../components/common/EmptyState';
+import { Button } from '../components/common/Button';
 import { styles } from './HealthDashboardScreen.styles';
 
 const screenWidth = Dimensions.get('window').width;
@@ -365,12 +367,24 @@ export const HealthDashboardScreen = () => {
         }
     };
 
-    // GUEST GUARD: Show upgrade prompt
+    // GUEST GUARD: value-oriented upgrade prompt (was a bare 🔒 + one line floating
+    // in an empty void). EmptyState is flex:1 + vertically centered; the CTA routes to
+    // the in-MainTabs GuestUpgrade route (RegisterScreen in link mode) — same pattern as
+    // the other HomeStack locked screens. RTL flows from the active language via theme/i18n.
     if (isGuest) {
         return (
-            <View style={styles.centerContainer}>
-                <Text style={{ fontSize: 48, marginBottom: 16 }}>🔒</Text>
-                <Text style={styles.loadingText}>{t('dashboard.guestNotice')}</Text>
+            <View style={styles.container}>
+                <EmptyState
+                    icon="🔒"
+                    title={t('dashboard.guestLockTitle')}
+                    subtitle={t('dashboard.guestLockSubtitle')}
+                    action={
+                        <Button
+                            title={t('common.screen.createAccount', 'Créer un compte')}
+                            onPress={() => navigation.getParent()?.navigate('Home', { screen: 'GuestUpgrade' })}
+                        />
+                    }
+                />
             </View>
         );
     }

@@ -108,7 +108,7 @@ const HomeStack = () => {
           Register lives in a stack that is unmounted for a logged-in guest, so the old
           navigate('AuthChoice') silently no-op'd). RegisterScreen in upgradeMode links the
           anonymous account in place — no re-onboarding. */}
-      <Stack.Screen name="GuestUpgrade" component={RegisterScreen} initialParams={{ upgradeMode: true }} options={{ headerShown: true, title: t('common.createAccount', 'Créer un compte') }} />
+      <Stack.Screen name="GuestUpgrade" component={RegisterScreen} initialParams={{ upgradeMode: true }} options={{ headerShown: true, title: t('common.screen.createAccount') }} />
       {/* NAV-FIX: PrivacyPolicy is already registered in AuthStack — no duplicate here */}
       <Stack.Screen name="HealthDashboard" component={HealthDashboardScreen} options={{ title: t('common.screen.myHealth') }} />
       <Stack.Screen name="WeightTracker" component={WeightTrackerScreen} options={{ title: t('common.screen.weightTracking') }} />

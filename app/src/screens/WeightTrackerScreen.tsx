@@ -87,12 +87,19 @@ export const WeightTrackerScreen = () => {
     // Safety check: don't calculate if essential data is missing
     const hasValidData = prePregnancyWeight > 0 && height > 0 && hasWeekInfo;
 
-    // Show setup form automatically if needed
+    // Show setup form automatically if needed.
+    // BUG #3 FIX: prefill the inputs from the profile values already collected
+    // (Profile screen → prePregnancyWeight / height) so a user who provided ONE
+    // of the two facts is never asked for it again. Genuinely-missing fields
+    // (value 0) stay empty so the manual entry path still works. When BOTH are
+    // known `needsSetup` is false, so the card is skipped entirely (unchanged).
     React.useEffect(() => {
         if (needsSetup && !loading) {
+            if (prePregnancyWeight > 0) setSetupWeight(prePregnancyWeight.toString());
+            if (height > 0) setSetupHeight(height.toString());
             setShowSetup(true);
         }
-    }, [needsSetup, loading]);
+    }, [needsSetup, loading, prePregnancyWeight, height]);
 
     useFocusEffect(
         useCallback(() => {

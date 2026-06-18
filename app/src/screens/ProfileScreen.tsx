@@ -16,6 +16,8 @@ import { addDays, format } from 'date-fns';
 import { useDateLocale } from '../hooks/useDateLocale';
 import { LanguageSelector } from '../components/common/LanguageSelector';
 import { RtlAwareChevron } from '../components/common/RtlAwareChevron';
+import { Button } from '../components/common/Button';
+import { useRtl } from '../hooks/useRtl';
 import { useTranslation } from 'react-i18next';
 import { EmergencyContactsSection } from '../components/profile/EmergencyContactsSection';
 import { openSupportEmail } from '../services/supportService';
@@ -33,6 +35,7 @@ export const ProfileScreen = () => {
     const { currentWeekNumber } = useCurrentWeek();
     const navigation = useNavigation();
     const { t, i18n } = useTranslation();
+    const { isRTL } = useRtl();
     const [loading, setLoading] = useState(false);
 
     // Get date locale using shared hook (handles all languages including tn → arTN)
@@ -282,6 +285,17 @@ export const ProfileScreen = () => {
                     <Text style={styles.headerSubtitle}>
                         {user?.email || t('profile.guestUser')}
                     </Text>
+                    {user?.isGuest && (
+                        <Button
+                            title={t('common.screen.createAccount', 'Créer un compte')}
+                            variant="primary"
+                            size="small"
+                            onPress={() => navigation.navigate('GuestUpgrade' as never)}
+                            style={{ marginTop: 16, alignSelf: 'center' }}
+                            accessibilityHint={t('a11y.openItem')}
+                            {...(Platform.OS === 'web' ? { dir: isRTL ? 'rtl' : 'ltr' } : {})}
+                        />
+                    )}
                 </LinearGradient>
 
                 <View style={styles.content}>

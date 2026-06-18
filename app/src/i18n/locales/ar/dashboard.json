@@ -28,6 +28,8 @@
     "errorLoading": "خطأ في تحميل البيانات",
     "errorSaving": "خطأ في الحفظ",
     "guestNotice": "سجّل الدخول لمتابعة صحتك",
+    "guestLockTitle": "تابِع صحتك",
+    "guestLockSubtitle": "أنشئ حساباً لتسجيل وزنك وضغط دمك ومستوى السكر والمزيد.",
     "glucose": "السكر في الدم",
     "glucoseNormal": "مستوى السكر طبيعي هذا الشهر",
     "glucoseTarget": "الهدف: 3.5 – 5.5 mmol/L (صائمة)",
