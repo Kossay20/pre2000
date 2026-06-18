@@ -1,0 +1,1111 @@
+{
+  "summary": "Read-only cartography of 8 cross-feature interaction domains for the UX/UI GOAL",
+  "agentCount": 8,
+  "logs": [
+    "Mapping 8 interaction domains in parallel (read-only, design-detailed)"
+  ],
+  "result": {
+    "domains": [
+      {
+        "domain": "Navigation & Deep-Link Spine",
+        "current_flows": [
+          {
+            "flow": "Auth gate: App.tsx L380 `{user ? <MainTabs/> : <AuthStack/>}`. A guest is a TRUTHY user (AuthContext L370 `isGuest:!isAuthenticated`), so the moment onboarding calls loginAsGuest (OnboardingScreen L256), AuthStack (Language/AuthChoice/Register/Login/Onboarding/PrivacyPolicy) is UNMOUNTED. Any in-app `navigate('AuthChoice'|'Register'|'Login')` from inside MainTabs targets a route that no longer exists.",
+            "anchor": "/Users/1millnonstop/Downloads/pregnancy-app/pre2000/app/App.tsx:380"
+          },
+          {
+            "flow": "Cross-tab jumps use nested object form: HomeScreen L453 `navigate('Rappels',{screen:'RemindersMain',params:{screen:'TasksTab',params:{action:'add'}}})` and L484 `navigate('Ressources',{screen:'ResourcesMain',params:{openSearch:true}})`. Most other jumps are bare `navigate('Calendrier')` / `navigate('WeightTracker')` (HomeScreen L443-878).",
+            "anchor": "/Users/1millnonstop/Downloads/pregnancy-app/pre2000/app/src/screens/HomeScreen.tsx:453"
+          },
+          {
+            "flow": "Notification tap (AppInitializer L447-470): data.screen==='TasksTab' -> `navigate('Rappels',{screen:'TasksTab',...})`; 'Calendar' -> `navigate('Calendrier')`; else `navigate(data.screen,data.params)`.",
+            "anchor": "/Users/1millnonstop/Downloads/pregnancy-app/pre2000/app/App.tsx:451"
+          },
+          {
+            "flow": "Web URL deep-link: linking.config (L274-324) maps ~22 routes; getStateFromPath catch-all (L259-273) retries lowercase then falls back to Home. documentTitle formatter (L358-368) maps a 18-entry routeNameToTitleKey, else uses static options.title.",
+            "anchor": "/Users/1millnonstop/Downloads/pregnancy-app/pre2000/app/App.tsx:259"
+          },
+          {
+            "flow": "Detail screens entered by deep-link use custom in-body back buttons calling `navigation.goBack()` unconditionally (ArticleDetail L280, SupplementDetail L130, BabyEvolution L156, Statistics L122/134); native header back exists for the rest. No `canGoBack()` guard anywhere in src/.",
+            "anchor": "/Users/1millnonstop/Downloads/pregnancy-app/pre2000/app/src/screens/ArticleDetailScreen.tsx:280"
+          }
+        ],
+        "findings": [
+          {
+            "id": "NAV-01",
+            "type": "interaction",
+            "severity": "high",
+            "title": "Guest-upgrade dead-end: in-app navigate('AuthChoice') targets an unmounted stack",
+            "evidence": "AddAppointmentScreen L342 `navigation.navigate('AuthChoice')` and L352 `()=>navigation.navigate('AuthChoice')`; CalendarScreen L380 `navigation.getParent()?.navigate('AuthChoice')`. AuthChoice/Register/Login live ONLY in AuthStack which is unmounted when `user` is truthy (App.tsx L380). A guest is truthy (AuthContext L370 isGuest:!isAuthenticated), so these calls hit a non-existent route -> React Navigation no-ops with a console warning; the guest taps 'Create account' and NOTHING happens. This is the single most common guest-to-paid conversion path and it is silently broken.",
+            "proposed_design": "Introduce a first-class guest-upgrade flow that works from inside MainTabs. (a) Add a GuestUpgrade route to HomeStack (path 'create-account') that hosts the existing Register UI in 'link mode'. (b) In AuthContext add `upgradeGuest(email,password)` using firebase `linkWithCredential(currentUser, EmailAuthProvider.credential(...))` (the import already exists at AuthContext L630) so guest data is preserved in-place (no re-onboarding). (c) Replace all 3 in-MainTabs `navigate('AuthChoice')` calls with `navigation.navigate('Home',{screen:'GuestUpgrade'})` via getParent for tab-stacks. (d) On success show ToastContext success + pop back to the originating screen so the just-blocked Save/Delete action can be retried. (e) Add a persistent 'Créer un compte' CTA row in ProfileScreen guest badge (L568-577) routing to the same GuestUpgrade screen so the upgrade is discoverable, not only triggered by a blocked write.",
+            "files_to_touch": "App.tsx (register GuestUpgrade in HomeStack + linking 'create-account'), src/context/AuthContext.tsx (add upgradeGuest via linkWithCredential), src/screens/AddAppointmentScreen.tsx L342/L352, src/screens/CalendarScreen.tsx L380, src/screens/ProfileScreen.tsx L568-577, src/screens/RegisterScreen.tsx (link-mode prop)",
+            "acceptance": "Guest taps Save appointment -> confirm -> lands on a working Create-account screen inside the tabs (no console warning, no no-op); completing it links the anonymous account, preserves guest data, returns to AddAppointment, and the Save now succeeds. Profile guest badge shows a tappable 'Créer un compte' CTA reaching the same screen.",
+            "test_path": "(test TO BE CREATED at /Users/1millnonstop/Downloads/pregnancy-app/pre2000/app/e2e/nav-guest-upgrade.spec.ts) — guest flow: AddAppointment Save -> assert URL /create-account renders, no navigation warning in console",
+            "effort": "L"
+          },
+          {
+            "id": "NAV-02",
+            "type": "interaction",
+            "severity": "high",
+            "title": "Notification deep-link to TasksTab uses wrong nesting -> opens RemindersTab not Tasks",
+            "evidence": "AppInitializer L452-456 `navigate('Rappels',{screen:'TasksTab',params:{highlightId}})`. RemindersStack registers ONLY `RemindersMain` (App.tsx L162); TasksTab is a material-top-tab INSIDE RemindersScreen (RemindersScreen.tsx L46). The correct nested path is `Rappels > RemindersMain > TasksTab` (exactly what HomeScreen L453 uses). The notification version skips the RemindersMain level, so React Navigation cannot find 'TasksTab' under the stack -> it lands on RemindersMain's default first tab (RemindersTab), and the highlightId never reaches TasksTab's useFocusEffect (TasksTab.tsx L60-70). User taps a reminder notification and the highlighted task is not shown.",
+            "proposed_design": "Rewrite the notification branch to mirror the verified HomeScreen nesting: `navigationRef.navigate('Rappels',{screen:'RemindersMain',params:{screen:'TasksTab',params:{highlightId:data.reminderId}}})`. Also gate on `navigationRef.isReady()` (already present L451) and wrap in try/catch like the generic branch (L462-468). Add a one-line comment citing HomeScreen L453 as the canonical shape so the two never diverge again.",
+            "files_to_touch": "App.tsx L451-460",
+            "acceptance": "Tapping a reminder notification opens Rappels with the Tasks (Tâches) sub-tab active AND the target reminder visually highlighted (TasksTab highlightReminderId set). Verified by asserting the active material-top-tab is TasksTab and highlightId param is consumed then cleared (TasksTab L70).",
+            "test_path": "(test TO BE CREATED at /Users/1millnonstop/Downloads/pregnancy-app/pre2000/app/src/__tests__/notification-deeplink.test.ts) — mock Notifications.addNotificationResponseReceivedListener, assert navigationRef.navigate called with RemindersMain>TasksTab nesting",
+            "effort": "S"
+          },
+          {
+            "id": "NAV-03",
+            "type": "ux",
+            "severity": "high",
+            "title": "document.title for detail screens leaks generic label instead of the article/supplement name",
+            "evidence": "routeNameToTitleKey (App.tsx L334-353) has NO entry for ArticleDetail, SupplementDetail, WeekRecommendations, BabyEvolution, KickCounter, ContractionTimer, HospitalBag, RamadanPregnancy, Diagnostic, LanguageSelect, AddAppointment, TasksTab/RemindersTab. The formatter (L359-366) therefore falls back to `options.title` -> every shared article tab reads 'Article · Mama & Bébé' and every supplement 'Supplément · Mama & Bébé'. A user who opens 5 article links in browser tabs sees 5 identical titles; bookmarks/history are useless and it hurts web SEO/shareability for a content app.",
+            "proposed_design": "(a) Add the missing static routes to routeNameToTitleKey (WeekRecommendations->common.screen.recommendations, BabyEvolution->common.screen.babyEvolution, KickCounter/ContractionTimer/HospitalBag/RamadanPregnancy->their cycle8.* titles, Diagnostic, AddAppointment). (b) For dynamic ArticleDetail/SupplementDetail, make the formatter read `route.params` and prefer a per-screen title: have ArticleDetailScreen/SupplementDetailScreen call `navigation.setOptions({title})` once the content loads (article title / localized supplement name via getLocalizedContent, already computed at SupplementDetail L146), and in the formatter prefer `options.title` only when it differs from the static fallback. Net: <title> becomes 'Acide folique · Mama & Bébé'.",
+            "files_to_touch": "App.tsx L334-366, src/screens/ArticleDetailScreen.tsx (setOptions after load ~L99-104), src/screens/SupplementDetailScreen.tsx (setOptions ~L146)",
+            "acceptance": "Opening /article/<id> sets document.title to '<real article title> · Mama & Bébé'; /supplement/<id> to '<localized supplement name> · Mama & Bébé'; /recommendations to 'Recommandations · Mama & Bébé'. No route renders the bare component name or a duplicated generic label.",
+            "test_path": "(test TO BE CREATED at /Users/1millnonstop/Downloads/pregnancy-app/pre2000/app/e2e/nav-document-title.spec.ts) — navigate to article/supplement/recommendations URLs, assert document.title contains the loaded content name",
+            "effort": "M"
+          },
+          {
+            "id": "NAV-04",
+            "type": "interaction",
+            "severity": "medium",
+            "title": "Deep-linked detail screen has no safe back target (goBack on empty stack)",
+            "evidence": "Direct web entry to https://mama-bebe.com/article/:id resolves Home>ArticleDetail as the ONLY route in the Home stack (no HomeMain beneath it). ArticleDetailScreen back button L280 calls `navigation.goBack()` unconditionally; same for SupplementDetail L130, BabyEvolution L156, Statistics L122/134. With an empty back-stack goBack() is a no-op -> the user is stranded on the detail page with a dead chevron and no way to reach Home. No `canGoBack()` guard exists anywhere (grep returned 0).",
+            "proposed_design": "Create a `useSafeBack()` hook: `const nav=useNavigation(); return ()=> nav.canGoBack() ? nav.goBack() : nav.navigate('Home',{screen:'HomeMain'})`. Wire it into every in-body back button (ArticleDetail, SupplementDetail, BabyEvolution, Statistics) and rely on it for native-header screens via a default headerLeft fallback. This guarantees the chevron always lands somewhere sensible (Home) on cold deep-link entry. Keep the RTL arrow direction logic already present (arrow-forward when isRTL).",
+            "files_to_touch": "src/hooks/useSafeBack.ts (new), src/screens/ArticleDetailScreen.tsx L280, src/screens/SupplementDetailScreen.tsx L130, src/screens/BabyEvolutionScreen.tsx L156, src/screens/reminders/StatisticsScreen.tsx L122/L134",
+            "acceptance": "Cold-loading /article/<id> (fresh tab, empty history) then tapping back navigates to Home/HomeMain rather than no-op. With normal in-app history, back still pops to the previous screen unchanged.",
+            "test_path": "(test TO BE CREATED at /Users/1millnonstop/Downloads/pregnancy-app/pre2000/app/e2e/nav-deeplink-back.spec.ts) — goto /article/<id> directly, click back, assert URL is / (Home)",
+            "effort": "M"
+          },
+          {
+            "id": "NAV-05",
+            "type": "consistency",
+            "severity": "medium",
+            "title": "openSearch param is dead on web Resources and supplements tab is not deep-linkable",
+            "evidence": "HomeScreen L484 sends `navigate('Ressources',{screen:'ResourcesMain',params:{openSearch:true}})`. ArticlesListScreen consumes it (L43 `route.params?.openSearch`). But on web ResourcesScreen renders `<ArticlesListScreen/>` as a PLAIN component with NO navigator/route params (ResourcesScreen.tsx L79), so route.params is undefined and the search box never auto-focuses. The web segmented control is local `useState('articles')` (L51) with no param hydration, so there is no way to deep-link to the Compléments tab either (linking config L318-322 only maps ResourcesMain, no sub-tab).",
+            "proposed_design": "(a) Web WebResourcesTabs: read `const route=useRoute()`; initialize `active` from `route.params?.tab==='supplements'?'supplements':'articles'` and forward openSearch into ArticlesListScreen via an explicit prop (since it is not in a navigator on web). (b) Accept a `tab` param ('articles'|'supplements') in ResourcesMain (navigation.ts L46/L110) and add linking sub-paths `resources/articles` and `resources/supplements`. (c) On native, since openSearch is sent to ResourcesMain but consumed by the Articles child, pass it through with `initialParams` or `navigate('Ressources',{screen:'Articles',params:{openSearch:true}})`. Make HomeScreen's quick-search jump deterministically open the Articles tab + focus.",
+            "files_to_touch": "src/screens/ResourcesScreen.tsx L49-83, src/screens/ArticlesListScreen.tsx L43 (accept prop fallback), src/types/navigation.ts L46/L110, App.tsx linking L318-322, src/screens/HomeScreen.tsx L484",
+            "acceptance": "Tapping Home quick-search opens Resources Articles tab with the search field focused on BOTH web and native. /resources/supplements deep-link opens the Compléments tab directly.",
+            "test_path": "(test TO BE CREATED at /Users/1millnonstop/Downloads/pregnancy-app/pre2000/app/e2e/nav-resources-deeplink.spec.ts) — goto /resources/supplements assert supplements tab active; click Home search assert search focused",
+            "effort": "M"
+          },
+          {
+            "id": "NAV-06",
+            "type": "interaction",
+            "severity": "medium",
+            "title": "unmountOnBlur:true silently discards in-tab scroll position and deep stack on every tab switch",
+            "evidence": "MainTabs L178 `unmountOnBlur:true` (added to fix web multi-H1/leaks). Consequence: switching tabs fully unmounts the previous tab's Stack, so (a) a user reading ArticleDetail in the Home stack, switching to Chatbot and back, is reset to HomeMain losing their place; (b) any list scroll offset (Articles, Reminders) resets to top; (c) half-filled AddAppointment form state is wiped. No scroll-restoration or state-persistence layer exists (grep useScrollToTop/contentOffset found only BabyEvolution's RTL math).",
+            "proposed_design": "Scope the unmount to the leak it fixes rather than nuking all in-tab state. Option A (preferred): drop `unmountOnBlur:true` and instead fix the original web leak with `detachInactiveScreens` (already set L172) plus `freezeOnBlur:true` (react-native-screens) which stops renders/listeners WITHOUT unmounting, preserving stack + scroll. Option B: keep unmountOnBlur but persist scroll offset per list via a lightweight context keyed by route, restoring on focus through useScrollToTop's inverse. At minimum, guard destructive forms: AddAppointment should warn before its state is dropped on tab blur. Document the chosen trade-off inline since the current comment (L174-178) only justifies unmount, not the UX cost.",
+            "files_to_touch": "App.tsx L171-209 (tab screenOptions), src/screens/AddAppointmentScreen.tsx (blur-guard), optionally a new src/hooks/useScrollMemory.ts",
+            "acceptance": "Reading an article, switching to another tab and back, returns to the same article at the same scroll position (or, if Option B, the same list scroll offset). Verify on web no regression to multiple H1 / leaking Firestore listeners that the original unmount fixed.",
+            "test_path": "(test TO BE CREATED at /Users/1millnonstop/Downloads/pregnancy-app/pre2000/app/e2e/nav-tab-state-retention.spec.ts) — scroll Articles, switch tab, return, assert scrollY preserved; assert single H1 still holds",
+            "effort": "L"
+          },
+          {
+            "id": "NAV-07",
+            "type": "consistency",
+            "severity": "low",
+            "title": "Generic notification deep-link branch can throw on tab-vs-stack route names and lacks fallback",
+            "evidence": "AppInitializer L462-468 else-branch `navigationRef.navigate(data.screen,data.params)` only catches the throw and logs it. data.screen could be a stack-only route (e.g. 'WeightTracker','ForbiddenFoods','HospitalBag') which lives under the Home tab; a bare top-level navigate to those names works via the global RootParamList augmentation, but unknown/typo screens silently log-and-die leaving the user on whatever screen was open with no feedback. There is also no parity with the web getStateFromPath catch-all (L259-273) which gracefully lands unknown URLs on Home.",
+            "proposed_design": "Build a single canonical `routeFromNotification(data)` resolver shared by both the notification handler and (conceptually) the linking layer: map known data.screen values to their fully-nested navigate args (TasksTab, Calendar, Home-stack leaves, Chatbot). On an unknown screen, fall back to `navigate('Home',{screen:'HomeMain'})` + a ToastContext info ('Ouverture de l'accueil') instead of a silent catch. This mirrors the web Home fallback (L270) so notification routing and URL routing converge.",
+            "files_to_touch": "App.tsx L451-469, new src/navigation/notificationRouting.ts",
+            "acceptance": "A notification with an unknown/typo data.screen lands the user on Home (not stuck) with a non-blocking toast; known stack-leaf screens (WeightTracker, HospitalBag) open correctly nested under Home.",
+            "test_path": "(test TO BE CREATED at /Users/1millnonstop/Downloads/pregnancy-app/pre2000/app/src/__tests__/notification-routing.test.ts) — feed unknown screen, assert Home fallback; feed 'HospitalBag', assert Home>HospitalBag nesting",
+            "effort": "S"
+          },
+          {
+            "id": "NAV-08",
+            "type": "a11y",
+            "severity": "low",
+            "title": "Cross-tab navigations give no announced feedback and lose focus context for SR/keyboard users",
+            "evidence": "All cross-tab jumps (HomeScreen L443-878, e.g. `navigate('Calendrier')`, `navigate('Rappels')`) and onStateChange (App.tsx L369-377) only log analytics; no AccessibilityInfo.announceForAccessibility and no programmatic focus move. On web, after navigate the focus stays on the now-unmounted trigger (unmountOnBlur removes it), so keyboard/SR users are dropped to document body with no announcement of the new screen.",
+            "proposed_design": "In onStateChange (App.tsx L369), after resolving currentRouteName, call AccessibilityInfo.announceForAccessibility(localizedTitle) using the same routeNameToTitleKey map, and on web move focus to the new screen's first heading (set `accessibilityRole='header'` + a ref the NavigationContainer focuses). Centralizing this in onStateChange covers every tab and stack transition uniformly instead of per-screen.",
+            "files_to_touch": "App.tsx L369-377 (onStateChange), shared title map L334-353",
+            "acceptance": "Switching tabs or pushing a detail screen announces the destination screen name via screen reader; on web keyboard focus lands on the new screen's H1 rather than the document body.",
+            "test_path": "(test TO BE CREATED at /Users/1millnonstop/Downloads/pregnancy-app/pre2000/app/e2e/nav-a11y-focus.spec.ts) — navigate tab, assert document.activeElement is within the new screen / aria-live announcement fired",
+            "effort": "M"
+          }
+        ],
+        "top_optimizations": [
+          "NAV-01",
+          "NAV-02",
+          "NAV-03",
+          "NAV-04",
+          "NAV-05",
+          "NAV-06"
+        ]
+      },
+      {
+        "domain": "Shared-State Continuity",
+        "current_flows": [
+          {
+            "flow": "LMP/DPA -> pregnancyInfo.week/day: AuthContext.onAuthStateChanged loads userProfiles doc, recomputes currentWeek via calculateCurrentWeek and silently merge-writes it back to Firestore (AuthContext.tsx:172-181). PregnancyContext.load() then re-derives its OWN pregnancyInfo from user.lmp||user.pregnancyStartDate via computeInfo()->calculatePregnancyWeek (PregnancyContext.tsx:83-123,255-257). So week is computed TWICE from the same LMP by two contexts using two different functions, and AuthContext's currentWeek is never read by feature screens.",
+            "anchor": "app/src/context/AuthContext.tsx:172"
+          },
+          {
+            "flow": "pregnancyInfo.week -> features: HomeScreen via useCurrentWeek (hooks/useCurrentWeek.ts:18 targetWeek = weekNumber||pregnancyInfo.week||1); HealthDashboard/TasksTab/RemindersTab/WeightTracker/BabyEvolution read pregnancyInfo.week directly. Refresh is per-screen: HealthDashboard refetches on useFocusEffect (HealthDashboardScreen.tsx:138), TasksTab refetches on focus (TasksTab.tsx:62), WeightTracker on focus (WeightTrackerScreen.tsx:97). unmountOnBlur:true means every tab remounts and re-fetches.",
+            "anchor": "app/src/hooks/useCurrentWeek.ts:18"
+          },
+          {
+            "flow": "week -> month / trimester (NO single source): HomeScreen recomputes trimester inline (HomeScreen.tsx:287); BabyEvolution + BabyGrowthCard derive month via getBabyGrowthForWeek (BabyEvolutionScreen.tsx:47, BabyGrowthCard.tsx:45); RemindersTab reads profile.trimester (RemindersTab.tsx:463) which HomeScreen itself documents as a broken localized ordinal (HomeScreen.tsx:285-288).",
+            "anchor": "app/src/screens/HomeScreen.tsx:287"
+          },
+          {
+            "flow": "baby size cross-surface (two stores): Home hero shows weekData.baby_size_cm from Firestore/local Week docs (HomeScreen.tsx:555); BabyEvolution + BabyGrowthCard show hardcoded monthData.comparison.size strings from babyGrowthData.ts (e.g. month5='14cm', babyGrowthData.ts:117). The two are independent and can disagree for the same week.",
+            "anchor": "app/src/config/babyGrowthData.ts:117"
+          },
+          {
+            "flow": "guest -> account migration: login()/loginAsGuest() call migrateAllGuestDataToAuth(uid) (AuthContext.tsx:248,430) for tasks/reminders, BUT profile fields (height, prePregnancyWeight) live in guestProfile AsyncStorage and are only merged read-side in PregnancyContext (PregnancyContext.tsx:106-121); they are never written to Firestore on upgrade.",
+            "anchor": "app/src/context/AuthContext.tsx:430"
+          },
+          {
+            "flow": "language change -> UI: changeLanguage writes app_locale + i18n.changeLanguage + setupRTL (rtl.ts:78-92); i18n.on('languageChanged') re-syncs document dir (i18n/index.ts:76). Components re-render via useTranslation, but data already loaded into state (week labels, baby_size_label) is not refetched and dir-dependent layout math relying on I18nManager.isRTL stays stale on web.",
+            "anchor": "app/src/i18n/rtl.ts:91"
+          },
+          {
+            "flow": "toast: ToastContext.showToast is the only shared mechanism (ToastContext.tsx:36); used by TasksTab optimistic add/update/error (TasksTab.tsx:107,141,181). HealthDashboard/WeightTracker instead use showAlert for the SAME class of success/error feedback (HealthDashboardScreen.tsx:231,254), so cross-surface feedback is inconsistent.",
+            "anchor": "app/src/context/ToastContext.tsx:36"
+          }
+        ],
+        "findings": [
+          {
+            "id": "D2-01",
+            "type": "consistency",
+            "severity": "high",
+            "title": "Week is derived twice (AuthContext + PregnancyContext) by two different functions; currentWeek write-back is dead state",
+            "evidence": "AuthContext.onAuthStateChanged recomputes profile.currentWeek via calculateCurrentWeek(lmpDate) and merge-writes it to Firestore on every cold start (AuthContext.tsx:172-181). PregnancyContext independently recomputes week+day via calculatePregnancyWeek in computeInfo() (PregnancyContext.tsx:255-257). No feature screen reads user.currentWeek — every consumer reads pregnancyInfo.week (useCurrentWeek.ts:18, HealthDashboardScreen.tsx:97, TasksTab.tsx:77, WeightTrackerScreen.tsx:84). The two derivations can momentarily disagree during the load window, and AuthContext's silent setDoc is a wasted write + Firestore-rules surface for a value that is always recomputed on read.",
+            "proposed_design": "Make pregnancyInfo the single source of truth for derived week. (1) Remove the currentWeek recompute+setDoc from AuthContext.onAuthStateChanged (AuthContext.tsx:172-181) and from login(); treat user.currentWeek as a non-authoritative cache only. (2) Expose a `weekForDisplay` plus a stable `getDerivedPregnancy(lmp)` helper in pregnancyCalculator that returns {week, day, month, trimester, isInvalid} in one call. (3) PregnancyContext.computeInfo calls that one helper and stores {week, dayInWeek, month, trimester, isInvalid, mode} on pregnancyInfo so no consumer recomputes month/trimester locally. Keep AuthContext.currentWeek only for the brief pre-PregnancyContext bootstrap, documented as eventually-consistent.",
+            "files_to_touch": "app/src/context/AuthContext.tsx (remove 172-181 write-back), app/src/context/PregnancyContext.tsx (computeInfo 255-257), app/src/utils/pregnancyCalculator.ts (add getDerivedPregnancy)",
+            "acceptance": "Grep shows no screen importing/reading user.currentWeek for display; no setDoc({currentWeek}) in AuthContext; for a fixed LMP, pregnancyInfo.week on Home equals the value used by HealthDashboard/TasksTab within the same render tick; Firestore receives 0 writes on cold start of an unchanged profile.",
+            "test_path": "app/src/services/__tests__/useCurrentWeek.test.ts (extend) + (test TO BE CREATED at app/src/utils/__tests__/pregnancyCalculator.derived.test.ts)",
+            "effort": "M"
+          },
+          {
+            "id": "D2-02",
+            "type": "consistency",
+            "severity": "high",
+            "title": "week->month and week->trimester are recomputed inconsistently in 4 places (RemindersTab uses a broken localized ordinal)",
+            "evidence": "HomeScreen computes trimester inline: currentWeekNumber<=13?1:<=27?2:3 (HomeScreen.tsx:287) with a comment that the raw `trimester` data field is a localized ordinal that builds non-existent keys (HomeScreen.tsx:285-288). RemindersTab nonetheless renders t('common.trimesterLabel',{trimester: profile.trimester}) reading that exact broken field (RemindersTab.tsx:463). Month is derived a third way via getBabyGrowthForWeek(currentWeek).month (BabyEvolutionScreen.tsx:47, BabyGrowthCard.tsx:45). No shared weekToMonth/weekToTrimester util exists (grep weekToMonth/getMonthForWeek returns only inline call sites).",
+            "proposed_design": "Add pure helpers `weekToTrimester(week:number):1|2|3` and reuse getBabyGrowthForWeek(week).month as the canonical month, both surfaced on pregnancyInfo (see D2-01). Replace HomeScreen.tsx:287 inline ternary with pregnancyInfo.trimester. Replace RemindersTab.tsx:463 `profile.trimester` with `t('common.trimester_' + pregnancyInfo.trimester)` matching HomeScreen's working key pattern. Delete reliance on Profile.trimester/UserProfile.trimester (types/index.ts:8) for display, or stop persisting the localized ordinal.",
+            "files_to_touch": "app/src/utils/pregnancyCalculator.ts (add weekToTrimester), app/src/screens/HomeScreen.tsx:287, app/src/screens/reminders/RemindersTab.tsx:463, app/src/context/PregnancyContext.tsx",
+            "acceptance": "RemindersTab header reads 'Semaine X • 2e trimestre' (localized), never a raw key like common.trimester_2ème; trimester shown on Home and Reminders is identical for the same week; unit test maps weeks 1/13/14/27/28/40 -> 1/1/2/2/3/3.",
+            "test_path": "(test TO BE CREATED at app/src/utils/__tests__/pregnancyCalculator.derived.test.ts) covering weekToTrimester boundaries + a RTL smoke render of RemindersTab header",
+            "effort": "S"
+          },
+          {
+            "id": "D2-03",
+            "type": "consistency",
+            "severity": "medium",
+            "title": "Baby size disagrees cross-surface: Home hero (Firestore baby_size_cm) vs BabyEvolution/BabyGrowthCard (hardcoded babyGrowthData strings)",
+            "evidence": "Home hero renders `{weekData.baby_size_cm} cm` (HomeScreen.tsx:555) sourced from the per-week Week doc (types/index.ts:13). BabyEvolution renders monthData.comparison.size and BabyGrowthCard the same store, where month 5 (weeks 18-22) is the hardcoded literal '14cm' / sizeInCm:14 (babyGrowthData.ts:115-118). For a user in week 18-22 the hero may show e.g. 14.2 cm while BabyEvolution shows 14 cm for an overlapping week — the documented Mango cross-surface mismatch — because the two stores are independent and month-granular vs week-granular.",
+            "proposed_design": "Pick the per-week Week doc as the single source for the numeric size and derive the month comparison label/emoji from babyGrowthData (which is the right granularity for the fruit/veg metaphor). (1) In babyGrowthData keep emoji+item label but compute the displayed size from the same Week doc range when available, OR (2) cheaper: add a shared formatBabySize(cm, lang) that rounds consistently (1 decimal) and have BOTH surfaces call it; reconcile month5.sizeInCm to match the midpoint of weeks 18-22 baby_size_cm. Add a build-time consistency test asserting, for each month, |babyGrowthData.sizeInCm - average(Week.baby_size_cm over its weekStart..weekEnd)| <= tolerance.",
+            "files_to_touch": "app/src/config/babyGrowthData.ts, app/src/utils/i18nHelpers.ts or a new formatBabySize util, app/src/screens/HomeScreen.tsx:555, app/src/screens/BabyEvolutionScreen.tsx:123, app/src/components/home/BabyGrowthCard.tsx",
+            "acceptance": "For every week 1-40, the rounded size on Home hero and the month comparison size shown on BabyEvolution differ by <= 0.5 cm (or share an explicit 'approx' label); a data test fails if a future content edit reintroduces a >0.5cm divergence.",
+            "test_path": "(test TO BE CREATED at app/src/config/__tests__/babyGrowthData.consistency.test.ts)",
+            "effort": "M"
+          },
+          {
+            "id": "D2-04",
+            "type": "interaction",
+            "severity": "high",
+            "title": "HomeScreen week navigation uses local overrideWeek that never propagates to other surfaces (cross-tab desync)",
+            "evidence": "HomeScreen keeps overrideWeek/overrideDay in local component state (HomeScreen.tsx:59-60) and passes overrideWeek to useCurrentWeek (HomeScreen.tsx:61). Tapping prev/next sets only that local state (handlePrevWeek/handleNextWeek HomeScreen.tsx:194-215). Because tabs are unmountOnBlur:true, navigating to Calendrier/Rappels and back remounts HomeScreen and resets overrideWeek to null — silently snapping the user from the week they were browsing back to the real current week, with no indication. Meanwhile HealthDashboard/TasksTab keep showing pregnancyInfo.week, so the user can never 'browse week 20 everywhere'.",
+            "proposed_design": "Decide and unify the contract: week navigation on Home is a *preview* of content, not a global state change. (1) Add a subtle 'viewing week X (not your current week Y)' chip + a one-tap 'back to my week' reset when overrideWeek !== pregnancyInfo.week, so the snap-back on remount is expected and reversible. (2) Persist the last-previewed week in a ref/AsyncStorage ('@home_preview_week') restored on remount so an accidental tab switch does not lose the browsing position. (3) Document that only Home previews weeks; other screens always show the real week. Reset preview automatically when the real week advances (LMP day rollover).",
+            "files_to_touch": "app/src/screens/HomeScreen.tsx:59-61,194-215 + a small usePreviewWeek hook (new) at app/src/hooks/usePreviewWeek.ts",
+            "acceptance": "Browse to week+2 on Home, switch to Rappels and back: Home still shows week+2 with the 'viewing week X' chip; tapping reset returns to current week; HealthDashboard always shows current week regardless of Home preview.",
+            "test_path": "app/e2e (test TO BE CREATED at app/e2e/home-week-preview.spec.ts)",
+            "effort": "M"
+          },
+          {
+            "id": "D2-05",
+            "type": "interaction",
+            "severity": "medium",
+            "title": "Curious-mode banner shows a frozen exploreWeek snapshot that drifts from the live previewed week each day",
+            "evidence": "Onboarding curious flow stores a synthetic LMP = today-(exploreWeek-1)*7 (OnboardingScreen.tsx:1166-1168) AND a frozen user.exploreWeek field (AuthContext.tsx:355, types/index.ts:289). PregnancyContext.computeInfo derives the live week from that synthetic LMP (PregnancyContext.tsx:255-257), so the live week advances by 1 every 7 days. But the Home curious banner prints t('home.curiousDesc',{week: user?.exploreWeek || currentWeekNumber}) (HomeScreen.tsx:341), pinned to the original exploreWeek. After a few days the banner says 'exploring week 20' while the rest of Home (hero, baby card) shows week 21+, contradicting itself.",
+            "proposed_design": "Use a single derived week everywhere in curious mode. Replace HomeScreen.tsx:341 `user?.exploreWeek || currentWeekNumber` with `currentWeekNumber` (the live derived value), OR freeze the WHOLE experience by storing exploreWeek and computing pregnancyInfo from a fixed anchor that does not advance (treat curious as a static snapshot). Recommended: keep it static — in computeInfo, when user.isCurious, set week = user.exploreWeek directly (do not advance from synthetic LMP), so curious users see a stable, consistent week across all surfaces. Drop the dual source.",
+            "files_to_touch": "app/src/context/PregnancyContext.tsx:188-259 (curious branch), app/src/screens/HomeScreen.tsx:341",
+            "acceptance": "For an isCurious user, the banner week, hero week badge, and baby card month are identical and do not change day-to-day; toggling system date +8 days does not shift the curious week.",
+            "test_path": "(test TO BE CREATED at app/src/context/__tests__/PregnancyContext.curious.test.ts)",
+            "effort": "S"
+          },
+          {
+            "id": "D2-06",
+            "type": "consistency",
+            "severity": "medium",
+            "title": "Cross-surface feedback inconsistent: TasksTab uses Toast, HealthDashboard/WeightTracker use blocking showAlert for the same save success/error class",
+            "evidence": "ToastContext.showToast is the shared non-blocking feedback channel (ToastContext.tsx:36) and TasksTab uses it for add/update/error (TasksTab.tsx:107,141,181). HealthDashboard surfaces save success implicitly (no toast) and errors via blocking showAlert (HealthDashboardScreen.tsx:254,294,335); WeightTracker uses showAlert for success too (ProfileScreen.tsx:131 pattern, WeightTracker similar). Same shared-state mutation (persist + reload) yields a toast on one screen and a modal alert (or nothing) on another, so users get inconsistent confirmation that their data saved.",
+            "proposed_design": "Standardize: optimistic mutations that succeed -> showToast(success); recoverable failures -> showToast(error) + revert; only truly blocking/destructive confirmations (delete account, clinical 'save anyway') keep showAlert. (1) In HealthDashboard replace the silent success after persist() with showToast(t('dashboard.saved'),'success') and error showAlert -> showToast where not a clinical gate (HealthDashboardScreen.tsx:251-255,290-295,330-336). (2) Keep showClinicalAlert (HealthDashboardScreen.tsx:192) as-is — it is a deliberate safety gate. Add a tiny useToast call to WeightTracker save success.",
+            "files_to_touch": "app/src/screens/HealthDashboardScreen.tsx (handleAddWeight/BP/Glucose persist), app/src/screens/WeightTrackerScreen.tsx, reuse app/src/context/ToastContext.tsx",
+            "acceptance": "Saving weight on HealthDashboard and adding a task on TasksTab both show the same toast style/position; only delete/clinical paths show a modal; no plain Alert.alert for a successful save remains (grep).",
+            "test_path": "app/e2e (test TO BE CREATED at app/e2e/feedback-consistency.spec.ts) + existing ToastContext usage",
+            "effort": "S"
+          },
+          {
+            "id": "D2-07",
+            "type": "ux",
+            "severity": "medium",
+            "title": "Guest->account upgrade silently drops physical profile (height/prePregnancyWeight); only tasks/reminders migrate",
+            "evidence": "On upgrade, migrateAllGuestDataToAuth(uid) runs for tasks/reminders (AuthContext.tsx:248 login, 430 onboarding-signup). Guest physical data (height, prePregnancyWeight) is stored only in the 'guestProfile' AsyncStorage entry and is merged read-side by PregnancyContext (PregnancyContext.tsx:106-121) but never written to Firestore userProfiles on upgrade. loginAsGuest's Firestore write (AuthContext.tsx:381-412) only persists firstName/lmp/dpa/country/TTC fields — not height/prePregnancyWeight. Result: a guest who set up WeightTracker, then creates an account, loses BMI baseline on the server; on a new device WeightTracker re-triggers its setup gate (WeightTrackerScreen.tsx:77) and HealthDashboard weight-gain loses its clinical baseline (HealthDashboardScreen.tsx:107).",
+            "proposed_design": "Extend migration to carry physical profile. (1) In migrateAllGuestDataToAuth (or a new migrateGuestProfileFields), read guestProfile, and if height/prePregnancyWeight present, call updateProfile({height, prePregnancyWeight}) so they reach Firestore. (2) Call it in BOTH the login() (AuthContext.tsx:248) and onboarding-signup (AuthContext.tsx:430) branches. (3) After successful migration, leave guestProfile purge to logout as today. Idempotent + best-effort (never throw).",
+            "files_to_touch": "app/src/services/reminderPersistence.ts (or new app/src/services/guestProfileMigration.ts), app/src/context/AuthContext.tsx:248,430",
+            "acceptance": "Guest sets prePregnancyWeight=60/height=165, upgrades to account, signs in on a second device: WeightTracker shows the baseline (no setup gate), Firestore userProfiles doc contains height+prePregnancyWeight, HealthDashboard weight-gain uses 60kg baseline.",
+            "test_path": "(test TO BE CREATED at app/src/services/__tests__/guestProfileMigration.test.ts)",
+            "effort": "M"
+          },
+          {
+            "id": "D2-08",
+            "type": "interaction",
+            "severity": "medium",
+            "title": "PregnancyContext re-derives week only hourly; daily week rollover at midnight not reflected until an hour later or a profile reload",
+            "evidence": "computeInfo runs on mount and on a fixed setInterval(...,3600000) 1-hour timer (PregnancyContext.tsx:159-182). useCurrentWeek depends on [pregnancyInfo, ...] (useCurrentWeek.ts:83). A user who crosses a week boundary at midnight while the app is foregrounded keeps the old week for up to an hour (and the hourly tick is wall-clock-arbitrary, not aligned to midnight). There is no AppState 'active' listener to recompute on resume, so backgrounding overnight and resuming also shows a stale week until the next interval fires.",
+            "proposed_design": "(1) Recompute on app foreground: add an AppState change listener in PregnancyContext that calls computeInfo(profile) when state -> 'active'. (2) Replace the fixed hourly interval with a timer that fires at the next local midnight (compute ms-until-midnight, setTimeout, then re-arm) so the week label flips exactly at day rollover. (3) Keep a cheap hourly safety tick. Guard with the existing profile?.lmp deps.",
+            "files_to_touch": "app/src/context/PregnancyContext.tsx:159-182",
+            "acceptance": "With a mocked clock, advancing across local midnight while 'active' updates pregnancyInfo.week within seconds; resuming from background recomputes immediately; no setState-after-unmount warnings (interval/timeout cleared on unmount).",
+            "test_path": "(test TO BE CREATED at app/src/context/__tests__/PregnancyContext.rollover.test.ts)",
+            "effort": "M"
+          },
+          {
+            "id": "D2-09",
+            "type": "perf",
+            "severity": "low",
+            "title": "Every tab switch refetches shared-state-derived data from scratch due to unmountOnBlur + no in-memory week cache",
+            "evidence": "Tabs use unmountOnBlur:true (per nav map) so HomeScreen, HealthDashboard, TasksTab all remount on focus and re-run their fetches: useCurrentWeek re-fetches the Week doc on every mount (useCurrentWeek.ts:27-83, dep targetWeek), HealthDashboard reloads all health collections on focus (HealthDashboardScreen.tsx:138-144), TasksTab reloads weekly+user tasks on focus (TasksTab.tsx:62-74). The Week doc for the current week is identical across surfaces yet fetched independently and repeatedly, adding latency + Firestore reads on each tab hop.",
+            "proposed_design": "Introduce a lightweight shared cache for week-keyed content. (1) Add a module-level Map cache in useCurrentWeek keyed by `${week}` with the local fallback already in place, returning cached weekData synchronously on remount while revalidating in background (stale-while-revalidate). (2) Optionally lift the current-week Week doc into PregnancyContext (fetch once when pregnancyInfo.week changes, expose weekData) so Home and WeekRecommendations share it. Invalidate cache on logout via clearContentCache (already called, AuthContext.tsx:461).",
+            "files_to_touch": "app/src/hooks/useCurrentWeek.ts:27-83, optionally app/src/context/PregnancyContext.tsx, hook into app/src/services/contentService.clearContentCache",
+            "acceptance": "Switching Home->Rappels->Home shows week content instantly from cache (no skeleton flash) and issues 0 duplicate getDoc('weeks',X) within a short window; cache is cleared on logout (no cross-account leak).",
+            "test_path": "app/src/services/__tests__/useCurrentWeek.test.ts (extend to assert cache hit) ",
+            "effort": "M"
+          }
+        ],
+        "top_optimizations": [
+          "D2-01",
+          "D2-04",
+          "D2-02",
+          "D2-07",
+          "D2-05",
+          "D2-08"
+        ]
+      },
+      {
+        "domain": "Home as Interaction Hub",
+        "current_flows": [
+          {
+            "flow": "Quick links row (4 text+emoji links: Mes RDV / +Tâche / +RDV / 🔍 Rechercher) separated by '•' dots, sitting on the gradient header. Tapping navigates: Calendrier, Rappels>TasksTab(add), Calendrier>AddAppointment(prefilled date), Ressources>ResourcesMain(openSearch:true).",
+            "anchor": "src/screens/HomeScreen.tsx:438-492"
+          },
+          {
+            "flow": "Week navigation chevrons (prev/next, 36px RtlAwareChevron) flank the week badge; press calls handlePrevWeek/handleNextWeek which set overrideWeek and run a 150ms fade dip on the whole screen.",
+            "anchor": "src/screens/HomeScreen.tsx:392-429, 194-215"
+          },
+          {
+            "flow": "DailyRoutinesTracker glass pill inside the header shows appointment line + 'Ma Journée x/y' with a micro progress bar; taps route to Calendrier or Rappels>TasksTab. Returns null while loading and when empty.",
+            "anchor": "src/components/home/DailyRoutinesTracker.tsx:219-231, 150-157"
+          },
+          {
+            "flow": "BabyGrowthCard ('Votre bébé') with month image, day-of-pregnancy, % progress, one fun fact, CTA 'Voir l'évolution mois par mois' -> BabyEvolution.",
+            "anchor": "src/components/home/BabyGrowthCard.tsx:84-164"
+          },
+          {
+            "flow": "Stacked vertical sections: Hero size/weight card, 'L'essentiel du jour' (BabyMessage+Tip), 'Cette semaine' (Your body collapsible + warnings), 'Organisation' 2-col tools grid (8 tools), Upcoming appointments list, horizontal Recommendations carousel -> ArticleDetail/SupplementDetail or Ressources.",
+            "anchor": "src/screens/HomeScreen.tsx:535-895"
+          },
+          {
+            "flow": "Profile avatar button top-right runs an infinite 1s pulse loop scale animation; tap -> Profile.",
+            "anchor": "src/screens/HomeScreen.tsx:363-380, 99-113"
+          }
+        ],
+        "findings": [
+          {
+            "id": "D3-01",
+            "type": "interaction",
+            "severity": "high",
+            "title": "Primary quick actions are tiny tappable text links, not buttons — discoverability + tap-target failure",
+            "evidence": "HomeScreen.tsx:438-492 renders the 4 core entry points (Mes RDV / +Tâche / +RDV / Rechercher) as plain <Text style={styles.quickLink}> inside TouchableOpacity, joined by '•' dividers. styles.quickLink (HomeScreen.styles.ts:464-474) is fontSize 13, paddingVertical 8, paddingHorizontal 4 — the horizontal hit slop is only 4px so adjacent targets nearly touch, and with 4 items + 3 dot dividers + gap:8 on a 390px header the row crowds badly in fr and overflows/wraps unpredictably in ar/tn (longer strings). They read as a caption, not as actions.",
+            "proposed_design": "Replace the text-link row with a 2x2 (or single-row, horizontally scrollable on narrow) grid of pill buttons. Each pill: 44pt min height, icon (20px) left of label, backgroundColor theme.colors.whiteAlpha25, borderRadius theme.borderRadius.l, borderWidth 1 borderColor whiteAlpha40, paddingVertical 10 paddingHorizontal 14, gap 6 — reuse the existing styles.quickNavButton tokens (HomeScreen.styles.ts:437-447) which already exist but are unused. Remove the '•' linkDivider Text nodes. Order by frequency: Rechercher, +Tâche, +RDV, Mes RDV. Each pill flex:1 with a row wrap so RTL strings get their own line instead of colliding. Add accessibilityRole='button' (already present) and ensure each pill has accessibilityHint describing the destination.",
+            "files_to_touch": "src/screens/HomeScreen.tsx (438-492), src/screens/HomeScreen.styles.ts (456-479 quickLink/linkDivider; reuse/extend quickNavButton 437-455)",
+            "acceptance": "Each quick action is a visually bounded pill >=44pt tall and >=44pt wide; no '•' dividers; in ar/tn the row wraps to 2 lines without text clipping; tapping each pill still reaches its existing destination (Calendrier, Rappels TasksTab add, AddAppointment with prefilled date, Ressources openSearch).",
+            "test_path": "(test TO BE CREATED at app/e2e/home-quick-actions.spec.ts) — assert 4 pill testIDs (home_quick_appointments, home_quick_add_task, home_quick_add_appointment, home_quick_search) are present, each boundingBox height>=44 & width>=44, and clicking home_quick_search lands on Articles list with the search input focused.",
+            "effort": "M"
+          },
+          {
+            "id": "D3-02",
+            "type": "interaction",
+            "severity": "high",
+            "title": "Week chevrons mutate Home into a time-machine with no 'return to today' affordance and no visual 'you are exploring' signal",
+            "evidence": "HomeScreen.tsx:194-215 handlePrevWeek/handleNextWeek set overrideWeek; the badge at 409-412 just shows 'Semaine N' identically whether N is the real week or an overridden one. There is no reset control and no indicator that the user has left the current week — they can scroll past, forget, and read week-32 medical warnings while actually at week 20. handleNextWeek resets overrideDay but handlePrevWeek does not (asymmetry, 194-203 vs 205-215).",
+            "proposed_design": "(1) When overrideWeek !== null AND overrideWeek !== currentWeekNumber(real), render a compact chip directly under the week badge: pill, backgroundColor whiteAlpha25, text t('home.backToCurrentWeek') with a ↩ icon; onPress setOverrideWeek(null)+setOverrideDay(null). (2) Dim/italicize the week subtitle or add a small 'aperçu' tag when overriding so the screen visibly differs from 'today'. (3) Make handlePrevWeek also setOverrideDay(null) for symmetry. (4) Add accessibilityValue={{text: t('common.week')+' '+currentWeekNumber}} to the badge so screen readers announce the change.",
+            "files_to_touch": "src/screens/HomeScreen.tsx (194-215 handlers, 389-434 week nav + add reset chip), src/screens/HomeScreen.styles.ts (new resetChip style near weekBadge 224-243), src/i18n/locales/*/home.json (new key backToCurrentWeek)",
+            "acceptance": "After tapping next/prev at least once, a 'Revenir à la semaine actuelle' chip appears; tapping it restores the real week and day; chip is hidden when viewing the real current week; prev and next both reset the day override.",
+            "test_path": "(test TO BE CREATED at app/e2e/home-week-nav.spec.ts) — tap next-week, assert reset chip visible and week badge incremented; tap chip, assert chip hidden and badge back to original.",
+            "effort": "M"
+          },
+          {
+            "id": "D3-03",
+            "type": "ux",
+            "severity": "high",
+            "title": "No first-run / empty / guest welcome state — Home dumps a fully populated wall on a brand-new user",
+            "evidence": "HomeScreen.tsx has explicit branches for TTC (223-242), Curious (335-353), postpartum (505-521), loading (244-258) and error (260-276), but NO branch for a first-session pregnant/guest user. A guest with no appointments and no tasks gets DailyRoutinesTracker returning null (DailyRoutinesTracker.tsx:155-157), an empty Recommendations carousel hidden (HomeScreen.tsx:872-873), and zero onboarding cue about what Home does. The Organisation grid (696-837) shows 8 equally-weighted tools with no 'start here'.",
+            "proposed_design": "Add a dismissible first-run welcome card rendered above BabyGrowthCard when a 'home_onboarded' AsyncStorage flag is unset AND appointments.length===0 AND tasks.length===0. Card: warm gradient (gradientPeach tokens already used at 542), title t('home.welcomeTitle', {name}), 1-line subtitle explaining the daily ritual, and 2 primary CTAs that map to the highest-value first actions: 'Ajouter mon 1er RDV' -> AddAppointment, 'Voir l'évolution de bébé' -> BabyEvolution. A small '×' sets the flag. For guests, append a soft 'Créer un compte pour sauvegarder' link. Keep it under ~140px tall.",
+            "files_to_touch": "src/screens/HomeScreen.tsx (insert near 503-521 banner cluster + read/write AsyncStorage flag), src/screens/HomeScreen.styles.ts (new welcomeCard styles modeled on postpartumBanner 45-91), src/i18n/locales/*/home.json (welcomeTitle, welcomeSubtitle, welcomeCtaAppointment, welcomeCtaBaby, welcomeGuestLink)",
+            "acceptance": "A fresh user (flag unset, no RDV, no tasks) sees the welcome card with 2 CTAs; tapping '×' hides it permanently (survives app reload); a user with any appointment or task, or after dismissal, never sees it.",
+            "test_path": "(test TO BE CREATED at app/e2e/home-first-run.spec.ts) — clear storage, load Home as guest, assert welcome card visible; click dismiss, reload, assert hidden.",
+            "effort": "M"
+          },
+          {
+            "id": "D3-04",
+            "type": "consistency",
+            "severity": "medium",
+            "title": "Recommendation card subtitle leaks the raw article category slug (e.g. 'developpement'), inconsistent with localized supplement label",
+            "evidence": "HomeScreen.tsx:295 sets subtitle = isArticle ? (item as Article).category : t('common.supplements'). For articles, item.category is the raw slug ('nutrition','examens','developpement','administratif' — see the slug list in ArticlesListScreen.tsx:20-29) and is rendered verbatim in the recBadge at HomeScreen.tsx:320-322. So one carousel mixes a localized word ('Compléments') with an un-localized, lowercase, French-only slug, which is wrong on en/ar/tn and ugly on fr.",
+            "proposed_design": "Map the slug to a localized label + icon before rendering. Reuse the CATEGORY_ICONS map pattern from ArticlesListScreen.tsx:20-29 and a t('categories.'+slug) lookup (add a categories namespace if absent). Render badge as `${icon} ${t('categories.'+slug, {defaultValue: capitalize(slug)})}`. Keep supplements as t('common.supplements'). This also visually unifies the badge content type across both card kinds.",
+            "files_to_touch": "src/screens/HomeScreen.tsx (292-322 renderRecommendationCard), src/i18n/locales/*/common.json or new categories.json (nutrition/examens/sante/developpement/preparation/lifestyle/administratif/medical)",
+            "acceptance": "On fr/en/ar/tn, article recommendation badges show a localized, capitalized category with icon (no raw 'developpement' slug); supplement badges still read the localized 'Compléments'.",
+            "test_path": "(test TO BE CREATED at app/e2e/home-recommendations.spec.ts) — load Home with a week that has recommended_articles_ids, assert no badge text equals a raw slug from the CATEGORY_ICONS keys and badge is non-empty in en.",
+            "effort": "S"
+          },
+          {
+            "id": "D3-05",
+            "type": "motion",
+            "severity": "medium",
+            "title": "Infinite profile-button pulse + non-native-driver entrance animations create perpetual motion and jank",
+            "evidence": "HomeScreen.tsx:99-113 starts an Animated.loop pulse on the profile avatar that never stops until unmount (looping scale 1->1.05 every 2s), and the entrance fade/scale (84-96) plus week-change dips (198-201) all use useNativeDriver:false, animating layout on the JS thread. A constantly-pulsing avatar is a persistent attention magnet competing with the actual daily content and is an accessibility concern (no respect for reduce-motion).",
+            "proposed_design": "(1) Remove the infinite pulse loop entirely, or convert it to a one-shot attention nudge that fires once on first session only (tie to the same home_onboarded flag from D3-03). (2) Switch entrance opacity/scale and the week-change fade to useNativeDriver:true (these animate only opacity+transform, which support the native driver). (3) Gate all entrance motion behind AccessibilityInfo.isReduceMotionEnabled() — when true, set fadeAnim=1, scaleAnim=1 immediately and skip animations.",
+            "files_to_touch": "src/screens/HomeScreen.tsx (78-121 animation setup, 198-213 week dips, 361-380 profile button transform)",
+            "acceptance": "Profile avatar is static after the first session (or never loops); entrance + week-change animations run on the native driver; with reduce-motion enabled the screen renders fully opaque with no animation.",
+            "test_path": "app/e2e/full-audit.spec.ts (extend) — assert the profile button has no continuously changing transform after 3s (screenshot diff stable), and Home content is visible immediately under emulated reduce-motion.",
+            "effort": "M"
+          },
+          {
+            "id": "D3-06",
+            "type": "ux",
+            "severity": "medium",
+            "title": "Organisation grid is 8 undifferentiated tools with no trimester/week prioritization — buries time-critical tools",
+            "evidence": "HomeScreen.tsx:696-837 renders 8 toolCards (Rappels, Calendrier, Poids, Aliments, KickCounter, ContractionTimer, HospitalBag, Ramadan) in a flat 2-col grid, identical weight, fixed order regardless of week. Yet several are strongly week-gated: KickCounter/ContractionTimer/HospitalBag matter in T3, Ramadan is seasonal. A week-8 user sees ContractionTimer with equal prominence to Aliments, and a week-38 user must scroll past Poids to reach the labor tools.",
+            "proposed_design": "Introduce trimester-aware ordering and a subtle 'recommended now' accent. Compute trimesterNum (already derived at HomeScreen.tsx:287). Reorder the tools array so T3-critical tools (ContractionTimer, KickCounter, HospitalBag) float to the front when trimesterNum===3, and remain but de-emphasized earlier. Add a small badge (theme.colors.accent dot or a 'Conseillé' tag) on the 1-2 most relevant tools for the current week. Keep all 8 reachable. Optionally collapse the long tail behind a 'Voir tout' toggle to reduce the wall (reuse CollapsibleCard already imported at HomeScreen.tsx:47).",
+            "files_to_touch": "src/screens/HomeScreen.tsx (696-837 — refactor inline cards into a data array sorted by trimester + map), src/screens/HomeScreen.styles.ts (add toolCardRecommended accent + badge style near toolCard 922-934)",
+            "acceptance": "At week>=36 the labor tools (ContractionTimer/KickCounter/HospitalBag) appear in the first row; at least one tool carries a 'recommended for this week' visual cue that changes with trimester; all 8 tools remain navigable.",
+            "test_path": "(test TO BE CREATED at app/e2e/home-tools-grid.spec.ts) — override week to 38, assert ContractionTimer tool card index < Aliments tool card index; override week to 8, assert it is not first.",
+            "effort": "M"
+          },
+          {
+            "id": "D3-07",
+            "type": "a11y",
+            "severity": "medium",
+            "title": "Collapsible 'Votre corps' and warnings have inconsistent expand affordance and the warnings card is not announced as a region",
+            "evidence": "HomeScreen.tsx:627-649 the 'Votre corps' card is an expand/collapse TouchableOpacity with proper accessibilityState expanded + 'Voir plus/moins' text, but the adjacent warnings card (652-692) is a static View with no header role, no region semantics, and renders potentially long medical content always fully expanded with bullet parsing — visually heavier and inconsistent with its sibling. Also the 'Voir plus' control on the body card is a tiny 12px text at the row end (639-641) with no min hit area beyond the row.",
+            "proposed_design": "(1) Wrap the warnings section header (653-656) with accessibilityRole='header' and the card with accessible region semantics. (2) Mirror the collapsible pattern: show first ~3 bullets then a 'Voir plus' toggle for warnings too, so both 'Cette semaine' cards behave identically. (3) Give the 'Voir plus/moins' control its own padding (min 44pt) and an explicit accessibilityRole='button' rather than relying on the parent row. (4) Add a chevron icon that rotates on expand for a clearer affordance than text alone.",
+            "files_to_touch": "src/screens/HomeScreen.tsx (621-694 — unify collapse pattern across both cards), src/screens/HomeScreen.styles.ts (infoCardHeader 896-900, add seeMore button style)",
+            "acceptance": "Both 'Votre corps' and 'À surveiller' cards collapse to ~3 lines/bullets with a consistent 44pt 'Voir plus/moins' button + rotating chevron; screen reader announces the warnings card as a header/region; default state is collapsed for both.",
+            "test_path": "(test TO BE CREATED at app/e2e/home-this-week.spec.ts) — assert warnings card initially shows a 'Voir plus' control; click it; assert more bullet rows become visible.",
+            "effort": "M"
+          },
+          {
+            "id": "D3-08",
+            "type": "consistency",
+            "severity": "low",
+            "title": "Card system is fragmented: hero/tools use raw LinearGradient+inline Views instead of the shared Card component, producing drifting radii/shadows",
+            "evidence": "HomeScreen.tsx imports Card (line 27) but never uses it; instead sections use bespoke gradients and inline View cards with hand-tuned radii (sectionContainer borderRadius 24 at styles 9-20, heroCardGradient 24 at 783, recommendationCard borderRadius theme.borderRadius.l at 687, toolCard theme.borderRadius.l at 925, infoCardPremium theme.borderRadius.l at 879). The mix of literal 24 and token borderRadius.l means the radius is not actually consistent and changing the token won't update the hero/section cards.",
+            "proposed_design": "Normalize all Home cards onto the shared Card primitive (or at minimum a single radius/shadow token). Replace literal borderRadius:24 in sectionContainer, heroCardGradient, headerGradient bottom radii (30 at 152-153), BabyGrowthCard.card (24 at 173) with theme.borderRadius.xl, and unify shadow via the existing getShadowStyle util (already used in MyDaySection.tsx:543). Where a gradient surface is needed, wrap it in Card with a gradient background prop or a consistent container. Document the canonical card radius in theme.",
+            "files_to_touch": "src/screens/HomeScreen.styles.ts (9-20, 147-158, 679-730, 783-792, 877-895, 916-934), src/components/home/BabyGrowthCard.tsx (170-181), src/components/common/Card.tsx (verify API)",
+            "acceptance": "All Home cards share one radius token and one shadow recipe; changing theme.borderRadius.xl visibly updates hero, section, tool, recommendation and baby-growth cards uniformly; no literal numeric border radii remain in HomeScreen.styles.ts card surfaces.",
+            "test_path": "(test TO BE CREATED at app/e2e/home-visual-consistency.spec.ts) — screenshot Home, assert section/tool/hero card corner radii match within tolerance (or unit-assert no literal radius in the styles via a lint grep).",
+            "effort": "L"
+          },
+          {
+            "id": "D3-09",
+            "type": "interaction",
+            "severity": "low",
+            "title": "DailyRoutinesTracker silently vanishes when empty, removing the daily-ritual anchor that drives retention",
+            "evidence": "DailyRoutinesTracker.tsx:150-157 returns null both while loading AND when there are no tasks/appointments. Combined with no first-run state (D3-03), a new user's header has a blank gap where the day's anchor should be, and there is zero nudge to create the very tasks the tracker exists to display. The empty case is treated as 'show nothing' rather than 'invite to start'.",
+            "proposed_design": "When !hasTasks && !hasAppointments (and not loading), render a slim invite row instead of null: glass pill (reuse styles.cardContainer 241-250) with ✨ + t('home.routinesEmptyCta') ('Planifiez votre journée') and a forward chevron, onPress -> Rappels TasksTab add (same target as the +Tâche quick action). Keep returning null only while loading to avoid layout flash. This converts dead space into a single high-intent CTA congruent with the tracker's purpose.",
+            "files_to_touch": "src/components/home/DailyRoutinesTracker.tsx (150-157 empty branch + new invite render), src/i18n/locales/*/home.json (routinesEmptyCta)",
+            "acceptance": "A user with no tasks/appointments sees a single 'Planifiez votre journée' invite pill in the header that routes to add-task; a user with tasks sees the normal progress pill; nothing renders while loading.",
+            "test_path": "(test TO BE CREATED at app/e2e/home-routines-empty.spec.ts) — load Home with empty tasks/appointments, assert invite pill visible; click it, assert navigation to Rappels TasksTab.",
+            "effort": "S"
+          }
+        ],
+        "top_optimizations": [
+          "D3-01",
+          "D3-03",
+          "D3-02",
+          "D3-04",
+          "D3-06",
+          "D3-05"
+        ]
+      },
+      {
+        "domain": "Health & Tracking Loop",
+        "current_flows": [
+          {
+            "flow": "Weight entry exists in TWO disconnected surfaces. Home tools grid → WeightTracker (writes weight_entries via weightService) with BMI gauge, trend AI, history. Profile → HealthDashboard (writes healthMetrics via healthService.saveWeightEntry) with weight/BP/glucose/symptoms cards + LineChart. getMergedWeightHistory() merges both collections + dedupes by day, and HealthDashboard refreshes on focus to reflect WeightTracker edits — but the two screens have different gauges, different empty states, and no link between them.",
+            "anchor": "app/src/screens/HomeScreen.tsx:738 (→WeightTracker) vs app/src/screens/ProfileScreen.tsx:405 (→HealthDashboard); merge in app/src/services/healthService.ts:334"
+          },
+          {
+            "flow": "Data-entry → dashboard reflection. HealthDashboard add buttons open modals (weight/BP/glucose) → validateHealthEntry + clinicalChecks gate dangerous values via showClinicalAlert → persist → loadData() refetches all 5 sources. Symptom chips optimistic-toggle + auto-save with rollback.",
+            "anchor": "app/src/screens/HealthDashboardScreen.tsx:234 (handleAddWeight), :352 (handleToggleSymptom)"
+          },
+          {
+            "flow": "Stats aggregation → reminders. StatisticsScreen (reached only via TasksTab:237) pulls getHistoricalData (completion %, hydration L, vitamins ✓/✗ from AsyncStorage daily checklist) + remindersV2 streaks → streak hero card + badges + 2 charts + vitamin grid. HealthDashboard separately shows a reminders-completed-this-week progress bar from loadTaskStatusesAuth.",
+            "anchor": "app/src/screens/reminders/StatisticsScreen.tsx:52; app/src/services/dailyChecklistService.ts:288; HealthDashboardScreen.tsx:657"
+          },
+          {
+            "flow": "Standalone local-only tools (AsyncStorage, no Firestore, no cross-reference): KickCounter (kick_counter_v1), ContractionTimer (contraction history+share+call maternity), HospitalBag (checklist+progress). None feed the dashboard or stats; none are surfaced anywhere except the Home grid.",
+            "anchor": "app/src/services/kickCounterService.ts:6; app/src/screens/ContractionTimerScreen.tsx; app/src/screens/HospitalBagChecklistScreen.tsx"
+          }
+        ],
+        "findings": [
+          {
+            "id": "D4-01",
+            "type": "consistency",
+            "severity": "high",
+            "title": "No coherent 'Health Home' hub — richest health surface buried in Profile, two rival weight screens",
+            "evidence": "HealthDashboardScreen (weight+BP+glucose+symptoms+charts+reminders progress) is reachable ONLY from ProfileScreen.tsx:405 ('profile.health' menu row). The Home tools grid (HomeScreen.tsx:700-818) instead links WeightTracker, ForbiddenFoods, KickCounter, ContractionTimer, HospitalBag — but NOT HealthDashboard. So the most data-rich screen is the hardest to reach, and the user has two separate weight UIs (WeightTracker gauge at WeightTrackerScreen.tsx:496 vs HealthDashboard weight card at HealthDashboardScreen.tsx:427) writing two collections, merged only behind the scenes (healthService.ts:334).",
+            "proposed_design": "Add a 'Ma santé' (health hub) entry as the FIRST card of the Home tools grid (before Rappels), gradient theme.colors.gradientRoseStart→gradientRoseEnd, emoji 🩺, title t('home.healthHub'), subtitle = dynamic micro-summary ('S{week} · +{gain}kg · {symptomsCount} symptômes') pulled from getHealthStats. Route it to HealthDashboard. Inside HealthDashboard, restructure as the canonical hub: (a) keep the gradient header but make it a sticky summary strip showing 3 KPI pills [weight gain, last BP, kicks today]; (b) under the Poids card add a secondary text-link 'Voir le suivi détaillé →' navigating to WeightTracker so the two surfaces are explicitly nested (detail = WeightTracker, overview = dashboard) instead of competing; (c) add a 'Outils' section at the bottom with 3 compact tiles linking KickCounter / ContractionTimer / HospitalBag so every tracking tool is discoverable from one place. Keep the existing Profile link as a secondary path.",
+            "files_to_touch": "app/src/screens/HomeScreen.tsx (add hub card ~L700), app/src/screens/HealthDashboardScreen.tsx (add detail-link under weight section ~L460, add Outils section before disclaimer ~L721), app/src/locales/{fr,en,ar,tn}.json (home.healthHub, dashboard.viewDetail, dashboard.toolsSection)",
+            "acceptance": "From Home, a single tap reaches a hub that surfaces weight gain, BP, kicks-today and links to WeightTracker/KickCounter/ContractionTimer/HospitalBag; WeightTracker is presented as the 'detail' of the dashboard weight card, not a parallel screen; subtitle micro-summary renders real stats for an authed user and a neutral placeholder for week-unknown.",
+            "test_path": "(test TO BE CREATED at app/e2e/health-hub.spec.ts) — assert Home grid contains health-hub card, tap navigates to HealthDashboard, dashboard renders Outils tiles + weight detail link; unit test getHealthStats micro-summary shaping at app/src/services/__tests__/healthService.test.ts",
+            "effort": "L"
+          },
+          {
+            "id": "D4-02",
+            "type": "interaction",
+            "severity": "high",
+            "title": "No celebratory / milestone moments anywhere in the loop — every positive action ends in a plain alert or silence",
+            "evidence": "Weight save shows a flat showAlert(t('weight.savedTitle')) (WeightTrackerScreen.tsx:257). Symptom toggle saves silently (HealthDashboardScreen.tsx:360). Kick session end just swaps state, no acknowledgement (KickCounterScreen.tsx:77 onEnd). HospitalBag reaching 100% only fills a bar (HospitalBagChecklistScreen.tsx:111) with no celebration. The only gamification is StatisticsScreen's streak hero (StatisticsScreen.tsx:143) which is buried behind TasksTab and never triggered by health actions.",
+            "proposed_design": "Introduce a lightweight, reusable <MilestoneToast> (uses existing ToastContext.showToast, NO new deps) + an optional confetti burst via a pure-RN animated emoji rain (theme-token colored, reduce-motion aware). Trigger moments: (1) Weight: when a logged entry crosses INTO the recommended range or extends a weekly-logging streak, replace the generic save alert with a toast '🎉 Pesée enregistrée · {streak} semaines de suivi'; (2) HospitalBag: when pct hits 100, show one-time toast '🧳 Valise prête !' + subtle scale-pulse on the progress bar; (3) KickCounter: on endSession show toast '👶 {n} mouvements en {duration}' and, if ≥10 kicks logged, a positive reassurance line; (4) Symptoms: on first symptom logged today, a quiet toast confirming it was saved (replaces current silence). All toasts auto-dismiss 2.5s, announce via accessibilityLiveRegion='polite'. Confetti only on the two 'big' moments (in-range weight, 100% bag) and gated by a useReducedMotion check.",
+            "files_to_touch": "app/src/components/common/MilestoneToast.tsx (new), app/src/screens/WeightTrackerScreen.tsx:236-257 (saveAndConfirm), app/src/screens/HospitalBagChecklistScreen.tsx:100-116 (progress watcher), app/src/screens/KickCounterScreen.tsx:77 (onEnd), app/src/screens/HealthDashboardScreen.tsx:352 (handleToggleSymptom), app/src/locales/* (milestone strings)",
+            "acceptance": "Logging a weight inside the recommended range fires a celebratory toast (not a blocking alert); completing the hospital bag at 100% fires exactly one celebration (does not re-fire on re-render); ending a kick session shows a summary toast; all messages localized fr/en/ar/tn and announced to screen readers; confetti suppressed when OS reduce-motion is on.",
+            "test_path": "(test TO BE CREATED at app/src/components/common/__tests__/MilestoneToast.test.tsx) + integration in app/src/screens/__tests__/HospitalBagChecklistScreen.test.tsx asserting 100% triggers toast once",
+            "effort": "M"
+          },
+          {
+            "id": "D4-03",
+            "type": "rtl",
+            "severity": "high",
+            "title": "KickCounter & ContractionTimer history dates use raw toLocaleString/toLocaleTimeString — wrong locale, no Arabic numerals/RTL, inconsistent with WeightTracker",
+            "evidence": "KickCounterScreen.tsx:177 renders new Date(session.startedAt).toLocaleString() and ContractionTimerScreen.tsx:178 renders new Date(c.startedAt).toLocaleTimeString() with the device default locale — ignoring i18n.language. WeightTrackerScreen.tsx:665 and StatisticsScreen.tsx:204 correctly use date-fns format() with useDateLocale(). So in ar/tn the kick/contraction history shows Latin/Gregorian device-locale dates while the rest of the app shows localized ones; on web the time format is also non-deterministic across browsers.",
+            "proposed_design": "Adopt the same useDateLocale() + date-fns format() pattern. In KickCounter history row use format(new Date(session.startedAt), 'dd MMM · HH:mm', { locale: dateLocale }); in ContractionTimer history use format(new Date(c.startedAt), 'HH:mm', { locale: dateLocale }) and the share summary (contractionTimerService.buildShareSummary) should receive pre-formatted localized timestamps. Wrap numerals so ar/tn get Arabic-Indic digits consistently (reuse the same numeral helper used elsewhere). Right-align the history rows under RTL by setting row flexDirection to 'row-reverse' when isRTL (language-derived, per the documented RN-Web forceRTL gotcha).",
+            "files_to_touch": "app/src/screens/KickCounterScreen.tsx:174-181 (+ import useDateLocale), app/src/screens/ContractionTimerScreen.tsx:175-184, app/src/services/contractionTimerService.ts (buildShareSummary date formatting)",
+            "acceptance": "In ar/tn, kick-session and contraction history timestamps render localized (Arabic month/Arabic-Indic digits) and RTL-aligned, matching WeightTracker history; on web, time renders deterministically (date-fns) not browser-default; share summary timestamps are localized.",
+            "test_path": "(test TO BE CREATED at app/src/screens/__tests__/KickCounterScreen.i18n.test.tsx) snapshot history row under language='ar'; existing app/src/services/__tests__/contractionTimerService.test.ts extended for localized summary",
+            "effort": "S"
+          },
+          {
+            "id": "D4-04",
+            "type": "interaction",
+            "severity": "high",
+            "title": "HealthDashboard 'See all' appointments link is a dead-end stub while a real Calendar exists",
+            "evidence": "HealthDashboardScreen.tsx:624 — the Rendez-vous section's 'See all' calls showAlert(t('dashboard.soonAvailable')...) ('coming soon'), even though the app has a fully built CalendarStack (Calendrier tab, AddAppointment route) that already feeds these very counts via loadUserEvents in healthService.ts:386. The adjacent Reminders 'See all' (L649) correctly navigates('Rappels'). So one card teases data then blocks the user; the other works — an inconsistency within the same screen.",
+            "proposed_design": "Replace the stub onPress with navigation.navigate('Calendrier'). Make the two appointment count boxes (HealthDashboardScreen.tsx:632-641) themselves tappable (accessibilityRole='button'), the 'Upcoming' box navigating to Calendrier and the 'Past' box also to Calendrier (calendar already lists both). Add accessibilityHint t('a11y.openCalendar'). If upcomingAppointments===0, show a CTA chip 'Ajouter un rendez-vous' navigating to AddAppointment (route 'appointment/add') so the empty state is actionable like StatisticsScreen's EmptyState pattern.",
+            "files_to_touch": "app/src/screens/HealthDashboardScreen.tsx:619-642, app/src/locales/* (a11y.openCalendar, dashboard.addAppointment)",
+            "acceptance": "Tapping 'See all' or an appointment count box navigates to the Calendar tab; when there are 0 upcoming appointments an 'Add appointment' CTA navigates to AddAppointment; no 'coming soon' alert remains in this section.",
+            "test_path": "(test TO BE CREATED at app/e2e/health-dashboard.spec.ts) assert no 'soonAvailable' alert, tap 'See all' lands on Calendrier; empty-state CTA reaches AddAppointment",
+            "effort": "S"
+          },
+          {
+            "id": "D4-05",
+            "type": "ux",
+            "severity": "medium",
+            "title": "Statistics hydration chart structurally shows 0 for every past day — a misleading flat/empty bar chart",
+            "evidence": "dailyChecklistService.ts:343 sets hydrationLevel = dateStr === todayStr ? todayWaterLiters : 0. hydrationService only persists the current day's intake (resets daily, hydrationService.ts:40). So the 7/30-day BarChart (StatisticsScreen.tsx:235 'hydrationLiters') renders one non-zero bar (today) and all-zero history — looking like the user drank nothing for weeks. The comment acknowledges this is intentional-but-lossy.",
+            "proposed_design": "Two-part: (1) Data — extend hydrationService to append a daily snapshot to a small ring buffer 'hydration_history_v1' ({date, liters}) on each daily-reset detection (when isSameDay is false at load, push the OUTGOING day's final intake before zeroing). getHistoricalData reads that buffer for past days instead of hard-zero. (2) UI — until history accrues, replace the all-zero BarChart with an honest single-value 'Aujourd'hui' hero (water-drop progress ring toward dailyGoal/1000 L) plus the existing 'log more days' placeholder (StatisticsScreen.tsx:255 chartPlaceholder) when <2 real days exist, instead of a deceptive flat chart. Label the chart axis with the unit localized (avoid bare Latin 'L' on ar/tn — use t('hydration.literShort')).",
+            "files_to_touch": "app/src/services/hydrationService.ts:31-55 (snapshot on reset), app/src/services/dailyChecklistService.ts:309-352, app/src/screens/reminders/StatisticsScreen.tsx:230-258",
+            "acceptance": "Past days with recorded intake show real liters; days with no data are visually distinct from days with 0 intake; with <2 real data points the screen shows a today-hero + placeholder rather than an all-zero bar chart; axis unit localized for ar/tn.",
+            "test_path": "app/src/services/__tests__/hydrationService.test.ts (assert snapshot pushed on day rollover) + app/src/services/__tests__/dailyChecklistService.test.ts (getHistoricalData returns past liters)",
+            "effort": "M"
+          },
+          {
+            "id": "D4-06",
+            "type": "a11y",
+            "severity": "medium",
+            "title": "Numeric health inputs lack accessibility labels, keyboard semantics, and per-field error feedback",
+            "evidence": "WeightTracker setup inputs (WeightTrackerScreen.tsx:451-468) and add-weight input (L604-611) have no accessibilityLabel; validation failure surfaces only as a transient showAlert (L166) with no inline aria-describedby or field-level error styling, and focus is not moved to the offending field. HospitalBag custom-item TextInput (HospitalBagChecklistScreen.tsx:211) has an accessibilityLabel but no programmatic error/empty feedback. The dashboard modals delegate inputs to Health*Modal components (HealthDashboardScreen.tsx:683) whose input a11y is unverified.",
+            "proposed_design": "For every numeric health TextInput: add accessibilityLabel (e.g. t('a11y.weightInputKg')), inputMode='decimal' / keyboardType already decimal-pad, accessibilityHint describing bounds (t('a11y.weightBounds', {min:35,max:200})), and on validation failure render an inline error <Text> beneath the field (theme.colors.error) wired via accessibilityState invalid + (web) aria-invalid/aria-describedby, and call a ref.focus() back to the field. Replace blocking showAlert for simple range errors with this inline pattern; keep showAlert only for the clinical 'save anyway' confirmations. Ensure setup form fields announce units (kg / cm) in the label, not only the placeholder.",
+            "files_to_touch": "app/src/screens/WeightTrackerScreen.tsx:155-169,451-468,604-611, app/src/components/health/HealthWeightModal.tsx, HealthBPModal.tsx, HealthGlucoseModal.tsx, app/src/locales/*",
+            "acceptance": "Each numeric input exposes a localized accessibilityLabel + bounds hint; an out-of-range value produces an inline, screen-reader-announced field error (not only a transient alert) and focus returns to the field; VoiceOver/TalkBack reads unit with the field.",
+            "test_path": "(test TO BE CREATED at app/src/screens/__tests__/WeightTrackerScreen.a11y.test.tsx) assert inputs have accessibilityLabel + invalid state on bad input",
+            "effort": "M"
+          },
+          {
+            "id": "D4-07",
+            "type": "consistency",
+            "severity": "medium",
+            "title": "Cross-tool unit & week-label inconsistency (kg vs hugeWeight, weekShort vs weekLabel, glucose mmol/L only)",
+            "evidence": "Weight unit comes from three different keys: dashboard uses t('dashboard.kg') (HealthDashboardScreen.tsx:445), WeightTracker huge display uses t('weight.hugeWeight') (WeightTrackerScreen.tsx:499) and elsewhere t('common.kg') (WeightTrackerScreen.tsx:530,663). Week labels diverge: dashboard chart uses `${t('weight.weekShort')}${w.week}` (HealthDashboardScreen.tsx:416) while BP history uses 'S{bp.week}' hardcoded 'S' (L530) and WeightTracker uses t('common.weekLabel',{number}) (L665). Glucose is hard-locked to mmol/L (HealthDashboardScreen.tsx:560, healthService.ts:149) with no mg/dL or g/L option — North-African clinics commonly use g/L, mismatching the 'glucoseTarget' guidance.",
+            "proposed_design": "Centralize unit rendering in a tiny formatUnit helper (theme/i18n level): formatWeight(v)→`${v} ${t('common.kg')}`, formatWeek(n)→t('common.weekLabel',{number:n}) used everywhere (kill 'weight.hugeWeight' literal-unit + hardcoded 'S' prefix at HealthDashboardScreen.tsx:530). For glucose, store canonical mmol/L but render via a user-pref unit (mmol/L | g/L) read from profile, formatting with t('dashboard.glucoseUnit'); update the target-range string to match the chosen unit. Audit all '{value} {unit}' sites in the domain to use the helper so a future unit change is one edit.",
+            "files_to_touch": "app/src/utils/units.ts (new), app/src/screens/HealthDashboardScreen.tsx:416,445,456,530,560,572, app/src/screens/WeightTrackerScreen.tsx:499,502, app/src/locales/* (common.weekLabel/kg, dashboard.glucoseUnit)",
+            "acceptance": "Weight is rendered through one helper (no remaining t('weight.hugeWeight') literal unit, no hardcoded 'S' week prefix); week labels are identical across dashboard chart, BP history and WeightTracker; glucose displays in the user's preferred unit with a matching target string.",
+            "test_path": "app/src/utils/__tests__/units.test.ts + grep-gate (existing verify) asserting no hardcoded 'S' + week or duplicate kg keys in domain screens",
+            "effort": "M"
+          },
+          {
+            "id": "D4-08",
+            "type": "ux",
+            "severity": "medium",
+            "title": "KickCounter gives no clinical threshold feedback and history rows are not actionable",
+            "evidence": "KickCounterScreen shows lastHourCount (KickCounterScreen.tsx:132) and totalToday (L168) but never references the standard '10 movements / 2h' reassurance heuristic — the guideCard is static generic text (L106-109). History rows (L174-184) display date + kick count only; they are non-tappable Views with no way to view a session's distribution or delete a mistaken session, unlike ContractionTimer which at least offers clear/share. There is no empty-vs-low distinction (e.g. 'fewer kicks than usual' nudge).",
+            "proposed_design": "(1) Add a progress affordance to the active session: a horizontal '0→10 movements' progress bar under bigCount that fills as kicks accrue within the hour; when it reaches 10, swap the bigCountLabel to a reassuring t('cycle8.kickCounter.tenReached') with a ✓ and a subtle success tint (theme.colors.success) — a real-time micro-milestone (ties to D4-02). (2) Make history rows tappable to expand a per-session detail (start time localized via D4-03, duration, kicks) with a trailing delete that calls a new deleteSession(id) in kickCounterService (mirrors contractionTimer clearAll granularity). (3) Add a gentle low-activity hint: if today's count is well below the user's trailing 3-day average, show an info Card 'Tu sens moins de mouvements ? Repose-toi sur le côté gauche et recompte' (non-alarming, with link to ContractionTimer/emergency only via existing patterns).",
+            "files_to_touch": "app/src/screens/KickCounterScreen.tsx:96-185, app/src/services/kickCounterService.ts (add deleteSession + trailingAverage helper)",
+            "acceptance": "During a session a 0→10 progress bar fills and announces reaching 10; a history row can be expanded and an individual session deleted; when daily kicks fall below the user's recent average a calm (non-emergency) hint appears; all strings localized and reduce-motion safe.",
+            "test_path": "app/src/services/__tests__/kickCounterService.test.ts (deleteSession, trailingAverage) + (test TO BE CREATED) app/src/screens/__tests__/KickCounterScreen.test.tsx for 10-kick milestone label swap",
+            "effort": "M"
+          },
+          {
+            "id": "D4-09",
+            "type": "ux",
+            "severity": "low",
+            "title": "No reminder integration from the tracking tools — logging is fully manual with no nudge loop",
+            "evidence": "HealthDashboard shows a 'reminders completed this week' progress bar (HealthDashboardScreen.tsx:657) but provides no way to set a weigh-in or BP reminder from the weight/BP cards; hydration reminders are scheduled only from the hydration card (hydrationService.ts:97) and weight logging relies on the user remembering. WeightTracker's education even advises 'weigh weekly' (WeightTrackerScreen.tsx:738 t('weight.weighWeekly')) but offers no reminder toggle to enforce it. The loop entry→feedback→re-entry is broken: nothing pulls the user back to log.",
+            "proposed_design": "Add a small 'Me rappeler' (bell) affordance to the WeightTracker add area and the dashboard weight/BP cards that schedules a localized weekly notification (reuse the existing Notifications.scheduleNotificationAsync pattern from hydrationService.ts:120, identifier prefix 'weight_reminder_' / 'bp_reminder_'). The toggle persists in profile prefs; when on, show 'Prochain rappel: {weekday}'. On notification tap, App.tsx AppInitializer already routes data.screen — set data.screen='WeightTracker' so the tap deep-links straight into logging, closing the loop. Web no-ops the schedule (matching hydrationService Platform.OS==='web' guard).",
+            "files_to_touch": "app/src/services/weightService.ts (add scheduleWeighInReminder), app/src/screens/WeightTrackerScreen.tsx:637-646 (bell toggle near add button), app/src/screens/HealthDashboardScreen.tsx:427-460, App.tsx AppInitializer (handle 'WeightTracker' screen data), app/src/locales/*",
+            "acceptance": "User can enable a weekly weigh-in reminder from WeightTracker/dashboard; the toggle persists and shows the next reminder day; tapping the notification opens WeightTracker directly; web safely no-ops scheduling; strings localized fr/en/ar/tn.",
+            "test_path": "app/src/services/__tests__/weightService.test.ts (scheduleWeighInReminder schedules with correct id + cancels prior) + existing notification routing test extended for 'WeightTracker'",
+            "effort": "M"
+          }
+        ],
+        "top_optimizations": [
+          "D4-01",
+          "D4-04",
+          "D4-02",
+          "D4-03",
+          "D4-05",
+          "D4-08"
+        ]
+      },
+      {
+        "domain": "Calendar / Reminders / Notifications",
+        "current_flows": [
+          {
+            "flow": "Add appointment: Calendar FAB / empty-state CTA (CalendarScreen.tsx:587,601) -> AddAppointmentScreen with selectedDate param -> title/type(Medical|Personal)/date/time/location/notes + 3 reminder switches (J-1 8h, J 8h, H-2) -> saveUserEvent -> scheduleRDVReminders persists preference + schedules expo one-time DATE notifications in user timezone (rdvNotificationService.ts:54) -> goBack -> Calendar focus listener reloads userEvents (CalendarScreen.tsx:150).",
+            "anchor": "src/screens/AddAppointmentScreen.tsx:411"
+          },
+          {
+            "flow": "Reminders (habits): Rappels tab -> RemindersTab (material-top-tab) shows Hydration hero + Daily Habits + collapsible category accordions of ReminderCardV2 toggles -> handleToggle -> enable/disableReminder + syncRemindersToNotifications schedules REPEATING calendar notifications (remindersScheduler.ts:64). Separate mental model from appointments.",
+            "anchor": "src/screens/reminders/RemindersTab.tsx:293"
+          },
+          {
+            "flow": "Tasks: Rappels -> TasksTab -> 'My Day' unified list (MyDaySection) merges appointments + enabled reminders + user tasks for TODAY, sorted by time then priority; AddTaskModal creates one-off/recurring task with optional reminder time; toggling a reminder here deep-syncs markReminderAsCompleted.",
+            "anchor": "src/components/tasks/MyDaySection.tsx:179"
+          },
+          {
+            "flow": "Notification tap-back: reminder/baby_message/task notifications carry data.screen ('TasksTab'|'Home') consumed by App.tsx global listener -> navigate Rappels/TasksTab with highlightId -> TasksTab flashes the row (TasksTab.tsx:62). RDV (appointment) notifications carry NO screen field so the tap does nothing.",
+            "anchor": "App.tsx:451"
+          },
+          {
+            "flow": "Statistics: TasksTab -> 'View stats' link -> StatisticsScreen shows streak hero + per-reminder streak badges + completion/hydration/vitamin charts from dailyChecklist + remindersV2 completions.",
+            "anchor": "src/screens/reminders/StatisticsScreen.tsx:52"
+          }
+        ],
+        "findings": [
+          {
+            "id": "CRN-01",
+            "type": "interaction",
+            "severity": "high",
+            "title": "Tapping an appointment (RDV) reminder notification does nothing — dead deep-link",
+            "evidence": "RDV notifications are scheduled with data:{ eventId, type:'rdv', reminderType:'J-1'|'J'|'H-2' } and NO `screen` field (rdvNotificationService.ts:107, :146, :193). The global tap handler gates on `if (data?.screen && navigationRef.isReady())` (App.tsx:451) and only branches on 'TasksTab'/'Calendar'/fallback. With no `screen`, the J-1 'your appt is tomorrow' tap is silently dropped — the highest-intent notification in the app lands the user nowhere. Note App.tsx:458 already handles `data.screen === 'Calendar'` but nothing ever emits that value.",
+            "proposed_design": "1) In rdvNotificationService.ts add to each notification's data: `screen:'Calendar'`, `eventDate: eventDate.toISOString()` (and keep eventId). 2) In App.tsx:458 extend the Calendar branch to pass the date so Calendar can preselect it: `navigationRef.navigate('Calendrier',{ screen:'CalendarMain', params:{ focusDate: data.eventDate, highlightEventId: data.eventId }})`. 3) CalendarScreen reads route.params.focusDate on mount/focus -> setSelectedDate(parseISO) + setCurrentWeek(calculateCurrentWeek) so the day's EventCard is on screen; apply a 3s highlight ring on the matching EventCard.id (mirror the TasksTab highlight pattern at TasksTab.tsx:62-74). Clear params after consuming.",
+            "files_to_touch": "src/services/rdvNotificationService.ts (3 content.data blocks), App.tsx (Calendar branch ~L458), src/screens/CalendarScreen.tsx (focus param consumer + highlight), src/components/calendar/EventCard.tsx (highlighted style)",
+            "acceptance": "A scheduled RDV J/J-1/H-2 notification carries screen:'Calendar'+eventDate; tapping it (cold or warm start) lands on Calendrier with the appointment's day selected and that EventCard visibly highlighted for ~3s; tapping a habit reminder still routes to TasksTab unchanged.",
+            "test_path": "src/services/__tests__/rdvNotificationService.timezone.test.ts (extend: assert content.data.screen==='Calendar' on each scheduled reminder) + (test TO BE CREATED at src/__tests__/notificationTapRouting.test.ts for the App.tsx branch)",
+            "effort": "M"
+          },
+          {
+            "id": "CRN-02",
+            "type": "ux",
+            "severity": "high",
+            "title": "Permission banner is a passive dead text block and fires the OS prompt cold with no priming",
+            "evidence": "PermissionBanner (RemindersTab.tsx:61-83) renders a plain <View>/<Text> ('Activez les notifications…', common.json:172) with NO TouchableOpacity/onPress — there is no way to act on it. Worse, its useEffect calls requestNotificationPermissions() on mount (RemindersTab.tsx:69) which, on a fresh install, triggers the iOS system permission dialog the instant the user opens Rappels, with no value-framing pre-prompt. If denied, the banner can never re-request (iOS returns the cached denial) and offers no path to Settings.",
+            "proposed_design": "Replace the passive banner with an actionable card: (a) Do NOT auto-call requestPermissions on mount; instead only check getPermissionsAsync() status. (b) Show a soft pre-prompt card with icon 🔔, title 'Recevez vos rappels' and body explaining value, plus a primary button 'Activer'. (c) On tap: if status==='undetermined' call requestNotificationPermissions() (the real OS prompt is now contextual); if status==='denied' call Linking.openSettings() and label the button 'Ouvrir les réglages'. (d) Hide the card when granted. Reuse theme tokens; button styled like the retry button at RemindersTab.tsx:344.",
+            "files_to_touch": "src/screens/reminders/RemindersTab.tsx (PermissionBanner component), src/i18n/locales/{fr,en,ar,tn}/common.json (add enableNotificationsCta, openSettings, prePromptBody), src/services/notificationService.ts (export a status-only getPermissionStatus helper)",
+            "acceptance": "On first open of Rappels no OS dialog appears unprompted; banner shows a button; tapping when undetermined raises the OS prompt; tapping when denied opens app Settings; banner disappears once granted; all 4 locales render the CTA.",
+            "test_path": "(test TO BE CREATED at src/screens/reminders/__tests__/PermissionBanner.test.tsx — mock getPermissionsAsync to undetermined/denied/granted, assert no auto-request and correct CTA action)",
+            "effort": "M"
+          },
+          {
+            "id": "CRN-03",
+            "type": "ux",
+            "severity": "high",
+            "title": "Tasks vs Reminders vs Appointments mental model is fragmented across 3 surfaces with duplicated entry points",
+            "evidence": "Three overlapping 'things to do' models: appointments live in Calendrier (CalendarScreen.tsx), recurring habits live in Rappels>RemindersTab (RemindersTab.tsx:451), and one-off tasks live in Rappels>TasksTab (TasksTab.tsx:200). MyDaySection (MyDaySection.tsx:179) already proves they can be unified ('My Day' merges all three for today) — but it is buried inside TasksTab while the sibling RemindersTab tab shows the SAME reminders again as toggles, and appointments are only here as read-only rows. Users must learn 3 disjoint creation flows (Calendar FAB, RemindersTab switches, TasksTab '+ New task') and the AR tab-bar ligature split (disclosed residual) makes the two tab labels even harder to parse.",
+            "proposed_design": "Promote 'My Day' to the canonical landing view of the Rappels tab and reframe the two sub-tabs as 'Aujourd'hui' (My Day unified agenda, default) and 'Réglages des rappels' (the habit catalog/toggles). In 'Aujourd'hui', add a single FAB '+' that opens a small action sheet: 'Tâche' (AddTaskModal) | 'Rendez-vous' (navigate AddAppointment) — one creation surface for both. Keep RemindersTab as the configuration surface only (its switches set the recurring schedule that feeds My Day). Add a one-line legend chip row at top of My Day: 📅 RDV · 🔔 Habitude · 📝 Tâche so the merged icons (MyDaySection.tsx:154,389) are decodable.",
+            "files_to_touch": "src/screens/RemindersScreen.tsx (tab labels + default order), src/screens/reminders/TasksTab.tsx (FAB action sheet + header copy), src/components/tasks/MyDaySection.tsx (legend chips), src/i18n/locales/*/tasks.json + reminders.json (relabel tabs)",
+            "acceptance": "Rappels opens on the unified 'Aujourd'hui' agenda; a single FAB lets the user add either a task or an appointment; the habit-config tab no longer duplicates today's items as a separate to-do list; legend explains the 3 item types; AR/TN tab labels fit without truncation.",
+            "test_path": "src/services/__tests__/taskService.test.ts (creation paths unchanged) + (test TO BE CREATED at src/screens/reminders/__tests__/RemindersTabsModel.test.tsx asserting default tab + FAB sheet routes)",
+            "effort": "L"
+          },
+          {
+            "id": "CRN-04",
+            "type": "ux",
+            "severity": "medium",
+            "title": "No notification preview / 'send test' affordance and no human-readable schedule summary before committing reminders",
+            "evidence": "AddAppointmentScreen exposes 3 reminder switches (AddAppointmentScreen.tsx:626-678) with static descriptions ('Notification à 8h la veille', add_appointment.json:19) but never shows the user the resolved fire datetime for THEIR appointment, and there is no 'preview/test' button despite sendTestNotification existing (rdvNotificationService.ts:357). When J-1 is in the past it is silently skipped (rdvNotificationService.ts:127) with zero UI feedback, so a user adding a same-day appointment thinks J-1 is set when nothing was scheduled.",
+            "proposed_design": "Under each enabled switch render a computed read-out: e.g. J-1 -> 'Vous serez prévenue le lun. 16 juin à 08:00'. Compute via the same createDateAtTimeInTimezone logic. If a toggle's resolved time is already in the past, auto-grey the switch, show inline note 'Trop tard pour ce rappel' and prevent enabling. Add a small text link 'Tester une notification' near the reminders header (🔔 line at AddAppointmentScreen.tsx:624) that calls sendTestNotification() and toasts 'Notification de test envoyée'. Add a one-line summary above Save: 'X rappels seront programmés'.",
+            "files_to_touch": "src/screens/AddAppointmentScreen.tsx (reminder rows + summary + test link), src/services/rdvNotificationService.ts (export a pure computeReminderTimes(date,opts,tz) helper reused by UI), src/i18n/locales/*/add_appointment.json (readout + tooLate + testSent keys)",
+            "acceptance": "Each enabled reminder shows its exact localized fire datetime; past-time reminders are visibly disabled with explanation; a 'Test' link fires a sample notification and toasts; the count summary matches the number actually scheduled.",
+            "test_path": "src/services/__tests__/rdvNotificationService.timezone.test.ts (add computeReminderTimes unit cases incl. past-time) ",
+            "effort": "M"
+          },
+          {
+            "id": "CRN-05",
+            "type": "interaction",
+            "severity": "medium",
+            "title": "Calendar 'Today' does not reliably return the user home, and a dead duplicate handler exists",
+            "evidence": "Two near-identical handlers: handleToday (CalendarScreen.tsx:357) is defined but never wired; only handlePressToday (CalendarScreen.tsx:430) is passed to the header (onPressToday, :478). Both guard on `if (user?.currentWeek)` — but user.currentWeek can be stale/undefined while pregnancyStartDate exists (the mount effect at :84 recomputes the REAL week from pregnancyStartDate, not user.currentWeek). So 'Today' may set the wrong week or, when currentWeek is falsy, jump the date to today but leave the week strip on the old week, desyncing the WeeklyStrip from selectedDate.",
+            "proposed_design": "Delete the dead handleToday (L357-362). Rewrite handlePressToday to derive the week from the source of truth: `const realWeek = user?.pregnancyStartDate ? calculateCurrentWeek(new Date(user.pregnancyStartDate)) : (user?.currentWeek ?? 1); setCurrentWeek(realWeek); setSelectedDate(new Date());`. Also when in month view, snap selectedDate's month back to the current month. Ensure the WeeklyStrip start recomputes (weekDates memo already keys on currentWeek).",
+            "files_to_touch": "src/screens/CalendarScreen.tsx (remove L357-362; fix handlePressToday L430-436)",
+            "acceptance": "From any week/month and after navigating away, tapping 'Today' always selects the real current day AND positions the week strip / month grid on the period containing today, with the day visibly selected; no orphan handler remains.",
+            "test_path": "(test TO BE CREATED at src/screens/__tests__/CalendarToday.test.tsx — render with pregnancyStartDate, navigate weeks, press Today, assert selectedDate===today and currentWeek===calculateCurrentWeek)",
+            "effort": "S"
+          },
+          {
+            "id": "CRN-06",
+            "type": "rtl",
+            "severity": "medium",
+            "title": "WeeklyStrip and month grid are not RTL-mirrored on web (Mon-first LTR order under document.dir=rtl)",
+            "evidence": "WeeklyStrip lays days 0..6 in a fixed flexDirection:'row' (WeeklyStrip.tsx:88-89,97) and the month grid hardcodes weekday headers Monday..Sunday left-to-right (CalendarScreen.tsx:498) with padding computed for a Monday-first LTR grid (:293-299). Per the known RN-WEB gotcha, I18nManager.isRTL is false on web while document.dir=rtl: the CalendarHeader already special-cases this for chevrons (CalendarHeader.tsx:49) but the strip/grid do not, so on ar/tn web the day cells and weekday labels read in the wrong visual direction relative to the rest of the RTL layout.",
+            "proposed_design": "Derive isRTLWeb = Platform.OS==='web' && (i18n.language==='ar'||'tn'). In WeeklyStrip apply `flexDirection: isRTLWeb ? 'row-reverse':'row'` to the days container, and pass the rtl flag down. In CalendarScreen month grid wrap weekDaysHeader and monthDaysGrid with the same row-reverse on web-RTL (or set `direction:'rtl'` on those containers) so the Mon..Sun header and the day cells mirror together and stay aligned with padding. Keep date math untouched (only visual order flips).",
+            "files_to_touch": "src/components/calendar/WeeklyStrip.tsx (container flexDirection + accept rtl prop), src/screens/CalendarScreen.tsx (weekDaysHeader/monthDaysGrid web-RTL wrapper), CalendarScreen.styles.ts if a style variant is needed",
+            "acceptance": "On web ar/tn the weekday strip and month weekday header read right-to-left consistent with page direction, the selected-day highlight lands on the correct cell, and LTR (fr/en) is visually unchanged; native unaffected.",
+            "test_path": "(test TO BE CREATED at src/components/calendar/__tests__/WeeklyStrip.rtl.test.tsx — mount with i18n=ar + Platform web, assert row-reverse on container)",
+            "effort": "M"
+          },
+          {
+            "id": "CRN-07",
+            "type": "consistency",
+            "severity": "medium",
+            "title": "Three different date/time pickers across the domain create an inconsistent quick-add experience",
+            "evidence": "AddAppointmentScreen uses raw <TextInput> with inputMode='none' on web showing ISO 'yyyy-MM-dd' plus a separate localized read-out (AddAppointmentScreen.tsx:497-511) and native DateTimePicker spinners; AddTaskModal uses native <input type=date/time> on web (AddTaskModal.tsx:376-419) plus Today/Tomorrow/Other quick chips on native (:426-475). So creating a task gives friendly Today/Tomorrow chips and a real native web date picker, while creating an appointment gives an unfriendly editable ISO text field and no quick-date chips. The appointment flow — the more important one — has the worse input UX.",
+            "proposed_design": "Standardize on the AddTaskModal pattern for both: (1) On web, replace the AddAppointment ISO TextInput with native <input type=date>/<input type=time> (reuse AddTaskModal.tsx:376-419 markup) so users get a real picker. (2) Add Today/Tomorrow/'Autre date' quick chips above the date row in AddAppointment, identical to AddTaskModal.tsx:426-475, defaulting new appointments to the passed selectedDate. (3) Extract a shared <DateTimeField> component so future drift is impossible.",
+            "files_to_touch": "src/screens/AddAppointmentScreen.tsx (web date/time inputs + quick chips), new src/components/common/DateTimeField.tsx (shared), src/components/tasks/AddTaskModal.tsx (adopt shared component)",
+            "acceptance": "Web appointment creation uses a native date/time picker (no ISO text editing); quick Today/Tomorrow chips appear in both flows; the same component renders both; existing keyboard/locale behavior preserved across fr/en/ar/tn.",
+            "test_path": "(test TO BE CREATED at src/components/common/__tests__/DateTimeField.test.tsx) + manual web E2E via existing e2e harness",
+            "effort": "L"
+          },
+          {
+            "id": "CRN-08",
+            "type": "ux",
+            "severity": "medium",
+            "title": "Statistics screen has no clear motivation loop: streak hero can show 0 with no next-action, and badges lack progress affordance",
+            "evidence": "StatisticsScreen streak hero renders `{overallStreak} jours` (StatisticsScreen.tsx:154) which is '0 jours' for new users with the generic 💪 emoji and no guidance on what to do next; badges show 'Xj' with 🏆 only when unlocked (:172-174) but locked badges (streak<3) give no 'X/3 to unlock' progress hint. The empty-state CTA 'Aller aux tâches' just does navigation.goBack() (:122) which is fine, but the populated state offers no path back into action when a streak is low.",
+            "proposed_design": "(1) When overallStreak===0 show an encouraging hero variant: 'Commencez votre série aujourd'hui 💪' with a primary button 'Cocher une habitude' -> navigation.goBack() to My Day. (2) On each locked badge add a thin progress bar or 'X/3' caption under the title (StatisticsScreen.tsx:166-176) so users see proximity to unlock. (3) Add a subtle 'best streak' line under the hero using existing bestStreak state (:88) which is computed but never displayed.",
+            "files_to_touch": "src/screens/reminders/StatisticsScreen.tsx (hero zero-state + badge progress + bestStreak line), src/i18n/locales/*/reminders.json or gamification keys (startStreakCta, ofThree, bestStreak)",
+            "acceptance": "New user with 0 streak sees an encouraging hero + CTA into My Day; locked badges show X/3 progress; best streak is displayed; populated charts unchanged; all 4 locales covered.",
+            "test_path": "(test TO BE CREATED at src/screens/reminders/__tests__/Statistics.motivation.test.tsx — render with overallStreak 0 and 2, assert zero-state CTA and 'X/3' caption)",
+            "effort": "M"
+          }
+        ],
+        "top_optimizations": [
+          "CRN-01",
+          "CRN-03",
+          "CRN-02",
+          "CRN-04",
+          "CRN-05",
+          "CRN-06"
+        ]
+      },
+      {
+        "domain": "Content & Chatbot",
+        "current_flows": [
+          {
+            "flow": "Resources tab → segmented control (web, ResourcesScreen.tsx:49-83) / material-top-tabs (native, :15-36) → Articles list OR Supplements list. Each list fetches Firestore, falls back to bundled JSON on error (ArticlesListScreen.tsx:80-91, SupplementsListScreen.tsx:44-54). Card tap → ArticleDetail / SupplementDetail.",
+            "anchor": "/Users/1millnonstop/Downloads/pregnancy-app/pre2000/app/src/screens/ResourcesScreen.tsx:79"
+          },
+          {
+            "flow": "ArticleDetail tries Antigravity collection FIRST (the live content set), then legacy `articles` (ArticleDetailScreen.tsx:52-88). Related supplements render ONLY for legacy articles (:76-87, :339-358); the AG path renders zero cross-links. Markdown body rendered with custom heading rules for anchor scrolling (:221-318).",
+            "anchor": "/Users/1millnonstop/Downloads/pregnancy-app/pre2000/app/src/screens/ArticleDetailScreen.tsx:54"
+          },
+          {
+            "flow": "Home → WeekRecommendations: splits weekData.recommended_articles_ids / _supplements_ids CSV, fetches each, renders cards (WeekRecommendationsScreen.tsx:34-53, :124-172). Empty-state CTA → Ressources (:103-119).",
+            "anchor": "/Users/1millnonstop/Downloads/pregnancy-app/pre2000/app/src/screens/WeekRecommendationsScreen.tsx:103"
+          },
+          {
+            "flow": "Chatbot: analyzeMessage runs red-flag triage → suggestion topics → semantic vector search → fallback (chatbotService.ts:818-1128). Bot replies render emergency call button, recommended ARTICLES deep-linked into Ressources>ArticleDetail (ChatbotScreen.tsx:179-201), tips→HomeMain (:204-218), tasks→Rappels (:221-233). Quick-reply suggestion chips horizontal scroll (:273-291).",
+            "anchor": "/Users/1millnonstop/Downloads/pregnancy-app/pre2000/app/src/screens/ChatbotScreen.tsx:186"
+          },
+          {
+            "flow": "Offline/guest continuity: localContentFallback.ts maps bundled weeks/supplements/articles; getAllLocalArticles returns OLD Article[] shape; getLocalAntigravityArticle adapts an old article into AG shape for the detail screen (localContentFallback.ts:47-85).",
+            "anchor": "/Users/1millnonstop/Downloads/pregnancy-app/pre2000/app/src/services/localContentFallback.ts:59"
+          }
+        ],
+        "findings": [
+          {
+            "id": "D6-01",
+            "type": "interaction",
+            "severity": "high",
+            "title": "Antigravity articles (the primary content) render NO related supplements or related articles — cross-linking is dead on the live content path",
+            "evidence": "ArticleDetailScreen.tsx:52-61 resolves the Antigravity article FIRST and returns immediately (`return`) after setArticle/setIsAntigravity(true). relatedSupplements is populated ONLY inside the legacy `else` branch (:76-87) which AG articles never reach, and ArticleAntigravity (types/index.ts:588-610) has NO related_supplements_ids / related_articles_ids field at all. The related-supplements UI block (:339-358) therefore never renders for any AG article. Separately, legacy Article.related_articles_ids (types/index.ts:116) is never read in ANY screen. Net: the flagship article reading view is a dead-end — no path to supplements or sibling articles.",
+            "proposed_design": "Add a 'Related' section at the foot of every article detail (both AG + legacy), above the existing relatedSupplements block. (1) Article→Supplement: for AG articles, resolve supplements by matching the article.category against supplement.category (use getSupplementsByIds on a category-derived id list, or a new contentService.getSupplementsByCategory) capped at 3; for legacy keep related_supplements_ids. (2) Article→Article: render up to 3 sibling articles sharing category (exclude self) as compact cards reusing the SupplementDetail Card pattern, each TouchableOpacity navigating ArticleDetail with the new id. Section headers reuse existing SectionHeader + i18n keys common.relatedSupplements (exists, common.json:545) and a new common.relatedArticles. Cards: title (h3) + 2-line summary (numberOfLines={2}, stripMarkdown), 44px min touch height, chevron RtlAwareChevron forward. Lazy: fetch related only after main content paints (in a separate effect keyed on article) to avoid blocking first render.",
+            "files_to_touch": "src/screens/ArticleDetailScreen.tsx; src/services/contentService.ts (add getSupplementsByCategory + getRelatedArticlesByCategory); src/types/index.ts (optional related_articles_ids on ArticleAntigravity); src/i18n/locales/{fr,en,ar,tn}/common.json (relatedArticles key)",
+            "acceptance": "Opening any Antigravity article shows a 'Compléments liés' and/or 'Articles liés' section with ≥1 tappable card when same-category content exists; tapping navigates to the correct detail; legacy articles still show related_supplements_ids; no related section renders (no empty header) when zero matches; first paint of body is not delayed by the related fetch.",
+            "test_path": "(test TO BE CREATED at src/screens/__tests__/ArticleDetailScreen.related.test.tsx) + extend src/services/__tests__/contentService.test.ts for getSupplementsByCategory",
+            "effort": "M"
+          },
+          {
+            "id": "D6-02",
+            "type": "interaction",
+            "severity": "high",
+            "title": "Chatbot never deep-links to supplements or to the matched red-flag/suggestion article anchor on the supplement path; tips link is a generic Home jump",
+            "evidence": "ChatbotScreen.tsx:179-201 only deep-links item.data.articles into Ressources>ArticleDetail. chatbotService red_flag (chatbotService.ts:846-852) and suggestion (:1087-1093) responses return `articles` but NEVER a supplements array, even though suggestions carry linked content and many triage topics (iron, folic acid, calcium) map to supplements. The tip block (ChatbotScreen.tsx:204-218) navigates to HomeMain with no tip id, so the user lands on Home and must re-find the tip. The task block (:221-233) navigates to 'Rappels' root with no target.",
+            "proposed_design": "(1) Extend ChatResponse to optionally carry `supplements: Supplement[]` and have chatbotService resolve linked_supplement_ids for matched suggestions/red-flags (getSupplementsByIds), capped 3. In ChatbotScreen render a '💊 Compléments suggérés' block mirroring the articles block (:179-201), each navigating Ressources>SupplementDetail with supplementId. (2) For the articles block, the anchor is already passed (:190) — keep, but also pass anchor for the semantic-fallback info type (chatbotService.ts:1112-1118 already returns anchor). (3) Tips: pass the actual linked_tip_ids[0] so the deep-link can scroll/highlight the day's tip on Home (or open a tip modal) instead of a bare HomeMain jump; if Home can't target a tip, at minimum show the tip TEXT inline in the bubble. Quick-reply chips: after a triage answer, append 1-2 contextual follow-up chips ('En savoir plus', 'Voir les compléments') so the conversation drives into content.",
+            "files_to_touch": "src/screens/ChatbotScreen.tsx; src/services/chatbotService.ts; src/types/index.ts (ChatResponse.supplements); src/i18n/locales/*/common.json (chatSuggestedSupplements key)",
+            "acceptance": "A triage/suggestion response whose topic links a supplement renders a tappable supplement card that opens the correct SupplementDetail; semantic info responses scroll the opened article to the matched anchor; the daily-tip link surfaces the actual tip (inline text or targeted Home) rather than a bare Home jump.",
+            "test_path": "src/services/__tests__/chatbotTriage.test.ts (assert response.supplements populated for a supplement-linked topic) + (UI test TO BE CREATED at src/screens/__tests__/ChatbotScreen.deeplink.test.tsx)",
+            "effort": "M"
+          },
+          {
+            "id": "D6-03",
+            "type": "ux",
+            "severity": "high",
+            "title": "No save/bookmark anywhere — users cannot keep an article/supplement they found via search, chatbot, or weekly recommendation",
+            "evidence": "Grep across src/screens, src/services, src/context, src/utils returns zero bookmark/favorite/saved-content primitives (only unrelated 'saved language', 'saved appointment'). ArticleDetailScreen.tsx and SupplementDetailScreen.tsx have only a back button in their header (ArticleDetailScreen.tsx:278-299, SupplementDetailScreen.tsx:129-141). A pregnant user researching across weeks has no way to re-find content; chatbot-surfaced articles vanish when the conversation scrolls.",
+            "proposed_design": "Add a lightweight bookmark feature. (1) New savedContentService (AsyncStorage key 'saved_content_v1' storing {articles:[], supplements:[]}; guest-safe, no Firestore needed). (2) A heart/bookmark IconButton (Ionicons 'bookmark-outline'/'bookmark', 24px, accent when active) in the ArticleDetail and SupplementDetail header rows opposite the back chevron (use a flexDirection:'row', justifyContent:'space-between' header so it mirrors correctly in RTL). Toggling shows a ToastContext confirmation ('Enregistré' / 'Retiré'). (3) New 'Enregistrés' entry in ResourcesScreen segmented control as a 3rd tab (or a header bookmark icon on the Resources screen) listing saved items, reusing existing list card components, with the same empty-state pattern. (4) Bookmark also exposed on list cards as a small top-right tappable heart (hitSlop 8).",
+            "files_to_touch": "src/services/savedContentService.ts (new); src/screens/ArticleDetailScreen.tsx; src/screens/SupplementDetailScreen.tsx; src/screens/ResourcesScreen.tsx; new src/screens/SavedContentScreen.tsx; src/i18n/locales/*/common.json (saved/savedEmpty/savedToast keys)",
+            "acceptance": "Toggling the bookmark on an article persists across app restart (AsyncStorage); the Saved tab lists exactly the bookmarked items and opens them; bookmark works in guest mode without auth; RTL places the bookmark icon at the leading edge correctly; toast confirms each toggle.",
+            "test_path": "(test TO BE CREATED at src/services/__tests__/savedContentService.test.ts) + (UI test TO BE CREATED at src/screens/__tests__/ArticleDetailScreen.bookmark.test.tsx)",
+            "effort": "L"
+          },
+          {
+            "id": "D6-04",
+            "type": "ux",
+            "severity": "medium",
+            "title": "No category filter on Articles list and no safety filter on Supplements list — discovery is search-only with no browse-by-facet",
+            "evidence": "ArticlesListScreen.tsx exposes only a free-text search bar (:189-211) and a flat FlatList (:213-225); category exists per-card (:125-126) and a full localized category set exists (common.json:25-39: all/sante/nutrition/examens/developpement/preparation/lifestyle/administratif/medical…) but is never offered as a filter. SupplementsListScreen.tsx similarly has only search (:147-168) despite a strong safety taxonomy (ok/a_surveiller/deconseille, :28-32) that users most want to filter by ('what's safe?').",
+            "proposed_design": "Add a horizontal scrollable filter-chip row directly under each search bar. Articles: chips = ['Tout', ...distinct categories present in loaded data] using the existing categories.* i18n labels + CATEGORY_ICONS (ArticlesListScreen.tsx:20-29) as chip prefixes; selected chip uses accent bg + white text, unselected white bg + border (reuse the segmented-control style tokens from ResourcesScreen.tsx:101-115). Selecting a chip ANDs with the search query in the existing useMemo (:97-109). Supplements: chips = ['Tous', '✓ Sans danger', '⚠ À surveiller', '✗ Déconseillé'] tinted with the existing SAFETY_CONFIG colors (:28-32), filtering by pregnancy_safety in the useMemo (:60-71). Chips are 32px tall, marginEnd 8, RTL-safe via flexDirection row (RN flips). Empty-state copy updates to reflect the active filter.",
+            "files_to_touch": "src/screens/ArticlesListScreen.tsx; src/screens/SupplementsListScreen.tsx; src/i18n/locales/*/common.json (filterAll/safetyFilter labels — most exist already)",
+            "acceptance": "Tapping a category chip narrows the article list to that category and stacks with search text; tapping a safety chip narrows supplements to that safety level; 'Tout/Tous' resets; selected chip is visually distinct (accent); chips scroll horizontally on a 390px viewport without clipping; works in ar/tn RTL.",
+            "test_path": "(test TO BE CREATED at src/screens/__tests__/ArticlesListScreen.filter.test.tsx and SupplementsListScreen.filter.test.tsx)",
+            "effort": "M"
+          },
+          {
+            "id": "D6-05",
+            "type": "consistency",
+            "severity": "medium",
+            "title": "Articles list shows skeletons while Supplements list shows a bare spinner — and search debounce/state diverge between two near-identical screens",
+            "evidence": "ArticlesListScreen.tsx:157-166 renders a 5-card Skeleton list during load (D4 polish), but SupplementsListScreen.tsx:115-121 still renders a centered ActivityIndicator. The two screens are sibling tabs reached by one segmented control, so switching tabs flips between two different loading idioms. Both also filter synchronously on every keystroke with no debounce (ArticlesListScreen.tsx:97-109, SupplementsListScreen.tsx:60-71) and the supplement search input lacks the route.params.openSearch autofocus the articles screen has (ArticlesListScreen.tsx:41-49).",
+            "proposed_design": "(1) Replace the Supplements spinner with the same Skeleton.Card list (height 96, 5 items, marginBottom 12) so both tabs share one loading idiom. (2) Extract a shared <ContentSearchBar/> component (icon + TextInput + clear button + optional autofocus) used by both screens to remove the divergence and give supplements the same clear-button + autofocus behavior. (3) Add a 150ms debounce to setSearchQuery (or debounce the derived filter) so large lists don't re-filter on every keystroke; keep results instant-feeling. (4) Reuse one EmptyState component for both empty results.",
+            "files_to_touch": "src/screens/SupplementsListScreen.tsx; src/screens/ArticlesListScreen.tsx; src/components/common/ContentSearchBar.tsx (new); src/components/common/Skeleton.tsx (reuse)",
+            "acceptance": "Both Resources tabs show identical skeleton placeholders on load; both search bars have a clear (✕) button and identical styling; typing rapidly does not jank the list (debounced); supplements search supports the same autofocus param path as articles.",
+            "test_path": "(test TO BE CREATED at src/components/common/__tests__/ContentSearchBar.test.tsx) + existing e2e/multilang-audit.spec.ts can assert skeleton parity",
+            "effort": "M"
+          },
+          {
+            "id": "D6-06",
+            "type": "ux",
+            "severity": "medium",
+            "title": "No reading experience affordances on articles: no reading-time, no scroll progress, no font-size control — long markdown is an undifferentiated wall",
+            "evidence": "ArticleDetailScreen.tsx renders the markdown body in a plain ScrollView (:272-337) with fixed typography (markdownStyles, :429-497). ArticleAntigravity carries reading_time_min (types/index.ts:603) but it is never displayed (localContentFallback.ts:77 even hardcodes it to 0). There is no scroll-progress indicator and no top-of-article metadata beyond category Tag + title (:292-293).",
+            "proposed_design": "(1) Reading-time pill: under the title (ArticleDetailScreen.tsx:293) render '⏱ {{min}} min' using article.reading_time_min when >0, else compute ceil(wordCount/200) from the localized content; style as a small caption next to the category Tag. (2) Scroll progress: a 2px top bar (theme.colors.primary) whose width animates 0→100% bound to ScrollView onScroll contentOffset.y / contentSize — gives orientation in long articles. (3) Body readability: bump markdownStyles.body lineHeight to 26 and paragraph spacing for AR/TN (RTL scripts need more leading), and add an A/A− font-size toggle (3 steps stored in AsyncStorage, multiplies markdown font sizes) in the header. All measured against mobile 390px.",
+            "files_to_touch": "src/screens/ArticleDetailScreen.tsx; src/services/localContentFallback.ts (compute reading_time_min instead of 0); src/i18n/locales/*/common.json (minRead key); optional src/context for font-size pref",
+            "acceptance": "Articles with a body show an accurate reading-time pill; scrolling moves a top progress bar from 0 to full; font-size toggle changes body size and persists; AR/TN bodies have increased line-height; no layout shift on first paint.",
+            "test_path": "(test TO BE CREATED at src/screens/__tests__/ArticleDetailScreen.reading.test.tsx)",
+            "effort": "M"
+          },
+          {
+            "id": "D6-07",
+            "type": "a11y",
+            "severity": "medium",
+            "title": "Weekly-recommendation supplement cards convey safety by COLOR ONLY (no label/icon), unlike the Supplements list cards which show text",
+            "evidence": "WeekRecommendationsScreen.tsx:159 colors the supplement card's icon container via getSafetyColor(supplement.pregnancy_safety) but renders only a 💊 emoji (:160) with NO safety text or icon — so a user cannot tell 'safe' from 'avoid' without distinguishing green/orange/red (WCAG 1.4.1 use-of-color failure). The Supplements LIST card does it right with icon + label (SupplementsListScreen.tsx:89-92), and SupplementDetail uses a labelled Tag (SupplementDetailScreen.tsx:144). The recommendation surface is the inconsistent one.",
+            "proposed_design": "Reuse the SAFETY_CONFIG idiom from SupplementsListScreen.tsx:28-32 in WeekRecommendations: replace the color-only icon container with the same safetyIndicator block (icon ✓/⚠/✗ + localized label text in the safety color) OR add an accessibilityLabel + a small text Tag under the supplement name reading the localized safety ('Sans danger' / 'À surveiller' / 'Déconseillé'). Keep the color but never rely on it alone. Match the list card's safety strip width/typography for cross-surface consistency.",
+            "files_to_touch": "src/screens/WeekRecommendationsScreen.tsx; (extract a shared SafetyBadge component used by list + detail + recommendations to converge the 3 surfaces)",
+            "acceptance": "Each recommended-supplement card shows a textual safety label/icon (not color alone); the label text matches the Supplements list card label for the same supplement; VoiceOver/TalkBack announces the safety level; contrast of label-on-tint passes AA.",
+            "test_path": "(test TO BE CREATED at src/components/common/__tests__/SafetyBadge.test.tsx) + assert WeekRecommendations renders the label",
+            "effort": "S"
+          },
+          {
+            "id": "D6-08",
+            "type": "ux",
+            "severity": "medium",
+            "title": "No week-contextual content surfacing inside Resources or Article detail — the app knows pregnancy week but the content browse ignores it",
+            "evidence": "PregnancyContext exposes pregnancyInfo.week (per nav map) and AG articles carry week_min/week_max (types/index.ts:606-607); contentService.getAntigravityArticlesForWeek already filters by week (contentService.ts:177-211) but is only used elsewhere — ArticlesListScreen.tsx fetches ALL articles flat (:62-79) with no week relevance ordering, and ArticleDetail shows no 'relevant this week' cue. Week relevance only lives on the separate WeekRecommendations screen, disconnected from browse.",
+            "proposed_design": "(1) In ArticlesListScreen, when usePregnancy week is known, prepend a 'Cette semaine (S{{week}})' pinned section: call getAntigravityArticlesForWeek(week) (already exists) and render those 2-3 as a highlighted carousel/strip above the full list, with the flat searchable list below. (2) In ArticleDetail, if the article's week range matches the user's current week, show a subtle 'Pertinent pour votre semaine {{week}}' chip near the title. (3) Persist a tiny 'recently viewed' list (last 5 article ids in AsyncStorage) and surface it at the top of Resources when search is empty, so back-navigation re-finds content. All gated on week availability — guests with no profile just see the flat list (no regression).",
+            "files_to_touch": "src/screens/ArticlesListScreen.tsx; src/screens/ArticleDetailScreen.tsx; src/services/contentService.ts (reuse getAntigravityArticlesForWeek); src/services/recentlyViewedService.ts (new); src/i18n/locales/*/common.json (thisWeekSection/relevantThisWeek keys)",
+            "acceptance": "A user with week N set sees a 'Cette semaine' strip of week-relevant articles atop the Articles list; clearing/typing search hides it; ArticleDetail shows a week-relevance chip only when the article range covers the user's week; guests without a week see the unchanged flat list; recently-viewed strip shows last opened articles.",
+            "test_path": "(test TO BE CREATED at src/screens/__tests__/ArticlesListScreen.weekContext.test.tsx) + src/services/__tests__/recentlyViewedService.test.ts",
+            "effort": "M"
+          }
+        ],
+        "top_optimizations": [
+          "D6-01",
+          "D6-02",
+          "D6-03",
+          "D6-04",
+          "D6-07",
+          "D6-08"
+        ]
+      },
+      {
+        "domain": "i18n / RTL / a11y Cross-Cut",
+        "current_flows": [
+          {
+            "flow": "Language switch propagation: changeLanguage() (rtl.ts:78-92) sets AsyncStorage + i18n.changeLanguage + setupRTL; i18n/index.ts:66-76 syncs document.lang/dir on web. Surfaces that call useTranslation re-render live — MainTabs (App.tsx:169) and HomeStack (App.tsx:94) both consume t(), so tab labels + native header titles update without reload. Active screens re-render because each calls useTranslation. unmountOnBlur:true (App.tsx:178) guarantees backgrounded tabs rebuild on focus.",
+            "anchor": "App.tsx:169-216, src/i18n/rtl.ts:78-92, src/i18n/index.ts:66-78"
+          },
+          {
+            "flow": "RTL direction on web is purely declarative via document.documentElement.dir (i18n/index.ts:70); setupRTL() early-returns on web (rtl.ts:28-30) to avoid the forceRTL reload loop. Consequence: I18nManager.isRTL stays FALSE on web in ar/tn, so every layout decision must be language-derived. 11+ screens each re-implement the same one-liner isRTL = i18n.language==='ar'||'tn' (RegisterScreen.tsx:32, LoginScreen.tsx:47, CalendarScreen.tsx:426, ChatbotScreen.tsx:31, SupplementDetailScreen.tsx:26, etc.).",
+            "anchor": "src/i18n/rtl.ts:14-30, RtlAwareChevron.tsx:53-58"
+          },
+          {
+            "flow": "Directional glyphs centralized in RtlAwareChevron (mirrors forward/back by language, marks decorative for a11y) used in chatbot send, calendar nav, baby-evolution, home CTA. Ionicons arrow-back/forward swapped manually per isRTL in ArticleDetail (287) and SupplementDetail (137); CalendarHeader swaps chevrons only when Platform.web && isRTL (CalendarHeader.tsx:49).",
+            "anchor": "src/components/common/RtlAwareChevron.tsx:45-71, src/components/calendar/CalendarHeader.tsx:44-49"
+          },
+          {
+            "flow": "a11y of async/interactive flows: tab icons hidden from a11y tree, labels canonical (App.tsx:200-207); chatbot send button has accessibilityState busy/disabled (ChatbotScreen.tsx:313). Toasts render as plain Animated.View Text with no role/live-region (ToastContext.tsx:99-118). Bot 'typing' ActivityIndicator has no live region (ChatbotScreen.tsx:267-271). Route changes update document.title via documentTitle.formatter (App.tsx:358-368) but do not move screen-reader focus.",
+            "anchor": "src/context/ToastContext.tsx:99-118, src/screens/ChatbotScreen.tsx:267-271, App.tsx:358-377"
+          },
+          {
+            "flow": "Number/unit localization: units kg/cm keyed per locale where authored (common.kg = كغ in ar/tn, common.json:15); date/time localized via i18nHelpers.getDateLocale/formatTime (i18nHelpers.ts:49-74). But baby size strings ('2mm','1.5cm') are hardcoded Latin in babyGrowthData.ts:32,53 and rendered raw (BabyEvolutionScreen.tsx:123, BabyGrowthCard). No digit/number formatter exists (no formatNumber/localizeDigits anywhere).",
+            "anchor": "src/utils/i18nHelpers.ts:1-99, src/config/babyGrowthData.ts:32-74"
+          }
+        ],
+        "findings": [
+          {
+            "id": "D7-01",
+            "type": "a11y",
+            "severity": "high",
+            "title": "Toasts are invisible to screen readers — no aria-live / accessibilityLiveRegion on async confirmations",
+            "evidence": "src/context/ToastContext.tsx:99-118 — showToast renders an Animated.View containing an icon Text + message Text with NO accessibilityLiveRegion, NO accessibilityRole='alert', NO aria-live. This is the single shared async-feedback channel for the whole app (used by LanguageSelectScreen.tsx:74 language-updated, AddAppointmentScreen, KickCounterScreen, ContractionTimerScreen, TasksTab, CompletedTasksScreen). A blind/low-vision user gets zero confirmation that their save/delete/language-change succeeded. On web the View is also not focus-managed, and being position:absolute zIndex:9999 it is announced (if at all) out of DOM reading order.",
+            "proposed_design": "Make the toast a polite live region. (1) On the Animated.View add accessibilityLiveRegion='polite' (RN/Android) AND accessibilityRole='alert' for iOS VoiceOver; on web RN-Web maps accessibilityLiveRegion -> aria-live, but also explicitly set role='status' aria-live='polite' aria-atomic={true}. (2) For type='error' use accessibilityLiveRegion='assertive' / role='alert' so failures interrupt. (3) Prepend a localized type prefix to the announced string (t('a11y.toastSuccess')/t('a11y.toastError')) so the announcement is self-describing without relying on the emoji (the emoji ✅/❌/ℹ️ should be aria-hidden: add accessibilityElementsHidden + importantForAccessibility='no-hide-descendants' on the icon Text). (4) Keep the auto-hide at 3000ms but bump to 5000ms when a screen reader is active (AccessibilityInfo.isScreenReaderEnabled) so the announcement is not cut. (5) The dismiss TouchableOpacity gets accessibilityRole='button' + accessibilityLabel={t('a11y.dismissToast')}.",
+            "files_to_touch": "src/context/ToastContext.tsx; add keys a11y.toastSuccess/a11y.toastError/a11y.dismissToast to all 4 locales (src/i18n/locales/{fr,en,ar,tn}/common.json or a11y namespace)",
+            "acceptance": "With VoiceOver/TalkBack/NVDA on, triggering any toast announces the localized message exactly once (no double-read of emoji); error toasts interrupt current speech; the message DOM node carries aria-live='polite' (or 'assertive' for error) and role status/alert; emoji not announced; i18nParity passes for the 3 new keys.",
+            "test_path": "(test TO BE CREATED at src/context/__tests__/ToastContext.a11y.test.tsx) — render ToastProvider, fire showToast(msg,'error'), assert the rendered container has accessibilityLiveRegion='assertive' & accessibilityRole='alert' and icon has importantForAccessibility='no-hide-descendants'; plus e2e at e2e/a11y-live-regions.spec.ts asserting [aria-live] node text",
+            "effort": "S"
+          },
+          {
+            "id": "D7-02",
+            "type": "a11y",
+            "severity": "high",
+            "title": "Chatbot 'bot is typing' and incoming bot reply are silent to assistive tech",
+            "evidence": "src/screens/ChatbotScreen.tsx:267-271 — the loading state renders only a bare <ActivityIndicator> inside a bot bubble with no accessibilityLabel, no live region, and no role. When the user sends a question the screen reader hears nothing while the engine runs, then the new bot message (rendered into the FlatList at 258-265) is appended with no announcement — the user has no idea a reply arrived unless they manually swipe back through the list. The triage chatbot is a clinical surface (emergency suggestions at L165-166), so a missed escalation reply is a safety issue.",
+            "proposed_design": "(1) Wrap the loading bubble in a View with accessibilityLiveRegion='polite', accessibilityRole='text', accessibilityLabel={t('a11y.botTyping')} so SR announces 'Assistant is typing…' once when loading flips true. (2) When loading flips true->false and a new bot message is appended, fire AccessibilityInfo.announceForAccessibility(localizedReplySummary) (first ~140 chars of the new bot message, plus t('a11y.botRepliedPrefix')). Guard with AccessibilityInfo.isScreenReaderEnabled to avoid noise. (3) For emergency replies (the article/emergency block at 160-170), promote to assertive: announceForAccessibility with the emergency-call label first. (4) Give the FlatList accessibilityRole='log' (RN-Web -> role='log') so the conversation transcript is exposed as a log region. (5) On send, do NOT steal input focus; only announce.",
+            "files_to_touch": "src/screens/ChatbotScreen.tsx; add a11y.botTyping / a11y.botRepliedPrefix / a11y.emergencyReply to 4 locales",
+            "acceptance": "With SR on: sending a question announces 'Assistant is typing…' then announces the reply summary when it arrives; emergency replies are announced assertively; the conversation FlatList exposes role='log' on web; no announcement fires when SR is off (verified via AccessibilityInfo mock).",
+            "test_path": "(test TO BE CREATED at src/screens/__tests__/ChatbotScreen.a11y.test.tsx) — mock AccessibilityInfo, set loading true assert botTyping label, transition to a new message assert announceForAccessibility called with reply prefix",
+            "effort": "M"
+          },
+          {
+            "id": "D7-03",
+            "type": "consistency",
+            "severity": "high",
+            "title": "Baby size renders Latin '2mm'/'1.5cm' on Arabic/Tunisian while the adjacent fact text uses 'مم'/'سم' — cross-unit inconsistency",
+            "evidence": "src/config/babyGrowthData.ts:32 size:'2mm', :53 size:'1.5cm', :74 size:'3cm' are hardcoded Latin-unit literals; they are rendered raw at src/screens/BabyEvolutionScreen.tsx:123 (<Text>{monthData.comparison.size}</Text>) and in BabyGrowthCard. Meanwhile the same month's localized fact already says 'يبلغ طول الجنين حوالي 2 مم' (src/i18n/locales/ar/babyGrowth.json month1.facts.1). So an Arabic user sees '2mm' in the size badge but 'مم' in the fact line on the same card — and Western digits in an RTL number context. This is the disclosed P2 residual but the root data is unlocalized.",
+            "proposed_design": "Stop storing the formatted unit string. (1) Keep only the numeric sizeInCm in babyGrowthData (already present at :33,54,75). (2) Add a pure formatter formatLength(sizeInCm, language) in src/utils/i18nHelpers.ts that returns a localized unit-aware string: for <1cm render in mm using value*10; choose unit symbol via t('units.cm')/t('units.mm') (new keys: cm='سم'/'cm', mm='مم'/'mm'); place the unit per locale spacing convention ('2 مم' vs '2mm'). (3) For digits, optionally localize to Arabic-Indic via a localizeDigits(str, language) helper (gated by language ar/tn) wrapped in U+2066…U+2069 (LRI/PDI) so the number stays visually correct inside RTL text. (4) Render formatLength(monthData.comparison.sizeInCm, i18n.language) at BabyEvolutionScreen.tsx:123 and in BabyGrowthCard. (5) Audit other Latin-unit hardcodes (WeightTracker already uses t('common.kg') correctly — good reference).",
+            "files_to_touch": "src/utils/i18nHelpers.ts (new formatLength + localizeDigits); src/screens/BabyEvolutionScreen.tsx:123; src/components/home/BabyGrowthCard.tsx; src/config/babyGrowthData.ts (drop size string usage); add units.cm/units.mm to 4 locales",
+            "acceptance": "On ar/tn the size badge and the fact line use the same unit glyph (سم/مم); digits and unit render in correct visual order inside RTL (no '2سم' reversed); on fr/en still '2mm'/'1.5cm'; formatLength unit-tested for 0.2cm->'2mm', 1.5cm->'1.5cm', 14.2cm boundary; i18nParity passes new keys.",
+            "test_path": "(test TO BE CREATED at src/utils/__tests__/formatLength.test.ts) covering mm/cm threshold + digit localization + LRI/PDI wrapping per language",
+            "effort": "M"
+          },
+          {
+            "id": "D7-04",
+            "type": "rtl",
+            "severity": "medium",
+            "title": "No shared useRtl()/useDirection() hook — 11+ screens duplicate the language-derived RTL one-liner, guaranteeing drift",
+            "evidence": "grep shows the exact pattern i18n.language === 'ar' || i18n.language === 'tn' (or ['ar','tn'].includes) re-implemented inline in ≥11 files: RegisterScreen.tsx:32, LoginScreen.tsx:47, AuthChoiceScreen.tsx:19, CalendarScreen.tsx:426, ChatbotScreen.tsx:31, SupplementDetailScreen.tsx:26, ArticleDetailScreen.tsx:38, ForbiddenFoodsScreen.tsx:67, BabyEvolutionScreen.tsx:40, HospitalBagChecklistScreen.tsx:52, plus RtlAwareChevron.tsx:58. Each also re-invents the absolute-position flip trick ({[isRTL?'right':'left']: x} at LoginScreen.tsx:138, RegisterScreen.tsx:120) and the 'left:undefined doesn't clear on RN-Web' workaround comment is copy-pasted. Any future language with RTL (or a typo) silently diverges.",
+            "proposed_design": "Add src/hooks/useRtl.ts exporting: useRtl(): { isRtl: boolean; dir: 'rtl'|'ltr'; textAlign: 'right'|'left'; rowDirection: 'row-reverse'|'row'; start(value): styleObject (returns {left} or {right}); end(value) } — all derived from useTranslation().i18n.language (the only correct source on web, per the documented gotcha). Provide a companion startEnd(prop, value, isRtl) pure helper in a no-RN file for unit testing. Migrate the 11 screens to const { isRtl, textAlign } = useRtl() and replace inline {[isRTL?'right':'left']:x} with start(x). Keep RtlAwareChevron using it too. Document at top: 'NEVER use I18nManager.isRTL for layout on web.' Add an ESLint rule (or jest source-scan test) forbidding new inline ===ar RTL checks in screens.",
+            "files_to_touch": "NEW src/hooks/useRtl.ts + src/hooks/__tests__; migrate RegisterScreen/LoginScreen/AuthChoiceScreen/CalendarScreen/ChatbotScreen/SupplementDetailScreen/ArticleDetailScreen/ForbiddenFoodsScreen/BabyEvolutionScreen/HospitalBagChecklistScreen; optionally eslintrc local rule",
+            "acceptance": "All 11 screens import useRtl; no remaining inline language-RTL ternary in src/screens (grep returns 0 outside the hook); absolute back-buttons still mirror correctly in ar/tn on web; visual parity unchanged on fr/en; hook unit test covers all 4 languages.",
+            "test_path": "(test TO BE CREATED at src/hooks/__tests__/useRtl.test.tsx) asserting dir/textAlign/start/end for fr,en,ar,tn; + grep-guard test src/i18n/__tests__/noInlineRtl.test.ts",
+            "effort": "L"
+          },
+          {
+            "id": "D7-05",
+            "type": "a11y",
+            "severity": "medium",
+            "title": "No screen-reader focus management on route change — focus stays on the tapped element, document.title updates but SR is not moved to the new screen heading",
+            "evidence": "App.tsx:358-377 — documentTitle.formatter updates the web <title> on navigation and onStateChange logs analytics, but there is no logic to move accessibility focus (or announce the new screen) when a route changes. On RN-Web, after navigating Home->ArticleDetail, the SR virtual cursor remains on the (now-unmounted under unmountOnBlur) trigger; keyboard focus can fall back to <body>, forcing the user to re-traverse from the top of every new screen. There is also no skip-link / heading focus on the AuthStack header screens.",
+            "proposed_design": "(1) In NavigationContainer add onReady + an onStateChange branch that, when currentRouteName changes, on web moves DOM focus to the screen's primary heading: standardize a ref pattern — expose a useScreenFocus(ref) hook that screens attach to their H1/title; on route change call ref.focus() (web) or AccessibilityInfo.setAccessibilityFocus(reactTag) (native). (2) Compute the localized screen name from routeNameToTitleKey (already defined for documentTitle, App.tsx:361) and AccessibilityInfo.announceForAccessibility(t(key)) as a fallback when no heading ref is registered. (3) Mark each screen's title Text with accessibilityRole='header' (web role='heading' aria-level=1) so the focus target is semantically a heading. (4) Respect prefers-reduced-motion: focus move only, no scroll animation. Gate announcements behind isScreenReaderEnabled.",
+            "files_to_touch": "App.tsx:355-382 (onReady/onStateChange focus dispatch); NEW src/hooks/useScreenFocus.ts; attach accessibilityRole='header' to screen title Texts (HomeScreen, ArticleDetailScreen, SupplementDetailScreen, etc.)",
+            "acceptance": "After navigating between any two screens with SR on, the new screen's title is announced and receives focus (web: document.activeElement is the heading; native: setAccessibilityFocus called); document.title still updates; reduced-motion users get no scroll jump; announcement is localized and not fired when SR is off.",
+            "test_path": "(test TO BE CREATED at e2e/a11y-focus-on-nav.spec.ts) Playwright: navigate, assert document.activeElement matches the screen heading + aria-level; unit test useScreenFocus with AccessibilityInfo mock",
+            "effort": "M"
+          },
+          {
+            "id": "D7-06",
+            "type": "consistency",
+            "severity": "medium",
+            "title": "documentTitle and screen-reader page name go stale after a language switch (formatter only re-runs on navigation, not on languageChanged)",
+            "evidence": "App.tsx:358-368 documentTitle.formatter reads require('./src/i18n').default.t(key) but NavigationContainer only re-invokes the formatter on a navigation state change, NOT on i18n 'languageChanged'. So if a user is on, e.g., Settings (web tab title 'Réglages · Mama & Bébé') and switches to Arabic via LanguageSelector (which does NOT navigate — LanguageSelectScreen.tsx:74 only toasts), the browser tab title stays French until the next route change. Same staleness would feed any SR page-name read from title. The native header title (set via Stack options t()) DOES update because HomeStack re-renders, so this is a web-title-specific desync.",
+            "proposed_design": "Subscribe to i18n 'languageChanged' and re-apply the document title for the current route. In App.tsx near AppInitializer, add i18n.on('languageChanged', () => { if (typeof document!=='undefined' && navigationRef.isReady()) { const r = navigationRef.getCurrentRoute(); const key = routeNameToTitleKey[r?.name]; const translated = key ? i18n.t(key) : undefined; document.title = translated && translated!==key ? `${translated} · ${APP_BRAND}` : APP_BRAND; } }). Reuse the exact same formatting branch as the formatter (extract a shared formatTitle(routeName) to avoid drift). Also re-announce the new page name for SR (announceForAccessibility) so the language change is perceivable. Register the listener once (idempotent) and remove on unmount.",
+            "files_to_touch": "App.tsx (extract formatTitle helper from documentTitle.formatter at 358-368; add languageChanged listener)",
+            "acceptance": "Switch language while sitting on any screen without navigating: the browser tab title immediately reflects the new language; no duplicate listeners after HMR; native unaffected; formatTitle is the single source for both the formatter and the listener.",
+            "test_path": "(test TO BE CREATED at src/__tests__/documentTitle.test.ts) — mock document + navigationRef, fire i18n.emit('languageChanged'), assert document.title localized; e2e/multilang-audit.spec.ts extended to assert <title> after in-place language switch",
+            "effort": "S"
+          },
+          {
+            "id": "D7-07",
+            "type": "rtl",
+            "severity": "medium",
+            "title": "Absolute-positioned UI chrome not mirrored in RTL — LanguageSelect checkmark and similar badges hardcode right:20",
+            "evidence": "src/screens/LanguageSelectScreen.tsx:249-258 checkmark style uses position:'absolute', top:20, right:20 — a fixed physical RIGHT. On ar/tn (document.dir=rtl, but I18nManager.isRTL=false on web so logical props won't auto-flip and this isn't even a logical prop) the selected-language checkmark stays pinned to the visual right edge instead of mirroring to the left, colliding with the (now right-aligned) language name. This is the same class as the back-button bug already fixed inline in LoginScreen.tsx:138 / RegisterScreen.tsx:120, but unfixed here. Same pattern likely recurs on other absolute badges (search position:'absolute' + right:/left:).",
+            "proposed_design": "Apply the established inline-flip idiom (or the new useRtl().end() helper from D7-04). Replace right:20 in the checkmark style with a runtime inline override: style={[styles.checkmark, { [isRtl ? 'left' : 'right']: 20, [isRtl ? 'right' : 'left']: undefined }]} — explicitly clearing the opposite side because RN-Web does not reset an unset physical offset (the documented gotcha, cited at LoginScreen.tsx:258). Better: once D7-04 lands, use end(20) which returns the correct physical side. Sweep all StyleSheet entries with position:'absolute' combined with a hardcoded left:/right: across screens and convert to the helper.",
+            "files_to_touch": "src/screens/LanguageSelectScreen.tsx:130-134 (apply inline flip) + :249-258 (style); audit other absolute badges (e.g. WeightTracker gauge labels, any 'position: absolute' + right:)",
+            "acceptance": "On ar/tn the LanguageSelect checkmark sits on the visual LEFT (start side) and does not overlap the language name; on fr/en unchanged; snapshot/visual diff confirms mirror; no other absolute badge stays on the wrong edge in RTL.",
+            "test_path": "(test TO BE CREATED at e2e/rtl-absolute-chrome.spec.ts) load /language in ar, assert checkmark boundingBox.x < card center; unit: useRtl().end(20) returns {left:20,right:undefined} for ar",
+            "effort": "S"
+          },
+          {
+            "id": "D7-08",
+            "type": "consistency",
+            "severity": "low",
+            "title": "LanguageSelector header modal not RTL-mirrored, lacks a11y semantics, and duplicates the language list (two sources of truth)",
+            "evidence": "src/components/common/LanguageSelector.tsx imports I18nManager (line 5) and Updates (line 6) but never uses isRtl for the modal — langOption rows are flexDirection:'row' (L121) with no row-reverse for RTL, so flag+label order stays LTR even in Arabic. The modal has no accessibilityViewIsModal/aria-modal, the overlay TouchableOpacity has no accessibilityLabel/role, and close-on-overlay is not keyboard reachable. It also re-implements the language list (L18-23) divergent from LanguageSelectScreen's LANGUAGES (different TN label 'العربية + الدارجة' vs '+ (Beta)'). Two sources of truth for the same 4 languages.",
+            "proposed_design": "(1) Extract a single shared LANGUAGES constant (code/name/flag/descKey) to src/i18n/languages.ts and consume in both LanguageSelector and LanguageSelectScreen. (2) Add useRtl() and set langOption flexDirection to rowDirection so flag/label mirror in ar/tn; set optionLabel textAlign per direction. (3) a11y: Modal gets accessibilityViewIsModal (iOS) + on web aria-modal; overlay TouchableOpacity gets accessibilityRole='button' accessibilityLabel={t('common.close')}; each langOption gets accessibilityRole='radio' + accessibilityState={{selected: i18n.language===code}} so SR announces the current selection; modalTitle accessibilityRole='header'. (4) Remove the unused I18nManager/Updates imports. (5) On select, also announceForAccessibility(getFixedT(code)('common.languageUpdated')).",
+            "files_to_touch": "src/components/common/LanguageSelector.tsx; NEW src/i18n/languages.ts; refactor src/screens/LanguageSelectScreen.tsx:24-29 to import shared list",
+            "acceptance": "Header language modal mirrors flag/label order in ar/tn; SR announces each option as a radio with selected state and announces success on change; LANGUAGES defined once; no unused imports; both screens show identical language names; i18nParity unaffected.",
+            "test_path": "(test TO BE CREATED at src/components/common/__tests__/LanguageSelector.test.tsx) — render in ar, assert row uses row-reverse + langOption has accessibilityRole='radio' selected for active lang; assert single shared LANGUAGES import",
+            "effort": "M"
+          }
+        ],
+        "top_optimizations": [
+          "D7-01",
+          "D7-02",
+          "D7-04",
+          "D7-03",
+          "D7-05",
+          "D7-06"
+        ]
+      },
+      {
+        "domain": "Transitions / Feedback / Design-System",
+        "current_flows": [
+          {
+            "flow": "Loading state: three different patterns coexist. ArticlesListScreen renders 5x Skeleton.Card (good). SupplementsListScreen / WeekRecommendationsScreen / ~17 other screens render a bare centered ActivityIndicator. LoadingScreen.tsx (a centered spinner + message component) exists but is imported by ZERO screens.",
+            "anchor": "app/src/screens/ArticlesListScreen.tsx:157-165 vs app/src/screens/SupplementsListScreen.tsx:115-121 vs app/src/components/common/LoadingScreen.tsx:9 (unused)"
+          },
+          {
+            "flow": "Error state: ErrorState.tsx (i18n message + retry button, contrast-fixed) exists but is used by ZERO screens. Instead ArticlesList and Supplements each hand-roll a near-identical centered error block reusing common.errorBoundary.* keys + an inline-styled TouchableOpacity retry.",
+            "anchor": "app/src/components/common/ErrorState.tsx (0 importers) vs app/src/screens/ArticlesListScreen.tsx:168-184 vs app/src/screens/SupplementsListScreen.tsx:123-142"
+          },
+          {
+            "flow": "Empty state: EmptyState.tsx component used in 5 screens; but list screens (Articles, Supplements) instead use inline styles.emptyState (emoji+title, no action, different paddings/fontSizes) inside FlatList ListEmptyComponent.",
+            "anchor": "app/src/components/common/EmptyState.tsx:30 vs app/src/screens/ArticlesListScreen.tsx:220-223 (+styles 311-323) vs app/src/screens/SupplementsListScreen.tsx:176-181"
+          },
+          {
+            "flow": "Success/transient feedback: ToastContext provides a single bottom-anchored animated toast (4 screens use it). SuccessMessage.tsx and ErrorMessage.tsx are inline banner components used elsewhere — two parallel success/error feedback channels with different visuals.",
+            "anchor": "app/src/context/ToastContext.tsx:99-120 vs app/src/components/common/SuccessMessage.tsx:9 vs app/src/components/common/ErrorMessage.tsx:10"
+          },
+          {
+            "flow": "Motion: no React Navigation transition config (default platform animation only). Skeleton pulse + Toast spring + CollapsibleCard LayoutAnimation are the only motion primitives. theme.animation tokens exist but are referenced only by Skeleton.",
+            "anchor": "app/App.tsx:96-166 (stacks: no animation option) + app/src/theme/index.ts:283-293 (tokens) + app/src/components/common/Skeleton.tsx:54-67"
+          },
+          {
+            "flow": "Pull-to-refresh: only HomeScreen, TasksTab, WeightTracker use RefreshControl. Data list screens (Articles, Supplements, Recommendations) have no refresh affordance — error recovery is the only re-fetch path.",
+            "anchor": "app/src/screens/HomeScreen.tsx (RefreshControl) vs app/src/screens/ArticlesListScreen.tsx:187 (FlatList, none)"
+          },
+          {
+            "flow": "Elevation: 20 call sites pass magic-number params to getShadowStyle(); only 1 site uses the canonical theme.shadows.sm/md/lg. Card.tsx, CollapsibleCard.tsx, ErrorBoundary.tsx each pass different ad-hoc shadow numbers.",
+            "anchor": "app/src/components/common/Card.tsx:25 vs app/src/components/common/Skeleton.tsx:129 (theme.shadows.sm) vs app/src/theme/index.ts:257-282"
+          }
+        ],
+        "findings": [
+          {
+            "id": "DS-1",
+            "type": "consistency",
+            "severity": "high",
+            "title": "Unify the loading/empty/error triad into reused components; retire dead LoadingScreen/ErrorState",
+            "evidence": "Three loading patterns: ArticlesListScreen.tsx:157-165 uses Skeleton.Card; SupplementsListScreen.tsx:115-121 + WeekRecommendationsScreen.tsx:72-77 use bare ActivityIndicator; LoadingScreen.tsx:9 is imported by 0 screens. Error: ErrorState.tsx (with retry+i18n) has 0 importers while ArticlesListScreen.tsx:168-184 and SupplementsListScreen.tsx:123-142 hand-roll near-identical inline error blocks (both reuse common.errorBoundary.* keys, inline-styled retry buttons). Empty: EmptyState.tsx used in 5 screens but list screens use inline styles.emptyState (ArticlesListScreen.tsx:220-223 / SupplementsListScreen.tsx:176-181).",
+            "proposed_design": "Create a single AsyncBoundary/ScreenState contract. (a) Promote ErrorState as THE error component: add an `icon` prop (default '😔', overridable to feature emoji e.g. '💊') and migrate ArticlesList L168-184 and Supplements L123-142 to <ErrorState emoji='💊' message={t('common.errorBoundary.message')} onRetry={retryLoad} />. (b) Standardize empty: replace inline styles.emptyState in both list screens with <EmptyState icon='🤷‍♀️' title={t('common.noResultsFor',{query})} compact />. (c) Standardize list loading: create Skeleton.List ({count=5}) and use it everywhere a list loads (Supplements, Recommendations) so spinner-on-list is eliminated; keep ActivityIndicator only for in-button/inline. (d) Delete LoadingScreen.tsx OR repoint full-screen non-list loaders to it for one source of truth. Export EmptyState/ErrorState/SuccessMessage/ErrorMessage from index.ts (currently missing).",
+            "files_to_touch": "app/src/components/common/ErrorState.tsx, app/src/components/common/EmptyState.tsx, app/src/components/common/Skeleton.tsx, app/src/components/common/index.ts, app/src/screens/ArticlesListScreen.tsx, app/src/screens/SupplementsListScreen.tsx, app/src/screens/WeekRecommendationsScreen.tsx",
+            "acceptance": "No screen renders a hand-rolled centered error <View> with an inline TouchableOpacity retry; all use <ErrorState>. All list loading states render skeleton rows (no bare ActivityIndicator on a list). Articles & Supplements empty states render via <EmptyState>. index.ts exports EmptyState, ErrorState, ErrorMessage, SuccessMessage, OfflineNotice.",
+            "test_path": "(test TO BE CREATED at app/src/components/common/__tests__/ErrorState.test.tsx) — assert ErrorState renders given emoji+message, fires onRetry on press; (test TO BE CREATED at app/src/screens/__tests__/listStates.test.tsx) — render ArticlesList/Supplements in loading/error/empty and assert single shared component used",
+            "effort": "M"
+          },
+          {
+            "id": "DS-2",
+            "type": "a11y",
+            "severity": "high",
+            "title": "Toast is invisible to screen readers and not RTL-safe",
+            "evidence": "app/src/context/ToastContext.tsx:99-120 renders the toast Animated.View with no accessibilityLiveRegion, no accessibilityRole, no role='alert'. Screen-reader users get zero announcement of success/error feedback (the app's primary transient channel, used in AddAppointment/TasksTab/etc). The content row (L138-141) has flexDirection:'row' with marginEnd icon but no writingDirection handling; on web isRTL is false so icon stays left of text in AR/TN.",
+            "proposed_design": "On the toast Animated.View add: accessibilityLiveRegion='assertive' (Android), accessibilityRole='alert', and on web set role='alert' + aria-live='assertive'. Add accessible + accessibilityLabel={`${typeLabel}: ${message}`} where typeLabel is t('a11y.toast.success|error|info'). Make duration type-aware: errors should persist longer (success 3000ms, error 5000ms, info 4000ms) and pause auto-hide while VoiceOver focus is on it. Wrap content row with writingDirection from i18n.dir() and use marginStart logical spacing for the icon. Add a min 44pt dismiss hit area.",
+            "files_to_touch": "app/src/context/ToastContext.tsx, app/src/i18n locale files (a11y.toast.* keys x4 langs)",
+            "acceptance": "Toast carries role/aria-live='alert' on web and accessibilityLiveRegion='assertive' on native; VoiceOver/TalkBack announce the message on show. Error toasts stay ~5s, success ~3s. In AR/TN the icon sits at the trailing edge consistent with text direction. New a11y.toast.* keys present in all 4 locales (parity test green).",
+            "test_path": "app/src/i18n/__tests__/i18nParity.test.ts (extend for a11y.toast.* keys); (test TO BE CREATED at app/src/context/__tests__/ToastContext.test.tsx) — assert accessibilityLiveRegion + role='alert' present and duration varies by type",
+            "effort": "S"
+          },
+          {
+            "id": "DS-3",
+            "type": "motion",
+            "severity": "high",
+            "title": "No reduced-motion support anywhere; animations ignore the OS accessibility setting",
+            "evidence": "grep for isReduceMotionEnabled / prefers-reduced-motion / ReduceMotion across src = 0 hits. Skeleton.tsx:49-70 loops opacity unconditionally (only a manual `animated` prop, no global source); ToastContext.tsx:50-56 spring; CollapsibleCard.tsx:42 LayoutAnimation; HomeHeader/BabyGrowthCard run Animated loops. Users who enable Reduce Motion (vestibular needs) get full animation.",
+            "proposed_design": "Create a useReducedMotion() hook: native via AccessibilityInfo.isReduceMotionEnabled() + addEventListener('reduceMotionChanged'); web via window.matchMedia('(prefers-reduced-motion: reduce)'). Expose a MotionProvider/context value `reduceMotion`. Wire it: Skeleton defaults animated={!reduceMotion} (static dim placeholder when reduced); Toast uses timing fade instead of spring + halves duration; CollapsibleCard skips LayoutAnimation when reduced; theme.animation.durations get a `getDuration(reduceMotion)` helper returning ~0 for entrance/exit. Provide a single MOTION.enter/exit token map so every Animated entrance reads from one place.",
+            "files_to_touch": "app/src/hooks/useReducedMotion.ts (new), app/src/components/common/Skeleton.tsx, app/src/context/ToastContext.tsx, app/src/components/common/CollapsibleCard.tsx, app/src/theme/index.ts (add motion helpers), app/src/components/home/HomeHeader.tsx, app/src/components/home/BabyGrowthCard.tsx",
+            "acceptance": "With Reduce Motion on (or matchMedia reduce), Skeleton shows static placeholder, Toast/CollapsibleCard use instant/crossfade transitions, no looping pulse. Hook returns live value and updates on OS toggle without remount.",
+            "test_path": "(test TO BE CREATED at app/src/hooks/__tests__/useReducedMotion.test.ts) — mock AccessibilityInfo + matchMedia, assert value + listener wiring; (test TO BE CREATED at app/src/components/common/__tests__/Skeleton.test.tsx) — assert static when reduceMotion",
+            "effort": "M"
+          },
+          {
+            "id": "DS-4",
+            "type": "consistency",
+            "severity": "medium",
+            "title": "Two shadow APIs: 20 ad-hoc getShadowStyle() calls vs 1 canonical theme.shadows",
+            "evidence": "grep: 20 files call getShadowStyle(...) with raw magic numbers (Card.tsx:25 getShadowStyle(2,text,0.05,4,{0,2}); CollapsibleCard.tsx:116 getShadowStyle(3,text,0.1,4,{0,2}); ErrorBoundary.tsx:192 getShadowStyle(4,primary,0.3,8,{0,4})). Only Skeleton.tsx:129 uses the canonical theme.shadows.sm. The theme defines sm/md/lg (index.ts:257-278) but they are nearly orphaned, so elevation is inconsistent and uncontrolled.",
+            "proposed_design": "Make theme.shadows the single elevation scale (sm/md/lg already cross-platform via buildShadow). Map the 20 getShadowStyle call sites to the nearest token: radius≤4/opacity≤0.06 -> sm, radius~6-8/0.08-0.12 -> md, the ErrorBoundary CTA -> a new `shadows.cta` (pink-tinted). Keep getShadowStyle only for genuinely custom one-offs (gradients). Add an eslint custom rule or a lint:colors-style grep gate forbidding raw getShadowStyle numeric literals in screens. Card.tsx -> theme.shadows.sm; CollapsibleCard -> theme.shadows.md.",
+            "files_to_touch": "app/src/theme/index.ts (add shadows.cta), app/src/components/common/Card.tsx, app/src/components/common/CollapsibleCard.tsx, app/src/components/common/ErrorBoundary.tsx, and the remaining getShadowStyle call sites (batch)",
+            "acceptance": "Card/CollapsibleCard/ErrorBoundary read from theme.shadows.*; grep 'getShadowStyle(' in src/screens returns only documented exceptions; visual elevation across cards is one of 3 levels.",
+            "test_path": "app/src/utils/__tests__/styleUtils.test.ts (extend: assert theme.shadows.sm/md/lg shape per platform); (gate) add npm script grep check for raw getShadowStyle in screens",
+            "effort": "M"
+          },
+          {
+            "id": "DS-5",
+            "type": "interaction",
+            "severity": "medium",
+            "title": "No haptics and no press-scale on primary touchables — flat tactile feedback",
+            "evidence": "Button.tsx:66 uses only activeOpacity={0.8}; no onPressIn scale, no Haptics. package.json has no expo-haptics / react-native-reanimated. Across the app every CTA, toggle, task-complete, kick-counter tap (KickCounterScreen), and destructive action gives identical opacity-dim feedback. For a pregnancy app where logging kicks/contractions is repetitive and one-handed, the lack of haptic confirmation is a real UX gap.",
+            "proposed_design": "Add expo-haptics. Create useHaptics() returning {light,medium,success,warning,error} that no-op on web and respect a settings toggle. Wire: Button gets a `haptic?: 'light'|'medium'|'success'|none` prop (primary/success default 'light', destructive default 'warning') fired in onPress; Toast success/error fire success/error notification haptics; KickCounter/ContractionTimer record taps fire light impact; task-complete fires success. Add a press-scale micro-interaction (scale 1->0.97 over animation.durations.fast, gated by useReducedMotion) on Button via Animated for a premium feel.",
+            "files_to_touch": "package.json (expo-haptics), app/src/hooks/useHaptics.ts (new), app/src/components/common/Button.tsx, app/src/context/ToastContext.tsx, app/src/screens/KickCounterScreen.tsx, app/src/screens/ContractionTimerScreen.tsx, app/src/screens/reminders/TasksTab.tsx",
+            "acceptance": "Button fires the mapped haptic on native press (mock asserts impactAsync called with right style); haptics are silent on web and when the settings toggle is off; press-scale runs only when reduceMotion is false.",
+            "test_path": "(test TO BE CREATED at app/src/hooks/__tests__/useHaptics.test.ts) — mock expo-haptics, assert correct call per intent + web no-op; (test TO BE CREATED at app/src/components/common/__tests__/Button.haptic.test.tsx)",
+            "effort": "M"
+          },
+          {
+            "id": "DS-6",
+            "type": "ux",
+            "severity": "medium",
+            "title": "Inconsistent pull-to-refresh: data lists have no refresh affordance, only error-recovery re-fetch",
+            "evidence": "RefreshControl appears only in HomeScreen, TasksTab, WeightTracker. ArticlesListScreen.tsx:187 (FlatList) and SupplementsListScreen.tsx:170 (FlatList) and WeekRecommendationsScreen (ScrollView) have none — once loaded, the only re-fetch path is hitting the error state's retry. A user who pulls to refresh (universal mobile gesture) gets nothing.",
+            "proposed_design": "Add a shared useRefresh(loadFn) hook returning {refreshing,onRefresh} and a themed <AppRefreshControl/> wrapper (tintColor=theme.colors.accent, colors=[accent]). Attach to all primary data lists/scrolls: Articles, Supplements, Recommendations, HealthDashboard, Statistics. onRefresh re-runs the same fetch the error-retry uses and shows a success/'updated' toast on completion (or silent). Standardize the spinner color so it is not the default grey/black.",
+            "files_to_touch": "app/src/hooks/useRefresh.ts (new), app/src/components/common/AppRefreshControl.tsx (new), app/src/screens/ArticlesListScreen.tsx, app/src/screens/SupplementsListScreen.tsx, app/src/screens/WeekRecommendationsScreen.tsx, app/src/screens/HealthDashboardScreen.tsx, app/src/screens/reminders/StatisticsScreen.tsx",
+            "acceptance": "All five listed screens expose pull-to-refresh that re-runs their fetch; the refresh spinner uses theme.colors.accent; refreshing state clears on completion/error and surfaces an error toast on failure.",
+            "test_path": "(test TO BE CREATED at app/src/hooks/__tests__/useRefresh.test.ts) — assert onRefresh toggles refreshing and calls loadFn, resets on resolve/reject",
+            "effort": "M"
+          },
+          {
+            "id": "DS-7",
+            "type": "motion",
+            "severity": "low",
+            "title": "No screen-transition language; default platform animation + unmountOnBlur causes abrupt tab swaps",
+            "evidence": "App.tsx stacks (HomeStack L96, ResourcesStack L125, CalendarStack L140, RemindersStack L157) set only header styling — no `animation`/transition option, so push navigation uses the raw platform default and on web is effectively instant. MainTabs (App.tsx:171-179) sets unmountOnBlur:true, so switching tabs hard-mounts a fresh tree with no crossfade — visible flash, especially with skeleton->content pop.",
+            "proposed_design": "Define a transition token set in theme.animation (push: slide_from_right native / fade web ~200ms; modal: slide_from_bottom). Apply per-stack screenOptions.animation. For tabs, add a lightweight Animated fade-in (opacity 0->1 over durations.base) on each screen's root container via a shared <ScreenContainer> that also standardizes safe-area + background, gated by useReducedMotion so reduced users get instant. Standardize skeleton->content as a 150ms crossfade rather than an instant swap to reduce the pop.",
+            "files_to_touch": "app/App.tsx (per-stack animation options), app/src/components/common/ScreenContainer.tsx (new), app/src/theme/index.ts (transition tokens), app/src/screens/ArticlesListScreen.tsx + SupplementsListScreen.tsx (wrap in ScreenContainer / crossfade loaded content)",
+            "acceptance": "Each stack declares an explicit animation; tab switches fade content in over ~250ms (instant under reduceMotion); skeleton->loaded transition crossfades rather than hard-cuts. No layout shift introduced.",
+            "test_path": "(test TO BE CREATED at app/src/components/common/__tests__/ScreenContainer.test.tsx) — assert fade animation gated by reduceMotion, renders children; manual web E2E screenshot diff for tab swap",
+            "effort": "M"
+          },
+          {
+            "id": "DS-8",
+            "type": "ui",
+            "severity": "low",
+            "title": "OfflineNotice + Toast both anchor to screen edges with no coordination; OfflineNotice is FR-hardcoded fallback and overlaps content",
+            "evidence": "OfflineNotice.tsx:14-29 is position:absolute top:0 with paddingTop insets.top and default FR strings ('📡 Pas de connexion Internet') as the t() fallback; it overlays the header (no body offset) and there is no spacer so it covers the screen title. Toast (ToastContext.tsx:124-137) is position:absolute bottom — the two feedback layers never reconcile (an offline error toast can stack with the offline banner). OfflineNotice uses raw fontSize 14/12 not typography tokens.",
+            "proposed_design": "(a) Replace FR string fallbacks with key-only t('offline.title')/t('offline.message') (parity-tested keys in all 4 langs) — never ship French to AR/TN. (b) Add an animated slide-in (translateY -100 -> 0, gated by reduceMotion) and a 1-2px shadow so it reads as an overlay; push body down by reserving its height via a context flag OR make it a non-overlapping inline banner under the header. (c) Use theme.typography.label/caption2 tokens, not raw fontSizes. (d) Suppress 'error'-type toasts about connectivity while OfflineNotice is visible (single offline signal).",
+            "files_to_touch": "app/src/components/common/OfflineNotice.tsx, app/src/context/ToastContext.tsx, app/src/i18n locale files (offline.title/offline.message x4), app/src/components/common/index.ts (export OfflineNotice)",
+            "acceptance": "OfflineNotice text comes from locale keys present in all 4 langs (no FR leak on AR/TN), animates in (instant under reduceMotion), uses typography tokens, and does not permanently overlap the screen title. Connectivity error toasts are suppressed while the banner is shown.",
+            "test_path": "app/src/i18n/__tests__/i18nParity.test.ts (extend for offline.* keys); (test TO BE CREATED at app/src/components/common/__tests__/OfflineNotice.test.tsx) — assert hidden when reachable, uses t() keys, animation gated by reduceMotion",
+            "effort": "S"
+          }
+        ],
+        "top_optimizations": [
+          "DS-1",
+          "DS-2",
+          "DS-3",
+          "DS-5",
+          "DS-6",
+          "DS-4"
+        ]
+      }
+    ]
+  }
+}
