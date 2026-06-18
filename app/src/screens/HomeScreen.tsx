@@ -13,6 +13,7 @@ import {
     Alert,
     ActivityIndicator,
     Animated,
+    Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { HomeHeader } from '../components/home/HomeHeader';
@@ -681,6 +682,7 @@ export const HomeScreen = () => {
                                 accessibilityLabel={t('common.yourBody')}
                                 accessibilityHint={showFullBodyText ? t('a11y.collapseSection') : t('a11y.expandSection')}
                                 accessibilityState={{ expanded: showFullBodyText }}
+                                {...(Platform.OS === 'web' ? { 'aria-expanded': showFullBodyText } : {})}
                             >
                                 <Text style={styles.infoCardEmoji}>🤰</Text>
                                 <Text style={styles.infoCardTitle}>{t('common.yourBody')}</Text>
@@ -814,56 +816,63 @@ export const HomeScreen = () => {
                             <Text style={styles.toolSubtitle}>{t('home.toAvoid')}</Text>
                         </TouchableOpacity>
 
-                        {/* Cycle 8 — Kick Counter */}
-                        <TouchableOpacity
-                            style={styles.toolCard}
-                            onPress={() => navigation.navigate('KickCounter')}
-                            accessibilityLabel={t('cycle8.kickCounter.title')}
-                            accessibilityRole="button"
-                        >
-                            <LinearGradient
-                                colors={[theme.colors.gradientPinkStart, theme.colors.gradientPinkEnd]}
-                                style={styles.toolIconContainer}
+                        {/* Cycle 8 — Kick Counter: surfaced from week 16, when fetal
+                            movements become countable (trimester-aware Home). */}
+                        {currentWeekNumber >= 16 && (
+                            <TouchableOpacity
+                                style={styles.toolCard}
+                                onPress={() => navigation.navigate('KickCounter')}
+                                accessibilityLabel={t('cycle8.kickCounter.title')}
+                                accessibilityRole="button"
                             >
-                                <Text style={styles.toolEmoji}>👶</Text>
-                            </LinearGradient>
-                            <Text style={styles.toolTitle}>{t('cycle8.kickCounter.title')}</Text>
-                            <Text style={styles.toolSubtitle}>{t('cycle8.kickCounter.kicksLastHour')}</Text>
-                        </TouchableOpacity>
+                                <LinearGradient
+                                    colors={[theme.colors.gradientPinkStart, theme.colors.gradientPinkEnd]}
+                                    style={styles.toolIconContainer}
+                                >
+                                    <Text style={styles.toolEmoji}>👶</Text>
+                                </LinearGradient>
+                                <Text style={styles.toolTitle}>{t('cycle8.kickCounter.title')}</Text>
+                                <Text style={styles.toolSubtitle}>{t('cycle8.kickCounter.kicksLastHour')}</Text>
+                            </TouchableOpacity>
+                        )}
 
-                        {/* Cycle 8 — Contraction Timer */}
-                        <TouchableOpacity
-                            style={styles.toolCard}
-                            onPress={() => navigation.navigate('ContractionTimer')}
-                            accessibilityLabel={t('cycle8.contractionTimer.title')}
-                            accessibilityRole="button"
-                        >
-                            <LinearGradient
-                                colors={[theme.colors.gradientPeachStart, theme.colors.gradientPeachEnd]}
-                                style={styles.toolIconContainer}
+                        {/* Cycle 8 — Contraction Timer + Hospital Bag: third-trimester
+                            labour prep, surfaced from week 28. */}
+                        {currentWeekNumber >= 28 && (
+                            <TouchableOpacity
+                                style={styles.toolCard}
+                                onPress={() => navigation.navigate('ContractionTimer')}
+                                accessibilityLabel={t('cycle8.contractionTimer.title')}
+                                accessibilityRole="button"
                             >
-                                <Text style={styles.toolEmoji}>⏱️</Text>
-                            </LinearGradient>
-                            <Text style={styles.toolTitle}>{t('cycle8.contractionTimer.title')}</Text>
-                            <Text style={styles.toolSubtitle}>{t('cycle8.contractionTimer.subtitle')}</Text>
-                        </TouchableOpacity>
+                                <LinearGradient
+                                    colors={[theme.colors.gradientPeachStart, theme.colors.gradientPeachEnd]}
+                                    style={styles.toolIconContainer}
+                                >
+                                    <Text style={styles.toolEmoji}>⏱️</Text>
+                                </LinearGradient>
+                                <Text style={styles.toolTitle}>{t('cycle8.contractionTimer.title')}</Text>
+                                <Text style={styles.toolSubtitle}>{t('cycle8.contractionTimer.subtitle')}</Text>
+                            </TouchableOpacity>
+                        )}
 
-                        {/* Cycle 8 — Hospital Bag */}
-                        <TouchableOpacity
-                            style={styles.toolCard}
-                            onPress={() => navigation.navigate('HospitalBag')}
-                            accessibilityLabel={t('cycle8.hospitalBag.title')}
-                            accessibilityRole="button"
-                        >
-                            <LinearGradient
-                                colors={[theme.colors.gradientAmberStart, theme.colors.gradientAmberEnd]}
-                                style={styles.toolIconContainer}
+                        {currentWeekNumber >= 28 && (
+                            <TouchableOpacity
+                                style={styles.toolCard}
+                                onPress={() => navigation.navigate('HospitalBag')}
+                                accessibilityLabel={t('cycle8.hospitalBag.title')}
+                                accessibilityRole="button"
                             >
-                                <Text style={styles.toolEmoji}>🧳</Text>
-                            </LinearGradient>
-                            <Text style={styles.toolTitle}>{t('cycle8.hospitalBag.title')}</Text>
-                            <Text style={styles.toolSubtitle}>{t('cycle8.hospitalBag.subtitle')}</Text>
-                        </TouchableOpacity>
+                                <LinearGradient
+                                    colors={[theme.colors.gradientAmberStart, theme.colors.gradientAmberEnd]}
+                                    style={styles.toolIconContainer}
+                                >
+                                    <Text style={styles.toolEmoji}>🧳</Text>
+                                </LinearGradient>
+                                <Text style={styles.toolTitle}>{t('cycle8.hospitalBag.title')}</Text>
+                                <Text style={styles.toolSubtitle}>{t('cycle8.hospitalBag.subtitle')}</Text>
+                            </TouchableOpacity>
+                        )}
 
                         {/* Cycle 8 — Ramadan & Pregnancy (reachable for all locales; the screen is complete and useful) */}
                         <TouchableOpacity
