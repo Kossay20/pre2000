@@ -6,9 +6,10 @@ import { theme } from '../../theme';
 import { useTranslation } from 'react-i18next';
 import { HydrationData, loadHydrationData, addIntake, saveHydrationData } from '../../services/hydrationService';
 import { getShadowStyle } from '../../utils/styleUtils';
+import { formatDecimal } from '../../utils/localizedFormat';
 
 export const HydrationCard = () => {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const [data, setData] = useState<HydrationData | null>(null);
     const [showSettings, setShowSettings] = useState(false);
     const [tempGoal, setTempGoal] = useState('3000');
@@ -104,11 +105,11 @@ export const HydrationCard = () => {
                     <View style={styles.statsRow}>
                         <View>
                             <Text style={styles.amountLarge}>
-                                {(data.currentIntake / 1000).toFixed(2)}
-                                <Text style={styles.unit}>L</Text>
+                                {formatDecimal(data.currentIntake / 1000, i18n.language)}
+                                <Text style={styles.unit}> L</Text>
                             </Text>
                             <Text style={styles.goalText}>
-                                {t('reminders.hydration.outOf', { goalL: (data.dailyGoal / 1000).toFixed(1) })}
+                                {t('reminders.hydration.outOf', { goalL: formatDecimal(data.dailyGoal / 1000, i18n.language) })}
                             </Text>
                         </View>
                         <View style={styles.percentageContainer}>

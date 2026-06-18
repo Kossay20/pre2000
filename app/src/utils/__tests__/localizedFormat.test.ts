@@ -1,4 +1,27 @@
-import { localizeUnit, formatMeasure } from '../localizedFormat';
+import { localizeUnit, formatMeasure, formatDecimal } from '../localizedFormat';
+
+describe('formatDecimal', () => {
+    it('renders integers with no fractional part (fixes "0.00")', () => {
+        expect(formatDecimal(0, 'fr')).toBe('0');
+        expect(formatDecimal(3, 'en')).toBe('3');
+        expect(formatDecimal(3, 'ar')).toBe('3');
+    });
+    it('uses a comma decimal for fr/tn and a dot for en/ar', () => {
+        expect(formatDecimal(1.5, 'fr')).toBe('1,5');
+        expect(formatDecimal(1.5, 'tn')).toBe('1,5');
+        expect(formatDecimal(1.5, 'en')).toBe('1.5');
+        expect(formatDecimal(1.5, 'ar')).toBe('1.5');
+    });
+    it('trims trailing zeros and rounds to maxFractionDigits', () => {
+        expect(formatDecimal(2.0, 'fr')).toBe('2');
+        expect(formatDecimal(1.25, 'en', 1)).toBe('1.3');
+        expect(formatDecimal(1.04, 'fr', 1)).toBe('1');
+    });
+    it('guards non-finite input', () => {
+        expect(formatDecimal(NaN, 'fr')).toBe('0');
+        expect(formatDecimal(Infinity, 'en')).toBe('0');
+    });
+});
 
 describe('localizeUnit', () => {
     describe('Arabic-script locales (ar, tn)', () => {

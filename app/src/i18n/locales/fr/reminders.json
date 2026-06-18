@@ -39,7 +39,7 @@
         "loading": "Chargement...",
         "emptyTitle": "Aucune action pour aujourd'hui.",
         "emptyMsg": "Active des rappels dans l'onglet Rappels ! 💡",
-        "allDone": "Tout est fait ! Repose-toi bien 💖",
+        "allDone": "Tout est fait ! Reposez-vous bien 💖",
         "remainingTasks": "{{count}} tâches restantes",
         "hideTodayTitle": "Masquer pour aujourd'hui ?",
         "hideTodayMsg": "Ce rappel ne s'affichera plus aujourd'hui, mais reviendra demain.",
