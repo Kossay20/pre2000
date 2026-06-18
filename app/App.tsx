@@ -450,10 +450,15 @@ const AppInitializer = () => {
 
       if (data?.screen && navigationRef.isReady()) {
         if (data.screen === 'TasksTab') {
+          // NAV-02 FIX (GOAL W2): TasksTab is a material-top-tab INSIDE RemindersScreen
+          // (route RemindersMain), so it must be reached through the RemindersMain level —
+          // mirroring the canonical nesting HomeScreen uses for the same jump. The previous
+          // `{screen:'TasksTab'}` skipped RemindersMain, so RN fell back to the default
+          // sub-tab (Reminders) and the highlightId never reached TasksTab.
           // @ts-ignore
           navigationRef.navigate('Rappels', {
-            screen: 'TasksTab',
-            params: { highlightId: data.reminderId }
+            screen: 'RemindersMain',
+            params: { screen: 'TasksTab', params: { highlightId: data.reminderId } }
           });
         } else if (data.screen === 'Calendar') {
           // @ts-ignore
@@ -463,7 +468,10 @@ const AppInitializer = () => {
             // @ts-ignore
             navigationRef.navigate(data.screen, data.params);
           } catch (e) {
+            // NAV-07 FIX (GOAL W2): never strand the user on a failed deep-link — fall back Home.
             logger.error('App', 'Navigation failed', e);
+            try { // @ts-ignore
+              navigationRef.navigate('Home'); } catch { /* navigator not ready */ }
           }
         }
       }
