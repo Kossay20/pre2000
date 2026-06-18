@@ -43,6 +43,14 @@ export const getLocalSupplement = (id: string): Supplement | undefined =>
 export const getLocalArticle = (id: string): Article | undefined =>
     articlesById.get(id);
 
+/** All bundled articles (old Article shape) — for offline list screens. */
+export const getAllLocalArticles = (): Article[] =>
+    articlesData as unknown as Article[];
+
+/** All bundled supplements — for offline list screens. */
+export const getAllLocalSupplements = (): Supplement[] =>
+    supplementsData as unknown as Supplement[];
+
 /**
  * Adapt a bundled (old-schema) Article into the ArticleAntigravity shape used by
  * the article-detail screen. Only consulted when the Antigravity Firestore read

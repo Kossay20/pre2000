@@ -233,7 +233,7 @@ const styles = StyleSheet.create({
     guideCard: { padding: theme.spacing.m, marginBottom: theme.spacing.l, backgroundColor: theme.colors.surface },
     guideTitle: { ...theme.typography.h3, marginBottom: theme.spacing.xs, color: theme.colors.text },
     guideText: { ...theme.typography.body, color: theme.colors.textLight, lineHeight: 20 },
-    controlBlock: { alignItems: 'center', marginVertical: theme.spacing.l },
+    controlBlock: { alignItems: 'center', marginTop: theme.spacing.l, marginBottom: theme.spacing.xl },
     activeWrap: { alignItems: 'center' },
     activeLabel: { ...theme.typography.body, color: theme.colors.accent, marginBottom: theme.spacing.s },
     activeTimer: { fontSize: 56, fontWeight: '700', color: theme.colors.accent, marginBottom: theme.spacing.l },
@@ -264,7 +264,7 @@ const styles = StyleSheet.create({
     historyDate: { ...theme.typography.caption, color: theme.colors.textLight },
     historyDur: { ...theme.typography.caption, color: theme.colors.text, fontWeight: '600' },
     actionRow: { flexDirection: 'row', justifyContent: 'center', marginTop: theme.spacing.l },
-    callRow: { padding: theme.spacing.m, alignItems: 'center', marginTop: theme.spacing.l },
+    callRow: { padding: theme.spacing.m, alignItems: 'center', marginTop: theme.spacing.xl },
     callText: { ...theme.typography.body, color: theme.colors.accent, fontWeight: '600' },
     disclaimer: {
         ...theme.typography.caption,

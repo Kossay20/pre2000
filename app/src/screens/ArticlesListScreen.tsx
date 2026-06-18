@@ -8,6 +8,7 @@ import { db } from '../config/firebase';
 import { Article, ArticleAntigravity } from '../types';
 import { getLocalizedContent } from '../utils/i18nHelpers';
 import { getAntigravityArticlesByCategory } from '../services/contentService'; // ANTIGRAVITY
+import { getAllLocalArticles } from '../services/localContentFallback';
 import { theme } from '../theme';
 import { Card } from '../components/common/Card';
 import { Tag } from '../components/common/Tag';
@@ -78,7 +79,13 @@ export const ArticlesListScreen = () => {
                 setArticles(Array.from(byId.values()));
             } catch (err) {
                 log.error('[ArticlesListScreen] ❌ Error fetching articles:', err);
-                if (isMounted) setError(true);
+                // CLUSTER-2: Firestore failed (permission-denied for guests / offline).
+                // Fall back to the bundled article list so Resources isn't a dead "Oups".
+                const local = getAllLocalArticles();
+                if (isMounted) {
+                    if (local.length > 0) { setArticles(local); setError(false); }
+                    else setError(true);
+                }
             } finally {
                 if (isMounted) setLoading(false);
             }
@@ -112,7 +119,9 @@ export const ArticlesListScreen = () => {
     const renderItem = useCallback(({ item }: { item: Article | ArticleAntigravity }) => {
         // Handle both old and Antigravity article types
         const title = getLocalizedContent(item, 'title', i18n.language);
-        const summary = getLocalizedContent(item, 'summary', i18n.language);
+        // Bundled summaries begin with a markdown heading ("# ..."); strip markdown so the
+        // 2-line card preview reads as plain text instead of leaking the raw "#" (all langs).
+        const summary = getLocalizedContent(item, 'summary', i18n.language, { stripMarkdown: true });
         const categoryKey = (item.category || '').toLowerCase();
         const categoryLabel = t(`categories.${categoryKey}`, { defaultValue: item.category });
 

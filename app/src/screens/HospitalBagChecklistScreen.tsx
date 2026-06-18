@@ -45,6 +45,11 @@ const labelFor = (item: HospitalBagItem, lang: string): string => {
 export const HospitalBagChecklistScreen: React.FC = () => {
     useScreenAnalytics('HospitalBagChecklistScreen');
     const { t, i18n } = useTranslation();
+    // AUDIT-FIX (P2, ar/tn RTL): language-derived RTL — on web the codebase does NOT call
+    // I18nManager.forceRTL, so logical margins (marginEnd) resolve to the physical right edge
+    // regardless of language. The row mirrors visually under dir=rtl but the checkbox→label gap
+    // stayed on the screen-edge side. Pick the spacing side + text alignment explicitly per lang.
+    const isRTL = i18n.language === 'ar' || i18n.language === 'tn';
     const [state, setState] = useState<HospitalBagState>({ items: [], checked: {} });
     const [addingFor, setAddingFor] = useState<HospitalBagSection | null>(null);
     const [draft, setDraft] = useState('');
@@ -134,11 +139,26 @@ export const HospitalBagChecklistScreen: React.FC = () => {
                                         accessibilityLabel={labelFor(item, i18n.language)}
                                         {...(Platform.OS === 'web' ? { 'aria-checked': checked } : {})}
                                     >
-                                        <View style={[styles.checkbox, checked && styles.checkboxChecked]}>
+                                        <View
+                                            style={[
+                                                styles.checkbox,
+                                                // Gap lives on the side facing the label: right edge in
+                                                // LTR (marginEnd), left edge in RTL (marginStart). Explicit
+                                                // because RN-Web doesn't flip logical margins without forceRTL.
+                                                isRTL
+                                                    ? { marginEnd: 0, marginStart: theme.spacing.m }
+                                                    : { marginEnd: theme.spacing.m, marginStart: 0 },
+                                                checked && styles.checkboxChecked,
+                                            ]}
+                                        >
                                             {checked && <Text style={styles.checkboxMark}>✓</Text>}
                                         </View>
                                         <Text
-                                            style={[styles.rowLabel, checked && styles.rowLabelChecked]}
+                                            style={[
+                                                styles.rowLabel,
+                                                { textAlign: isRTL ? 'right' : 'left' },
+                                                checked && styles.rowLabelChecked,
+                                            ]}
                                             numberOfLines={2}
                                         >
                                             {labelFor(item, i18n.language)}
@@ -273,7 +293,8 @@ const styles = StyleSheet.create({
         borderRadius: 6,
         borderWidth: 2,
         borderColor: theme.colors.border,
-        marginEnd: theme.spacing.m,
+        // checkbox→label gap is applied inline per direction (see render) — RN-Web does not
+        // flip logical marginEnd without I18nManager.forceRTL, which is skipped on web.
         alignItems: 'center',
         justifyContent: 'center',
     },

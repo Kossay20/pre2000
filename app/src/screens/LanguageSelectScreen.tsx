@@ -18,11 +18,14 @@ import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
 // T7-FIX-F53 : utiliser le nom natif comme label principal pour AR/TN aussi
 // (idem FR/EN). Un user arabophone reconnaît "العربية" en premier coup d'œil
 // alors que "Arabic" était caché en subtitle.
+// P3-FIX : le sous-titre (descKey) est désormais localisé via t() au lieu d'une
+// chaîne figée. Avant, la carte TN affichait toujours "Arabe + Darija" (FR) et
+// la carte AR "Arabic" (EN) quelle que soit la langue active de l'UI.
 const LANGUAGES = [
-    { code: 'fr', name: 'Français', flag: '🇫🇷', nativeName: 'Français' },
-    { code: 'ar', name: 'العربية', flag: '🇩🇿', nativeName: 'Arabic' },
-    { code: 'tn', name: 'العربية + الدارجة (Beta)', flag: '🇹🇳', nativeName: 'Arabe + Darija' },
-    { code: 'en', name: 'English', flag: '🇬🇧', nativeName: 'English' },
+    { code: 'fr', name: 'Français', flag: '🇫🇷', descKey: 'common.langDescFr' },
+    { code: 'ar', name: 'العربية', flag: '🇩🇿', descKey: 'common.langDescAr' },
+    { code: 'tn', name: 'العربية + الدارجة (Beta)', flag: '🇹🇳', descKey: 'common.langDescTn' },
+    { code: 'en', name: 'English', flag: '🇬🇧', descKey: 'common.langDescEn' },
 ];
 
 export const LanguageSelectScreen = () => {
@@ -120,7 +123,7 @@ export const LanguageSelectScreen = () => {
                                     styles.languageNative,
                                     selectedLanguage === language.code && styles.languageNativeSelected,
                                 ]}>
-                                    {language.nativeName}
+                                    {t(language.descKey)}
                                 </Text>
                             </View>
                         </View>

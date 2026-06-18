@@ -10,6 +10,8 @@ import { getLocalizedContent } from '../utils/i18nHelpers';
 import { theme } from '../theme';
 import { Card } from '../components/common/Card';
 import { SectionHeader } from '../components/common/SectionHeader';
+import { EmptyState } from '../components/common/EmptyState';
+import { Button } from '../components/common/Button';
 import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
@@ -96,6 +98,27 @@ export const WeekRecommendationsScreen = () => {
         }
     };
 
+    // P2: richer empty-state — illustration + gentle "check back" copy + a CTA that
+    // sends the user to the Resources tab so they're never stranded on a blank screen.
+    if (articles.length === 0 && supplements.length === 0) {
+        return (
+            <View style={styles.container}>
+                <EmptyState
+                    icon="🌱"
+                    title={t('common.noRecommendation')}
+                    subtitle={t('common.noRecommendationSubtitle')}
+                    action={
+                        <Button
+                            title={t('common.exploreResources')}
+                            variant="primary"
+                            onPress={() => navigation.navigate('Ressources')}
+                        />
+                    }
+                />
+            </View>
+        );
+    }
+
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
             {articles.length > 0 && (
@@ -145,12 +168,6 @@ export const WeekRecommendationsScreen = () => {
                             </Card>
                         </TouchableOpacity>
                     ))}
-                </View>
-            )}
-
-            {articles.length === 0 && supplements.length === 0 && (
-                <View style={styles.centerContainer}>
-                    <Text style={theme.typography.body}>{t('common.noRecommendation')}</Text>
                 </View>
             )}
         </ScrollView>

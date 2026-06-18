@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { doc, getDoc } from 'firebase/firestore';
+import { getLocalSupplement } from '../services/localContentFallback';
 import { db } from '../config/firebase';
 import { Supplement } from '../types';
 import { theme } from '../theme';
@@ -43,11 +44,19 @@ export const SupplementDetailScreen = () => {
                 if (docSnap.exists()) {
                     setSupplement(docSnap.data() as Supplement);
                 } else {
-                    setError(t('common.supplementNotFound'));
+                    // CLUSTER-2: not in Firestore — try the bundled supplement before erroring.
+                    const local = getLocalSupplement(supplementId);
+                    if (local) setSupplement(local);
+                    else setError(t('common.supplementNotFound'));
                 }
             } catch (err) {
                 log.error('Error fetching supplement details:', err);
-                if (isMounted) setError(t('common.errorLoadingData'));
+                // CLUSTER-2: Firestore failed (permission-denied for guests / offline).
+                const local = getLocalSupplement(supplementId);
+                if (isMounted) {
+                    if (local) setSupplement(local);
+                    else setError(t('common.errorLoadingData'));
+                }
             } finally {
                 if (isMounted) setLoading(false);
             }
@@ -136,7 +145,7 @@ export const SupplementDetailScreen = () => {
                 <Text style={[theme.typography.h1, styles.title] as any}>
                     {getLocalizedContent(supplement, 'name', i18n.language)}
                 </Text>
-                <Text style={theme.typography.caption}>{getLocalizedContent(supplement, 'category', i18n.language) || supplement.category}</Text>
+                <Text style={theme.typography.caption}>{t(`supplementCategories.${supplement.category}`, { defaultValue: supplement.category })}</Text>
             </View>
 
             {getLocalizedContent(supplement, 'short_description', i18n.language) !== '' && (

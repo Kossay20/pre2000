@@ -12,6 +12,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { getLocalizedContent } from '../utils/i18nHelpers';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
+import { getAllLocalSupplements } from '../services/localContentFallback';
 
 export const SupplementsListScreen = () => {
     useScreenAnalytics('SupplementsListScreen');
@@ -42,7 +43,12 @@ export const SupplementsListScreen = () => {
                 setSupplements(fetchedSupplements);
             } catch (err) {
                 log.error('Error fetching supplements:', err);
-                if (isMounted) setError(true);
+                // CLUSTER-2: fall back to bundled supplements (guest/offline) instead of "Oups".
+                const local = getAllLocalSupplements();
+                if (isMounted) {
+                    if (local.length > 0) { setSupplements(local); setError(false); }
+                    else setError(true);
+                }
             } finally {
                 if (isMounted) setLoading(false);
             }
@@ -92,7 +98,7 @@ export const SupplementsListScreen = () => {
                         </View>
                         <View style={styles.categoryRow}>
                             <Text style={styles.categoryEmoji}>💊</Text>
-                            <Text style={theme.typography.caption}>{item.category}</Text>
+                            <Text style={theme.typography.caption}>{t(`supplementCategories.${item.category}`, { defaultValue: item.category })}</Text>
                         </View>
                         <Text numberOfLines={2} style={[theme.typography.body, styles.description]}>
                             {getLocalizedContent(item, 'short_description', i18n.language)}

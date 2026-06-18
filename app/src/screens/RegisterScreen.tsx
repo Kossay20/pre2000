@@ -159,7 +159,7 @@ export const RegisterScreen = () => {
                             <TextInput
                                 ref={passwordRef}
                                 style={[styles.passwordInput, isRTL && styles.inputRTL]}
-                                placeholder={t('passwordMin')}
+                                placeholder={t('passwordPlaceholder')}
                                 value={password}
                                 onChangeText={(text) => { setPassword(text); setError(''); }}
                                 onFocus={() => setPasswordFocused(true)}
@@ -182,6 +182,12 @@ export const RegisterScreen = () => {
                                 <Text style={styles.eyeIcon}>{showPassword ? '🙈' : '👁'}</Text>
                             </TouchableOpacity>
                         </View>
+
+                        {/* AUTH-03: full rule surfaced as a static helper line — placeholder is now
+                            a short prompt so it can't be clipped by the narrow field. */}
+                        <Text style={[styles.passwordHint, isRTL && styles.rtlText]}>
+                            {t('passwordMin')}
+                        </Text>
 
                         {/* Password Strength Bar */}
                         {(passwordFocused || password.length > 0) && (
@@ -344,6 +350,11 @@ const styles = StyleSheet.create({
         flex: 1,
         padding: theme.spacing.m,
         fontSize: 16,
+    },
+    passwordHint: {
+        marginTop: 4,
+        fontSize: 12,
+        color: theme.colors.textSecondary,
     },
     eyeButton: {
         paddingHorizontal: 14,
