@@ -11,6 +11,7 @@ import {
     onAuthStateChanged,
     EmailAuthProvider,
     reauthenticateWithCredential,
+    linkWithCredential,
     User as FirebaseUser
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, deleteDoc } from 'firebase/firestore';
@@ -87,6 +88,10 @@ interface AuthContextType {
     firebaseUser: FirebaseUser | null;
     loading: boolean;
     register: (email: string, password: string) => Promise<FirebaseUser>;
+    // NAV-01: upgrade an in-app guest to a permanent account WITHOUT re-onboarding.
+    // Links the anonymous Firebase user in place (preserves uid + data) when one exists;
+    // otherwise creates a fresh account and migrates local guest data.
+    upgradeGuest: (email: string, password: string) => Promise<FirebaseUser>;
     login: (email: string, password: string) => Promise<void>;
     loginAsGuest: (
         firstName: string,
@@ -222,6 +227,50 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             log.error('[AuthContext] ❌ Registration error:', error);
             throw error;
         }
+    };
+
+    // NAV-01: promote a guest to a permanent account in place. If the current
+    // Firebase user is anonymous (Anonymous Auth enabled, owner gate G1), link the
+    // email/password credential so the uid + all data are preserved with no
+    // re-onboarding. Otherwise (local-only guest / Anonymous Auth off) fall back to
+    // creating a fresh account. In both cases local guest data is migrated and the
+    // profile is flipped to authenticated (the existing profile-sync effect persists it).
+    const upgradeGuest = async (email: string, password: string): Promise<FirebaseUser> => {
+        log.debug('[AuthContext] ⬆️ Upgrading guest to account:', email);
+        const current = auth.currentUser;
+        let upgraded: FirebaseUser;
+        try {
+            if (current && current.isAnonymous) {
+                const credential = EmailAuthProvider.credential(email, password);
+                const result = await linkWithCredential(current, credential);
+                upgraded = result.user;
+                log.debug('[AuthContext] ✅ Anonymous guest linked in place, uid:', upgraded.uid);
+            } else {
+                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                upgraded = userCredential.user;
+                log.debug('[AuthContext] ✅ New account created for guest upgrade, uid:', upgraded.uid);
+            }
+        } catch (error) {
+            log.error('[AuthContext] ❌ Guest upgrade error:', error);
+            throw error;
+        }
+        setFirebaseUser(upgraded);
+        logger.setUser(upgraded.uid);
+        try {
+            await migrateAllGuestDataToAuth(upgraded.uid);
+            log.info('[AuthContext] ✅ Guest data migrated after upgrade');
+        } catch (migrationError) {
+            log.warn('[AuthContext] ⚠️ Guest data migration failed (non-blocking):', migrationError);
+        }
+        // Flip the in-memory profile to authenticated; the !isGuest+firebaseUser sync
+        // effect writes it to Firestore, and we persist locally for immediate UX.
+        setUser((prev) => {
+            if (!prev) return prev;
+            const promoted = { ...prev, isGuest: false, uid: upgraded.uid };
+            AsyncStorage.setItem('user_profile', JSON.stringify(promoted)).catch(() => {});
+            return promoted;
+        });
+        return upgraded;
     };
 
     const login = async (email: string, password: string) => {
@@ -654,6 +703,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             firebaseUser,
             loading,
             register,
+            upgradeGuest,
             login,
             loginAsGuest,
             logout,

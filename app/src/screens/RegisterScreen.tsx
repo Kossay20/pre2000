@@ -12,7 +12,8 @@ import { theme } from '../theme';
 import { Button } from '../components/common/Button';
 import { RtlAwareChevron } from '../components/common/RtlAwareChevron';
 import { ErrorMessage } from '../components/common/ErrorMessage';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import { useToast } from '../context/ToastContext';
 import { validateEmail, validatePassword, validatePasswordMatch } from '../utils/validation';
 import { getFirebaseErrorMessage } from '../utils/firebaseErrors';
 import { AuthScreenNavigationProp } from '../types/navigation';
@@ -24,8 +25,13 @@ import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
 export const RegisterScreen = () => {
     useScreenAnalytics('RegisterScreen');
     const { t, i18n } = useTranslation();
-    const { register } = useAuth();
+    const { register, upgradeGuest } = useAuth();
     const navigation = useNavigation<AuthScreenNavigationProp>();
+    const route = useRoute<any>();
+    // NAV-01: when reached as the in-app guest-upgrade route, link the account in place
+    // and return the user to where they were (no AuthStack, no re-onboarding).
+    const upgradeMode = route.params?.upgradeMode === true;
+    const { showToast } = useToast();
     const { loading, withLoading } = useAuthLoading();
     // AUDIT-FIX (page-by-page validation 2026-06-02): language-derived RTL — I18nManager.isRTL is
     // false on web (forceRTL skipped to avoid reload loop), breaking absolute-positioned mirroring.
@@ -92,8 +98,16 @@ export const RegisterScreen = () => {
 
         await withLoading(async () => {
             try {
-                await retryOperation(() => register(email.trim(), password));
-                navigation.navigate('Onboarding');
+                if (upgradeMode) {
+                    // Link the guest in place — no re-onboarding; return to the prior screen.
+                    await retryOperation(() => upgradeGuest(email.trim(), password));
+                    showToast(t('common.accountCreated', { defaultValue: 'Compte créé ✅' }), 'success');
+                    if (navigation.canGoBack()) navigation.goBack();
+                    else navigation.navigate('HomeMain' as any);
+                } else {
+                    await retryOperation(() => register(email.trim(), password));
+                    navigation.navigate('Onboarding');
+                }
             } catch (error: any) {
                 log.error('[RegisterScreen] Registration error:', error);
                 const errorMessage = error.code
@@ -118,7 +132,9 @@ export const RegisterScreen = () => {
                     {/* Back arrow — explicit side per isRTL (RN-Web doesn't clear `left:undefined`). */}
                     <TouchableOpacity
                         style={[styles.backButton, { [isRTL ? 'right' : 'left']: theme.spacing.l }]}
-                        onPress={() => navigation.navigate('AuthChoice' as any)}
+                        onPress={() => upgradeMode
+                            ? (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('HomeMain' as any))
+                            : navigation.navigate('AuthChoice' as any)}
                         accessibilityRole="button"
                         hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                     >
@@ -269,16 +285,19 @@ export const RegisterScreen = () => {
                             <View style={styles.separatorLine} />
                         </View>
 
-                        {/* Cross-nav: Already have account → Login */}
-                        <TouchableOpacity
-                            style={styles.crossNavButton}
-                            onPress={() => navigation.navigate('Login' as any)}
-                            accessibilityRole="button"
-                        >
-                            <Text style={[styles.crossNavText, isRTL && styles.rtlText]}>
-                                {t('alreadyHaveAccount', { defaultValue: 'Already have an account? Sign in' })}
-                            </Text>
-                        </TouchableOpacity>
+                        {/* Cross-nav: Already have account → Login (hidden in guest-upgrade mode:
+                            the AuthStack Login route is unreachable from inside MainTabs). */}
+                        {!upgradeMode && (
+                            <TouchableOpacity
+                                style={styles.crossNavButton}
+                                onPress={() => navigation.navigate('Login' as any)}
+                                accessibilityRole="button"
+                            >
+                                <Text style={[styles.crossNavText, isRTL && styles.rtlText]}>
+                                    {t('alreadyHaveAccount', { defaultValue: 'Already have an account? Sign in' })}
+                                </Text>
+                            </TouchableOpacity>
+                        )}
                     </View>
                 </ScrollView>
             </Pressable>

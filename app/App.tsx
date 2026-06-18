@@ -104,6 +104,11 @@ const HomeStack = () => {
       <Stack.Screen name="SupplementDetail" component={SupplementDetailScreen} options={{ title: t('common.screen.supplement') }} />
       <Stack.Screen name="Profile" component={ProfileScreen} options={{ title: t('common.screen.myProfile') }} />
       <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: t('common.screen.settings') }} />
+      {/* NAV-01: guest-upgrade entry reachable from INSIDE MainTabs (the AuthStack
+          Register lives in a stack that is unmounted for a logged-in guest, so the old
+          navigate('AuthChoice') silently no-op'd). RegisterScreen in upgradeMode links the
+          anonymous account in place — no re-onboarding. */}
+      <Stack.Screen name="GuestUpgrade" component={RegisterScreen} initialParams={{ upgradeMode: true }} options={{ headerShown: true, title: t('common.createAccount', 'Créer un compte') }} />
       {/* NAV-FIX: PrivacyPolicy is already registered in AuthStack — no duplicate here */}
       <Stack.Screen name="HealthDashboard" component={HealthDashboardScreen} options={{ title: t('common.screen.myHealth') }} />
       <Stack.Screen name="WeightTracker" component={WeightTrackerScreen} options={{ title: t('common.screen.weightTracking') }} />
@@ -294,6 +299,7 @@ const AppContent = () => {
             WeightTracker: 'weight',
             Profile: 'profile',
             Settings: 'settings',
+            GuestUpgrade: 'create-account',
             ForbiddenFoods: 'forbidden-foods',
             KickCounter: 'kick-counter',
             ContractionTimer: 'contraction-timer',

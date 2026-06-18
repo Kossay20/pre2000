@@ -377,7 +377,7 @@ export const CalendarScreen = () => {
             confirmAction(
                 t('calendar.guestModeTitle'),
                 t('calendar.guestModeMessage'),
-                () => navigation.getParent()?.navigate('AuthChoice'),
+                () => navigation.getParent()?.navigate('Home', { screen: 'GuestUpgrade' }),
                 undefined,
                 t('common.cancel'),
                 t('common.createAccount')

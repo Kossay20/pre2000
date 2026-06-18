@@ -339,7 +339,7 @@ export const AddAppointmentScreen = () => {
                     `${t('addAppointment.guestAlertTitle')}\n\n${t('addAppointment.guestAlertMsg')}`
                 );
                 if (goToAuth) {
-                    navigation.navigate('AuthChoice');
+                    navigation.getParent()?.navigate('Home', { screen: 'GuestUpgrade' });
                 }
                 return;
             }
@@ -349,7 +349,7 @@ export const AddAppointmentScreen = () => {
             confirmAction(
                 t('addAppointment.guestAlertTitle'),
                 t('addAppointment.guestAlertMsg'),
-                () => navigation.navigate('AuthChoice'),
+                () => navigation.getParent()?.navigate('Home', { screen: 'GuestUpgrade' }),
                 undefined,
                 t('addAppointment.cancel'),
                 t('addAppointment.guestAlertCreate')
