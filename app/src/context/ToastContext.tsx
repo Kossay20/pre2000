@@ -1,6 +1,9 @@
 import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, Animated, TouchableOpacity, Platform } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { theme } from '../theme';
+import { isRtlLang } from '../hooks/useRtl';
+import { usePrefersReducedMotion, getReducedMotionSync } from '../hooks/usePrefersReducedMotion';
 
 type ToastType = 'success' | 'error' | 'info';
 
@@ -22,6 +25,10 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const [visible, setVisible] = useState(false);
     const [message, setMessage] = useState('');
     const [type, setType] = useState<ToastType>('success');
+    const { i18n } = useTranslation();
+    const isRTL = isRtlLang(i18n.language);
+    // Primes the reduced-motion cache + re-renders on OS setting change (DS-3).
+    usePrefersReducedMotion();
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const translateY = useRef(new Animated.Value(20)).current;
     const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -40,20 +47,26 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setType(t);
         setVisible(true);
 
-        // Animate In
-        Animated.parallel([
-            Animated.timing(fadeAnim, {
-                toValue: 1,
-                duration: 300,
-                useNativeDriver: true,
-            }),
-            Animated.spring(translateY, {
-                toValue: 0,
-                tension: 40,
-                friction: 8,
-                useNativeDriver: true,
-            }),
-        ]).start();
+        // Animate In — skipped when the OS prefers reduced motion (DS-3): snap to
+        // the final values so the toast still appears (and the SR live region fires).
+        if (getReducedMotionSync()) {
+            fadeAnim.setValue(1);
+            translateY.setValue(0);
+        } else {
+            Animated.parallel([
+                Animated.timing(fadeAnim, {
+                    toValue: 1,
+                    duration: 300,
+                    useNativeDriver: true,
+                }),
+                Animated.spring(translateY, {
+                    toValue: 0,
+                    tension: 40,
+                    friction: 8,
+                    useNativeDriver: true,
+                }),
+            ]).start();
+        }
 
         // Auto hide
         timerRef.current = setTimeout(() => {
@@ -62,6 +75,12 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }, []);
 
     const hideToast = () => {
+        if (getReducedMotionSync()) {
+            fadeAnim.setValue(0);
+            translateY.setValue(20);
+            setVisible(false);
+            return;
+        }
         Animated.parallel([
             Animated.timing(fadeAnim, {
                 toValue: 0,
@@ -101,6 +120,10 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             {children}
             {visible && (
                 <Animated.View
+                    // D7-01 / DS-2: announce async confirmations to screen readers.
+                    accessibilityLiveRegion="polite"
+                    accessibilityRole="alert"
+                    {...(Platform.OS === 'web' ? { role: 'status', 'aria-live': 'polite' } : {})}
                     style={[
                         styles.toastContainer,
                         {
@@ -110,9 +133,16 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                         },
                     ]}
                 >
-                    <TouchableOpacity onPress={hideToast} activeOpacity={0.9} style={styles.content}>
+                    <TouchableOpacity
+                        onPress={hideToast}
+                        activeOpacity={0.9}
+                        // flexDirection 'row' mirrors automatically under dir=rtl (web) /
+                        // I18nManager (native) — do NOT row-reverse (would double-reverse on web).
+                        style={styles.content}
+                        accessibilityRole="button"
+                    >
                         <Text style={styles.icon}>{getIcon()}</Text>
-                        <Text style={styles.message}>{message}</Text>
+                        <Text style={[styles.message, { textAlign: isRTL ? 'right' : 'left' }]}>{message}</Text>
                     </TouchableOpacity>
                 </Animated.View>
             )}
