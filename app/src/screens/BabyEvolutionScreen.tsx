@@ -16,6 +16,7 @@ import {
     TouchableOpacity,
     Animated,
     ActivityIndicator,
+    Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
@@ -53,13 +54,17 @@ export const BabyEvolutionScreen = () => {
     // Sync active month and scroll when current month changes — with cleanup
     React.useEffect(() => {
         setActiveMonth(currentMonth);
+        // R-BABYEVO-RTL-FIX2 (2026-06-18): force the horizontal scroller to LTR geometry on web
+        // by setting the DOM `dir` attribute directly (via the ScrollView's scrollable node) —
+        // NOT a `direction` style (RN-Web rejects that key: "Invalid style property of direction").
+        // dir=ltr makes scrollLeft positive/standard so scrollTo lands correctly; without it the
+        // row-reverse + document dir=rtl double-reversal gave Chromium a negative scrollLeft that
+        // clamped scrollTo to 0 and stranded ar/tn on Month 9. Cards keep natural order (Month 1→9).
+        if (Platform.OS === 'web' && isRTL) {
+            const node = scrollViewRef.current?.getScrollableNode?.();
+            if (node && typeof node.setAttribute === 'function') node.setAttribute('dir', 'ltr');
+        }
         const timer = setTimeout(() => {
-            // R-BABYEVO-RTL-FIX (E2E audit 2026-06-17): the carousel scroller is forced to
-            // `direction: 'ltr'` on web (see ScrollView style) so cards always lay out Month 1→9
-            // left-to-right with a STANDARD positive scrollLeft, in BOTH locales. (The previous
-            // `row-reverse` + document dir=rtl double-reversal gave Chromium a negative scrollLeft
-            // that clamped scrollTo to 0 and stranded ar/tn on Month 9.) Card text stays RTL via
-            // cardWrapperRtl. With LTR scroll, the offset is the same standard formula everywhere.
             scrollViewRef.current?.scrollTo({
                 x: (currentMonth - 1) * (CARD_WIDTH + 16),
                 animated: true,
@@ -83,7 +88,7 @@ export const BabyEvolutionScreen = () => {
         const isCurrentMonth = monthData.month === currentMonth;
 
         return (
-            <View key={monthData.month} style={[styles.cardWrapper, isRTL && styles.cardWrapperRtl]}>
+            <View key={monthData.month} style={styles.cardWrapper}>
                 <LinearGradient
                     colors={isCurrentMonth ? [theme.colors.surfaceBlush, theme.colors.lavenderBlush] : [theme.colors.surface, theme.colors.white]}
                     start={{ x: 0, y: 0 }}
@@ -192,9 +197,6 @@ export const BabyEvolutionScreen = () => {
                 horizontal
                 pagingEnabled
                 showsHorizontalScrollIndicator={false}
-                // Force LTR scroll geometry so scrollLeft is standard-positive even when the
-                // document is dir=rtl (ar/tn). Cards stay Month 1→9; their text is RTL via cardWrapperRtl.
-                style={isRTL ? styles.carouselLtr : undefined}
                 contentContainerStyle={styles.scrollContent}
                 onScroll={handleScroll}
                 scrollEventThrottle={16}
@@ -280,14 +282,6 @@ const styles = StyleSheet.create({
     cardWrapper: {
         width: CARD_WIDTH,
         marginEnd: 16,
-    },
-    // Carousel scroller forced to LTR so scrollLeft is positive/standard under dir=rtl.
-    carouselLtr: {
-        direction: 'ltr',
-    },
-    // Reset each card's content back to RTL (text alignment) while the scroller stays LTR.
-    cardWrapperRtl: {
-        direction: 'rtl',
     },
     card: {
         borderRadius: 24,
