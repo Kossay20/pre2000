@@ -444,6 +444,7 @@
     "statusPill": "Status: {{status}}"
   },
   "relatedSupplements": "Related Supplements",
+  "relatedArticles": "Related articles",
   "searchFoodPlaceholder": "Search for food...",
   "searchArticlePlaceholder": "Search for an article...",
   "recommendedArticles": "Recommended Articles",

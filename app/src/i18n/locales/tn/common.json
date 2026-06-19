@@ -452,6 +452,7 @@
     "statusPill": "الحالة: {{status}}"
   },
   "relatedSupplements": "المكملات ذات الصلة",
+  "relatedArticles": "مقالات ذات صلة",
   "searchFoodPlaceholder": "البحث عن طعام (ماكلة)...",
   "searchArticlePlaceholder": "البحث عن مقال...",
   "recommendedArticles": "مقالات موصى بها",

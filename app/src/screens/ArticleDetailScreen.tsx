@@ -8,6 +8,12 @@ import Markdown from 'react-native-markdown-display';
 import { db } from '../config/firebase';
 import { Article, Supplement, ArticleAntigravity } from '../types';
 import { getAntigravityArticle } from '../services/contentService'; // ANTIGRAVITY
+import {
+    getLocalArticle,
+    getLocalSupplement,
+    getAllLocalArticles,
+    getAllLocalSupplements,
+} from '../services/localContentFallback';
 import { theme } from '../theme';
 import { Tag } from '../components/common/Tag';
 import { SectionHeader } from '../components/common/SectionHeader';
@@ -18,6 +24,41 @@ import { trackPositiveAction } from '../services/inAppReviewService';
 import { getLocalizedContent } from '../utils/i18nHelpers';
 import { isSafeUrl } from '../utils/safeOpenUrl';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
+
+/**
+ * task 10a content cross-linking — related-id helpers.
+ *
+ * The bundled content stores related ids as a COMMA-SEPARATED string (e.g.
+ * "a01,a02"), even though some app types declare the field as `string[]`. These
+ * helpers normalise either shape and resolve short ids (e.g. "a01") against the
+ * full bundled id (e.g. "a01_symptômes_de_grossesse") via a prefix match.
+ */
+const parseRelatedIds = (value: unknown): string[] => {
+    if (Array.isArray(value)) {
+        return value.map(v => String(v).trim()).filter(Boolean);
+    }
+    if (typeof value === 'string') {
+        return value.split(',').map(s => s.trim()).filter(Boolean);
+    }
+    return [];
+};
+
+const resolveRelatedArticle = (id: string): Article | undefined => {
+    const exact = getLocalArticle(id);
+    if (exact) return exact;
+    // Short id (e.g. "a01") → full bundled id (e.g. "a01_symptômes_de_grossesse").
+    return getAllLocalArticles().find(
+        a => a.article_id === id || a.article_id.startsWith(`${id}_`),
+    );
+};
+
+const resolveRelatedSupplement = (id: string): Supplement | undefined => {
+    const exact = getLocalSupplement(id);
+    if (exact) return exact;
+    return getAllLocalSupplements().find(
+        s => s.supplement_id === id || s.supplement_id.startsWith(`${id}_`),
+    );
+};
 
 export const ArticleDetailScreen = () => {
     useScreenAnalytics('ArticleDetailScreen');
@@ -206,6 +247,19 @@ export const ArticleDetailScreen = () => {
     // Attempt to localize category if it matches a key
     const categoryLabel = t(`categories.${category.toLowerCase()}`, { defaultValue: category });
 
+    // task 10a — cross-linking. The related-id fields live on the bundled `Article`
+    // shape but NOT on `ArticleAntigravity`; read them defensively (sections
+    // simply don't render when the fields are absent or empty).
+    const articleRelations = article as Partial<Article>;
+    const linkedArticles = parseRelatedIds(articleRelations.related_articles_ids)
+        .map(resolveRelatedArticle)
+        .filter((a): a is Article => Boolean(a))
+        // Never link the article to itself.
+        .filter(a => a.article_id !== (article as Article).article_id);
+    const linkedSupplements = parseRelatedIds(articleRelations.related_supplements_ids)
+        .map(resolveRelatedSupplement)
+        .filter((s): s is Supplement => Boolean(s));
+
     // Helper to slugify header text (must match backend logic)
     const slugify = (text: string) => {
         return text.toString().toLowerCase()
@@ -356,6 +410,66 @@ export const ArticleDetailScreen = () => {
                     ))}
                 </View>
             )}
+
+            {/* task 10a — related ARTICLES (from article.related_articles_ids) */}
+            {linkedArticles.length > 0 && (
+                <View style={styles.section}>
+                    <SectionHeader title={t('common.relatedArticles')} />
+                    <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={styles.chipRow}
+                    >
+                        {linkedArticles.map(linked => {
+                            const label = getLocalizedContent(linked, 'title', i18n.language);
+                            return (
+                                <TouchableOpacity
+                                    key={linked.article_id}
+                                    onPress={() => (navigation as any).push('ArticleDetail', { articleId: linked.article_id })}
+                                    activeOpacity={0.7}
+                                    style={[styles.chip, isRTL && styles.chipRTL]}
+                                    accessibilityRole="button"
+                                    accessibilityLabel={label}
+                                    accessibilityHint={t('a11y.readArticle')}
+                                >
+                                    <Ionicons name="document-text-outline" size={16} color={theme.colors.accent} />
+                                    <Text style={[styles.chipText, isRTL && styles.chipTextRTL]} numberOfLines={2}>{label}</Text>
+                                </TouchableOpacity>
+                            );
+                        })}
+                    </ScrollView>
+                </View>
+            )}
+
+            {/* task 10a — related SUPPLEMENTS (from article.related_supplements_ids) */}
+            {linkedSupplements.length > 0 && (
+                <View style={styles.section}>
+                    <SectionHeader title={t('common.relatedSupplements')} />
+                    <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={styles.chipRow}
+                    >
+                        {linkedSupplements.map(linked => {
+                            const label = getLocalizedContent(linked, 'name', i18n.language);
+                            return (
+                                <TouchableOpacity
+                                    key={linked.supplement_id}
+                                    onPress={() => navigation.navigate('SupplementDetail', { supplementId: linked.supplement_id })}
+                                    activeOpacity={0.7}
+                                    style={[styles.chip, isRTL && styles.chipRTL]}
+                                    accessibilityRole="button"
+                                    accessibilityLabel={label}
+                                    accessibilityHint={t('a11y.openSupplement')}
+                                >
+                                    <Ionicons name="medkit-outline" size={16} color={theme.colors.accent} />
+                                    <Text style={[styles.chipText, isRTL && styles.chipTextRTL]} numberOfLines={2}>{label}</Text>
+                                </TouchableOpacity>
+                            );
+                        })}
+                    </ScrollView>
+                </View>
+            )}
         </ScrollView>
     );
 };
@@ -405,6 +519,34 @@ const styles = StyleSheet.create({
     },
     supplementCard: {
         marginBottom: theme.spacing.s,
+    },
+    chipRow: {
+        flexDirection: 'row',
+        paddingVertical: theme.spacing.xs,
+        gap: theme.spacing.s,
+    },
+    chip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        maxWidth: 220,
+        paddingHorizontal: theme.spacing.m,
+        paddingVertical: theme.spacing.s,
+        borderRadius: theme.borderRadius.round,
+        backgroundColor: theme.colors.cardBackground,
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+    },
+    chipRTL: {
+        flexDirection: 'row-reverse',
+    },
+    chipText: {
+        ...theme.typography.label,
+        color: theme.colors.accent,
+        marginStart: theme.spacing.xs,
+        flexShrink: 1,
+    },
+    chipTextRTL: {
+        textAlign: 'right',
     },
     fallbackContainer: {
         padding: theme.spacing.l,

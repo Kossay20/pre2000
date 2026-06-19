@@ -4,16 +4,42 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { doc, getDoc } from 'firebase/firestore';
-import { getLocalSupplement } from '../services/localContentFallback';
+import { getLocalSupplement, getLocalArticle, getAllLocalArticles } from '../services/localContentFallback';
 import { db } from '../config/firebase';
-import { Supplement } from '../types';
+import { Supplement, Article } from '../types';
 import { theme } from '../theme';
 import { Tag } from '../components/common/Tag';
 import { Card } from '../components/common/Card';
+import { SectionHeader } from '../components/common/SectionHeader';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { getLocalizedContent } from '../utils/i18nHelpers';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
+
+/**
+ * task 10a content cross-linking — resolve a supplement's `related_article_ids`.
+ *
+ * The field is a COMMA-SEPARATED string (e.g. "a01,a02") with SHORT ids, while
+ * bundled articles use full ids (e.g. "a01_symptômes_de_grossesse"). Normalise
+ * either shape and resolve via exact-then-prefix match.
+ */
+const parseRelatedIds = (value: unknown): string[] => {
+    if (Array.isArray(value)) {
+        return value.map(v => String(v).trim()).filter(Boolean);
+    }
+    if (typeof value === 'string') {
+        return value.split(',').map(s => s.trim()).filter(Boolean);
+    }
+    return [];
+};
+
+const resolveRelatedArticle = (id: string): Article | undefined => {
+    const exact = getLocalArticle(id);
+    if (exact) return exact;
+    return getAllLocalArticles().find(
+        a => a.article_id === id || a.article_id.startsWith(`${id}_`),
+    );
+};
 
 export const SupplementDetailScreen = () => {
     useScreenAnalytics('SupplementDetailScreen');
@@ -123,6 +149,12 @@ export const SupplementDetailScreen = () => {
         }
     };
 
+    // task 10a — cross-linking. Resolve related articles (skip related_symptoms_ids:
+    // there is no symptom screen). Section renders only when ≥1 id resolves.
+    const linkedArticles = parseRelatedIds(supplement.related_article_ids)
+        .map(resolveRelatedArticle)
+        .filter((a): a is Article => Boolean(a));
+
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
             {/* Back button + RTL aware */}
@@ -183,6 +215,36 @@ export const SupplementDetailScreen = () => {
                 </Card>
             )}
 
+            {/* task 10a — related ARTICLES (from supplement.related_article_ids) */}
+            {linkedArticles.length > 0 && (
+                <View style={styles.section}>
+                    <SectionHeader title={t('common.relatedArticles')} />
+                    <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={styles.chipRow}
+                    >
+                        {linkedArticles.map(linked => {
+                            const label = getLocalizedContent(linked, 'title', i18n.language);
+                            return (
+                                <TouchableOpacity
+                                    key={linked.article_id}
+                                    onPress={() => navigation.navigate('ArticleDetail', { articleId: linked.article_id })}
+                                    activeOpacity={0.7}
+                                    style={[styles.chip, isRTL && styles.chipRTL]}
+                                    accessibilityRole="button"
+                                    accessibilityLabel={label}
+                                    accessibilityHint={t('a11y.readArticle')}
+                                >
+                                    <Ionicons name="document-text-outline" size={16} color={theme.colors.accent} />
+                                    <Text style={[styles.chipText, isRTL && styles.chipTextRTL]} numberOfLines={2}>{label}</Text>
+                                </TouchableOpacity>
+                            );
+                        })}
+                    </ScrollView>
+                </View>
+            )}
+
             {supplement.sources && (
                 <Text style={[theme.typography.caption, styles.source]}>{`${t('common.source')} : ${supplement.sources}`}</Text>
             )}
@@ -220,6 +282,38 @@ const styles = StyleSheet.create({
     },
     sectionTitle: {
         marginBottom: theme.spacing.s,
+    },
+    section: {
+        marginTop: theme.spacing.s,
+        marginBottom: theme.spacing.m,
+    },
+    chipRow: {
+        flexDirection: 'row',
+        paddingVertical: theme.spacing.xs,
+        gap: theme.spacing.s,
+    },
+    chip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        maxWidth: 220,
+        paddingHorizontal: theme.spacing.m,
+        paddingVertical: theme.spacing.s,
+        borderRadius: theme.borderRadius.round,
+        backgroundColor: theme.colors.cardBackground,
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+    },
+    chipRTL: {
+        flexDirection: 'row-reverse',
+    },
+    chipText: {
+        ...theme.typography.label,
+        color: theme.colors.accent,
+        marginStart: theme.spacing.xs,
+        flexShrink: 1,
+    },
+    chipTextRTL: {
+        textAlign: 'right',
     },
     source: {
         textAlign: 'center',
