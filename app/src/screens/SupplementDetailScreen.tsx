@@ -15,6 +15,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { getLocalizedContent } from '../utils/i18nHelpers';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
+import { isBookmarked, toggleBookmark, subscribeBookmarks } from '../services/bookmarkService';
 
 /**
  * task 10a content cross-linking — resolve a supplement's `related_article_ids`.
@@ -56,6 +57,9 @@ export const SupplementDetailScreen = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [refreshKey, setRefreshKey] = useState(0);
+    // task 10b — bookmark/save state. Keyed off the route's supplementId so the
+    // icon reflects saved-state immediately (no need to wait for the fetch).
+    const [saved, setSaved] = useState(false);
 
     useEffect(() => {
         if (!supplementId) return;
@@ -90,6 +94,30 @@ export const SupplementDetailScreen = () => {
         fetchSupplement();
         return () => { isMounted = false; };
     }, [supplementId, refreshKey]);
+
+    // task 10b — reflect bookmark state on mount + stay live across toggles
+    // (fired from this screen or anywhere else, e.g. the Favoris list chip).
+    useEffect(() => {
+        if (!supplementId) return;
+        let active = true;
+        const sync = () => {
+            isBookmarked('supplement', supplementId).then(v => {
+                if (active) setSaved(v);
+            });
+        };
+        sync();
+        const unsubscribe = subscribeBookmarks(sync);
+        return () => {
+            active = false;
+            unsubscribe();
+        };
+    }, [supplementId]);
+
+    const handleToggleBookmark = React.useCallback(() => {
+        if (!supplementId) return;
+        // Optimistic flip; subscribeBookmarks will reconcile with the persisted value.
+        toggleBookmark('supplement', supplementId).then(setSaved);
+    }, [supplementId]);
 
     // ── EARLY RETURNS (after hooks) ──
     if (!supplementId) {
@@ -157,20 +185,37 @@ export const SupplementDetailScreen = () => {
 
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-            {/* Back button + RTL aware */}
-            <TouchableOpacity
-                onPress={() => navigation.goBack()}
-                style={styles.backButton}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                accessibilityRole="button"
-                accessibilityLabel={t('a11y.back')}
-            >
-                <Ionicons
-                    name={isRTL ? 'arrow-forward' : 'arrow-back'}
-                    size={24}
-                    color={theme.colors.text}
-                />
-            </TouchableOpacity>
+            {/* Back button + bookmark toggle. RTL-safe: row-reverse flips the
+                bookmark to the opposite side of the back arrow (task 10b). */}
+            <View style={[styles.headerBar, isRTL && styles.headerBarRTL]}>
+                <TouchableOpacity
+                    onPress={() => navigation.goBack()}
+                    style={styles.backButton}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('a11y.back')}
+                >
+                    <Ionicons
+                        name={isRTL ? 'arrow-forward' : 'arrow-back'}
+                        size={24}
+                        color={theme.colors.text}
+                    />
+                </TouchableOpacity>
+                <TouchableOpacity
+                    onPress={handleToggleBookmark}
+                    style={styles.bookmarkButton}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    accessibilityRole="button"
+                    accessibilityLabel={saved ? t('common.saved') : t('common.addToFavorites')}
+                    accessibilityState={{ selected: saved }}
+                >
+                    <Ionicons
+                        name={saved ? 'bookmark' : 'bookmark-outline'}
+                        size={24}
+                        color={saved ? theme.colors.accent : theme.colors.text}
+                    />
+                </TouchableOpacity>
+            </View>
 
             <View style={styles.header}>
                 <Tag label={getSafetyLabel(supplement.pregnancy_safety)} color={getSafetyColor(supplement.pregnancy_safety)} />
@@ -266,9 +311,20 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
     },
-    backButton: {
+    headerBar: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
         marginBottom: theme.spacing.m,
+    },
+    headerBarRTL: {
+        flexDirection: 'row-reverse',
+    },
+    backButton: {
         alignSelf: 'flex-start',
+    },
+    bookmarkButton: {
+        padding: theme.spacing.xs,
     },
     header: {
         marginBottom: theme.spacing.l,

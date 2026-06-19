@@ -78,6 +78,8 @@
     "unknown": "Inconnu"
   },
   "save": "Enregistrer",
+  "saved": "Enregistré",
+  "favorites": "Favoris",
   "cancel": "Annuler",
   "continue": "Continuer",
   "back": "Retour",
@@ -787,5 +789,6 @@
   },
   "goToTasks": "Aller aux Tâches",
   "chatbotTitle": "Assistant grossesse",
-  "chatbotSubtitle": "Conseils grossesse"
+  "chatbotSubtitle": "Conseils grossesse",
+  "addToFavorites": "Ajouter aux favoris"
 }

@@ -9,6 +9,7 @@ import { Article, ArticleAntigravity } from '../types';
 import { getLocalizedContent } from '../utils/i18nHelpers';
 import { getAntigravityArticlesByCategory } from '../services/contentService'; // ANTIGRAVITY
 import { getAllLocalArticles } from '../services/localContentFallback';
+import { getBookmarks, subscribeBookmarks } from '../services/bookmarkService';
 import { theme } from '../theme';
 import { Card } from '../components/common/Card';
 import { Tag } from '../components/common/Tag';
@@ -33,6 +34,9 @@ export const ArticlesListScreen = () => {
     const [articles, setArticles] = useState<(Article | ArticleAntigravity)[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null); // task 10c: null = "All"
+    // task 10b — "Favoris" filter chip: when active, show only bookmarked items.
+    const [favoritesActive, setFavoritesActive] = useState(false);
+    const [bookmarkedIds, setBookmarkedIds] = useState<Set<string>>(new Set());
     const [loading, setLoading] = useState(true);
     const navigation = useNavigation();
     const route = useRoute<any>();
@@ -48,6 +52,24 @@ export const ArticlesListScreen = () => {
         }
         return () => { if (timer) clearTimeout(timer); };
     }, [route.params?.openSearch]);
+
+    // task 10b — load bookmarked article ids + stay live across toggles
+    // (e.g. unsaving from the detail screen updates this list immediately).
+    useEffect(() => {
+        let active = true;
+        const sync = () => {
+            getBookmarks().then(list => {
+                if (!active) return;
+                setBookmarkedIds(new Set(list.filter(b => b.type === 'article').map(b => b.id)));
+            });
+        };
+        sync();
+        const unsubscribe = subscribeBookmarks(sync);
+        return () => {
+            active = false;
+            unsubscribe();
+        };
+    }, []);
 
     const [error, setError] = useState(false);
     const [refreshKey, setRefreshKey] = useState(0);
@@ -121,9 +143,14 @@ export const ArticlesListScreen = () => {
 
     const filteredArticles = React.useMemo(() => {
         const query = searchQuery.toLowerCase().trim();
-        if (!query && !selectedCategory) return articles;
+        if (!query && !selectedCategory && !favoritesActive) return articles;
 
         return articles.filter(article => {
+            // task 10b: Favoris chip predicate — keep only bookmarked items.
+            if (favoritesActive && !bookmarkedIds.has(article.article_id)) {
+                return false;
+            }
+
             const categoryKey = (article.category || '').toLowerCase();
 
             // task 10c: category chip predicate (combined with the search predicate below).
@@ -139,7 +166,7 @@ export const ArticlesListScreen = () => {
 
             return title.includes(query) || summary.includes(query) || categoryLabel.includes(query);
         });
-    }, [articles, searchQuery, selectedCategory, i18n.language]);
+    }, [articles, searchQuery, selectedCategory, favoritesActive, bookmarkedIds, i18n.language]);
 
     const getCategoryIcon = (category: string) => {
         return CATEGORY_ICONS[category] || '📚';
@@ -242,14 +269,27 @@ export const ArticlesListScreen = () => {
                     )}
                 </View>
 
-                {categoryChips.length > 0 && (
-                    <ScrollView
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        contentContainerStyle={styles.chipRow}
-                        style={styles.chipScroll}
+                <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.chipRow}
+                    style={styles.chipScroll}
+                >
+                    {/* task 10b — leading "Favoris" chip: filters to bookmarked items only. */}
+                    <TouchableOpacity
+                        onPress={() => setFavoritesActive(v => !v)}
+                        activeOpacity={0.7}
+                        style={[styles.chip, favoritesActive ? styles.chipActive : styles.chipInactive]}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: favoritesActive }}
+                        accessibilityLabel={t('common.favorites')}
                     >
-                        {[null, ...categoryChips].map(slug => {
+                        <Text style={[styles.chipText, favoritesActive ? styles.chipTextActive : styles.chipTextInactive]}>
+                            {`★ ${t('common.favorites')}`}
+                        </Text>
+                    </TouchableOpacity>
+                    {categoryChips.length > 0 &&
+                        [null, ...categoryChips].map(slug => {
                             const selected = selectedCategory === slug;
                             const label = slug
                                 ? t(`categories.${slug}`, { defaultValue: slug })
@@ -271,7 +311,6 @@ export const ArticlesListScreen = () => {
                             );
                         })}
                     </ScrollView>
-                )}
             </View>
 
             <FlatList<Article | ArticleAntigravity>

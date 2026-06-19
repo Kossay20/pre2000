@@ -13,6 +13,7 @@ import { useTranslation } from 'react-i18next';
 import { getLocalizedContent } from '../utils/i18nHelpers';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
 import { getAllLocalSupplements } from '../services/localContentFallback';
+import { getBookmarks, subscribeBookmarks } from '../services/bookmarkService';
 
 export const SupplementsListScreen = () => {
     useScreenAnalytics('SupplementsListScreen');
@@ -24,7 +25,28 @@ export const SupplementsListScreen = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(false);
     const [refreshKey, setRefreshKey] = useState(0);
+    // task 10b — "Favoris" filter chip: when active, show only bookmarked items.
+    const [favoritesActive, setFavoritesActive] = useState(false);
+    const [bookmarkedIds, setBookmarkedIds] = useState<Set<string>>(new Set());
     const navigation = useNavigation();
+
+    // task 10b — load bookmarked supplement ids + stay live across toggles
+    // (e.g. unsaving from the detail screen updates this list immediately).
+    useEffect(() => {
+        let active = true;
+        const sync = () => {
+            getBookmarks().then(list => {
+                if (!active) return;
+                setBookmarkedIds(new Set(list.filter(b => b.type === 'supplement').map(b => b.id)));
+            });
+        };
+        sync();
+        const unsubscribe = subscribeBookmarks(sync);
+        return () => {
+            active = false;
+            unsubscribe();
+        };
+    }, []);
 
     // ── Inside component so t() is never stale (language change safe) ──
     const SAFETY_CONFIG = {
@@ -69,9 +91,14 @@ export const SupplementsListScreen = () => {
 
     const filteredSupplements = React.useMemo(() => {
         const query = searchQuery.toLowerCase().trim();
-        if (!query && !selectedSafety) return supplements;
+        if (!query && !selectedSafety && !favoritesActive) return supplements;
 
         return supplements.filter(supplement => {
+            // task 10b: Favoris chip predicate — keep only bookmarked items.
+            if (favoritesActive && !bookmarkedIds.has(supplement.supplement_id)) {
+                return false;
+            }
+
             // task 10c: safety chip predicate (combined with the search predicate below).
             if (selectedSafety && supplement.pregnancy_safety !== selectedSafety) {
                 return false;
@@ -85,7 +112,7 @@ export const SupplementsListScreen = () => {
 
             return name.includes(query) || description.includes(query) || category.includes(query);
         });
-    }, [supplements, searchQuery, selectedSafety, i18n.language]);
+    }, [supplements, searchQuery, selectedSafety, favoritesActive, bookmarkedIds, i18n.language]);
 
     const getSafetyConfig = (safety: string) => {
         return SAFETY_CONFIG[safety as keyof typeof SAFETY_CONFIG] || SAFETY_CONFIG.ok;
@@ -189,6 +216,24 @@ export const SupplementsListScreen = () => {
                     contentContainerStyle={styles.chipRow}
                     style={styles.chipScroll}
                 >
+                    {/* task 10b — leading "Favoris" chip: filters to bookmarked items only. */}
+                    <TouchableOpacity
+                        onPress={() => setFavoritesActive(v => !v)}
+                        activeOpacity={0.7}
+                        style={[
+                            styles.chip,
+                            favoritesActive
+                                ? { backgroundColor: theme.colors.accent, borderColor: theme.colors.accent }
+                                : styles.chipInactive,
+                        ]}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: favoritesActive }}
+                        accessibilityLabel={t('common.favorites')}
+                    >
+                        <Text style={[styles.chipText, favoritesActive ? styles.chipTextActive : styles.chipTextInactive]}>
+                            {`★ ${t('common.favorites')}`}
+                        </Text>
+                    </TouchableOpacity>
                     {(() => {
                         const allSelected = selectedSafety === null;
                         return (

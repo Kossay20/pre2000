@@ -27,6 +27,8 @@
   "supplements": "Supplements",
   "search": "Search",
   "save": "Saving...",
+  "saved": "Saved",
+  "favorites": "Saved",
   "cancel": "Cancel",
   "continue": "Continue",
   "back": "Back",
@@ -787,5 +789,6 @@
   },
   "goToTasks": "Go to Tasks",
   "chatbotTitle": "Pregnancy Assistant",
-  "chatbotSubtitle": "Pregnancy guidance"
+  "chatbotSubtitle": "Pregnancy guidance",
+  "addToFavorites": "Add to favorites"
 }

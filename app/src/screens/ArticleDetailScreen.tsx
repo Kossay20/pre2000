@@ -24,6 +24,7 @@ import { trackPositiveAction } from '../services/inAppReviewService';
 import { getLocalizedContent } from '../utils/i18nHelpers';
 import { isSafeUrl } from '../utils/safeOpenUrl';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
+import { isBookmarked, toggleBookmark, subscribeBookmarks } from '../services/bookmarkService';
 
 /**
  * task 10a content cross-linking — related-id helpers.
@@ -74,6 +75,9 @@ export const ArticleDetailScreen = () => {
     const [error, setError] = useState<string | null>(null);
     const [relatedSupplements, setRelatedSupplements] = useState<Supplement[]>([]);
     const [anchorPositions, setAnchorPositions] = useState<Record<string, number>>({});
+    // task 10b — bookmark/save state. Keyed off the route's articleId (the
+    // bundled & Antigravity shapes both navigate with article_id as articleId).
+    const [saved, setSaved] = useState(false);
 
     // RTL detection
     const isRTL = ['ar', 'tn'].includes(i18n.language);
@@ -159,6 +163,30 @@ export const ArticleDetailScreen = () => {
             }
         }
     }, [anchor, anchorPositions, loading]);
+
+    // task 10b — reflect bookmark state on mount + stay live across toggles
+    // (fired from here or elsewhere, e.g. the Favoris chip on the list screen).
+    useEffect(() => {
+        if (!articleId) return;
+        let active = true;
+        const sync = () => {
+            isBookmarked('article', articleId).then(v => {
+                if (active) setSaved(v);
+            });
+        };
+        sync();
+        const unsubscribe = subscribeBookmarks(sync);
+        return () => {
+            active = false;
+            unsubscribe();
+        };
+    }, [articleId]);
+
+    const handleToggleBookmark = React.useCallback(() => {
+        if (!articleId) return;
+        // Optimistic flip; subscribeBookmarks reconciles with the persisted value.
+        toggleBookmark('article', articleId).then(setSaved);
+    }, [articleId]);
 
     // Early returns (AFTER all hooks)
     if (!articleId) {
@@ -330,19 +358,37 @@ export const ArticleDetailScreen = () => {
             contentContainerStyle={styles.contentContainer}
         >
             <View style={styles.header}>
-                <TouchableOpacity
-                    onPress={() => navigation.goBack()}
-                    style={styles.backButton}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                    accessibilityRole="button"
-                    accessibilityLabel={t('a11y.back')}
-                >
-                    <Ionicons
-                        name={isRTL ? 'arrow-forward' : 'arrow-back'}
-                        size={24}
-                        color={theme.colors.text}
-                    />
-                </TouchableOpacity>
+                {/* Back button + bookmark toggle. RTL-safe: row-reverse flips the
+                    bookmark to the opposite side of the back arrow (task 10b). */}
+                <View style={[styles.headerBar, isRTL && styles.headerBarRTL]}>
+                    <TouchableOpacity
+                        onPress={() => navigation.goBack()}
+                        style={styles.backButton}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        accessibilityRole="button"
+                        accessibilityLabel={t('a11y.back')}
+                    >
+                        <Ionicons
+                            name={isRTL ? 'arrow-forward' : 'arrow-back'}
+                            size={24}
+                            color={theme.colors.text}
+                        />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        onPress={handleToggleBookmark}
+                        style={styles.bookmarkButton}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        accessibilityRole="button"
+                        accessibilityLabel={saved ? t('common.saved') : t('common.addToFavorites')}
+                        accessibilityState={{ selected: saved }}
+                    >
+                        <Ionicons
+                            name={saved ? 'bookmark' : 'bookmark-outline'}
+                            size={24}
+                            color={saved ? theme.colors.accent : theme.colors.text}
+                        />
+                    </TouchableOpacity>
+                </View>
                 <Tag label={categoryLabel} />
                 <Text style={[theme.typography.h1, styles.title] as any}>{title}</Text>
                 {!hasContent && (
@@ -491,9 +537,20 @@ const styles = StyleSheet.create({
     header: {
         marginBottom: theme.spacing.l,
     },
-    backButton: {
+    headerBar: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
         marginBottom: theme.spacing.m,
+    },
+    headerBarRTL: {
+        flexDirection: 'row-reverse',
+    },
+    backButton: {
         alignSelf: 'flex-start',
+    },
+    bookmarkButton: {
+        padding: theme.spacing.xs,
     },
     title: {
         marginTop: theme.spacing.s,

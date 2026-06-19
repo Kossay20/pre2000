@@ -27,6 +27,8 @@
   "supplements": "المكملات",
   "search": "بحث",
   "save": "جارٍ الحفظ...",
+  "saved": "محفوظ",
+  "favorites": "المحفوظات",
   "cancel": "إلغاء",
   "continue": "متابعة",
   "back": "رجوع",
@@ -795,5 +797,6 @@
   },
   "goToTasks": "الذهاب إلى المهام",
   "chatbotTitle": "مساعد الحمل",
-  "chatbotSubtitle": "إرشادات للحمل"
+  "chatbotSubtitle": "إرشادات للحمل",
+  "addToFavorites": "أضيفي إلى المحفوظات"
 }
