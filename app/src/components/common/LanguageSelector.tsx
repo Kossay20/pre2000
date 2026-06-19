@@ -2,8 +2,8 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Modal } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { theme } from '../../theme';
-import { I18nManager } from 'react-native';
-import * as Updates from 'expo-updates';
+// W1 #11: removed the dead `expo-updates` import (language change goes through i18n/rtl's
+// changeLanguage, never expo-updates) and the unused I18nManager import.
 
 export const LanguageSelector = ({ isCompact }: { isCompact?: boolean }) => {
     const { i18n, t } = useTranslation();
@@ -100,7 +100,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     modalContent: {
-        backgroundColor: 'white',
+        backgroundColor: theme.colors.white,
         borderRadius: 20,
         padding: 20,
         width: '80%',
