@@ -34,6 +34,7 @@ import { calculatePregnancyWeek } from '../utils/pregnancyCalculator';
 import { useDateLocale } from '../hooks/useDateLocale';
 import { getPickerLocale } from '../utils/pickerLocale';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
+import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { calculateFertileWindow } from '../utils/fertility';
 import { validateProfile } from '../utils/validation';
@@ -54,6 +55,12 @@ export const OnboardingScreen = () => {
     const { setProfile } = usePregnancy();
     const navigation = useNavigation();
     const { t, i18n } = useTranslation();
+    // W1 #6: language-derived RTL (I18nManager.isRTL is false on web). Used for TEXT alignment
+    // only — layout rows mirror automatically via document.dir=rtl (web) / I18nManager (native),
+    // so we never row-reverse here (would double-mirror — see reference_rnweb_rtl_gotchas).
+    const isRTL = i18n.language === 'ar' || i18n.language === 'tn';
+    const rtlText = isRTL ? ({ textAlign: 'right' as const, writingDirection: 'rtl' as const }) : null;
+    const reducedMotion = usePrefersReducedMotion();
 
     // Get date locale using shared hook (handles all languages including tn → arTN)
     const dateLocale = useDateLocale();
@@ -174,6 +181,15 @@ export const OnboardingScreen = () => {
         analytics.then(a => a && logEvent(a, 'onboarding_step_complete', { step: stepRef.current }));
         animateTransition(() => setStep(s => s + 1));
     }, [animateTransition]);
+
+    // W1 #7: step-1 status cards auto-advance. Set the status, then let the selected highlight
+    // register before transitioning so the tap feels acknowledged (Flo/Glow pattern). The short
+    // dwell is skipped under reduced-motion (advance immediately, no artificial wait).
+    const selectStatusAndAdvance = useCallback((status: PregnancyStatus) => {
+        setPregnancyStatus(status);
+        if (reducedMotion) { nextStep(); return; }
+        setTimeout(() => nextStep(), 220);
+    }, [nextStep, reducedMotion]);
 
     useEffect(() => {
         const sub = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -314,7 +330,7 @@ export const OnboardingScreen = () => {
             <View style={styles.optionsContainer}>
                 <TouchableOpacity
                     style={[styles.optionCard, pregnancyStatus === 'pregnant' && styles.optionCardSelected]}
-                    onPress={() => { setPregnancyStatus('pregnant'); nextStep(); }}
+                    onPress={() => selectStatusAndAdvance('pregnant')}
                     accessibilityRole="button"
                     accessibilityLabel={t('onboarding.step1.pregnant')}
                     accessibilityState={{ selected: pregnancyStatus === 'pregnant' }}
@@ -325,7 +341,7 @@ export const OnboardingScreen = () => {
 
                 <TouchableOpacity
                     style={[styles.optionCard, pregnancyStatus === 'trying' && styles.optionCardSelected]}
-                    onPress={() => { setPregnancyStatus('trying'); nextStep(); }}
+                    onPress={() => selectStatusAndAdvance('trying')}
                     accessibilityRole="button"
                     accessibilityLabel={t('onboarding.step1.trying')}
                     accessibilityState={{ selected: pregnancyStatus === 'trying' }}
@@ -336,7 +352,7 @@ export const OnboardingScreen = () => {
 
                 <TouchableOpacity
                     style={[styles.optionCard, pregnancyStatus === 'curious' && styles.optionCardSelected]}
-                    onPress={() => { setPregnancyStatus('curious'); nextStep(); }}
+                    onPress={() => selectStatusAndAdvance('curious')}
                     accessibilityRole="button"
                     accessibilityLabel={t('onboarding.step1.curious')}
                     accessibilityState={{ selected: pregnancyStatus === 'curious' }}
@@ -483,19 +499,20 @@ export const OnboardingScreen = () => {
             <Text style={styles.stepTitle}>{t('onboarding.step3.title')}</Text>
 
             <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>{t('onboarding.step3.firstNameLabel')}</Text>
+                <Text style={[styles.inputLabel, rtlText]}>{t('onboarding.step3.firstNameLabel')}</Text>
                 <TextInput
-                    style={styles.textInput}
+                    style={[styles.textInput, rtlText]}
                     placeholder={t('onboarding.step3.firstNamePlaceholder')}
                     value={firstName}
                     onChangeText={setFirstName}
                     autoCapitalize="words"
                     placeholderTextColor={theme.colors.neutral400}
+                    accessibilityLabel={t('onboarding.step3.firstNameLabel')}
                 />
             </View>
 
             <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>{t('onboarding.step3.ageLabel')}</Text>
+                <Text style={[styles.inputLabel, rtlText]}>{t('onboarding.step3.ageLabel')}</Text>
                 <View style={styles.ageRangeContainer}>
                     {['18-24', '25-29', '30-34', '35-39', '40+'].map((range) => (
                         <TouchableOpacity
@@ -515,7 +532,7 @@ export const OnboardingScreen = () => {
             </View>
 
             <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>{t('onboarding.step3.countryLabel')}</Text>
+                <Text style={[styles.inputLabel, rtlText]}>{t('onboarding.step3.countryLabel')}</Text>
                 <View style={styles.radioGroup}>
                     {[
                         { value: 'tunisia', key: 'common.countries.tunisia' },
@@ -701,10 +718,12 @@ export const OnboardingScreen = () => {
                         </TouchableOpacity>
 
                         <TouchableOpacity
-                            style={styles.skipAccountButton}
+                            style={[styles.skipAccountButton, loading && styles.startButtonDisabled]}
                             onPress={() => handleFinish(false)}
+                            disabled={loading}
                             accessibilityRole="button"
                             accessibilityLabel={t('onboarding.step4.skipAccount')}
+                            accessibilityState={{ disabled: loading }}
                             testID="onboarding_step4_skip"
                         >
                             <Text style={styles.skipAccountText}>{t('onboarding.step4.skipAccount')}</Text>
@@ -712,9 +731,11 @@ export const OnboardingScreen = () => {
 
                         <TouchableOpacity
                             onPress={prevStep}
-                            style={styles.backButtonFinal}
+                            style={[styles.backButtonFinal, loading && styles.startButtonDisabled]}
+                            disabled={loading}
                             accessibilityRole="button"
                             accessibilityLabel={t('onboarding.step4.editInfos')}
+                            accessibilityState={{ disabled: loading }}
                             testID="onboarding_step4_back"
                         >
                             <Text style={styles.backButtonText}>{t('onboarding.step4.editInfos')}</Text>
