@@ -23,7 +23,9 @@ import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
 // la carte AR "Arabic" (EN) quelle que soit la langue active de l'UI.
 const LANGUAGES = [
     { code: 'fr', name: 'Français', flag: '🇫🇷', descKey: 'common.langDescFr' },
-    { code: 'ar', name: 'العربية', flag: '🇩🇿', descKey: 'common.langDescAr' },
+    // #12b: MSA Arabic is pan-regional, not one country — a globe avoids arbitrarily picking a
+    // single Arab nation's flag (Derja below keeps 🇹🇳, which IS Tunisia-specific).
+    { code: 'ar', name: 'العربية', flag: '🌍', descKey: 'common.langDescAr' },
     { code: 'tn', name: 'العربية + الدارجة (Beta)', flag: '🇹🇳', descKey: 'common.langDescTn' },
     { code: 'en', name: 'English', flag: '🇬🇧', descKey: 'common.langDescEn' },
 ];
