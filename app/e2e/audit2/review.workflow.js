@@ -9,7 +9,7 @@ export const meta = {
 
 // Round is hardcoded per-run to avoid the args-stringification ambiguity that
 // silently defaulted a prior run to round-1 (reviewing stale pre-fix captures).
-const ROUND = 7;
+const ROUND = 10;
 const BASE = `/Users/1millnonstop/Downloads/pregnancy-app/pre2000/app/e2e/audit2/round-${ROUND}`;
 const LANGS = ['fr', 'en', 'ar', 'tn'];
 
