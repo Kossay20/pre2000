@@ -46,5 +46,8 @@
     "tasksOngoing": "Vous avez {{count}} tâche(s) en cours."
   },
   "addTask": "Tâche",
-  "defaultWarning": "Consultez votre médecin en cas de doute."
+  "defaultWarning": "Consultez votre médecin en cas de doute.",
+  "welcomeTitle": "Bienvenue dans votre espace 🌸",
+  "welcomeBody": "Suivez votre grossesse semaine par semaine, ajoutez vos rendez-vous et explorez nos ressources. Tout est là pour vous accompagner.",
+  "welcomeDismiss": "C'est parti !"
 }

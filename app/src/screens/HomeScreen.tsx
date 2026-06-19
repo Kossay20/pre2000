@@ -55,8 +55,10 @@ import { trackPositiveAction } from '../services/inAppReviewService';
 import { getUserTasks } from '../services/taskService';
 import { HomeScreenNavigationProp } from '../types/navigation';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width } = Dimensions.get('window');
+const HOME_WELCOME_SEEN_KEY = '@home_welcome_seen_v1';
 
 export const HomeScreen = () => {
     useScreenAnalytics('HomeScreen');
@@ -78,6 +80,8 @@ export const HomeScreen = () => {
     const [babyMessage, setBabyMessage] = useState<BabyMessage | null>(null); // BABY MESSAGES
     const [showFullWarnings, setShowFullWarnings] = useState(false); // UI Refinement
     const [showFullBodyText, setShowFullBodyText] = useState(false); // UI Refinement
+    // D3-03: first-run welcome — orient a brand-new user instead of dropping them on the full wall.
+    const [showWelcome, setShowWelcome] = useState(false);
 
     // Animation values
     const [fadeAnim] = useState(new Animated.Value(0));
@@ -126,6 +130,20 @@ export const HomeScreen = () => {
         return () => {
             pulseLoop?.stop();
         };
+    }, []);
+
+    // D3-03: show the first-run welcome once (guest-safe via AsyncStorage/localStorage).
+    useEffect(() => {
+        let mounted = true;
+        AsyncStorage.getItem(HOME_WELCOME_SEEN_KEY)
+            .then((seen) => { if (mounted && !seen) setShowWelcome(true); })
+            .catch(() => {/* default hidden on read error */});
+        return () => { mounted = false; };
+    }, []);
+
+    const dismissWelcome = useCallback(() => {
+        setShowWelcome(false);
+        AsyncStorage.setItem(HOME_WELCOME_SEEN_KEY, '1').catch(() => {});
     }, []);
 
     // ── PERF: Articles + Supplements in parallel (was sequential) ──────────
@@ -355,6 +373,21 @@ export const HomeScreen = () => {
 
     return (
         <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+            {/* D3-03: dismissible first-run welcome — orients a brand-new user (shown once). */}
+            {showWelcome && (
+                <View style={styles.welcomeCard} accessibilityRole="summary">
+                    <Text style={styles.welcomeTitle}>{t('home.welcomeTitle')}</Text>
+                    <Text style={styles.welcomeBody}>{t('home.welcomeBody')}</Text>
+                    <TouchableOpacity
+                        style={styles.welcomeDismiss}
+                        onPress={dismissWelcome}
+                        accessibilityRole="button"
+                        accessibilityLabel={t('home.welcomeDismiss')}
+                    >
+                        <Text style={styles.welcomeDismissText}>{t('home.welcomeDismiss')}</Text>
+                    </TouchableOpacity>
+                </View>
+            )}
             {/* Cycle 3 F212 — Banner Mode découverte (Curious mode).
                 Avertit l'utilisatrice que les données affichées correspondent à
                 une exploration (pas une vraie grossesse). CTA pour basculer si

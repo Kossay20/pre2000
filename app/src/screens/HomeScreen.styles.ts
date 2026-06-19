@@ -128,6 +128,40 @@ export const styles = StyleSheet.create({
         fontSize: 12,
         fontWeight: '700',
     },
+    // D3-03 first-run welcome card
+    welcomeCard: {
+        backgroundColor: theme.colors.surfaceBlush,
+        margin: 16,
+        marginBottom: 0,
+        padding: 16,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: theme.colors.borderLight,
+    },
+    welcomeTitle: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: theme.colors.text,
+        marginBottom: 6,
+    },
+    welcomeBody: {
+        fontSize: 14,
+        lineHeight: 20,
+        color: theme.colors.textSecondary,
+        marginBottom: 14,
+    },
+    welcomeDismiss: {
+        alignSelf: 'flex-start',
+        backgroundColor: theme.colors.accent,
+        paddingVertical: 10,
+        paddingHorizontal: 18,
+        borderRadius: 24,
+    },
+    welcomeDismissText: {
+        color: theme.colors.white,
+        fontSize: 14,
+        fontWeight: '700',
+    },
     // EXISTING STYLES (Kept for compatibility)
     container: {
         flex: 1,
