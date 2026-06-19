@@ -17,7 +17,8 @@ export const LanguageSelector = ({ isCompact }: { isCompact?: boolean }) => {
 
     const languages = [
         { code: 'fr', label: 'Français', flag: '🇫🇷' },
-        { code: 'ar', label: 'العربية', flag: '🇩🇿' },
+        // #12b: MSA Arabic = pan-regional, not one country (matches LanguageSelectScreen's 🌍).
+        { code: 'ar', label: 'العربية', flag: '🌍' },
         { code: 'tn', label: 'العربية + الدارجة', flag: '🇹🇳' },
         { code: 'en', label: 'English', flag: '🇺🇸' },
     ];

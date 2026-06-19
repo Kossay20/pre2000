@@ -451,9 +451,10 @@ const styles = StyleSheet.create({
     headerTitleRow: {
         flexDirection: 'row',
         alignItems: 'center',
+        gap: 10, // direction-agnostic gap — marginEnd didn't flip under web RTL (⚙️الإعدادات)
     },
     headerIcon: {
-        marginEnd: 10,
+        marginEnd: 0,
     },
     headerTitle: {
         fontSize: 28,
@@ -481,9 +482,10 @@ const styles = StyleSheet.create({
     sectionHeaderRow: {
         flexDirection: 'row',
         alignItems: 'center',
+        gap: 10, // direction-agnostic gap (RTL-safe, matches headerTitleRow)
     },
     sectionIcon: {
-        marginEnd: 10,
+        marginEnd: 0,
     },
     sectionTitle: {
         fontSize: 18,
