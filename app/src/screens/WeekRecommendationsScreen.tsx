@@ -98,6 +98,24 @@ export const WeekRecommendationsScreen = () => {
         }
     };
 
+    // D6-07 a11y: convey safety with an icon + text label, not color alone.
+    const getSafetyIcon = (safety: string) => {
+        switch (safety) {
+            case 'ok': return '✓';
+            case 'a_surveiller': return '⚠';
+            case 'deconseille': return '✗';
+            default: return 'ℹ';
+        }
+    };
+    const getSafetyLabel = (safety: string) => {
+        switch (safety) {
+            case 'ok': return t('common.supplementSafety.safe');
+            case 'a_surveiller': return t('common.supplementSafety.caution');
+            case 'deconseille': return t('common.supplementSafety.avoid');
+            default: return t('common.supplementSafety.unknown');
+        }
+    };
+
     // P2: richer empty-state — illustration + gentle "check back" copy + a CTA that
     // sends the user to the Resources tab so they're never stranded on a blank screen.
     if (articles.length === 0 && supplements.length === 0) {
@@ -154,6 +172,8 @@ export const WeekRecommendationsScreen = () => {
                             key={supplement.supplement_id}
                             onPress={() => navigation.navigate('SupplementDetail', { supplementId: supplement.supplement_id })}
                             activeOpacity={0.7}
+                            accessibilityRole="button"
+                            accessibilityLabel={`${getLocalizedContent(supplement, 'name', i18n.language)} — ${getSafetyLabel(supplement.pregnancy_safety)}`}
                         >
                             <Card style={styles.card}>
                                 <View style={[styles.iconContainer, { backgroundColor: getSafetyColor(supplement.pregnancy_safety) }]}>
@@ -161,6 +181,12 @@ export const WeekRecommendationsScreen = () => {
                                 </View>
                                 <View style={styles.content}>
                                     <Text style={[theme.typography.h3, styles.title] as any}>{getLocalizedContent(supplement, 'name', i18n.language)}</Text>
+                                    {/* D6-07: explicit safety icon + label so safety isn't conveyed by color alone */}
+                                    <View style={styles.safetyRow}>
+                                        <Text style={[styles.safetyText, { color: getSafetyColor(supplement.pregnancy_safety) }]}>
+                                            {getSafetyIcon(supplement.pregnancy_safety)} {getSafetyLabel(supplement.pregnancy_safety)}
+                                        </Text>
+                                    </View>
                                     <Text numberOfLines={2} style={[theme.typography.body, styles.summary]}>
                                         {getLocalizedContent(supplement, 'short_description', i18n.language)}
                                     </Text>
@@ -216,5 +242,12 @@ const styles = StyleSheet.create({
     summary: {
         color: theme.colors.textLight,
         lineHeight: 20,
+    },
+    safetyRow: {
+        marginBottom: theme.spacing.xs,
+    },
+    safetyText: {
+        fontSize: 12,
+        fontWeight: '700',
     },
 });
