@@ -334,6 +334,7 @@ export const ProfileScreen = () => {
                                         placeholder={t('profile.heightPlaceholder')}
                                         keyboardType="numeric"
                                         maxLength={3}
+                                        accessibilityLabel={t('profile.height', 'Taille (cm)')}
                                     />
                                 </View>
                                 <View style={{ flex: 1, marginStart: 8 }}>
@@ -345,6 +346,7 @@ export const ProfileScreen = () => {
                                         placeholder={t('profile.weightPlaceholderShort')}
                                         keyboardType="numeric"
                                         maxLength={5}
+                                        accessibilityLabel={t('profile.prePregnancyWeight', 'Poids avant (kg)')}
                                     />
                                 </View>
                             </View>

@@ -461,6 +461,7 @@ export const WeightTrackerScreen = () => {
                             keyboardType="decimal-pad"
                             value={setupWeight}
                             onChangeText={setSetupWeight}
+                            accessibilityLabel={t('weight.setupWeight')}
                         />
                     </View>
 
@@ -472,6 +473,7 @@ export const WeightTrackerScreen = () => {
                             keyboardType="decimal-pad"
                             value={setupHeight}
                             onChangeText={setSetupHeight}
+                            accessibilityLabel={t('weight.setupHeight')}
                         />
                     </View>
 
@@ -615,6 +617,7 @@ export const WeightTrackerScreen = () => {
                                     value={newWeight}
                                     onChangeText={setNewWeight}
                                     autoFocus
+                                    accessibilityLabel={t('weight.addWeightTitle')}
                                 />
                                 <Text style={styles.kgLabel}>{t('common.kg')}</Text>
                             </View>
