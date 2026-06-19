@@ -1,7 +1,7 @@
 import { createLogger } from '../utils/logger';
 const log = createLogger('SupplementsListScreen');
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, TextInput } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, TextInput, ScrollView } from 'react-native';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { Supplement } from '../types';
@@ -19,6 +19,8 @@ export const SupplementsListScreen = () => {
     const { t, i18n } = useTranslation();
     const [supplements, setSupplements] = useState<Supplement[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
+    // task 10c: null = "All". Constrained to the pregnancy_safety union.
+    const [selectedSafety, setSelectedSafety] = useState<Supplement['pregnancy_safety'] | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(false);
     const [refreshKey, setRefreshKey] = useState(0);
@@ -57,18 +59,33 @@ export const SupplementsListScreen = () => {
         return () => { isMounted = false; };
     }, [refreshKey]);
 
-    const filteredSupplements = React.useMemo(() => {
-        if (!searchQuery.trim()) return supplements;
+    // task 10c: safety filter chips. Reuses the existing supplementSafety.* labels.
+    // Built inside the component so t() is never stale on language change.
+    const SAFETY_FILTERS: { value: Supplement['pregnancy_safety']; label: string; color: string }[] = [
+        { value: 'ok', label: t('common.supplementSafety.safe'), color: theme.colors.success },
+        { value: 'a_surveiller', label: t('common.supplementSafety.caution'), color: theme.colors.warning },
+        { value: 'deconseille', label: t('common.supplementSafety.avoid'), color: theme.colors.error },
+    ];
 
+    const filteredSupplements = React.useMemo(() => {
         const query = searchQuery.toLowerCase().trim();
+        if (!query && !selectedSafety) return supplements;
+
         return supplements.filter(supplement => {
+            // task 10c: safety chip predicate (combined with the search predicate below).
+            if (selectedSafety && supplement.pregnancy_safety !== selectedSafety) {
+                return false;
+            }
+
+            if (!query) return true;
+
             const name = (getLocalizedContent(supplement, 'name', i18n.language) || '').toLowerCase();
             const description = (getLocalizedContent(supplement, 'short_description', i18n.language) || '').toLowerCase();
             const category = (supplement.category || '').toLowerCase();
 
             return name.includes(query) || description.includes(query) || category.includes(query);
         });
-    }, [supplements, searchQuery, i18n.language]);
+    }, [supplements, searchQuery, selectedSafety, i18n.language]);
 
     const getSafetyConfig = (safety: string) => {
         return SAFETY_CONFIG[safety as keyof typeof SAFETY_CONFIG] || SAFETY_CONFIG.ok;
@@ -165,6 +182,59 @@ export const SupplementsListScreen = () => {
                         </TouchableOpacity>
                     )}
                 </View>
+
+                <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.chipRow}
+                    style={styles.chipScroll}
+                >
+                    {(() => {
+                        const allSelected = selectedSafety === null;
+                        return (
+                            <TouchableOpacity
+                                onPress={() => setSelectedSafety(null)}
+                                activeOpacity={0.7}
+                                style={[
+                                    styles.chip,
+                                    allSelected
+                                        ? { backgroundColor: theme.colors.accent, borderColor: theme.colors.accent }
+                                        : styles.chipInactive,
+                                ]}
+                                accessibilityRole="button"
+                                accessibilityState={{ selected: allSelected }}
+                                accessibilityLabel={t('categories.all', { defaultValue: 'Tout' })}
+                            >
+                                <Text style={[styles.chipText, allSelected ? styles.chipTextActive : styles.chipTextInactive]}>
+                                    {t('categories.all', { defaultValue: 'Tout' })}
+                                </Text>
+                            </TouchableOpacity>
+                        );
+                    })()}
+                    {SAFETY_FILTERS.map(filter => {
+                        const selected = selectedSafety === filter.value;
+                        return (
+                            <TouchableOpacity
+                                key={filter.value}
+                                onPress={() => setSelectedSafety(selected ? null : filter.value)}
+                                activeOpacity={0.7}
+                                style={[
+                                    styles.chip,
+                                    selected
+                                        ? { backgroundColor: filter.color, borderColor: filter.color }
+                                        : styles.chipInactive,
+                                ]}
+                                accessibilityRole="button"
+                                accessibilityState={{ selected }}
+                                accessibilityLabel={filter.label}
+                            >
+                                <Text style={[styles.chipText, selected ? styles.chipTextActive : styles.chipTextInactive]}>
+                                    {filter.label}
+                                </Text>
+                            </TouchableOpacity>
+                        );
+                    })}
+                </ScrollView>
             </View>
 
             <FlatList
@@ -222,6 +292,33 @@ const styles = StyleSheet.create({
         fontSize: 16,
         color: theme.colors.neutral400,
         padding: 4,
+    },
+    chipScroll: {
+        marginTop: 12,
+    },
+    chipRow: {
+        gap: 8,
+        paddingEnd: 4,
+    },
+    chip: {
+        paddingHorizontal: 14,
+        paddingVertical: 7,
+        borderRadius: 999,
+        borderWidth: 1,
+    },
+    chipInactive: {
+        backgroundColor: theme.colors.surface,
+        borderColor: theme.colors.borderLight,
+    },
+    chipText: {
+        fontSize: 13,
+        fontWeight: '600',
+    },
+    chipTextActive: {
+        color: theme.colors.white,
+    },
+    chipTextInactive: {
+        color: theme.colors.textSecondary,
     },
     listContent: {
         padding: theme.spacing.m,

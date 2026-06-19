@@ -1,7 +1,7 @@
 import { createLogger } from '../utils/logger';
 const log = createLogger('ArticlesListScreen');
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, TextInput } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, TextInput, ScrollView } from 'react-native';
 import { collection, getDocs } from 'firebase/firestore';
 import { LinearGradient } from 'expo-linear-gradient';
 import { db } from '../config/firebase';
@@ -32,6 +32,7 @@ export const ArticlesListScreen = () => {
     useScreenAnalytics('ArticlesListScreen');
     const [articles, setArticles] = useState<(Article | ArticleAntigravity)[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
+    const [selectedCategory, setSelectedCategory] = useState<string | null>(null); // task 10c: null = "All"
     const [loading, setLoading] = useState(true);
     const navigation = useNavigation();
     const route = useRoute<any>();
@@ -94,19 +95,51 @@ export const ArticlesListScreen = () => {
         return () => { isMounted = false; };
     }, [refreshKey]);
 
-    const filteredArticles = React.useMemo(() => {
-        if (!searchQuery.trim()) return articles;
+    // task 10c: distinct category chips derived from the loaded articles, ranked by
+    // frequency and capped so the horizontal row stays usable (21 categories exist
+    // in the bundled data). Recomputed only when the article set changes.
+    const categoryChips = React.useMemo(() => {
+        const counts = new Map<string, number>();
+        for (const article of articles) {
+            const slug = (article.category || '').trim();
+            if (!slug) continue;
+            counts.set(slug, (counts.get(slug) || 0) + 1);
+        }
+        return Array.from(counts.entries())
+            .sort((a, b) => (b[1] - a[1]) || a[0].localeCompare(b[0]))
+            .slice(0, 10)
+            .map(([slug]) => slug);
+    }, [articles]);
 
+    // task 10c: if the active category disappears from the data (e.g. after a refresh),
+    // fall back to "All" so the list never silently shows nothing.
+    useEffect(() => {
+        if (selectedCategory && !categoryChips.includes(selectedCategory)) {
+            setSelectedCategory(null);
+        }
+    }, [categoryChips, selectedCategory]);
+
+    const filteredArticles = React.useMemo(() => {
         const query = searchQuery.toLowerCase().trim();
+        if (!query && !selectedCategory) return articles;
+
         return articles.filter(article => {
+            const categoryKey = (article.category || '').toLowerCase();
+
+            // task 10c: category chip predicate (combined with the search predicate below).
+            if (selectedCategory && categoryKey !== selectedCategory.toLowerCase()) {
+                return false;
+            }
+
+            if (!query) return true;
+
             const title = getLocalizedContent(article, 'title', i18n.language).toLowerCase();
             const summary = getLocalizedContent(article, 'summary', i18n.language).toLowerCase();
-            const categoryKey = (article.category || '').toLowerCase();
             const categoryLabel = t(`categories.${categoryKey}`, { defaultValue: article.category }).toLowerCase();
 
             return title.includes(query) || summary.includes(query) || categoryLabel.includes(query);
         });
-    }, [articles, searchQuery, i18n.language]);
+    }, [articles, searchQuery, selectedCategory, i18n.language]);
 
     const getCategoryIcon = (category: string) => {
         return CATEGORY_ICONS[category] || '📚';
@@ -208,6 +241,37 @@ export const ArticlesListScreen = () => {
                         </TouchableOpacity>
                     )}
                 </View>
+
+                {categoryChips.length > 0 && (
+                    <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={styles.chipRow}
+                        style={styles.chipScroll}
+                    >
+                        {[null, ...categoryChips].map(slug => {
+                            const selected = selectedCategory === slug;
+                            const label = slug
+                                ? t(`categories.${slug}`, { defaultValue: slug })
+                                : t('categories.all', { defaultValue: 'Tout' });
+                            return (
+                                <TouchableOpacity
+                                    key={slug ?? '__all__'}
+                                    onPress={() => setSelectedCategory(slug)}
+                                    activeOpacity={0.7}
+                                    style={[styles.chip, selected ? styles.chipActive : styles.chipInactive]}
+                                    accessibilityRole="button"
+                                    accessibilityState={{ selected }}
+                                    accessibilityLabel={label}
+                                >
+                                    <Text style={[styles.chipText, selected ? styles.chipTextActive : styles.chipTextInactive]}>
+                                        {label}
+                                    </Text>
+                                </TouchableOpacity>
+                            );
+                        })}
+                    </ScrollView>
+                )}
             </View>
 
             <FlatList<Article | ArticleAntigravity>
@@ -265,6 +329,37 @@ const styles = StyleSheet.create({
         fontSize: 16,
         color: theme.colors.neutral400,
         padding: 4,
+    },
+    chipScroll: {
+        marginTop: 12,
+    },
+    chipRow: {
+        gap: 8,
+        paddingEnd: 4,
+    },
+    chip: {
+        paddingHorizontal: 14,
+        paddingVertical: 7,
+        borderRadius: 999,
+        borderWidth: 1,
+    },
+    chipActive: {
+        backgroundColor: theme.colors.accent,
+        borderColor: theme.colors.accent,
+    },
+    chipInactive: {
+        backgroundColor: theme.colors.surface,
+        borderColor: theme.colors.borderLight,
+    },
+    chipText: {
+        fontSize: 13,
+        fontWeight: '600',
+    },
+    chipTextActive: {
+        color: theme.colors.white,
+    },
+    chipTextInactive: {
+        color: theme.colors.textSecondary,
     },
     listContent: {
         padding: theme.spacing.m,
