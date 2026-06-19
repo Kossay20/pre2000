@@ -37,6 +37,9 @@ export const LoginScreen = () => {
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [showPassword, setShowPassword] = useState(false);
+    // W1 #14: guard the reset-email send so a fast double-tap can't fire two
+    // sendPasswordResetEmail calls (and surface a spinner on the link).
+    const [resetLoading, setResetLoading] = useState(false);
 
     const passwordRef = useRef<TextInput>(null);
     // AUDIT-FIX (page-by-page validation 2026-06-02): derive RTL from the active LANGUAGE, not
@@ -52,7 +55,7 @@ export const LoginScreen = () => {
 
         const emailValidation = validateEmail(email);
         if (!emailValidation.valid) {
-            setError(t(emailValidation.error || 'auth.invalidEmail'));
+            setError(t(emailValidation.error || 'invalidEmail'));
             return;
         }
 
@@ -61,7 +64,7 @@ export const LoginScreen = () => {
         // Firebase Auth itself rejects wrong passwords; we only check non-empty here.
         const passwordValidation = validatePasswordForLogin(password);
         if (!passwordValidation.valid) {
-            setError(t(passwordValidation.error || 'auth.invalidPassword'));
+            setError(t(passwordValidation.error || 'invalidPassword'));
             return;
         }
 
@@ -71,7 +74,10 @@ export const LoginScreen = () => {
         if (!authLimiter.tryRequest()) {
             const seconds = Math.ceil(authLimiter.getTimeUntilReset() / 1000);
             const minutes = Math.ceil(seconds / 60);
-            setError(t('auth.tooManyAttempts', { minutes }));
+            // W1 #2 FIX: there is no `auth:` namespace (auth.json is spread at ROOT in
+            // i18n/locales/*/index.ts), so `t('auth.tooManyAttempts')` leaked the raw key and
+            // dropped the {{minutes}} interpolation. Root key resolves + interpolates correctly.
+            setError(t('tooManyAttempts', { minutes }));
             return;
         }
 
@@ -94,6 +100,7 @@ export const LoginScreen = () => {
     };
 
     const handleForgotPassword = async () => {
+        if (resetLoading) return;
         setError('');
         setSuccess('');
 
@@ -108,6 +115,7 @@ export const LoginScreen = () => {
             return;
         }
 
+        setResetLoading(true);
         try {
             await sendPasswordResetEmail(auth, email.trim());
             setSuccess(t('resetEmailSent'));
@@ -117,6 +125,8 @@ export const LoginScreen = () => {
                 ? t(getFirebaseErrorMessage(error.code))
                 : t('cannotSendResetEmail');
             setError(errorMessage);
+        } finally {
+            setResetLoading(false);
         }
     };
 
@@ -151,8 +161,10 @@ export const LoginScreen = () => {
                     <View style={styles.form}>
                         {/* Email */}
                         <Text style={[styles.label, isRTL && styles.rtlText]}>{t('email')}</Text>
+                        {/* W1 #14: email is LTR data — never force RTL text/caret even in ar/tn
+                            (the label above still mirrors). Keeps the caret + typed address sane. */}
                         <TextInput
-                            style={[styles.input, isRTL && styles.inputRTL]}
+                            style={styles.input}
                             placeholder={t('emailPlaceholder')}
                             value={email}
                             onChangeText={(text) => { setEmail(text); setError(''); setSuccess(''); }}
@@ -175,7 +187,7 @@ export const LoginScreen = () => {
                         <View style={styles.passwordContainer}>
                             <TextInput
                                 ref={passwordRef}
-                                style={[styles.passwordInput, isRTL && styles.inputRTL]}
+                                style={styles.passwordInput}
                                 placeholder={t('passwordPlaceholder')}
                                 value={password}
                                 onChangeText={(text) => { setPassword(text); setError(''); setSuccess(''); }}
@@ -192,8 +204,11 @@ export const LoginScreen = () => {
                                 style={styles.eyeButton}
                                 onPress={() => setShowPassword(v => !v)}
                                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                accessibilityRole="button"
+                                accessibilityLabel={showPassword ? t('hidePassword') : t('showPassword')}
+                                accessibilityState={{ selected: showPassword }}
                             >
-                                <Text style={styles.eyeIcon}>{showPassword ? '🙈' : '👁'}</Text>
+                                <Text style={styles.eyeIcon} accessibilityElementsHidden importantForAccessibility="no">{showPassword ? '🙈' : '👁'}</Text>
                             </TouchableOpacity>
                         </View>
 
@@ -210,13 +225,17 @@ export const LoginScreen = () => {
 
                         {/* Forgot password */}
                         <TouchableOpacity
-                            style={styles.forgotPasswordButton}
+                            style={[styles.forgotPasswordButton, resetLoading && styles.forgotPasswordButtonDisabled]}
                             onPress={handleForgotPassword}
+                            disabled={resetLoading}
                             testID="forgot_password_button"
                             accessibilityRole="button"
                             accessibilityLabel={t('forgotPassword')}
+                            accessibilityState={{ disabled: resetLoading, busy: resetLoading }}
                         >
-                            <Text style={styles.forgotPasswordText}>{t('forgotPassword')}</Text>
+                            <Text style={styles.forgotPasswordText}>
+                                {resetLoading ? t('sending', { defaultValue: '…' }) : t('forgotPassword')}
+                            </Text>
                         </TouchableOpacity>
 
                         {/* Separator */}
@@ -322,6 +341,9 @@ const styles = StyleSheet.create({
     forgotPasswordButton: {
         marginTop: theme.spacing.m,
         alignItems: 'center',
+    },
+    forgotPasswordButtonDisabled: {
+        opacity: 0.5,
     },
     forgotPasswordText: {
         color: theme.colors.accent,

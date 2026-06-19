@@ -149,8 +149,9 @@ export const RegisterScreen = () => {
                     <View style={styles.form}>
                         {/* Email */}
                         <Text style={[styles.label, isRTL && styles.rtlText]}>{t('email')}</Text>
+                        {/* W1 #14: email/password are LTR data — never force RTL caret/text in ar/tn. */}
                         <TextInput
-                            style={[styles.input, isRTL && styles.inputRTL]}
+                            style={styles.input}
                             placeholder={t('emailPlaceholder')}
                             value={email}
                             onChangeText={(text) => { setEmail(text); setError(''); }}
@@ -174,7 +175,7 @@ export const RegisterScreen = () => {
                         <View style={styles.passwordContainer}>
                             <TextInput
                                 ref={passwordRef}
-                                style={[styles.passwordInput, isRTL && styles.inputRTL]}
+                                style={styles.passwordInput}
                                 placeholder={t('passwordPlaceholder')}
                                 value={password}
                                 onChangeText={(text) => { setPassword(text); setError(''); }}
@@ -194,8 +195,11 @@ export const RegisterScreen = () => {
                                 style={styles.eyeButton}
                                 onPress={() => setShowPassword(v => !v)}
                                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                accessibilityRole="button"
+                                accessibilityLabel={showPassword ? t('hidePassword') : t('showPassword')}
+                                accessibilityState={{ selected: showPassword }}
                             >
-                                <Text style={styles.eyeIcon}>{showPassword ? '🙈' : '👁'}</Text>
+                                <Text style={styles.eyeIcon} accessibilityElementsHidden importantForAccessibility="no">{showPassword ? '🙈' : '👁'}</Text>
                             </TouchableOpacity>
                         </View>
 
@@ -236,7 +240,7 @@ export const RegisterScreen = () => {
                         <View style={styles.passwordContainer}>
                             <TextInput
                                 ref={confirmRef}
-                                style={[styles.passwordInput, isRTL && styles.inputRTL]}
+                                style={styles.passwordInput}
                                 placeholder={t('retypePassword')}
                                 value={confirmPassword}
                                 onChangeText={(text) => { setConfirmPassword(text); setError(''); }}
@@ -253,8 +257,11 @@ export const RegisterScreen = () => {
                                 style={styles.eyeButton}
                                 onPress={() => setShowConfirm(v => !v)}
                                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                accessibilityRole="button"
+                                accessibilityLabel={showConfirm ? t('hidePassword') : t('showPassword')}
+                                accessibilityState={{ selected: showConfirm }}
                             >
-                                <Text style={styles.eyeIcon}>{showConfirm ? '🙈' : '👁'}</Text>
+                                <Text style={styles.eyeIcon} accessibilityElementsHidden importantForAccessibility="no">{showConfirm ? '🙈' : '👁'}</Text>
                             </TouchableOpacity>
                         </View>
 

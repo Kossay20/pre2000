@@ -29,6 +29,8 @@ export default {
     ...authAr,
     ...commonAr,
     errors: mergedErrorsTn,
+    // AUTH-03 FIX (ultra-deep W1): re-assert auth.json full-rule passwordMin (commonAr shadows it).
+    passwordMin: (authAr as any).passwordMin,
     common: commonAr,
     profile: profileAr,
     onboarding: onboardingAr,

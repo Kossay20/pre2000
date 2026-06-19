@@ -17,7 +17,14 @@ export const ErrorMessage: React.FC<ErrorMessageProps> = ({ message }) => {
         : message;
 
     return (
-        <View style={styles.container}>
+        // W1 #5: announce errors to assistive tech the moment they mount. RN-Web maps
+        // accessibilityLiveRegion -> aria-live and role="alert" -> role=alert, so a screen
+        // reader speaks the validation/auth error without the user hunting for it.
+        <View
+            style={styles.container}
+            accessibilityRole="alert"
+            accessibilityLiveRegion="assertive"
+        >
             <Text style={styles.text}>⚠️ {displayMessage}</Text>
         </View>
     );

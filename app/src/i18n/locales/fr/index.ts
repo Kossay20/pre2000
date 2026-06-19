@@ -34,6 +34,10 @@ export default {
     ...authFr,
     ...commonFr,
     errors: mergedErrors,
+    // AUTH-03 FIX (ultra-deep W1): `...commonFr` shadows authFr.passwordMin with a stale
+    // "6 caractères" string — the helper under the register password field then LIES about the
+    // real policy (10+ chars, 1 digit, 1 uppercase). Re-assert the auth.json full-rule value.
+    passwordMin: (authFr as any).passwordMin,
     common: commonFr,
     profile: profileFr,
     onboarding: onboardingFr,
