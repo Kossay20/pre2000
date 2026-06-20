@@ -7,6 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import { auth, db } from '../config/firebase'; // FIX: Import auth and db for direct access
 import { doc, getDoc } from 'firebase/firestore';
 import { useNavigation } from '@react-navigation/native';
+import { getReducedMotionSync } from '../hooks/usePrefersReducedMotion';
 import {
     loadCalendarTemplates,
     generateAllEvents,
@@ -65,6 +66,11 @@ export const CalendarScreen = () => {
     const [fadeAnim] = useState(new Animated.Value(0));
 
     useEffect(() => {
+        // W3 #4: respect OS "reduce motion" — show content instantly instead of a 500ms fade.
+        if (getReducedMotionSync()) {
+            fadeAnim.setValue(1);
+            return;
+        }
         Animated.timing(fadeAnim, {
             toValue: 1,
             duration: 500,
@@ -470,8 +476,8 @@ export const CalendarScreen = () => {
                 showSuggestions={showSuggestions}
                 suggestionsThisWeekCount={suggestionsThisWeekCount}
                 suggestionsThisMonthCount={suggestionsThisMonthCount}
-                onPrevWeek={handlePrevWeek}
-                onNextWeek={handleNextWeek}
+                onPrevWeek={calendarView === 'month' ? handlePrevMonth : handlePrevWeek}
+                onNextWeek={calendarView === 'month' ? handleNextMonth : handleNextWeek}
                 onSelectWeekView={handleSelectWeekView}
                 onSelectMonthView={handleSelectMonthView}
                 onToggleSuggestions={handleToggleSuggestions}

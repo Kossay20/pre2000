@@ -51,6 +51,8 @@ export const CalendarMonthDay: React.FC<CalendarMonthDayProps> = ({
                     styles.monthDayText,
                     !isCurrentMonth && styles.monthDayTextDisabled,
                     isToday && !isSelected && styles.monthDayTextToday,
+                    // W3 #6: emphasise the selected day's number (style existed but was never applied).
+                    isSelected && styles.monthDayTextSelected,
                 ]}
             >
                 {format(day, 'd')}

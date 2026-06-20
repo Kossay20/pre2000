@@ -270,7 +270,10 @@ export const AddAppointmentScreen = () => {
             const [year, month, day] = value.split('-').map(Number);
             const newDate = new Date(date);
             newDate.setFullYear(year, month - 1, day);
-            setDate(newDate);
+            // W3 #2: only commit a VALID date. A partial/garbage entry (e.g. '2026-13-99' or a
+            // mid-edit value) yields Invalid Date → the controlled `value={format(date,…)}` prop
+            // would then throw a RangeError and white-screen the whole form on the web export.
+            if (isValid(newDate)) setDate(newDate);
         }
     };
 
@@ -280,7 +283,7 @@ export const AddAppointmentScreen = () => {
             const [hours, minutes] = value.split(':').map(Number);
             const newDate = new Date(date);
             newDate.setHours(hours, minutes);
-            setDate(newDate);
+            if (isValid(newDate)) setDate(newDate); // W3 #2: never commit an Invalid Date
         }
     };
 
@@ -450,12 +453,13 @@ export const AddAppointmentScreen = () => {
                     <View style={styles.inputGroup}>
                         <Text style={styles.label}>{t('addAppointment.titleLabel')}</Text>
                         <TextInput
-                            style={[styles.input, !isTitleValid && title.length > 0 && { borderColor: 'red' }]}
+                            style={[styles.input, !isTitleValid && title.length > 0 && { borderColor: theme.colors.error }]}
                             placeholder={t('addAppointment.titlePlaceholder')}
                             placeholderTextColor={theme.colors.textLight}
                             value={title}
                             onChangeText={setTitle}
                             maxLength={100}
+                            accessibilityLabel={t('addAppointment.titleLabel')}
                         />
                     </View>
 
@@ -496,7 +500,7 @@ export const AddAppointmentScreen = () => {
                                 <>
                                     <TextInput
                                         style={styles.dateButton}
-                                        value={format(date, 'yyyy-MM-dd')}
+                                        value={isValid(date) ? format(date, 'yyyy-MM-dd') : ''}
                                         onChangeText={(text) => handleWebDateChange({ target: { value: text } })}
                                         placeholder="YYYY-MM-DD"
                                         // @ts-ignore - Web specific attribute
@@ -537,7 +541,7 @@ export const AddAppointmentScreen = () => {
                             {Platform.OS === 'web' ? (
                                 <TextInput
                                     style={styles.dateButton}
-                                    value={format(date, 'HH:mm')}
+                                    value={isValid(date) ? format(date, 'HH:mm') : ''}
                                     onChangeText={(text) => handleWebTimeChange({ target: { value: text } })}
                                     placeholder="HH:MM"
                                     // @ts-ignore - Web specific attribute
@@ -601,6 +605,7 @@ export const AddAppointmentScreen = () => {
                             value={location}
                             onChangeText={setLocation}
                             maxLength={200}
+                            accessibilityLabel={t('addAppointment.locationLabel')}
                         />
                     </View>
 
@@ -616,6 +621,7 @@ export const AddAppointmentScreen = () => {
                             multiline
                             numberOfLines={4}
                             maxLength={500}
+                            accessibilityLabel={t('addAppointment.notesLabel')}
                         />
                     </View>
 

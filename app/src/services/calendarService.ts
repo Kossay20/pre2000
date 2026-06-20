@@ -1,4 +1,5 @@
 import { theme } from '../theme';
+import { differenceInCalendarDays } from 'date-fns';
 /**
  * @fileoverview Calendar Service
  * Handles all calendar-related operations including:
@@ -228,8 +229,10 @@ export const getUpcomingAppointments = async (userId: string, limitCount: number
  * Calculate which week a given date falls into based on LMP
  */
 export const calculateWeekFromDate = (lmpDate: Date, eventDate: Date): number => {
-    const diffMs = eventDate.getTime() - lmpDate.getTime();
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    // W3 #3: calendar-day diff is DST-safe. The previous raw (getTime diff)/86400000 floor drifted
+    // ±1 day across a spring-forward/fall-back boundary, so a persisted event.week could land one
+    // week off from the canonical calculatePregnancyWeek (which normalizes via UTC).
+    const diffDays = differenceInCalendarDays(eventDate, lmpDate);
     const weeks = Math.floor(diffDays / 7) + 1;
     return Math.max(1, Math.min(40, weeks));
 };
