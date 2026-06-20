@@ -388,10 +388,12 @@ const AppContent = () => {
   );
 };
 
-import { createNavigationContainerRef } from '@react-navigation/native';
 import { analyticsService } from './src/services/analyticsService';
 
-export const navigationRef = createNavigationContainerRef();
+// navigationRef moved to its own module so deep leaf screens can import it without a circular
+// dependency back into App.tsx. Re-exported here for backward compatibility.
+import { navigationRef } from './src/navigation/navigationRef';
+export { navigationRef };
 
 import { databaseService } from './src/services/chatbot/data/DatabaseService';
 

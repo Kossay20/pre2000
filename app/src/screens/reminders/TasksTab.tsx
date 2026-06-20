@@ -7,6 +7,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList, Activit
 import { confirmAction } from '../../utils/uiUtils';
 import { getShadowStyle } from '../../utils/styleUtils';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
+import { navigationRef } from '../../navigation/navigationRef';
 import { useAuth } from '../../context/AuthContext';
 import { usePregnancy } from '../../context/PregnancyContext';
 import { useToast } from '../../context/ToastContext';
@@ -280,7 +281,12 @@ export const TasksTab = () => {
                         confirmAction(
                             t('tasks.modeGuestTitle'),
                             t('tasks.modeGuestMsg'),
-                            () => navigation.navigate('AuthChoice'),
+                            // W4 #P2: route to the in-place GuestUpgrade (links the anonymous account
+                            // via linkWithCredential → PRESERVES the guest's tasks), matching the
+                            // appointment gate (NAV-01). Was navigate('AuthChoice') = a fresh register
+                            // that orphaned the guest's data. navigationRef is depth-independent.
+                            // @ts-ignore - cross-navigator deep link (same pattern as App.tsx routing)
+                            () => navigationRef.navigate('Home', { screen: 'GuestUpgrade' }),
                             undefined,
                             t('common.cancel'),
                             t('tasks.createAccount')
