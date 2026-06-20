@@ -41,7 +41,11 @@ export const RegisterScreen = () => {
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [error, setError] = useState('');
-    const [passwordFocused, setPasswordFocused] = useState(false);
+    // W1 #18: which field is focused (visible focus ring, WCAG 2.4.7) + which field failed
+    // validation (red border, so the user sees WHICH input to fix, not just a generic message).
+    const [focusedField, setFocusedField] = useState<'email' | 'password' | 'confirm' | null>(null);
+    const [errorField, setErrorField] = useState<'email' | 'password' | 'confirm' | null>(null);
+    const passwordFocused = focusedField === 'password';
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
 
@@ -77,22 +81,26 @@ export const RegisterScreen = () => {
 
     const handleRegister = async () => {
         setError('');
+        setErrorField(null);
 
         const emailValidation = validateEmail(email);
         if (!emailValidation.valid) {
             setError(t(emailValidation.error || 'invalidEmail'));
+            setErrorField('email');
             return;
         }
 
         const passwordValidation = validatePassword(password);
         if (!passwordValidation.valid) {
             setError(t(passwordValidation.error || 'invalidPassword'));
+            setErrorField('password');
             return;
         }
 
         const passwordMatchValidation = validatePasswordMatch(password, confirmPassword);
         if (!passwordMatchValidation.valid) {
             setError(t(passwordMatchValidation.error || 'errors.passwordMismatch'));
+            setErrorField('confirm');
             return;
         }
 
@@ -151,10 +159,12 @@ export const RegisterScreen = () => {
                         <Text style={[styles.label, isRTL && styles.rtlText]}>{t('email')}</Text>
                         {/* W1 #14: email/password are LTR data — never force RTL caret/text in ar/tn. */}
                         <TextInput
-                            style={styles.input}
+                            style={[styles.input, focusedField === 'email' && styles.inputFocused, errorField === 'email' && styles.inputError]}
                             placeholder={t('emailPlaceholder')}
                             value={email}
-                            onChangeText={(text) => { setEmail(text); setError(''); }}
+                            onChangeText={(text) => { setEmail(text); setError(''); setErrorField(null); }}
+                            onFocus={() => setFocusedField('email')}
+                            onBlur={() => setFocusedField(f => (f === 'email' ? null : f))}
                             keyboardType="email-address"
                             autoCapitalize="none"
                             autoCorrect={false}
@@ -172,15 +182,15 @@ export const RegisterScreen = () => {
                         <Text style={[styles.label, { marginTop: theme.spacing.m }, isRTL && styles.rtlText]}>
                             {t('password')}
                         </Text>
-                        <View style={styles.passwordContainer}>
+                        <View style={[styles.passwordContainer, focusedField === 'password' && styles.containerFocused, errorField === 'password' && styles.containerError]}>
                             <TextInput
                                 ref={passwordRef}
                                 style={styles.passwordInput}
                                 placeholder={t('passwordPlaceholder')}
                                 value={password}
-                                onChangeText={(text) => { setPassword(text); setError(''); }}
-                                onFocus={() => setPasswordFocused(true)}
-                                onBlur={() => setPasswordFocused(false)}
+                                onChangeText={(text) => { setPassword(text); setError(''); setErrorField(null); }}
+                                onFocus={() => setFocusedField('password')}
+                                onBlur={() => setFocusedField(f => (f === 'password' ? null : f))}
                                 secureTextEntry={!showPassword}
                                 autoCapitalize="none"
                                 returnKeyType="next"
@@ -237,13 +247,15 @@ export const RegisterScreen = () => {
                         <Text style={[styles.label, { marginTop: theme.spacing.m }, isRTL && styles.rtlText]}>
                             {t('confirmPassword')}
                         </Text>
-                        <View style={styles.passwordContainer}>
+                        <View style={[styles.passwordContainer, focusedField === 'confirm' && styles.containerFocused, errorField === 'confirm' && styles.containerError]}>
                             <TextInput
                                 ref={confirmRef}
                                 style={styles.passwordInput}
                                 placeholder={t('retypePassword')}
                                 value={confirmPassword}
-                                onChangeText={(text) => { setConfirmPassword(text); setError(''); }}
+                                onChangeText={(text) => { setConfirmPassword(text); setError(''); setErrorField(null); }}
+                                onFocus={() => setFocusedField('confirm')}
+                                onBlur={() => setFocusedField(f => (f === 'confirm' ? null : f))}
                                 secureTextEntry={!showConfirm}
                                 autoCapitalize="none"
                                 returnKeyType="done"
@@ -367,6 +379,19 @@ const styles = StyleSheet.create({
     inputRTL: {
         textAlign: 'right',
         writingDirection: 'rtl',
+    },
+    // W1 #18: visible focus ring (WCAG 2.4.7) + per-field validation error border.
+    inputFocused: {
+        borderColor: theme.colors.accent,
+    },
+    inputError: {
+        borderColor: theme.colors.error,
+    },
+    containerFocused: {
+        borderColor: theme.colors.accent,
+    },
+    containerError: {
+        borderColor: theme.colors.error,
     },
     passwordContainer: {
         flexDirection: 'row',
