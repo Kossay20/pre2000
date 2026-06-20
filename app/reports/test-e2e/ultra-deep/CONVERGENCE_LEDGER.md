@@ -20,7 +20,10 @@ The 10-agent army (read-only, parallel, per feature): logic-verifier · reasoner
 | **W1** | S1 Onboarding/Auth | (10-agent) 125→21 | **19/21** (incl. 7 P1) | **0** | ✅ probed | ✅ **VALIDATED** (3 residuals = design/copy/low, deferred) |
 | **W2** | S2 Home | (10-agent) 109→30 | **9/30** (5 P1 + #7 data + 3 UX) | **0** | ✅ probed (/HomeMain) | ✅ **P1-VALIDATED** (P2/UX sweep ongoing) |
 | **W3** | S3 Calendar | (10-agent) 100→25 | **7/25** (3 P1 + #1 + 3 UX) | **0** | ✅ probed (/calendar) | ✅ **P1-VALIDATED** (incl. a ship-surface white-screen crash) |
-| W4–W9 | S4…S9 | queued | — | — | — | ⏳ pending |
+| **W4** | S4 Reminders/Tasks | ⚠ analysis infra-blocked (server rate-limit, 11/11 agents) | inline spot-check only | — | — | 🔁 **re-queued** (cron retries) |
+| W5–W9 | S5…S9 | queued | — | — | — | ⏳ pending |
+
+**W4 note (honest):** the 10-agent fan-out failed entirely on transient server-side rate-limiting ("not your usage limit") — NOT a methodology/code issue. Inline supervisor spot-check of S4's highest-risk areas found them **solid**: `remindersScheduler.ts` no-ops gracefully on web (line 73) and uses a cancel-owned-then-reschedule-enabled pattern that structurally prevents orphaned notifications (NOTIF-07); the reminder toggle has exemplary a11y (`role=switch` + label + hint + `checked` state, RemindersTab.tsx:213-223). Full W4 analysis is re-queued — the hourly `/goal` cron re-launches it when infra recovers. No wave is marked VALIDATED without its full loop.
 
 **Proof of scale:** the *same* 10-agent adversarial loop has now closed the **P0+P1=0 gate on 3 full systems** (S1, S2, S3) — identical methodology, evidence-anchored, verify-green on **every** commit (20 ultra-deep commits, jest 1867→1876). Each wave found *real* bite (S1 re-onboard data-loss; S2 "null cm" + i18n leak; **S3 a typed-date RangeError that white-screened the shipped web form**), and adversarial dispute *changed outcomes* (rejected the formatMeasure comma claim, refuted the ForbiddenFoods P1, disputed the month-grid-RTL rewrite down to a probe). The loop is mechanical and repeatable across 3 features; remaining systems (S4–S9) are throughput, not unknowns.
 
