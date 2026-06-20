@@ -86,16 +86,25 @@ export const AuthChoiceScreen = () => {
                         <Text style={styles.guestButtonText}>{t('continueAsGuest')}</Text>
                     </TouchableOpacity>
 
-                    {/* Disclaimer */}
-                    <TouchableOpacity
-                        style={styles.termsContainer}
-                        onPress={() => navigation.navigate('PrivacyPolicy')}
-                        activeOpacity={0.7}
-                    >
+                    {/* Disclaimer + privacy link — W1 #17: split into two elements so the RTL bidi
+                        algorithm can't scramble a "<sentence> — <link>" concatenation, and the link
+                        gets a real link role (the disclaimer text is no longer falsely tappable). */}
+                    <View style={styles.termsContainer}>
                         <Text style={[styles.termsText, isRTL && styles.rtlText]}>
-                            {t('guestDisclaimer')} — {t('privacyPolicy', { defaultValue: 'Politique de confidentialité' })}
+                            {t('guestDisclaimer')}
                         </Text>
-                    </TouchableOpacity>
+                        <TouchableOpacity
+                            onPress={() => navigation.navigate('PrivacyPolicy')}
+                            activeOpacity={0.7}
+                            accessibilityRole="link"
+                            accessibilityLabel={t('privacyPolicy', { defaultValue: 'Politique de confidentialité' })}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        >
+                            <Text style={[styles.termsLink, isRTL && styles.rtlText]}>
+                                {t('privacyPolicy', { defaultValue: 'Politique de confidentialité' })}
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
                 </View>
             </LinearGradient>
         </SafeAreaView>
@@ -205,7 +214,14 @@ const styles = StyleSheet.create({
         fontSize: 11,
         color: theme.colors.neutral400,
         textAlign: 'center',
+        lineHeight: 16,
+    },
+    termsLink: {
+        fontSize: 11,
+        color: theme.colors.textLight,
+        textAlign: 'center',
         textDecorationLine: 'underline',
         lineHeight: 16,
+        marginTop: 2,
     },
 });

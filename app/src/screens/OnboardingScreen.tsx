@@ -212,7 +212,7 @@ export const OnboardingScreen = () => {
         // F18: validate the collected profile before creating the account / guest profile.
         // Blocks invalid first names and impossible LMP dates from reaching AuthContext.
         const validation = validateProfile({
-            firstName: firstName || t('onboarding.step4.defaultName'),
+            firstName: firstName.trim() || t('onboarding.step4.defaultName'),
             lmp: lmpDate,
         });
         if (!validation.valid) {
@@ -223,7 +223,7 @@ export const OnboardingScreen = () => {
 
         log.debug('[Onboarding] 🎯 handleFinish called', { createAccount });
         log.debug(`[Onboarding] 📊 Profile data:`, {
-            firstName: firstName || t('onboarding.step4.defaultName'),
+            firstName: firstName.trim() || t('onboarding.step4.defaultName'),
             lmpDate: lmpDate.toISOString(),
             dateMethod,
             week: pregnancyInfo.week,
@@ -270,7 +270,7 @@ export const OnboardingScreen = () => {
 
                 // Create profile (guest or authenticated)
                 await retryOperation(() => loginAsGuest(
-                    firstName || t('onboarding.step4.defaultName'),
+                    firstName.trim() || t('onboarding.step4.defaultName'),
                     lmpDate,
                     country,
                     undefined, // lastName
@@ -557,7 +557,7 @@ export const OnboardingScreen = () => {
             </View>
 
             <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>{t('onboarding.step3.firstPregnancyLabel')}</Text>
+                <Text style={[styles.inputLabel, rtlText]}>{t('onboarding.step3.firstPregnancyLabel')}</Text>
                 <View style={styles.radioGroup}>
                     <TouchableOpacity
                         style={[styles.radioOption, isFirstPregnancy === true && styles.radioOptionSelected]}
@@ -566,7 +566,7 @@ export const OnboardingScreen = () => {
                         accessibilityLabel={t('onboarding.step3.firstPregnancyYes')}
                         accessibilityState={{ selected: isFirstPregnancy === true }}
                     >
-                        <Text style={styles.radioText}>{t('onboarding.step3.firstPregnancyYes')}</Text>
+                        <Text style={[styles.radioText, rtlText]}>{t('onboarding.step3.firstPregnancyYes')}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                         style={[styles.radioOption, isFirstPregnancy === false && styles.radioOptionSelected]}
@@ -575,13 +575,16 @@ export const OnboardingScreen = () => {
                         accessibilityLabel={t('onboarding.step3.firstPregnancyNo')}
                         accessibilityState={{ selected: isFirstPregnancy === false }}
                     >
-                        <Text style={styles.radioText}>{t('onboarding.step3.firstPregnancyNo')}</Text>
+                        <Text style={[styles.radioText, rtlText]}>{t('onboarding.step3.firstPregnancyNo')}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                         style={[styles.radioOption, isFirstPregnancy === null && styles.radioOptionSelected]}
                         onPress={() => setIsFirstPregnancy(null)}
+                        accessibilityRole="button"
+                        accessibilityLabel={t('onboarding.step3.firstPregnancySkip')}
+                        accessibilityState={{ selected: isFirstPregnancy === null }}
                     >
-                        <Text style={styles.radioText}>{t('onboarding.step3.firstPregnancySkip')}</Text>
+                        <Text style={[styles.radioText, rtlText]}>{t('onboarding.step3.firstPregnancySkip')}</Text>
                     </TouchableOpacity>
                 </View>
             </View>
@@ -1091,7 +1094,7 @@ export const OnboardingScreen = () => {
         // C14-FIX: same validateProfile gate as handleFinish (was missing, F18 partial gap).
         // For TTC the LMP is the user's lastPeriodDate (used to compute the fertility window).
         const ttcValidation = validateProfile({
-            firstName: firstName || t('onboarding.step4.defaultName'),
+            firstName: firstName.trim() || t('onboarding.step4.defaultName'),
             lmp: lastPeriodDate,
         });
         if (!ttcValidation.valid) {
@@ -1128,7 +1131,7 @@ export const OnboardingScreen = () => {
                 // dedicated TTC home (Strategy B) can hydrate without re-prompting.
                 const fertility = calculateFertileWindow(lastPeriodDate, cycleLength);
                 const ttcProfile = {
-                    firstName: firstName || t('onboarding.step4.defaultName'),
+                    firstName: firstName.trim() || t('onboarding.step4.defaultName'),
                     country,
                     ageRange: ageRange || null,
                     lastPeriodDate: lastPeriodDate.toISOString(),
@@ -1155,7 +1158,7 @@ export const OnboardingScreen = () => {
                 // TTC mode so AuthContext stores currentWeek=0, isTTC=true, cycleLength,
                 // and the precomputed fertility window — instead of a ghost pregnancy.
                 await retryOperation(() => loginAsGuest(
-                    firstName || t('onboarding.step4.defaultName'),
+                    firstName.trim() || t('onboarding.step4.defaultName'),
                     lastPeriodDate,
                     country,
                     undefined,
@@ -1286,7 +1289,7 @@ export const OnboardingScreen = () => {
                                     : t('onboarding.step2.labelConception')}
                             </Text>
                             <TouchableOpacity onPress={() => setShowDatePicker(false)}>
-                                <Text style={styles.iosPickerDoneText}>{t('common.save')}</Text>
+                                <Text style={styles.iosPickerDoneText}>{t('common.done')}</Text>
                             </TouchableOpacity>
                         </View>
                         <DateTimePicker
@@ -1308,7 +1311,7 @@ export const OnboardingScreen = () => {
                         <View style={styles.iosPickerHeader}>
                             <Text style={styles.iosPickerTitle}>{t('onboarding.step2Ttc.lastPeriodLabel')}</Text>
                             <TouchableOpacity onPress={() => setShowCycleDatePicker(false)}>
-                                <Text style={styles.iosPickerDoneText}>{t('common.save')}</Text>
+                                <Text style={styles.iosPickerDoneText}>{t('common.done')}</Text>
                             </TouchableOpacity>
                         </View>
                         <DateTimePicker
