@@ -37,7 +37,7 @@ import { getUpcomingAppointments } from '../services/calendarService';
 import { getTipForDay } from '../services/tipsService'; // ANTIGRAVITY
 import { getMessageForDay } from '../services/babyMessageService'; // BABY MESSAGES
 import { Article, Supplement, UserEvent, Tip, BabyMessage } from '../types';
-import { format, addDays } from 'date-fns';
+import { format, addDays, differenceInCalendarDays } from 'date-fns';
 import { useTranslation } from 'react-i18next';
 import { getLocalizedContent } from '../utils/i18nHelpers';
 import { formatMeasure } from '../utils/localizedFormat';
@@ -279,11 +279,11 @@ export const HomeScreen = () => {
     // BabyGrowthCard "semaine 0" + RDV grossesse (incohérent). Maintenant :
     // un screen simple "Vous essayez de concevoir" + cycle day count.
     if (user?.isTTC) {
-        const lmpDate = profile?.lmp ? new Date(profile.lmp) : new Date();
-        const cycleDay = Math.max(
-            1,
-            Math.floor((Date.now() - lmpDate.getTime()) / (1000 * 60 * 60 * 24)) + 1
-        );
+        // W2 #7: derive the cycle day DST-safely (calendar days, not raw ms/86400 which drifts a
+        // day across a DST boundary), and DON'T fabricate "Day 1" when no last-period date exists —
+        // omit the day line instead of asserting a wrong count.
+        const lmpDate = profile?.lmp ? new Date(profile.lmp) : null;
+        const cycleDay = lmpDate ? Math.max(1, differenceInCalendarDays(new Date(), lmpDate) + 1) : null;
         const cycleLength = user?.cycleLength || 28;
         return (
             <ScrollView
@@ -293,7 +293,7 @@ export const HomeScreen = () => {
                 <EmptyState
                     icon="💕"
                     title={t('home.ttcTitle')}
-                    subtitle={t('home.ttcDay', { day: cycleDay, total: cycleLength })}
+                    subtitle={cycleDay ? t('home.ttcDay', { day: cycleDay, total: cycleLength }) : undefined}
                 />
             </ScrollView>
         );
