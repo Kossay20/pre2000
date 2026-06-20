@@ -79,7 +79,7 @@ const PRIVATE_STORAGE_KEYS = [
 
 // Re-export pure helper extracted to ./loginHelpers so it can be unit-tested
 // without loading AuthContext.tsx (whose JSX trips ts-jest under module:"preserve").
-import { resolveLoginProfile } from './loginHelpers';
+import { resolveLoginProfile, shouldPreserveExistingProfile } from './loginHelpers';
 export { resolveLoginProfile } from './loginHelpers';
 export type { ResolvedLoginProfile } from './loginHelpers';
 
@@ -423,6 +423,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         try {
             if (isAuthenticated) {
+                // W1 #3 — re-onboarding data-loss guard. If this authenticated uid ALREADY has a
+                // complete profile (a returning user re-ran onboarding and recovered via the
+                // email-already-in-use → login path), do NOT overwrite their stored lmp/firstName/
+                // createdAt with the fresh onboarding form. Adopt the stored profile, migrate any
+                // guest data, and finish. A missing/partial doc (no pregnancy anchor) falls through
+                // to the normal create path. See shouldPreserveExistingProfile + its unit tests.
+                try {
+                    const existingSnap = await getDoc(doc(db, 'userProfiles', uid));
+                    if (shouldPreserveExistingProfile(existingSnap)) {
+                        const stored = existingSnap.data() || {};
+                        const adopted = {
+                            ...newUser,
+                            ...stored,
+                            uid,
+                            isGuest: false,
+                            currentWeek: stored.isTTC
+                                ? 0
+                                : (stored.lmp ? calculateCurrentWeek(new Date(stored.lmp)) : newUser.currentWeek),
+                        } as UserProfile;
+                        await AsyncStorage.setItem('user_profile', JSON.stringify(adopted));
+                        setUser(adopted);
+                        try {
+                            await migrateAllGuestDataToAuth(uid);
+                        } catch (migrationError) {
+                            log.warn('[AuthContext] ⚠️ Guest migration after profile-preserve failed (non-blocking):', migrationError);
+                        }
+                        log.info('[AuthContext] ↩️ W1 #3: existing profile preserved on re-onboard (no overwrite), uid:', uid);
+                        return;
+                    }
+                } catch (preserveCheckError) {
+                    // Read failed (offline/permission) — fall through to the normal write rather
+                    // than block the user. Worst case reverts to prior behaviour, never worse.
+                    log.warn('[AuthContext] ⚠️ existing-profile check failed, proceeding to write:', preserveCheckError);
+                }
+
                 // Save to Firestore for authenticated users
                 // IMPORTANT: Firestore doesn't accept undefined values, so we filter them out
                 log.debug('[AuthContext] 💾 Saving to Firestore for authenticated user:', uid);

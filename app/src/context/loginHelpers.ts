@@ -55,3 +55,28 @@ export const resolveLoginProfile = (
     } as unknown as UserProfile;
     return { profile: minimal, isMinimal: true };
 };
+
+/**
+ * W1 #3 (re-onboarding data-loss guard).
+ *
+ * `loginAsGuest` is the single sink every onboarding flow (pregnant / TTC / curious)
+ * uses to persist the collected profile. On the `auth/email-already-in-use` recovery
+ * path (a RETURNING user re-runs onboarding and re-enters their existing credentials),
+ * it would `setDoc(merge)` the fresh form values over the stored profile — overwriting
+ * their real `lmp` / `firstName` and resetting `createdAt`.
+ *
+ * This predicate tells `loginAsGuest` to ADOPT the stored profile instead of overwriting
+ * it: true iff a Firestore doc already exists AND carries a real pregnancy anchor
+ * (`lmp` or `pregnancyStartDate`). A missing doc, or an orphan/partial doc with no anchor,
+ * returns false → the normal create path runs (correct for fresh signup + partial-signup
+ * recovery, where there is nothing to preserve).
+ *
+ * Pure: no I/O. Mirrors `resolveLoginProfile`'s docSnap shape so it unit-tests the same way.
+ */
+export const shouldPreserveExistingProfile = (
+    docSnap: { exists: () => boolean; data: () => any }
+): boolean => {
+    if (!docSnap || !docSnap.exists()) return false;
+    const data = docSnap.data() || {};
+    return !!(data.lmp || data.pregnancyStartDate);
+};
