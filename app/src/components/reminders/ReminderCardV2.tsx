@@ -78,11 +78,19 @@ export const ReminderCardV2: React.FC<ReminderCardV2Props> = ({
         }).join(' • ');
     };
 
+    // W4 #2: calendar.weekDays is an OBJECT keyed by day name ({monday:'L',…}), NOT a numeric array,
+    // and reminder days are 1=Monday … 7=Sunday. Resolve through the ordered keys.
+    const WEEKDAY_ORDER = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+    const getWeekDayNames = (): string[] => {
+        const wd = t('calendar.weekDays', { returnObjects: true }) as Record<string, string>;
+        return WEEKDAY_ORDER.map(k => wd?.[k] || '');
+    };
+
     // Format days for per_week display
     const formatDays = (days: number[]): string => {
         if (!days || days.length === 0) return '';
-        const dayNames = t('calendar.weekDays', { returnObjects: true }) as string[];
-        return days.map(d => dayNames[d % 7]).join(' • ');
+        const dayNames = getWeekDayNames();
+        return days.map(d => dayNames[((d - 1) % 7 + 7) % 7]).filter(Boolean).join(' • ');
     };
 
     // Get days to display (from setting or preset)
@@ -165,7 +173,7 @@ export const ReminderCardV2: React.FC<ReminderCardV2Props> = ({
                         <View style={styles.daysRow}>
                             <Text style={styles.daysLabel}>{t('reminders.card.daysLabel')}</Text>
                             <View style={styles.daysContainer}>
-                                {(t('calendar.weekDays', { returnObjects: true }) as string[]).map((day, index) => {
+                                {getWeekDayNames().map((day, index) => {
                                     const dayNum = index + 1;
                                     const isActive = setting.days?.includes(dayNum);
                                     return (

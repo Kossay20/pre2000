@@ -291,16 +291,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             if (!isMinimal) {
                 log.debug('[AuthContext] ✅ User profile loaded from Firestore');
-
-                // P1 FIX: Auto-migrate any guest data (tasks, reminders) to Firestore
-                try {
-                    await migrateAllGuestDataToAuth(userCredential.user.uid);
-                    log.info('[AuthContext] ✅ Guest data migration completed after login');
-                } catch (migrationError) {
-                    log.warn('[AuthContext] ⚠️ Guest data migration failed (non-blocking):', migrationError);
-                }
             } else {
                 log.warn('[AuthContext] ⚠️ User profile not found in Firestore — bootstrapping minimal profile');
+            }
+
+            // W4 #6 FIX: migrate guest data (tasks, reminders) REGARDLESS of whether a Firestore
+            // profile already existed. Previously this was nested under `if (!isMinimal)`, so a
+            // returning user whose profile doc is missing/unreadable (orphan account, offline login)
+            // silently lost their guest-created data. Idempotent + best-effort (never blocks login).
+            try {
+                await migrateAllGuestDataToAuth(userCredential.user.uid);
+                log.info('[AuthContext] ✅ Guest data migration completed after login');
+            } catch (migrationError) {
+                log.warn('[AuthContext] ⚠️ Guest data migration failed (non-blocking):', migrationError);
             }
         } catch (error) {
             log.error('[AuthContext] ❌ Login error:', error);

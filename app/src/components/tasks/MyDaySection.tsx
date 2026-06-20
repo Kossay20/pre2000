@@ -139,7 +139,9 @@ export const MyDaySection: React.FC<Props> = React.memo(({
                     if (isToday) {
                         subtitle = format(date, 'HH:mm');
                     } else if (isTomorrow) {
-                        subtitle = `${t('common.tomorrow')} ${format(date, 'HH:mm')}`;
+                        // W4 #1: 'tomorrow' lives in the tasks namespace; common.tomorrow is undefined
+                        // (was leaking the raw key in all 4 langs).
+                        subtitle = `${t('tasks.modal.tomorrow')} ${format(date, 'HH:mm')}`;
                     } else {
                         subtitle = format(date, 'dd/MM HH:mm');
                     }

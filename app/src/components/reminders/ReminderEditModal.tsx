@@ -378,7 +378,10 @@ export const ReminderEditModal: React.FC<ReminderEditModalProps> = ({
                             disabled={saving}
                         >
                             <Text style={styles.saveButtonText}>
-                                {saving ? t('common.save') : t('common.save').replace('...', ' 💕')}
+                                {/* W4 #3: idle shows the action verb (common.save — corrected to
+                                    'Save'/'حفظ' in en/ar/tn, was the 'Saving…' loading string); loading
+                                    shows common.saving. Dropped the brittle '...'→💕 replace hack. */}
+                                {saving ? t('common.saving') : `${t('common.save')} 💕`}
                             </Text>
                         </TouchableOpacity>
                     </View>
