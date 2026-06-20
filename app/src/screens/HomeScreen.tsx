@@ -337,7 +337,8 @@ export const HomeScreen = () => {
     const babyFacts = getLocalizedContent(weekData, 'baby_facts', i18n.language)?.split('•').filter(f => f.trim()).map(f => f.trim()) || [];
     const momTips = getLocalizedContent(weekData, 'mom_tips', i18n.language)?.split('•').filter(t => t.trim()).map(t => t.trim()) || [];
 
-    const displayName = profile?.firstName || user?.firstName || t('home.futureMom');
+    // W2 #29: trim so a whitespace-only first name doesn't yield a blank avatar initial + "Bonjour   👋".
+    const displayName = (profile?.firstName || user?.firstName || '').trim() || t('home.futureMom');
     const userEmail = user?.email || t('profile.guestUser');
     // Trimester label is derived from the week number (T1 ≤13, T2 ≤27, else T3), NOT
     // the raw `trimester` data field — that field is a localized ordinal ("2ème") which
@@ -463,7 +464,7 @@ export const HomeScreen = () => {
                     <View style={styles.centerContent}>
                         <View style={styles.headerTextContainer}>
                             <Text style={styles.greeting}>
-                                {t('home.greeting', { name: profile?.firstName || user?.firstName || t('home.futureMom') })}
+                                {t('home.greeting', { name: displayName })}
                             </Text>
                         </View>
                         {/* Week Navigation */}
@@ -628,7 +629,9 @@ export const HomeScreen = () => {
                 {/* U-FIX-6: pass currentDay so the displayed "day of pregnancy" is exact
                     (was ~7 days too high before because it used currentWeek * 7).
                     MA7-FIX: skip baby-growth card for TTC users — they are not pregnant. */}
-                {!user?.isTTC && (
+                {/* W2 #6: hide fetal growth/size visuals once the pregnancy is past-term (isInvalid)
+                    so they don't contradict the "did you deliver?" banner above. */}
+                {!user?.isTTC && !isInvalid && (
                     <BabyGrowthCard
                         currentWeek={currentWeekNumber}
                         currentDay={currentDay}
@@ -637,7 +640,7 @@ export const HomeScreen = () => {
                 )}
 
                 {/* SECTION 1: HERO CARD PREMIUM (Phase 1) */}
-                {weekData && (
+                {weekData && !isInvalid && (
                     <View style={[styles.sectionContainer, { marginTop: -50, paddingTop: 24 }]}>
                         {/* Title outside the card for cleaner look */}
                         <Text style={styles.sectionTitleMain}>🍼 {t('common.heroTitle')}</Text>
@@ -806,6 +809,7 @@ export const HomeScreen = () => {
                         {/* Rappels Card */}
                         <TouchableOpacity
                             style={styles.toolCard}
+                            activeOpacity={0.7}
                             onPress={() => navigation.navigate('Rappels')}
                             accessibilityLabel={t('common.reminders')}
                             accessibilityRole="button"
@@ -823,6 +827,7 @@ export const HomeScreen = () => {
                         {/* Calendrier Card */}
                         <TouchableOpacity
                             style={styles.toolCard}
+                            activeOpacity={0.7}
                             onPress={() => navigation.navigate('Calendrier')}
                             accessibilityLabel={t('home.calendar')}
                             accessibilityRole="button"
@@ -840,6 +845,7 @@ export const HomeScreen = () => {
                         {/* Suivi du Poids Card */}
                         <TouchableOpacity
                             style={styles.toolCard}
+                            activeOpacity={0.7}
                             onPress={() => navigation.navigate('WeightTracker')}
                             accessibilityLabel={t('home.myWeight')}
                             accessibilityRole="button"
@@ -857,6 +863,7 @@ export const HomeScreen = () => {
                         {/* Aliments Interdits Card */}
                         <TouchableOpacity
                             style={styles.toolCard}
+                            activeOpacity={0.7}
                             onPress={() => navigation.navigate('ForbiddenFoods')}
                             accessibilityLabel={t('home.foods')}
                             accessibilityRole="button"
@@ -876,6 +883,7 @@ export const HomeScreen = () => {
                         {currentWeekNumber >= 16 && (
                             <TouchableOpacity
                                 style={styles.toolCard}
+                                activeOpacity={0.7}
                                 onPress={() => navigation.navigate('KickCounter')}
                                 accessibilityLabel={t('cycle8.kickCounter.title')}
                                 accessibilityRole="button"
@@ -896,6 +904,7 @@ export const HomeScreen = () => {
                         {currentWeekNumber >= 28 && (
                             <TouchableOpacity
                                 style={styles.toolCard}
+                                activeOpacity={0.7}
                                 onPress={() => navigation.navigate('ContractionTimer')}
                                 accessibilityLabel={t('cycle8.contractionTimer.title')}
                                 accessibilityRole="button"
@@ -914,6 +923,7 @@ export const HomeScreen = () => {
                         {currentWeekNumber >= 28 && (
                             <TouchableOpacity
                                 style={styles.toolCard}
+                                activeOpacity={0.7}
                                 onPress={() => navigation.navigate('HospitalBag')}
                                 accessibilityLabel={t('cycle8.hospitalBag.title')}
                                 accessibilityRole="button"
@@ -932,6 +942,7 @@ export const HomeScreen = () => {
                         {/* Cycle 8 — Ramadan & Pregnancy (reachable for all locales; the screen is complete and useful) */}
                         <TouchableOpacity
                             style={styles.toolCard}
+                            activeOpacity={0.7}
                             onPress={() => navigation.navigate('RamadanPregnancy')}
                             accessibilityLabel={t('cycle8.ramadan.title')}
                             accessibilityRole="button"
