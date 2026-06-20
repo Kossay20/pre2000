@@ -46,6 +46,18 @@ export const formatMeasure = (
     unit: string,
     language: string = i18n.language
 ): string => {
+    // W2 #2: guard missing/invalid values (a Firestore week doc with no baby_size_cm, a NaN, etc.)
+    // so the hero stat never renders the literal "null cm" / "undefined غ" / "NaN kg". The numeric
+    // value keeps Western digits + dot separator BY DESIGN here (see localizedFormat.test.ts) —
+    // measures are dot, unlike formatDecimal's locale-aware separator for user-entered quantities.
+    if (
+        value === null ||
+        value === undefined ||
+        (typeof value === 'number' && !Number.isFinite(value)) ||
+        (typeof value === 'string' && value.trim() === '')
+    ) {
+        return '—';
+    }
     const localizedUnit = localizeUnit(unit, language);
     return localizedUnit ? `${value} ${localizedUnit}` : `${value}`;
 };

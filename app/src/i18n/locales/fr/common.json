@@ -737,6 +737,7 @@
     "postpartumTitle": "Avez-vous accueilli votre bébé ?",
     "postpartumDesc": "Il semblerait que votre date prévue d'accouchement soit passée ! Mettez à jour votre profil pour passer en mode post-partum.",
     "postpartumCta": "Mettre à jour le statut",
+    "updateStatus": "Mettre à jour le statut",
     "ttcTitle": "Vous essayez de concevoir 💕",
     "ttcDay": "Jour {{day}} de votre cycle (~{{total}} jours)",
     "curiousTitle": "Mode découverte 👀",

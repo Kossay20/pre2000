@@ -14,6 +14,7 @@ import {
     ActivityIndicator,
     Animated,
     Platform,
+    AccessibilityInfo,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { HomeHeader } from '../components/home/HomeHeader';
@@ -67,6 +68,10 @@ export const HomeScreen = () => {
     const { weekData, loading, error, currentWeekNumber, currentDay, isInvalid, refetch } = useCurrentWeek(overrideWeek ?? undefined);
     const { t, i18n } = useTranslation();
     const { isRTL } = useRtl();
+    // W2 #3: ref to the horizontal recommendations carousel so we can apply the documented
+    // RN-Web RTL fix (see BabyEvolutionScreen) — set dir=ltr on the scroll node so scrollLeft
+    // stays positive/standard under document.dir=rtl (ar/tn). Cards keep logical paddingEnd.
+    const recScrollRef = useRef<ScrollView>(null);
     const dateLocale = useDateLocale();
     const { user } = useAuth();
     const { profile, pregnancyInfo } = usePregnancy();
@@ -219,26 +224,32 @@ export const HomeScreen = () => {
 
     const handlePrevWeek = useCallback(() => {
         if (currentWeekNumber > 1) {
-            setOverrideWeek(currentWeekNumber - 1);
+            const newWeek = currentWeekNumber - 1;
+            setOverrideWeek(newWeek);
+            // W2 #5: the week badge updates silently — announce the new week to screen readers.
+            AccessibilityInfo.announceForAccessibility(`${t('common.week')} ${newWeek}`);
             // Animate transition
             Animated.sequence([
                 Animated.timing(fadeAnim, { toValue: 0.7, duration: 150, useNativeDriver: false }),
                 Animated.timing(fadeAnim, { toValue: 1, duration: 150, useNativeDriver: false }),
             ]).start();
         }
-    }, [currentWeekNumber, fadeAnim]);
+    }, [currentWeekNumber, fadeAnim, t]);
 
     const handleNextWeek = useCallback(() => {
         if (currentWeekNumber < 40) {
-            setOverrideWeek(currentWeekNumber + 1);
+            const newWeek = currentWeekNumber + 1;
+            setOverrideWeek(newWeek);
             setOverrideDay(null); // Reset day when changing week
+            // W2 #5: announce the new week to screen readers.
+            AccessibilityInfo.announceForAccessibility(`${t('common.week')} ${newWeek}`);
             // Animate transition
             Animated.sequence([
                 Animated.timing(fadeAnim, { toValue: 0.7, duration: 150, useNativeDriver: false }),
                 Animated.timing(fadeAnim, { toValue: 1, duration: 150, useNativeDriver: false }),
             ]).start();
         }
-    }, [currentWeekNumber, fadeAnim]);
+    }, [currentWeekNumber, fadeAnim, t]);
 
     // #9 — Return to the user's *real* current week after time-travelling with the
     // week chevrons. Clearing the overrides hands control back to useCurrentWeek,
@@ -252,7 +263,16 @@ export const HomeScreen = () => {
         ]).start();
     }, [fadeAnim]);
 
-
+    // W2 #3: keep the horizontal recommendations carousel scrolling correctly under RTL.
+    // RN-Web gives a horizontal ScrollView a NEGATIVE scrollLeft when document.dir=rtl, which
+    // breaks geometry; forcing dir=ltr on the scroll node (cards keep logical order + paddingEnd)
+    // restores standard scrolling. Same fix already proven in BabyEvolutionScreen.
+    useEffect(() => {
+        if (Platform.OS === 'web' && isRTL) {
+            const node = recScrollRef.current?.getScrollableNode?.();
+            if (node && typeof node.setAttribute === 'function') node.setAttribute('dir', 'ltr');
+        }
+    }, [isRTL, articles.length, supplements.length]);
 
     // Cycle 3 F211 — Mode TTC : home dédié minimal (pas de grossesse en cours).
     // Avant : aucun guard côté HomeScreen pour TTC → l'utilisatrice voyait un
@@ -393,7 +413,7 @@ export const HomeScreen = () => {
                 une exploration (pas une vraie grossesse). CTA pour basculer si
                 grossesse réelle survient (vise Profile pour reset onboarding). */}
             {user?.isCurious && (
-                <View style={styles.curiousBanner}>
+                <View style={[styles.curiousBanner, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                     <Text style={styles.curiousBannerEmoji}>👀</Text>
                     <View style={styles.curiousBannerTextContainer}>
                         <Text style={styles.curiousBannerTitle}>{t('home.curiousTitle')}</Text>
@@ -458,6 +478,7 @@ export const HomeScreen = () => {
                                     activeOpacity={0.7}
                                     accessibilityLabel={t('a11y.previousWeek')}
                                     accessibilityRole="button"
+                                    accessibilityState={{ disabled: currentWeekNumber <= 1 }}
                                 >
                                     <RtlAwareChevron
                                         direction="back"
@@ -477,6 +498,7 @@ export const HomeScreen = () => {
                                     activeOpacity={0.7}
                                     accessibilityLabel={t('a11y.nextWeek')}
                                     accessibilityRole="button"
+                                    accessibilityState={{ disabled: currentWeekNumber >= 40 }}
                                 >
                                     <RtlAwareChevron
                                         direction="forward"
@@ -585,7 +607,7 @@ export const HomeScreen = () => {
             <View style={[styles.contentContainer, { marginTop: -60 }]}>
                 {/* POST-PARTUM / ETERNAL PREGNANCY BANNER */}
                 {isInvalid && (
-                    <View style={styles.postpartumBanner}>
+                    <View style={[styles.postpartumBanner, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                         <Text style={styles.postpartumEmoji}>🍼</Text>
                         <View style={styles.postpartumTextContainer}>
                             <Text style={styles.postpartumTitle}>{t('home.postpartumTitle')}</Text>
@@ -594,7 +616,7 @@ export const HomeScreen = () => {
                                 style={styles.postpartumButton}
                                 onPress={() => navigation.navigate('Profile')}
                                 accessibilityRole="button"
-                                accessibilityLabel={t('home.updateStatus', 'Mettre à jour le statut')}
+                                accessibilityLabel={t('home.updateStatus')}
                             >
                                 <Text style={styles.postpartumButtonText}>{t('home.postpartumCta')}</Text>
                             </TouchableOpacity>
@@ -969,6 +991,7 @@ export const HomeScreen = () => {
                             />
 
                             <ScrollView
+                                ref={recScrollRef}
                                 horizontal
                                 showsHorizontalScrollIndicator={false}
                                 style={styles.recommendationsList}

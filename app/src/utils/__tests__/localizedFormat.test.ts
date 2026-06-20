@@ -93,4 +93,17 @@ describe('formatMeasure', () => {
         const out = formatMeasure(14.2, 'cm', 'ar');
         expect(out.split(' ')).toHaveLength(2);
     });
+
+    // W2 #2: missing/invalid Firestore values must never leak as "null cm" / "NaN kg".
+    it('returns a dash for null/undefined/NaN/empty instead of leaking the literal', () => {
+        expect(formatMeasure(null as any, 'cm', 'fr')).toBe('—');
+        expect(formatMeasure(undefined as any, 'cm', 'ar')).toBe('—');
+        expect(formatMeasure(NaN, 'kg', 'en')).toBe('—');
+        expect(formatMeasure(Infinity, 'g', 'tn')).toBe('—');
+        expect(formatMeasure('   ', 'cm', 'fr')).toBe('—');
+    });
+
+    it('still formats a real zero (not treated as missing)', () => {
+        expect(formatMeasure(0, 'kg', 'en')).toBe('0 kg');
+    });
 });
