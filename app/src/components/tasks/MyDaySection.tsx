@@ -381,6 +381,9 @@ export const MyDaySection: React.FC<Props> = React.memo(({
                                 style={styles.cardContent}
                                 onPress={() => handleToggleItem(item.id)}
                                 activeOpacity={0.7}
+                                accessibilityRole="checkbox"
+                                accessibilityState={{ checked: item.completed }}
+                                accessibilityLabel={item.title}
                             >
                                 <View style={[styles.checkbox, item.completed && styles.checkboxChecked]}>
                                     {item.completed && <Text style={styles.checkmark}>✓</Text>}

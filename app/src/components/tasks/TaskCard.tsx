@@ -77,6 +77,9 @@ export const TaskCard: React.FC<TaskCardProps> = React.memo(({ task }) => {
         <TouchableOpacity
             style={[styles.taskCard, completed && styles.taskCardCompleted]}
             onPress={handleToggle}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: completed }}
+            accessibilityLabel={getLocalizedContent(task, 'label', i18n.language) || t('tasks.suggestedTask')}
         >
             <View style={[styles.taskCheckbox, completed && styles.taskCheckboxCheckedContainer]}>
                 {completed ? (
