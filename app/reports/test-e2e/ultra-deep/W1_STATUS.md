@@ -3,7 +3,7 @@
 GOAL: `docs/GOAL_ULTRA_DEEP_TEST_ANALYSIS_MAMABEBE_2026-06-20.md` · Backlog: `W1_BACKLOG.json` (21 ranked).
 Branch `feat/interaction-ux-2026-06-18`. Analysis: 10-agent army → 125 raw → 21 deduped/disputed (P0:0, P1:6, P2:8, P3:6, UX:1).
 
-## FIXED + verify-GREEN + visually verified (12 of 21)
+## FIXED + verify-GREEN (14 of 21) — P0+P1 = 0 ✅
 | # | sev | item | commit |
 |---|---|---|---|
 | #1 | P1 | passwordMin helper LIED ("6 caractères") — `...commonFr` shadowed authFr full rule; re-asserted in 4 locale index.ts | 67663a7 |
@@ -16,13 +16,14 @@ Branch `feat/interaction-ux-2026-06-18`. Analysis: 10-agent army → 125 raw →
 | #6 | P1* | OnboardingScreen had ZERO language-RTL → added isRTL text-align for step-3 labels + name input (TEXT only, no row-reverse) | 8fef2a4 |
 | #7 | UX | step-1 status cards dwell 220ms so selection is perceived (reduced-motion aware) | 8fef2a4 |
 | #8 | P1 | skip/back tappable DURING account creation → 2nd handleFinish; now disabled+dimmed+a11y-state | 8fef2a4 |
-| #11 | P2 | LanguageSelector: dropped dead expo-updates/I18nManager imports, theme white | 7758abd |
+| #11 | P2 | LanguageSelector: dead imports purged + theme white + rapid-tap guard + inner-tap no-dismiss + pill/option a11y | 7758abd, 4255ec7 |
+| #3 | **P1** | re-onboarding overwrote existing profile → `shouldPreserveExistingProfile` guard in loginAsGuest (+7 unit tests); adopt stored, never overwrite | 5ab0a3b |
+| #20 | P3 | 44pt tap targets (WCAG 2.5.5) on language pill + Login/Register back buttons | 4255ec7 |
 
 **Visual proof (ar, dist rebuilt + probed):** onboarding step-1 renders RTL-correct (dir=rtl, cards `direction:rtl`); register shows passwordMin full rule "كلمة المرور (10+ أحرف، 1 حرف كبير، 1 رقم)" + email/password `direction:ltr`; **0 console errors**.
 
-## VERIFIED P1 — REMAINING (needs focused test-driven fix, blocks full VALIDATED gate)
-- **#3 re-onboarding overwrites an existing account's profile.** `AuthContext.loginAsGuest` (src/context/AuthContext.tsx:430-461) writes `firstName`/`lmp`/`pregnancyStartDate`/`createdAt:new Date()` from the onboarding form via `setDoc(merge:true)`. In `handleFinish` (OnboardingScreen.tsx:233-265) the `auth/email-already-in-use` recovery path logs the user in then calls `loginAsGuest` unconditionally → a returning user re-running onboarding loses their real pregnancy date + name + original createdAt.
-  - **Fix recipe:** after recovery-login, `getDoc(userProfiles/uid)`; if a profile with `lmp` exists → SKIP the `loginAsGuest` write (preserve; their session loads via the auth listener + login() already migrates guest data); only create when no profile (true partial-signup). Add regression test `AuthContext.reonboard-preserve.test.ts`. createdAt should also be set-once even on the normal guest→account upgrade.
+## P1 — ALL RESOLVED ✅
+- **#3 RESOLVED (5ab0a3b).** `shouldPreserveExistingProfile(docSnap)` (loginHelpers.ts, +7 unit tests in reonboardPreserve.test.ts) gates an adopt-instead-of-overwrite branch in `loginAsGuest`: if the authenticated uid already has a profile with a pregnancy anchor, adopt the stored profile + migrate guest data + early-return — never overwrite lmp/firstName/createdAt. Fresh signup + partial-signup recovery + guest path all unaffected.
 
 ## P2/P3 polish — REMAINING (do not block P1 gate; next loop pass)
 - #12 P2 iOS picker confirm uses `common.save` ("Saving") → add/used `common.done`. (iOS-only)
@@ -32,9 +33,8 @@ Branch `feat/interaction-ux-2026-06-18`. Analysis: 10-agent army → 125 raw →
 - #17 P3 AuthChoice privacy link is concatenated ("disclaimer — link") → bidi-fragile in ar; split + RtlAwareChevron.
 - #18 P3 RegisterScreen: no focus ring, no per-field error highlight.
 - #19 P3 whitespace-only firstName blocked via terminal showAlert → inline error at step 3.
-- #20 P3 back-arrow + lang pill < 44×44 hit target on web (hitSlop present; add minWidth/minHeight).
 - #21 P3 disabled CTA gradient + strength label contrast < 4.5:1.
-- LanguageSelector: rapid-tap guard + inner-tap-dismiss (tapping modal body bubbles to overlay → closes).
+- (#20 DONE 4255ec7; LanguageSelector rapid-tap/inner-tap DONE 4255ec7.)
 
 ## Gate
-P1: 6 of 7 fixed (#3 verified+specced, deferred to focused fix). P0=0. verify GREEN (tsc+jest 1867+lint:colors) on every commit. a11y/i18n/RTL: materially improved + visually verified ar. **W1 = P1-substantially-healed; full VALIDATED pending #3 + P2/P3 sweep.**
+**P0 = 0, P1 = 0 ✅** (all 7 P1s fixed incl. #3). verify GREEN (tsc strict + jest 1874 + lint:colors) on every commit. a11y/i18n/RTL materially improved + visually verified in ar (0 console errors). **W1 = P1-VALIDATED.** Remaining = 7 P2/P3 cosmetics (#12,#13,#15,#16,#17,#18,#19,#21) for subsequent hourly-loop passes before S1 is marked fully-polished; then W2 (S2 Home).
