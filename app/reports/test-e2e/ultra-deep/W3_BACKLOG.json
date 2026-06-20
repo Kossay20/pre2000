@@ -1,0 +1,437 @@
+{
+ "summary": "Calendar (S3) is visually GREEN; verified across 10 lenses, genuine P0s are zero and the few P1s are real-but-narrow (web-only crash + DST week drift + missing input labels). I disputed/dropped soft duplicates and merged the 6 lenses that independently re-found the same 4 structural defects. Highest leverage: month-view chevrons are wired to WEEK handlers while handlePrevMonth/handleNextMonth sit orphaned (confirmed CalendarScreen.tsx:349-355 defined, :473-474 pass handlePrevWeek/Next) — month paging is broken in all 4 langs, low effort to fix. Two true correctness bugs: handleWebDateChange/handleWebTimeChange (AddAppointmentScreen.tsx:267-285) parse with zero isValid guard and the controlled value prop format(date,'yyyy-MM-dd') at :499 is unguarded → typing a partial/garbage date throws RangeError and white-screens the form on the SHIPPED web surface; and calculateWeekFromDate (calendarService.ts:230) uses raw-ms floor while the canonical calculatePregnancyWeek deliberately uses UTC (verified) → ±1 week DST drift in persisted event.week. Best UX-per-effort wins: gate the two reduced-motion-unaware animations (Calendar fade :65-73 + CalendarSkeleton loop) using the already-shipped getReducedMotionSync (used by ToastContext), memoize CalendarMonthDay (siblings already are), apply the dead monthDayTextSelected style, fix the a11y hint that calls user RDV counts 'suggestions', add accessibilityLabels to the 3 bare TextInputs, replace the raw 'red' literal, and translate tn/add_appointment.json which is byte-identical to ar MSA (calendar.json IS dialected — proven regression). Locale week-start (hardcoded Monday for ar/tn) and minimumDate blocking past-date EDITS are real but medium-effort. I disputed the 'month grid RTL is broken' P1/P2 cluster down to a single verify-task: header+grid share flexDirection:'row' and rely on document.dir, the correct RN-Web pattern per the gotcha (never row-reverse what dir mirrors) — needs a probe, not a rewrite. Counts reflect post-dedup unique improvements.",
+ "improvements": [
+  {
+   "rank": 1,
+   "sev": "P2",
+   "screen": "CalendarScreen (month view nav)",
+   "anchor": "src/screens/CalendarScreen.tsx:349-355,473-474; CalendarHeader.tsx:61-85",
+   "title": "Month-view chevrons page by WEEK; handlePrevMonth/handleNextMonth orphaned",
+   "fix": "Pass view-aware handlers: onPrevWeek={calendarView==='month'?handlePrevMonth:handlePrevWeek} and onNextWeek likewise at CalendarScreen.tsx:473-474 (or add onPrevMonth/onNextMonth props to CalendarHeader and branch the a11y label to t('a11y.previousMonth')/nextMonth, adding those keys to all 4 langs). Verified: handlePrevMonth/Next exist at :349-355 but are passed nowhere.",
+   "impact": "high",
+   "effort": "S",
+   "acceptance": "In month view all 4 langs: tapping next advances the month label/grid by exactly one calendar month, selectedDate clamps into the new month, week-1/40 no-op gone; a11y label says month not week.",
+   "confidence": "high",
+   "merged_from": [
+    "logic-flow#1",
+    "reasoner-ux#1",
+    "adversarial-break#5",
+    "ux-hierarchy#9"
+   ]
+  },
+  {
+   "rank": 2,
+   "sev": "P1",
+   "screen": "AddAppointmentScreen (web date/time)",
+   "anchor": "src/screens/AddAppointmentScreen.tsx:267-285,499,540",
+   "title": "Invalid/partial typed date/time -> Invalid Date -> format() at value prop throws RangeError, white-screens form",
+   "fix": "In handleWebDateChange/handleWebTimeChange build a candidate Date and bail unless isValid(candidate) before setDate (isValid already imported, :23). Guard both controlled values: value={isValid(date)?format(date,'yyyy-MM-dd'):''} (:499) and ...'HH:mm' (:540). Verified value props are unguarded while only the readout at :507 checks isValid.",
+   "impact": "high",
+   "effort": "S",
+   "acceptance": "Type '2026-13-99' or '99:99' or clear a digit in the web date/time field on the static export: form stays mounted, no RangeError, no white screen, value reverts to last-valid.",
+   "confidence": "high",
+   "merged_from": [
+    "adversarial-break#1"
+   ]
+  },
+  {
+   "rank": 3,
+   "sev": "P1",
+   "screen": "calendarService.calculateWeekFromDate",
+   "anchor": "src/services/calendarService.ts:230-234",
+   "title": "Persisted event.week uses raw-ms day diff (DST-unsafe) while canonical calc uses UTC",
+   "fix": "Replace diffMs/86400000 with differenceInCalendarDays(eventDate,lmpDate) (date-fns, already a dep) or mirror pregnancyCalculator.ts:13-16 UTC normalization, keep Math.max(1,Math.min(40,...)). Verified divergence: calendarService raw-ms vs pregnancyCalculator UTC with explicit DST comment.",
+   "impact": "med",
+   "effort": "S",
+   "acceptance": "Unit test pinned to a spring-forward LMP: event dated exactly N*7 days later resolves to week N+1, not N; matches calculatePregnancyWeek for the same instant.",
+   "confidence": "high",
+   "merged_from": [
+    "adversarial-break#7",
+    "i18n-rtl#3",
+    "data-integrity#1"
+   ]
+  },
+  {
+   "rank": 4,
+   "sev": "UX",
+   "screen": "CalendarScreen fade + CalendarSkeleton",
+   "anchor": "src/screens/CalendarScreen.tsx:65-73; src/components/calendar/CalendarSkeleton.tsx:13-29",
+   "title": "Mount fade (500ms) and infinite skeleton shimmer ignore prefers-reduced-motion",
+   "fix": "Before Animated.timing in the mount effect add: if(getReducedMotionSync()){fadeAnim.setValue(1);return;} (mirror ToastContext.tsx:52). In CalendarSkeleton gate the loop with usePrefersReducedMotion -> set shimmerAnim to static 0.5 and skip loop when reduced. Primitive verified present and used by Toast, absent in calendar.",
+   "impact": "high",
+   "effort": "S",
+   "acceptance": "OS 'reduce motion' on: Calendar tab focus shows content instantly (no fade), skeleton renders static (no pulsing) during load; reduced-motion-off path unchanged.",
+   "confidence": "high",
+   "merged_from": [
+    "ux-microinteraction#3",
+    "ux-microinteraction#4"
+   ]
+  },
+  {
+   "rank": 5,
+   "sev": "P2",
+   "screen": "CalendarMonthDay",
+   "anchor": "src/components/calendar/CalendarMonthDay.tsx:17",
+   "title": "CalendarMonthDay not memoized; 35-42 cells + ~70 format() calls re-run on every parent state change",
+   "fix": "Wrap export in React.memo (siblings WeeklyStrip:16 and EventCard:17 already are). All props are primitives/stable (onPress is the setState setter) so shallow compare is correct; only the 1-2 cells whose isSelected flips re-render on a day tap.",
+   "impact": "med",
+   "effort": "S",
+   "acceptance": "Day tap re-renders only the previously- and newly-selected cells (verify via render count/profiler); no perceptible jank on low-end month paging.",
+   "confidence": "high",
+   "merged_from": [
+    "perf#1"
+   ]
+  },
+  {
+   "rank": 6,
+   "sev": "UX",
+   "screen": "CalendarMonthDay (selected day)",
+   "anchor": "src/components/calendar/CalendarMonthDay.tsx:51-53; CalendarScreen.styles.ts:325-328",
+   "title": "monthDayTextSelected style is dead; selected day number gets no emphasis",
+   "fix": "Add isSelected && styles.monthDayTextSelected to the Text style array at CalendarMonthDay.tsx:51-53 (precedence over monthDayTextToday, already gated on !isSelected). Verified style defined but never referenced.",
+   "impact": "med",
+   "effort": "S",
+   "acceptance": "Selecting a day makes its number accent+bold (theme token) in all 4 langs; today-when-selected still legible.",
+   "confidence": "high",
+   "merged_from": [
+    "logic-flow#4",
+    "perf#7",
+    "ux-hierarchy#3"
+   ]
+  },
+  {
+   "rank": 7,
+   "sev": "P2",
+   "screen": "CalendarMonthDay (a11y)",
+   "anchor": "src/components/calendar/CalendarMonthDay.tsx:47,43",
+   "title": "Day-cell hint announces user appointments as 'Suggestions'; today/selected not in spoken label",
+   "fix": "Replace t('calendar.suggestionsCount',{count}) at :47 with a new t('calendar.eventsOnDay',{count}) (add _one/_other to fr/en and _zero/_one/_two/_few/_many/_other to ar/tn). Append today to label: accessibilityLabel includes ', '+t('calendar.today') when isToday (calendar.today exists in all 4).",
+   "impact": "med",
+   "effort": "S",
+   "acceptance": "VoiceOver/TalkBack on a day with RDV says 'N appointments' not 'N suggestions'; today's cell is announced as 'today'.",
+   "confidence": "high",
+   "merged_from": [
+    "reasoner-ux#9",
+    "a11y#5"
+   ]
+  },
+  {
+   "rank": 8,
+   "sev": "P1",
+   "screen": "AddAppointmentScreen (form inputs a11y)",
+   "anchor": "src/screens/AddAppointmentScreen.tsx:452,597,610",
+   "title": "Title/Location/Notes TextInputs have no accessibilityLabel; SR announces 'edit text, blank'",
+   "fix": "Add accessibilityLabel={t('addAppointment.titleLabel')} / locationLabel / notesLabel to each TextInput (:452/:597/:610); on web also set aria-label via same value. Keys verified present in all 4 langs. Every other control on the screen already has a label.",
+   "impact": "high",
+   "effort": "S",
+   "acceptance": "SR tabbing the form announces each field's purpose; axe 'label' violation clears on web for all 4 langs.",
+   "confidence": "high",
+   "merged_from": [
+    "micro-state#31",
+    "a11y#1"
+   ]
+  },
+  {
+   "rank": 9,
+   "sev": "P2",
+   "screen": "AddAppointmentScreen (past-date guard)",
+   "anchor": "src/screens/AddAppointmentScreen.tsx:304,267-285,579,742",
+   "title": "Web (and native time) allow saving a PAST appointment; reminders silently scheduled to nothing",
+   "fix": "In handleSave before save: if (date.getTime()<Date.now()) show non-blocking confirm/alert (add addAppointment.pastDateTitle/Msg to all 4 langs) and bail or warn. Also after scheduleRDVReminders, if toggles requested but returned scheduled array length===0, surface existing t('addAppointment.reminderInfoMsg') info toast. Native date pickers guard via minimumDate (:579/:742) but time pickers and web do not.",
+   "impact": "high",
+   "effort": "M",
+   "acceptance": "Saving a today-but-past-time or web-typed past date warns the user; if reminders requested but all in the past, an info toast fires; preference state matches actually-scheduled reminders.",
+   "confidence": "high",
+   "merged_from": [
+    "logic-flow#2",
+    "logic-flow#7",
+    "reasoner-ux#3",
+    "adversarial-break#4",
+    "micro-state#36",
+    "data-integrity#2"
+   ]
+  },
+  {
+   "rank": 10,
+   "sev": "P2",
+   "screen": "AddAppointmentScreen (web date/time affordance)",
+   "anchor": "src/screens/AddAppointmentScreen.tsx:495-505,537-545",
+   "title": "Web date/time are inputMode='none' TextInputs with no picker; only the FAB-seeded date is reachable; editing a date on web is impossible",
+   "fix": "On web render real <input type=date min={todayISO}> / <input type=time> (RN-Web forwards the type prop) bound to the existing handlers, OR at minimum drop inputMode='none' and add accessibilityHint='YYYY-MM-DD'. This also fixes locale (browser localizes the picker) and the past-date min in one move. Web is the primary export surface.",
+   "impact": "high",
+   "effort": "M",
+   "acceptance": "On Chrome/Safari mobile-web a tap opens a native date/time picker, the value localizes, min blocks past dates, and editing an existing event's date works.",
+   "confidence": "high",
+   "merged_from": [
+    "adversarial-break#2",
+    "i18n-rtl#5",
+    "ux-hierarchy#11",
+    "ux-microinteraction#2"
+   ]
+  },
+  {
+   "rank": 11,
+   "sev": "P2",
+   "screen": "AddAppointmentScreen (title error)",
+   "anchor": "src/screens/AddAppointmentScreen.tsx:453",
+   "title": "Invalid-title cue is a raw 'red' literal with no message, no aria-invalid, and skips whitespace-only",
+   "fix": "Replace {borderColor:'red'} with a styles.inputError using theme.colors.error/red600 (EventCard uses red600). Show cue whenever title.length>0 && !isTitleValid (covers whitespace), add inline <Text accessibilityLiveRegion='polite'>{t('addAppointment.missingTitleMsg')}</Text> (key exists in 4 langs) and aria-invalid on web. Only hardcoded color in the screen (grep-confirmed).",
+   "impact": "med",
+   "effort": "S",
+   "acceptance": "Clearing/whitespacing the title shows a themed border + worded helper announced by SR; no raw 'red'; disabled Save has a perceivable cause.",
+   "confidence": "high",
+   "merged_from": [
+    "reasoner-ux#20",
+    "adversarial-break#30",
+    "micro-state#32",
+    "a11y#43",
+    "ux-microinteraction#1"
+   ]
+  },
+  {
+   "rank": 12,
+   "sev": "UX",
+   "screen": "i18n tn/add_appointment.json",
+   "anchor": "src/i18n/locales/tn/add_appointment.json",
+   "title": "Tunisian appointment strings are byte-identical to Arabic MSA; locale regression on a primary flow",
+   "fix": "Translate tn/add_appointment.json into darija to match tn/calendar.json's dialect level (e.g. successAdd, save, saving). Verified: tn successAdd === ar successAdd verbatim while tn/calendar.json deleteEventMessage IS distinct darija.",
+   "impact": "med",
+   "effort": "M",
+   "acceptance": "Every tn/add_appointment key differs from its ar counterpart where dialect diverges; voice matches tn/calendar.json; i18nParity still passes.",
+   "confidence": "high",
+   "merged_from": [
+    "ux-microinteraction#tn"
+   ]
+  },
+  {
+   "rank": 13,
+   "sev": "P2",
+   "screen": "CalendarHeader (week chevrons disabled)",
+   "anchor": "src/components/calendar/CalendarHeader.tsx:61-85; CalendarScreen.tsx:331-347; CalendarScreen.styles.ts:72",
+   "title": "Week chevrons silently no-op at week 1/40; no disabled visual or a11y state",
+   "fix": "Pass prevDisabled={currentWeek<=1}/nextDisabled={currentWeek>=40} into CalendarHeader; apply existing styles.disabledArrow (opacity 0.3, authored but unused) + disabled + accessibilityState={{disabled}} (+aria-disabled web) on the two TouchableOpacity.",
+   "impact": "med",
+   "effort": "S",
+   "acceptance": "At week 1 the back chevron is dimmed, non-tappable, announced disabled; same for week 40 forward; common in early pregnancy.",
+   "confidence": "high",
+   "merged_from": [
+    "micro-state#33",
+    "adversarial-break#31"
+   ]
+  },
+  {
+   "rank": 14,
+   "sev": "P3",
+   "screen": "CalendarScreen + components (dead code)",
+   "anchor": "src/screens/CalendarScreen.tsx:277-283,357-362; src/components/calendar/WeekHeader.tsx",
+   "title": "Dead: eventCounts memo, orphaned handleToday, and unused WeekHeader.tsx",
+   "fix": "Delete eventCounts (:277-283, never referenced in JSX), handleToday (:357-362, duplicate of wired handlePressToday), and WeekHeader.tsx (grep-confirmed imported nowhere). Optionally migrate CalendarHeader's manual web chevron swap to RtlAwareChevron for a single RTL strategy.",
+   "impact": "low",
+   "effort": "S",
+   "acceptance": "Files/symbols removed, npm run verify green, no behavior change, calendar surface has one chevron strategy.",
+   "confidence": "high",
+   "merged_from": [
+    "logic-flow#3",
+    "reasoner-ux#21",
+    "micro-state#35",
+    "i18n-rtl#9",
+    "ux-hierarchy#19"
+   ]
+  },
+  {
+   "rank": 15,
+   "sev": "P2",
+   "screen": "EventCard delete (loading state)",
+   "anchor": "src/screens/CalendarScreen.tsx:370-422; src/components/calendar/EventCard.tsx:119-130",
+   "title": "No per-card deleting state + full-list reload; double-tap deletes, no progress, silent vanish",
+   "fix": "Add deletingId state; pass isDeleting={deletingId===item.id} to EventCard, disable edit/delete + show ActivityIndicator (already imported at CalendarScreen.tsx:4, unused) while pending. Optimistically setUserEvents(prev=>filter) before await and restore on error instead of mandatory loadUserEvents reload (:413). Add success toast t('calendar.eventDeleted') (4 langs) for parity with save.",
+   "impact": "med",
+   "effort": "M",
+   "acceptance": "Confirming delete disables the row + shows a spinner; a second tap can't re-fire; on success a toast confirms and the row removes optimistically; offline error restores the row.",
+   "confidence": "high",
+   "merged_from": [
+    "micro-state#34",
+    "ux-microinteraction#delete",
+    "data-integrity#delete"
+   ]
+  },
+  {
+   "rank": 16,
+   "sev": "P2",
+   "screen": "CalendarScreen month grid (locale week-start)",
+   "anchor": "src/screens/CalendarScreen.tsx:293-294,497-501",
+   "title": "Month grid hardcoded Monday-first for all locales; wrong week-start for ar/tn (and enUS)",
+   "fix": "Derive weekStartsOn from active date-fns locale: const weekStartsOn=dateLocale.options?.weekStartsOn??1; rotate the weekday-label array by it AND change padding math to (getDay(start)-weekStartsOn+7)%7. Verified ar.options.weekStartsOn===6. Keep flex auto-mirror (do NOT row-reverse; document.dir handles RTL).",
+   "impact": "med",
+   "effort": "M",
+   "acceptance": "ar/tn month grid starts on the locale's first weekday with day numbers under the correct columns; en respects enUS Sunday-first; header order matches padding.",
+   "confidence": "med",
+   "merged_from": [
+    "i18n-rtl#1",
+    "ux-hierarchy#7"
+   ]
+  },
+  {
+   "rank": 17,
+   "sev": "P2",
+   "screen": "AddAppointmentScreen (edit past date)",
+   "anchor": "src/screens/AddAppointmentScreen.tsx:579,742",
+   "title": "minimumDate={new Date()} blocks editing an existing past appointment; picker clamps date forward",
+   "fix": "Make conditional: minimumDate={editingEvent?undefined:new Date()} at :579 and :742 (editingEvent resolved at :52). Preserves future-only on create while letting edits keep their real date.",
+   "impact": "med",
+   "effort": "S",
+   "acceptance": "Opening a past appointment to edit notes keeps its original (past) date on the picker; creating a new one still forbids past dates.",
+   "confidence": "high",
+   "merged_from": [
+    "ux-hierarchy#10"
+   ]
+  },
+  {
+   "rank": 18,
+   "sev": "P2",
+   "screen": "CalendarScreen month grid (RTL verify)",
+   "anchor": "src/screens/CalendarScreen.tsx:496-525; CalendarScreen.styles.ts:286-303",
+   "title": "Month grid RTL correctness rests on implicit document.dir mirroring of a flex-wrap matrix; unproven",
+   "fix": "Add an ar/tn capture.mjs/Playwright probe asserting (1) weekday labels read R->L with locale-first-weekday rightmost, (2) day 1 lands under its column, (3) wrapped weeks stack top->bottom. Header+grid share flexDirection:'row' (correct per gotcha; do NOT add row-reverse). Code change ONLY if probe fails. Disputed down from the P1/P2 'broken' framing; likely correct-by-construction.",
+   "impact": "med",
+   "effort": "M",
+   "acceptance": "Probe screenshots in ar+tn show correctly mirrored, column-aligned grid on web; documented verified or a targeted dir fix landed if it fails.",
+   "confidence": "med",
+   "merged_from": [
+    "logic-flow#9",
+    "adversarial-break#26",
+    "a11y#41",
+    "i18n-rtl#54",
+    "ux-microinteraction#rtl"
+   ]
+  },
+  {
+   "rank": 19,
+   "sev": "UX",
+   "screen": "CalendarScreen empty state",
+   "anchor": "src/screens/CalendarScreen.tsx:580-586",
+   "title": "Empty-day state has no inline Add CTA; guests get no upgrade hint",
+   "fix": "Add a secondary 'Add appointment' button in ListEmptyComponent calling navigation.navigate('AddAppointment',{selectedDate}) (same as FAB at :592). For guests branch copy to a GuestUpgrade CTA (guard exists at AddAppointment :333/:372). Wrap with accessibilityRole/accessibilityLiveRegion='polite' so SR announces it.",
+   "impact": "med",
+   "effort": "M",
+   "acceptance": "Empty selected day shows an actionable Add button prefilled with that date; guests see an account CTA instead of a dead 'enjoy rest'; SR announces the empty state.",
+   "confidence": "high",
+   "merged_from": [
+    "reasoner-ux#15",
+    "micro-state#39",
+    "ux-microinteraction#empty",
+    "a11y#48"
+   ]
+  },
+  {
+   "rank": 20,
+   "sev": "UX",
+   "screen": "Count labels (suggestions / appointments)",
+   "anchor": "src/i18n/locales/{fr,en,ar,tn}/calendar.json; CalendarHeader.tsx:129; WeeklyStrip.tsx:85",
+   "title": "Count strings non-pluralized; '1 Suggestions', '1 RDV cette semaine' in every lang",
+   "fix": "Add suggestionsCount_one/_other and appointmentsThisWeek_one/_other (fr/en) + _zero/_one/_two/_few/_many/_other (ar/tn). i18next picks the form from {{count}}; no call-site change. Repo already proves _plural works (pluralForms.test.ts).",
+   "impact": "med",
+   "effort": "M",
+   "acceptance": "count=1 renders singular in all 4 langs; pluralForms/i18nParity tests pass; Arabic uses distinct zero/one/two/few/many.",
+   "confidence": "high",
+   "merged_from": [
+    "logic-flow#5"
+   ]
+  },
+  {
+   "rank": 21,
+   "sev": "UX",
+   "screen": "AddAppointmentScreen (reminder defaults + failure UX)",
+   "anchor": "src/screens/AddAppointmentScreen.tsx:118-119,421-426",
+   "title": "Reminders default ON for non-medical 'Other' events; reminder-failure fires a blocking alert after the success toast",
+   "fix": "Make reminder defaults type-aware: default reminderJ1/J to false when type==='other' (set in the type onPress at :468/:479 if untouched). Demote the reminder-scheduling-failure showAlert (:425) to a stacking info toast (t('addAppointment.reminderInfoMsg')) so it doesn't interrupt navigation. Keys verified in 4 langs.",
+   "impact": "med",
+   "effort": "M",
+   "acceptance": "Creating an 'Other' note does not preselect two 8am pushes; a reminder failure shows a non-blocking toast, not a modal over the success toast.",
+   "confidence": "med",
+   "merged_from": [
+    "reasoner-ux#14",
+    "ux-microinteraction#reminderfail"
+   ]
+  },
+  {
+   "rank": 22,
+   "sev": "UX",
+   "screen": "AddAppointmentScreen (iOS picker a11y + save spinner)",
+   "anchor": "src/screens/AddAppointmentScreen.tsx:716-762,724-732,707-709",
+   "title": "iOS picker overlay not a modal (focus escapes), done button lacks role/label + FR literal default; Save has no spinner",
+   "fix": "Add accessibilityViewIsModal + accessibilityElementsHidden/importantForAccessibility on the ScrollView while picker open; add accessibilityRole='button' + accessibilityLabel={t('addAppointment.validate')} to the done button and DROP the 'Valider' inline default at :731. Render ActivityIndicator (in scope) inside Save while saving instead of text-only.",
+   "impact": "med",
+   "effort": "M",
+   "acceptance": "VoiceOver focus is trapped in the open picker; done button announced correctly with no FR leak in en/ar/tn; Save shows a spinner while writing.",
+   "confidence": "high",
+   "merged_from": [
+    "logic-flow#6",
+    "a11y#45",
+    "ux-microinteraction#savespinner"
+   ]
+  },
+  {
+   "rank": 23,
+   "sev": "UX",
+   "screen": "CalendarScreen FAB",
+   "anchor": "src/screens/CalendarScreen.tsx:590-603; CalendarScreen.styles.ts:431-446",
+   "title": "FAB ignores safe-area inset (collides with home indicator), weak press feedback, guests waste a full form",
+   "fix": "Use useSafeAreaInsets() -> bottom: insets.bottom + theme.spacing.l; tokenize right offset; add activeOpacity~0.85 (web cursor:pointer/hover). For guests, route the FAB to GuestUpgrade or show a lock badge instead of letting them fill a non-savable form.",
+   "impact": "med",
+   "effort": "M",
+   "acceptance": "FAB clears the home indicator on notched devices, has visible press feedback, and guests are gated before filling the form.",
+   "confidence": "med",
+   "merged_from": [
+    "micro-state#37",
+    "ux-hierarchy#13",
+    "ux-microinteraction#fab"
+   ]
+  },
+  {
+   "rank": 24,
+   "sev": "P3",
+   "screen": "WeeklyStrip (overflow + perf)",
+   "anchor": "src/components/calendar/WeeklyStrip.tsx:24,44-46,50,65",
+   "title": "In-render require('date-fns'), long ar/tn weekday abbrevs can clip in 45px cell, day TouchableOpacity missing activeOpacity",
+   "fix": "Move 'import { format } from date-fns' to top (delete in-body require at :24). Add numberOfLines={1}+adjustsFontSizeToFit to dayName Text (:65) and verify arDZ abbrev fits 45px. Add activeOpacity={0.7} to the day TouchableOpacity (:50) for parity with month grid. Skip capitalize for RTL.",
+   "impact": "low",
+   "effort": "S",
+   "acceptance": "No per-render require; ar/tn weekday labels stay single-line in the strip; week-day press feedback matches month grid.",
+   "confidence": "high",
+   "merged_from": [
+    "perf#4",
+    "micro-state#38",
+    "ux-microinteraction#dayselect"
+   ]
+  },
+  {
+   "rank": 25,
+   "sev": "P3",
+   "screen": "CalendarScreen (month suggestions dedup)",
+   "anchor": "src/screens/CalendarScreen.tsx:253-260",
+   "title": "monthSuggestions dedup by title collapses distinct same-title events on different dates (data loss)",
+   "fix": "Dedup on stable identity instead of title at :255: acc.find(item=>item.id===current.id) (template ids are templateId_wWEEK, unique) or title+getLocalDateKey(date). Also replace O(n^2) acc.find with a Set/Map. Week view (filter) is fine.",
+   "impact": "low",
+   "effort": "S",
+   "acceptance": "A month with two same-titled template events on different weeks shows both; ar/tn (shorter titles) no longer merge distinct dates.",
+   "confidence": "high",
+   "merged_from": [
+    "data-integrity#monthdedup",
+    "perf#3"
+   ]
+  }
+ ],
+ "counts": {
+  "P0": 0,
+  "P1": 3,
+  "P2": 11,
+  "P3": 4,
+  "UX": 7
+ },
+ "raw_count": 100,
+ "lenses_ok": 10,
+ "wave": "W3",
+ "system": "S3 Calendar",
+ "generated": "2026-06-20"
+}

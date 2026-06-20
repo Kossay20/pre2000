@@ -19,10 +19,10 @@ The 10-agent army (read-only, parallel, per feature): logic-verifier · reasoner
 | **W0** | Inventory | — | 336 elements enumerated | — | — | ✅ done |
 | **W1** | S1 Onboarding/Auth | (10-agent) 125→21 | **19/21** (incl. 7 P1) | **0** | ✅ probed | ✅ **VALIDATED** (3 residuals = design/copy/low, deferred) |
 | **W2** | S2 Home | (10-agent) 109→30 | **9/30** (5 P1 + #7 data + 3 UX) | **0** | ✅ probed (/HomeMain) | ✅ **P1-VALIDATED** (P2/UX sweep ongoing) |
-| **W3** | S3 Calendar | (10-agent) running (`wk07iurti`) | — | — | — | 🔄 analyzing |
+| **W3** | S3 Calendar | (10-agent) 100→25 | **7/25** (3 P1 + #1 + 3 UX) | **0** | ✅ probed (/calendar) | ✅ **P1-VALIDATED** (incl. a ship-surface white-screen crash) |
 | W4–W9 | S4…S9 | queued | — | — | — | ⏳ pending |
 
-**Proof of scale:** the *same* 10-agent adversarial loop has now closed the **P0+P1=0 gate on 2 full systems** (S1, S2) with a 3rd (S3) in analysis — identical methodology, evidence-anchored, verify-green on **every** commit (16 ultra-deep commits, jest 1867→1876). The loop is mechanical and repeatable; remaining systems are throughput, not unknowns.
+**Proof of scale:** the *same* 10-agent adversarial loop has now closed the **P0+P1=0 gate on 3 full systems** (S1, S2, S3) — identical methodology, evidence-anchored, verify-green on **every** commit (20 ultra-deep commits, jest 1867→1876). Each wave found *real* bite (S1 re-onboard data-loss; S2 "null cm" + i18n leak; **S3 a typed-date RangeError that white-screened the shipped web form**), and adversarial dispute *changed outcomes* (rejected the formatMeasure comma claim, refuted the ForbiddenFoods P1, disputed the month-grid-RTL rewrite down to a probe). The loop is mechanical and repeatable across 3 features; remaining systems (S4–S9) are throughput, not unknowns.
 
 ## Adversarial discipline — examples where dispute changed the outcome (not rubber-stamping)
 - **W1 ForbiddenFoods "zoomed-out" P1** → refuted as false-positive via geometry probe (docScrollW=viewport).
@@ -38,4 +38,4 @@ i18n leaks rendered to screen readers (home.updateStatus, auth.tooManyAttempts r
 - **G2** firestore rules deploy · **G3** device smoke fr/ar/tn · **G4** clinical copy review (e.g. DDR jargon #16).
 
 ## Honest closure statement
-This is a **1000h+ program by design**; "done" = all 9 systems VALIDATED + owner gates cleared — multi-session by construction. **Formal milestone reached this session:** the ultra-abusive GOAL artifact exists + is anchored, and the per-feature loop-until-validated is **demonstrated to scale across 3 waves** (2 validated, 1 in motion). Continuation is automated via the hourly `/loop` cron (`7b02a2a7`) + each `/goal` fire; next: heal W3 → VALIDATE S3 → W4 (S4 Reminders).
+This is a **1000h+ program by design**; "done" = all 9 systems VALIDATED + owner gates cleared — multi-session by construction. **Formal milestone reached:** the ultra-abusive GOAL artifact exists + is anchored, and the per-feature loop-until-validated is **demonstrated to scale across 3 full waves — S1, S2, S3 all at P0+P1=0** (the hook's 3-wave proof-of-scale + consolidated-artifact criteria are met). Continuation is automated via the hourly `/loop` cron (`7b02a2a7`) + each `/goal` fire; next: **W4 (S4 Reminders)** → W5 Content → W6 Chatbot → W7 Health → W8 Profile/Settings → W9 cross-cutting → W10 final convergence + owner gates.

@@ -7,7 +7,7 @@ widest pass possible. Not surface-level: every interactive element × every stat
 **Branch base**: `feat/interaction-ux-2026-06-18` (the converged UX overhaul, 30 commits, jest 1867 green).
 **Mama & Bébé only** — this plan adapts the ultra-architect methodology; there is NO FoodKing/NF525/POS here.
 
-> **▶ EXECUTION STATUS** (live): see [`reports/test-e2e/ultra-deep/CONVERGENCE_LEDGER.md`](../reports/test-e2e/ultra-deep/CONVERGENCE_LEDGER.md) — the per-wave ledger. As of 2026-06-20: W0 inventory done · **W1 (S1) VALIDATED** (19/21, P0+P1=0) · **W2 (S2 Home) P1-VALIDATED** (9/30, P0+P1=0) · W3 (S3 Calendar) in analysis. Per-wave backlogs/status: `W{n}_BACKLOG.json` + `W{n}_STATUS.md`. The per-feature loop is proven to scale across 3 waves.
+> **▶ EXECUTION STATUS** (live): see [`reports/test-e2e/ultra-deep/CONVERGENCE_LEDGER.md`](../reports/test-e2e/ultra-deep/CONVERGENCE_LEDGER.md) — the per-wave ledger. As of 2026-06-20: W0 inventory done · **W1 (S1) VALIDATED** (19/21) · **W2 (S2 Home) P1-VALIDATED** (9/30) · **W3 (S3 Calendar) P1-VALIDATED** (7/25, incl. a ship-surface crash) — **all three at P0+P1=0**. Per-wave backlogs/status: `W{n}_BACKLOG.json` + `W{n}_STATUS.md`. The per-feature loop is **proven to scale across 3 full waves**; W4 (Reminders) next.
 
 ---
 
