@@ -275,6 +275,11 @@ const styles = StyleSheet.create({
         top: 54,
         padding: 4,
         // left/right set inline per isRTL (see render) — avoids the RN-Web `left:undefined` gotcha.
+        // W1 #20: WCAG 2.5.5 — 44pt tap target (chevron is 24pt; hitSlop covers native, this covers web).
+        minWidth: 44,
+        minHeight: 44,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     title: {
         fontSize: 28,

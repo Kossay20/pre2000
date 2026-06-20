@@ -8,11 +8,20 @@ import { theme } from '../../theme';
 export const LanguageSelector = ({ isCompact }: { isCompact?: boolean }) => {
     const { i18n, t } = useTranslation();
     const [modalVisible, setModalVisible] = React.useState(false);
+    // W1 #11: guard against a rapid double-tap firing changeLanguage twice (each triggers an
+    // RTL flip / potential reload) before the modal closes.
+    const changingRef = React.useRef(false);
 
     const changeLanguage = async (lang: string) => {
-        const { changeLanguage } = require('../../i18n/rtl');
-        await changeLanguage(lang);
-        setModalVisible(false);
+        if (changingRef.current) return;
+        changingRef.current = true;
+        try {
+            const { changeLanguage } = require('../../i18n/rtl');
+            await changeLanguage(lang);
+            setModalVisible(false);
+        } finally {
+            changingRef.current = false;
+        }
     };
 
     const languages = [
@@ -30,8 +39,11 @@ export const LanguageSelector = ({ isCompact }: { isCompact?: boolean }) => {
             <TouchableOpacity
                 style={styles.selectorButton}
                 onPress={() => setModalVisible(true)}
+                accessibilityRole="button"
+                accessibilityLabel={t('common.chooseLanguage')}
+                accessibilityHint={currentLang.label}
             >
-                <Text style={styles.flag}>{currentLang.flag}</Text>
+                <Text style={styles.flag} accessibilityElementsHidden importantForAccessibility="no">{currentLang.flag}</Text>
                 <Text style={styles.code}>{currentLang.code.toUpperCase()}</Text>
             </TouchableOpacity>
 
@@ -46,7 +58,9 @@ export const LanguageSelector = ({ isCompact }: { isCompact?: boolean }) => {
                     activeOpacity={1}
                     onPress={() => setModalVisible(false)}
                 >
-                    <View style={styles.modalContent}>
+                    {/* W1 #11: capture taps on the modal body so they don't bubble to the overlay
+                        and dismiss the modal when the user taps the title or padding. */}
+                    <View style={styles.modalContent} onStartShouldSetResponder={() => true}>
                         <Text style={styles.modalTitle}>{t('common.chooseLanguage')}</Text>
                         {languages.map((lang) => (
                             <TouchableOpacity
@@ -56,8 +70,11 @@ export const LanguageSelector = ({ isCompact }: { isCompact?: boolean }) => {
                                     i18n.language === lang.code && styles.selectedOption
                                 ]}
                                 onPress={() => changeLanguage(lang.code)}
+                                accessibilityRole="button"
+                                accessibilityLabel={lang.label}
+                                accessibilityState={{ selected: i18n.language === lang.code }}
                             >
-                                <Text style={styles.optionFlag}>{lang.flag}</Text>
+                                <Text style={styles.optionFlag} accessibilityElementsHidden importantForAccessibility="no">{lang.flag}</Text>
                                 <Text style={[
                                     styles.optionLabel,
                                     i18n.language === lang.code && styles.selectedLabel
@@ -83,6 +100,8 @@ const styles = StyleSheet.create({
         borderRadius: 20,
         borderWidth: 1,
         borderColor: theme.colors.border,
+        // W1 #20: WCAG 2.5.5 — guarantee a 44pt tap target.
+        minHeight: 44,
     },
     flag: {
         fontSize: 16,
