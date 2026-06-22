@@ -1,0 +1,420 @@
+{
+ "summary": "Verified 91 raw findings against source. App is visually GREEN; no genuine P0, but ONE real safety-correctness P1 confirmed: bundled supplements_db.json ships pregnancy_safety=\"à_surveiller\" (accented, 4/15 incl. Vitamine A) which NEVER matches code's ASCII 'a_surveiller', so getSafetyConfig() falls through `|| SAFETY_CONFIG.ok` → those 4 render GREEN ✓\"Safe\" on the list (SupplementDetail shows grey \"Unknown\", a contradictory mismatch), and the \"À surveiller\" filter chip returns zero of them. De-facto PRIMARY path: importData.ts:38 seeds a non-existent supplements_pregnancy.json so collection('supplements') is empty and ALL users hit the bundled fallback. Confirmed dead surface: WeekRecommendationsScreen is Firestore-only (no localContentFallback import) → guests/offline always get the empty state. Second P1 cluster is WCAG contrast: selected safety filter chips (white-on-pastel 1.7–3.0:1) and card safety pills (raw color on light tint 1.6–2.6:1) are illegible — the primary safety signal. Dominant value tier is UX/a11y/RTL/i18n-content: 7 horizontal chip/related scrollers miss the repo's proven dir=ltr web-RTL fix (chips unreachable in ar/tn); article markdown body has no RTL alignment; 2 of 3 search inputs lack accessibilityLabel; clear-✕ mislabeled a11y.close; empty-state shows 'No results for \"\"' on filter-only empties; EN favorites='Saved' collides with saved state; stripMarkdown leaks list/blockquote markers + double-spaces; getLocalizedContent has no AR-specific fallback hop. DISPUTED/DROPPED: the articles_db empty-related-ids gap (per instructions, not re-flagged); the AG-shape cross-link finding (latent data/shape, not code bug); perf memo findings (real but low-impact at 15–80 items, bundled to one P3); the prefix-match resolver tightening (latent only). Deduped 91→24 by anchor across 10 lenses. All fixes use existing theme tokens; new i18n keys flagged for all 4 langs.",
+ "improvements": [
+  {
+   "rank": 1,
+   "sev": "P1",
+   "screen": "SupplementsList / SupplementDetail / WeekRecommendations",
+   "anchor": "src/services/localContentFallback.ts:51 (getAllLocalSupplements/getLocalSupplement) + src/screens/SupplementsListScreen.tsx:118 default + src/data/supplements_db.json (s09,s10,s11,s15)",
+   "title": "SAFETY MISLABEL: data token 'à_surveiller' (accented) never matches code 'a_surveiller' → 4 supplements incl. Vitamine A render GREEN ✓Safe (verified: histogram {ok:11,'à_surveiller':4}; getSafetyConfig falls through `|| SAFETY_CONFIG.ok`)",
+   "fix": "Normalize at the data boundary in localContentFallback.ts getAllLocalSupplements() AND getLocalSupplement(): map pregnancy_safety through SAFETY_ALIASES={'à_surveiller':'a_surveiller','déconseillé':'deconseille',...} (or .normalize('NFD').replace(/[̀-ͯ]/g,'')). PLUS fix the 4 rows in supplements_db.json to ASCII. PLUS change SupplementsListScreen.tsx:118 default from `|| SAFETY_CONFIG.ok` to an explicit neutral 'unknown' config so an unknown token never silently renders green. Add a jest guard asserting every pregnancy_safety ∈ {ok,a_surveiller,deconseille}.",
+   "impact": "high",
+   "effort": "S",
+   "acceptance": "Vitamine A/zinc/vit C/selenium show ⚠ 'À surveiller' (orange) on list AND detail (no longer green/Unknown mismatch); the 'À surveiller' filter chip returns the 4 items; jest guard green; verified as guest (offline fallback path).",
+   "confidence": "high",
+   "merged_from": [
+    "logic-flow#1",
+    "reasoner-ux#9",
+    "data-integrity#1"
+   ]
+  },
+  {
+   "rank": 2,
+   "sev": "P1",
+   "screen": "SupplementsList + WeekRecommendations (card safety pill)",
+   "anchor": "src/screens/SupplementsListScreen.tsx:54-56 (SAFETY_CONFIG color used for text) + WeekRecommendationsScreen.tsx:186",
+   "title": "Card safety pill text/icon uses raw color on matching light tint → WCAG fail (#81C784 on #E8F5E9=1.79:1, #FFB74D on #FFF3E0=1.58:1, #E57373 on #FFEBEE=2.61:1) — primary safety signal illegible",
+   "fix": "In SAFETY_CONFIG keep the light tint as bgColor but render TEXT+icon in dark tokens that already exist: green800 #2E7D32 on greenTint (4.56:1), red700 #D32F2F on rose (4.36:1, bold ok); for warning add a dark amber token (e.g. a #856404-class token in src/theme/index.ts — no inline hex) on orangeTint. Apply same mapping to WeekRecommendations getSafetyColor for the text/icon.",
+   "impact": "high",
+   "effort": "S",
+   "acceptance": "All three safety pills' label+icon measure ≥4.5:1 (bold) against their tint in fr/en/ar/tn; visual unchanged tint, darker readable text.",
+   "confidence": "high",
+   "merged_from": [
+    "a11y#1"
+   ]
+  },
+  {
+   "rank": 3,
+   "sev": "P1",
+   "screen": "SupplementsList (selected safety filter chip)",
+   "anchor": "src/screens/SupplementsListScreen.tsx:266-278 (selected ? {backgroundColor:filter.color} + chipTextActive white)",
+   "title": "Selected safety chip = white text on raw safety color → 1.73–2.99:1, active label nearly invisible (Favoris/All chips fine at accent 5.87:1 — only the 3 safety chips regress)",
+   "fix": "Map each SAFETY_FILTERS entry to {fillSelected,textSelected}: white on green800 #2E7D32 (5.13:1) and red700 #D32F2F (4.98:1); for 'caution' the orange can't carry white — use dark text theme.colors.text #4E342E on light orange instead. Add a small leading color dot so inactive chips also read as a legend.",
+   "impact": "high",
+   "effort": "S",
+   "acceptance": "Each selected safety chip label ≥4.5:1; inactive chips show a colored dot legend; verified 4 langs.",
+   "confidence": "high",
+   "merged_from": [
+    "reasoner-ux#10",
+    "micro-state#1",
+    "a11y#2",
+    "ux-hierarchy#filterbar"
+   ]
+  },
+  {
+   "rank": 4,
+   "sev": "P1",
+   "screen": "ArticlesList/SupplementsList/ForbiddenFoods/ArticleDetail/SupplementDetail (7 horizontal scrollers)",
+   "anchor": "src/screens/ArticlesListScreen.tsx:272; SupplementsListScreen.tsx:213; ForbiddenFoodsScreen.tsx:154; ArticleDetailScreen.tsx:464,494; SupplementDetailScreen.tsx:267",
+   "title": "All 7 chip/related horizontal ScrollViews miss the repo's proven dir=ltr web-RTL fix → in ar/tn the row clamps and chips beyond the viewport (incl. safety filters, categories) are unreachable (verified: zero getScrollableNode/dir=ltr in any S5 screen; HomeScreen.tsx:267-274 has the pattern)",
+   "fix": "Add a ref + web-only effect copying HomeScreen.tsx:267-274: if(Platform.OS==='web'&&isRTL){node=ref.current?.getScrollableNode?.();node?.setAttribute?.('dir','ltr')} re-dep on chip/list count. Best as a small reusable hook shared by all 5 screens. Derive isRTL via useRtl(). Live data path (SupplementDetail→related-article chips) must be validated in ar.",
+   "impact": "high",
+   "effort": "M",
+   "acceptance": "In ar/tn web the Favoris/Tout chip is leading and the row scrolls from start to reveal all chips; first-chip x≈0 probe; LTR unaffected.",
+   "confidence": "high",
+   "merged_from": [
+    "logic-flow#6",
+    "reasoner-ux#11",
+    "micro-state#3",
+    "a11y#dir",
+    "i18n-rtl#1",
+    "ux-hierarchy#scrollers",
+    "ux-microinteraction#rtlchips"
+   ]
+  },
+  {
+   "rank": 5,
+   "sev": "P2",
+   "screen": "WeekRecommendations",
+   "anchor": "src/screens/WeekRecommendationsScreen.tsx:28-58 (getDoc-only, no localContentFallback import)",
+   "title": "WeekRecommendations has NO bundled fallback → guests/offline ALWAYS get the empty state; 'supplements' collection is never seeded so its section never renders even for accounts (verified Firestore-only)",
+   "fix": "After the getDoc filter, for any unresolved id fall back to getLocalArticle(id)/getLocalSupplement(id) (reuse exact-then-prefix resolver from ArticleDetailScreen). Guard the effect so a Firestore throw still attempts local resolution. Soften noRecommendation copy to frame general resources.",
+   "impact": "high",
+   "effort": "M",
+   "acceptance": "As guest (offline), week with recommended_*_ids shows article AND supplement cards from bundled data; empty state only when truly no ids.",
+   "confidence": "high",
+   "merged_from": [
+    "logic-flow#4",
+    "reasoner-ux#12"
+   ]
+  },
+  {
+   "rank": 6,
+   "sev": "P2",
+   "screen": "ArticlesList + SupplementsList",
+   "anchor": "src/screens/ArticlesListScreen.tsx:325; SupplementsListScreen.tsx:294",
+   "title": "Empty-state interpolates {{query}} even when empty came from a filter → 'Aucun résultat pour \"\"' (most common: guest taps ★Favoris with zero bookmarks)",
+   "fix": "Branch copy: if favoritesActive && !searchQuery.trim() → new key common.noFavoritesYet (★ + hint, add 4 langs); else if (selectedCategory||selectedSafety)&&!searchQuery → existing common.noResults (no query); else keep noResultsFor. Wrap empty View accessibilityLiveRegion='polite', mark emoji importantForAccessibility='no'. Symmetric both screens.",
+   "impact": "high",
+   "effort": "S",
+   "acceptance": "Empty ★Favoris shows 'no favorites yet'; chip-only empty shows query-less message; no '\"\"' in any lang; SR announces the change.",
+   "confidence": "high",
+   "merged_from": [
+    "logic-flow#3",
+    "reasoner-ux#16",
+    "micro-state#2",
+    "a11y#empty",
+    "ux-microinteraction#2"
+   ]
+  },
+  {
+   "rank": 7,
+   "sev": "P2",
+   "screen": "ArticleDetail",
+   "anchor": "src/screens/ArticleDetailScreen.tsx:628-633 markdownStyles.body (no writingDirection/textAlign) + isRTL computed L83",
+   "title": "Article markdown body is not RTL-aligned → the largest content block in the app renders left-aligned ragged-left for ar/tn (cross-link chips got chipTextRTL but the body itself was missed)",
+   "fix": "Build styles from a makeMarkdownStyles(isRTL): add writingDirection:isRTL?'rtl':'ltr' + textAlign:isRTL?'right':'left' to body/heading1-3/paragraph/list_item, pass to <Markdown style={md}>. writingDirection also fixes mixed Latin/Arabic medical-term bidi.",
+   "impact": "high",
+   "effort": "S",
+   "acceptance": "Arabic/Tunisian article body is right-aligned with correct bidi for embedded Latin tokens; LTR unchanged.",
+   "confidence": "high",
+   "merged_from": [
+    "reasoner-ux#17a",
+    "ux-hierarchy#bodyrtl"
+   ]
+  },
+  {
+   "rank": 8,
+   "sev": "P2",
+   "screen": "ArticlesList + SupplementsList",
+   "anchor": "src/screens/ArticlesListScreen.tsx:252-269; SupplementsListScreen.tsx:194-209",
+   "title": "Search input has no accessibilityLabel (placeholder only) and clear-✕ is labeled a11y.close ('Fermer/Close') — 2 of 3 search inputs inconsistent with ForbiddenFoods (verified FF:147 has label; a11y.clearSearch absent)",
+   "fix": "Add accessibilityLabel={t('common.searchArticlePlaceholder')} / searchSupplement to both TextInputs (keys exist). Add new key a11y.clearSearch (4 langs) and use it on the ✕ buttons instead of a11y.close. Give the ✕ TouchableOpacity hitSlop 10 or minHeight/minWidth 44 (currently ~24px). On web add aria-label.",
+   "impact": "med",
+   "effort": "S",
+   "acceptance": "SR announces the search field by name; ✕ announces 'Clear search'; ✕ hit area ≥44px; 4 langs.",
+   "confidence": "high",
+   "merged_from": [
+    "micro-state#25",
+    "micro-state#24",
+    "a11y#search",
+    "a11y#clearbtn",
+    "i18n-rtl#search",
+    "ux-hierarchy#searchlabel"
+   ]
+  },
+  {
+   "rank": 9,
+   "sev": "P2",
+   "screen": "ArticlesList + SupplementsList + ForbiddenFoods (search inputs, RTL)",
+   "anchor": "src/screens/ArticlesListScreen.tsx:361 searchInput style; SupplementsListScreen.tsx:330; ForbiddenFoodsScreen.tsx:325",
+   "title": "Content search inputs lack textAlign:right + writingDirection:rtl in ar/tn (auth screens established inputRTL pattern; these 3 skipped it) → caret/placeholder left-aligned for Arabic typing",
+   "fix": "Add searchInputRTL {textAlign:'right',writingDirection:'rtl'} and apply style={[styles.searchInput, isRTL && styles.searchInputRTL]} on all three (FF already has isRTL L68). Mirror RegisterScreen.tsx:380-382 tokens. No new i18n keys.",
+   "impact": "med",
+   "effort": "S",
+   "acceptance": "ar/tn search caret starts right, placeholder right-aligned, glyphs shape correctly; LTR unchanged.",
+   "confidence": "high",
+   "merged_from": [
+    "i18n-rtl#2"
+   ]
+  },
+  {
+   "rank": 10,
+   "sev": "P2",
+   "screen": "ArticleDetail + SupplementDetail (related cross-links, web RTL)",
+   "anchor": "src/screens/ArticleDetailScreen.tsx:464,476,494,506,596; SupplementDetailScreen.tsx:267,279,362",
+   "title": "Cross-link chips apply flexDirection:'row-reverse' (chipRTL) ON TOP of document.dir=rtl on web → double-mirror puts the icon on the wrong side in ar/tn (the 'never row-reverse what dir already mirrors' trap)",
+   "fix": "Gate chipRTL native-only: apply `isRTL && Platform.OS!=='web' && styles.chipRTL`. Keep chipTextRTL textAlign:'right' (additive, correct). Both detail screens. (Coordinate with rank 4 dir=ltr scroller fix.)",
+   "impact": "med",
+   "effort": "S",
+   "acceptance": "In ar/tn web, related-chip icon sits on the leading edge (not double-mirrored); native RTL still correct. SupplementDetail→related-article chips (live data) verified.",
+   "confidence": "med",
+   "merged_from": [
+    "ux-hierarchy#doublemirror",
+    "ux-microinteraction#rtlchips2"
+   ]
+  },
+  {
+   "rank": 11,
+   "sev": "P2",
+   "screen": "i18nHelpers.stripMarkdown (ArticlesList card summaries)",
+   "anchor": "src/utils/i18nHelpers.ts:33-41",
+   "title": "stripMarkdown leaves blockquote '>' and list '-'/'*'/'1.' markers + double-spaces in card 2-line previews (verified: chain only strips headers/bold/italic/underline/code/links)",
+   "fix": "Extend chain (keep /m): .replace(/^\\s*>\\s?/gm,'') .replace(/^\\s*[-*+]\\s+/gm,'') .replace(/^\\s*\\d+\\.\\s+/gm,'') then .replace(/[ \\t]{2,}/g,' ') before trim. Add jest cases for '> ','- ','1. ' and the double-space.",
+   "impact": "med",
+   "effort": "S",
+   "acceptance": "Summaries with bullet/quote/heading show clean prose, no leading markers, no double-space; unit tests green; all 4 langs.",
+   "confidence": "high",
+   "merged_from": [
+    "i18n-rtl#3",
+    "reasoner-ux#15a"
+   ]
+  },
+  {
+   "rank": 12,
+   "sev": "P2",
+   "screen": "getLocalizedContent (all S5 content, ar fallback)",
+   "anchor": "src/utils/i18nHelpers.ts:26-29",
+   "title": "For language 'ar' there is NO ar-specific fallback hop — a missing _ar field jumps straight to _en→_fr, surfacing French Latin prose inside an RTL screen for safety-critical dose/precautions (verified chain: target→(tn only)ar→en→fr)",
+   "fix": "Make fallback script-aware: for langCode==='ar'||'tn', prefer data[arKey] before en/fr. Add a dev-only jest assertion that every safety field (supplements precautions/typical_dose, forbidden risk/alternative) has _ar present so missing translations fail CI not ship as French-in-RTL.",
+   "impact": "med",
+   "effort": "S",
+   "acceptance": "ar locale never shows _en/_fr when _ar exists; CI guard fails on any missing _ar safety field. (Current bundled data has _ar so this is the latent-guard fix.)",
+   "confidence": "high",
+   "merged_from": [
+    "data-integrity#2"
+   ]
+  },
+  {
+   "rank": 13,
+   "sev": "UX",
+   "screen": "ForbiddenFoods (severity 'low' color)",
+   "anchor": "src/screens/ForbiddenFoodsScreen.tsx:60 (low: theme.colors.green400)",
+   "title": "severity 'low' renders GREEN border+badge on an AVOID food — collides with green=safe used by supplement pills + the safe-alternative row on the same card (1/19 items but semantically wrong on a safety screen)",
+   "fix": "Map severity 'low' to a caution/neutral token (theme.colors.warning or a muted neutral), reserving green strictly for the safe-alternative row. Keep i18n severity label as source of truth; verify badge contrast on new color.",
+   "impact": "med",
+   "effort": "S",
+   "acceptance": "No AVOID item renders green; 'low' badge reads as caution; contrast ≥4.5:1.",
+   "confidence": "high",
+   "merged_from": [
+    "reasoner-ux#14"
+   ]
+  },
+  {
+   "rank": 14,
+   "sev": "UX",
+   "screen": "ForbiddenFoods (expandable card a11y + RTL)",
+   "anchor": "src/screens/ForbiddenFoodsScreen.tsx:207-247",
+   "title": "Food card TouchableOpacity exposes no accessibilityRole/accessibilityState{expanded} on the safety-critical screen; ▲/▼ glyph not SR-hidden; expanded detail/alternative texts lack the isRTL right-align the food name has (L219)",
+   "fix": "Add accessibilityRole='button', accessibilityState={{expanded:isExpanded}}, accessibilityLabel=`${name} — ${severityLabel}`, accessibilityHint={t('a11y.expandDetails')} (new key 4 langs). Mark ▲/▼ importantForAccessibility='no'. Apply isRTL && {textAlign:'right'} to detailText/alternativeText/labels to match foodName.",
+   "impact": "med",
+   "effort": "S",
+   "acceptance": "SR announces button + expanded/collapsed state + name+severity; ar/tn expanded text right-aligned consistently.",
+   "confidence": "high",
+   "merged_from": [
+    "a11y#3",
+    "micro-state#31",
+    "i18n-rtl#ff"
+   ]
+  },
+  {
+   "rank": 15,
+   "sev": "UX",
+   "screen": "ForbiddenFoods (search clear + detail index)",
+   "anchor": "src/screens/ForbiddenFoodsScreen.tsx:147-149 (clearButtonMode iOS-only); 86-90 search index",
+   "title": "Foods search has no clear-✕ on Web/Android (clearButtonMode is iOS-only) while the other two screens render a custom ✕; and search indexes name+risk+alternative but NOT the displayed 'details' field → false 'no results'",
+   "fix": "Add the same conditional ✕ TouchableOpacity (onPress setSearchQuery('')) the other screens use, accessibilityLabel={t('a11y.clearSearch')} (rank 8 key); keep clearButtonMode for iOS. Add a 4th OR clause `|| normalizeForSearch(getLocalizedContent(f,'details',lang)).includes(query)`.",
+   "impact": "med",
+   "effort": "S",
+   "acceptance": "Web/Android user clears food search in one tap; a term present only in details returns the matching food.",
+   "confidence": "high",
+   "merged_from": [
+    "logic-flow#5",
+    "micro-state#30",
+    "data-integrity#5"
+   ]
+  },
+  {
+   "rank": 16,
+   "sev": "UX",
+   "screen": "SupplementsList (loading state)",
+   "anchor": "src/screens/SupplementsListScreen.tsx:159-164",
+   "title": "Loading is a bare centered spinner while sibling ArticlesList (under the SAME segmented control) shows a 5-card Skeleton → jarring layout shift when switching Articles↔Suppléments",
+   "fix": "Replace the ActivityIndicator block with the same Skeleton.Card loop ArticlesList uses (ArticlesList:217-225). Auto-inherits the reduced-motion fix once Skeleton is gated (rank 17).",
+   "impact": "med",
+   "effort": "S",
+   "acceptance": "Tab switch shows consistent skeleton; no spinner→blank→list jump.",
+   "confidence": "high",
+   "merged_from": [
+    "micro-state#22",
+    "ux-microinteraction#loading"
+   ]
+  },
+  {
+   "rank": 17,
+   "sev": "UX",
+   "screen": "Skeleton (all consumers)",
+   "anchor": "src/components/common/Skeleton.tsx:54-68",
+   "title": "Skeleton pulse loop ignores reduced-motion — 5 simultaneously pulsing rects on Articles load for a vestibular-sensitive (nausea-prone) audience, though getReducedMotionSync exists and is used elsewhere",
+   "fix": "In SkeletonBase: const shouldAnimate = animated && !getReducedMotionSync(); guard the loop, set static opacity 0.5 when off. Single-file fix covers every consumer.",
+   "impact": "med",
+   "effort": "S",
+   "acceptance": "With OS reduce-motion on, skeletons are static; animated prop still works for snapshot tests.",
+   "confidence": "high",
+   "merged_from": [
+    "ux-microinteraction#3"
+   ]
+  },
+  {
+   "rank": 18,
+   "sev": "UX",
+   "screen": "ArticlesList (EN copy)",
+   "anchor": "src/i18n/locales/en/common.json (favorites)",
+   "title": "EN favorites='Saved' collides with saved-state 'Saved' → chip reads '★ Saved', ambiguous (verified both keys = 'Saved'; FR Favoris/AR محفوظات distinguish correctly)",
+   "fix": "Set EN common.favorites='Favorites' (or 'Saved items'). One-file edit; FR/AR/TN already correct.",
+   "impact": "med",
+   "effort": "S",
+   "acceptance": "EN chip reads '★ Favorites', distinct from per-item 'Saved'.",
+   "confidence": "high",
+   "merged_from": [
+    "a11y#en",
+    "ux-microinteraction#encollision"
+   ]
+  },
+  {
+   "rank": 19,
+   "sev": "UX",
+   "screen": "SupplementDetail (safety hierarchy)",
+   "anchor": "src/screens/SupplementDetailScreen.tsx:219-261",
+   "title": "The single most important fact (safe/monitor/avoid) is a tiny secondary-colored Tag above 4 equal-weight white cards, with no ✓/⚠/✗ icon — detail page regresses from its own list's bold safety rail and the D6-07 icon pattern",
+   "fix": "Promote to a full-width safety banner under the title: row with getSafetyIcon (✓/⚠/✗, reuse WeekRec glyphs) at 22px + bold label in dark safety token, bg = surfaceGreenTint/Orange/Rose. Give the Precautions card a tinted fill (not just 1px border). Theme tokens only.",
+   "impact": "med",
+   "effort": "M",
+   "acceptance": "Safety verdict is the visual anchor with icon+label+tinted banner; consistent with list & WeekRec; 4 langs incl. RTL.",
+   "confidence": "med",
+   "merged_from": [
+    "ux-hierarchy#1",
+    "micro-state#26"
+   ]
+  },
+  {
+   "rank": 20,
+   "sev": "UX",
+   "screen": "ArticleDetail + SupplementDetail (loading + bookmark race)",
+   "anchor": "src/screens/ArticleDetailScreen.tsx:185-189,204-210; SupplementDetailScreen.tsx:116-120,132-138",
+   "title": "Loading branch has no back button (user trapped on a stuck fetch — error/not-found branches DO have it); bookmark toggle has no in-flight guard (rapid double-tap can race two toggleBookmark on the shared module Set)",
+   "fix": "(a) Render the headerBar/back arrow above the spinner in the loading branch of both detail screens. (b) Add const togglingRef=useRef(false) in handleToggleBookmark: if(togglingRef.current)return; set true; toggleBookmark(...).then(setSaved).finally(()=>togglingRef.current=false). Optionally disable while pending.",
+   "impact": "med",
+   "effort": "S",
+   "acceptance": "Back arrow visible during loading; double-tapping bookmark lands on the intended state.",
+   "confidence": "high",
+   "merged_from": [
+    "micro-state#27",
+    "logic-flow#7"
+   ]
+  },
+  {
+   "rank": 21,
+   "sev": "UX",
+   "screen": "ResourcesScreen (web segmented control a11y)",
+   "anchor": "src/screens/ResourcesScreen.tsx:56-82",
+   "title": "Web tablist is incomplete ARIA: no aria-controls/id, no roving tabindex/arrow-key nav, panel has no role=tabpanel/aria-labelledby, no focus-visible ring distinct from the 2px underline (correctly avoids the material-top-tabs RTL-blank-pager bug — verified)",
+   "fix": "Add per-tab id + aria-controls + tabIndex (roving) + onKeyDown ArrowLeft/Right; webPanel role='tabpanel'+aria-labelledby+nativeID. Add a focus-visible outline token. Web-only block; native path unaffected.",
+   "impact": "med",
+   "effort": "M",
+   "acceptance": "Keyboard arrows move between tabs; panel associated to active tab; visible focus ring; SR announces tablist.",
+   "confidence": "med",
+   "merged_from": [
+    "micro-state#32",
+    "a11y#tabs"
+   ]
+  },
+  {
+   "rank": 22,
+   "sev": "UX",
+   "screen": "ArticleDetail (web reading width + dead seeMore + safe-anchor)",
+   "anchor": "src/screens/ArticleDetailScreen.tsx:354-359 contentContainer; 431-433 seeMore; 152-165 anchor scroll",
+   "title": "Long-form body runs edge-to-edge on wide web (no maxWidth); content-coming-soon fallback shows a centered t('common.seeMore') styled like a link with no onPress (dead affordance); anchor scroll uses a fixed 500ms timer ignoring reduced-motion",
+   "fix": "(a) contentContainer maxWidth:720, alignSelf:'center', width:'100%'. (b) Remove the orphan seeMore caption or make it a real action. (c) Drive anchor scroll off anchorPositions[anchor] readiness (one rAF) instead of setTimeout 500; gate animated on !getReducedMotionSync().",
+   "impact": "med",
+   "effort": "S",
+   "acceptance": "Web body capped ~720px centered; no dead seeMore label; anchor scroll lands reliably and respects reduce-motion.",
+   "confidence": "med",
+   "merged_from": [
+    "ux-hierarchy#3",
+    "reasoner-ux#17b",
+    "micro-state#anchor"
+   ]
+  },
+  {
+   "rank": 23,
+   "sev": "UX",
+   "screen": "ArticlesList + SupplementsList (list rhythm + chips + card hierarchy)",
+   "anchor": "src/screens/ArticlesListScreen.tsx:202,279-289; SupplementsListScreen.tsx:139,220-234",
+   "title": "List titles have no numberOfLines (long ar/tn titles reflow 3-4 lines, breaking the grid); ★Favoris chip uses a filled star in BOTH states (no inactive glyph cue); article card has redundant 'Voir détails' footer + Tag between title and summary (inverted hierarchy)",
+   "fix": "Add numberOfLines={2} ellipsizeMode='tail' to both titles + minHeight on content for baseline. Swap chip glyph by state: `${favoritesActive?'★':'☆'} ${t('common.favorites')}` (or separate leading Text so RTL handles it). Reorder article card to title→summary→footer-meta-row; move category Tag (demoted to surface/textSecondary) into the footer replacing the redundant readMore.",
+   "impact": "med",
+   "effort": "M",
+   "acceptance": "Cards share baseline height with 2-line clamp; Favoris star reflects state; article card reads title→summary with metadata grouped in footer; ar/tn no overflow.",
+   "confidence": "med",
+   "merged_from": [
+    "ux-hierarchy#2",
+    "ux-hierarchy#title",
+    "micro-state#23",
+    "i18n-rtl#favchip"
+   ]
+  },
+  {
+   "rank": 24,
+   "sev": "P3",
+   "screen": "ArticleDetail / SupplementsList / ForbiddenFoods (perf + token hygiene + microinteractions)",
+   "anchor": "src/screens/ArticleDetailScreen.tsx:303-352,250-300; SupplementsListScreen.tsx:121; ForbiddenFoodsScreen.tsx:222",
+   "title": "Cluster of low-impact polish: heading rules/onLayout fire setAnchorPositions per render (matters only with anchor deep-link); content/linkedArticles not memoized; SupplementsList renderItem not useCallback (sibling Articles is); FF severity badge bg uses hex-alpha concat `color+'20'` (token-system violation); no debounce / no scroll-to-top-on-filter / no bookmark microfeedback",
+   "fix": "useMemo rules ([]) + attach onLayout only when anchor set + ref-based anchor map (1 setState). Memoize content/linkedArticles/linkedSupplements; hoist sanitizeContent/slugify. Wrap SupplementsList renderItem in useCallback + SAFETY_CONFIG in useMemo. Replace FF:222 `+'20'` with theme badge*BgAlpha tokens. Optional: useDeferredValue debounce, scrollToOffset(0) on filter change (reduced-motion-gated), bookmark scale-pop+haptic gated on getReducedMotionSync.",
+   "impact": "low",
+   "effort": "M",
+   "acceptance": "Article open is 1 render not N+1; no hex-alpha concat on FF; supplement cards bail on unchanged rows; npm run verify green.",
+   "confidence": "med",
+   "merged_from": [
+    "perf#1",
+    "perf#2",
+    "perf#3",
+    "ux-hierarchy#badgetoken",
+    "ux-microinteraction#1",
+    "ux-microinteraction#4",
+    "ux-microinteraction#debounce"
+   ]
+  }
+ ],
+ "counts": {
+  "P0": 0,
+  "P1": 4,
+  "P2": 8,
+  "P3": 1,
+  "UX": 11
+ },
+ "wave": "W5",
+ "system": "S5 Content",
+ "generated": "2026-06-22",
+ "raw_count": 91
+}

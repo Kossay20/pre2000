@@ -21,7 +21,10 @@ The 10-agent army (read-only, parallel, per feature): logic-verifier · reasoner
 | **W2** | S2 Home | (10-agent) 109→30 | **9/30** (5 P1 + #7 data + 3 UX) | **0** | ✅ probed (/HomeMain) | ✅ **P1-VALIDATED** (P2/UX sweep ongoing) |
 | **W3** | S3 Calendar | (10-agent) 100→25 | **7/25** (3 P1 + #1 + 3 UX) | **0** | ✅ probed (/calendar) | ✅ **P1-VALIDATED** (incl. a ship-surface white-screen crash) |
 | **W4** | S4 Reminders/Tasks | (10-agent) 115→25 (retry; 1st infra-blocked) | **8 healed** (6 P1 + inline-P2 + a11y) | **0** (web) | — | ✅ **P1-VALIDATED (web)** · #5 native-notif deferred |
-| W5–W9 | S5…S9 | queued | — | — | — | ⏳ pending |
+| **W5** | S5 Content | (10-agent) 91→24 (retry; 1st 529-blocked) | **3 healed** (incl. patient-safety P1) | 1 of 3 P1 left=contrast | — | 🟡 **P1-partial** (#1 safety + #4 RTL done; #2/#3 contrast next) |
+| W6–W9 | S6…S9 | queued | — | — | — | ⏳ pending |
+
+**W5 note:** the headline catch of the whole program — **supplements_db labeled 4 supplements (incl. Vitamine A, a teratogen) as ✓ Safe** because an accented `à_surveiller` token never matched the ASCII config and fell through to the green default; the bundled DB is the de-facto primary source so every user saw it. Fixed at the data + boundary + fail-safe-default (never green) + guard test. Also hardened the food search (diacritic/script-insensitive) and made the RTL filter chips reachable (useRtlScrollFix). 2 contrast P1s (#2/#3, illegible safety pills/chips) remain → need a dark-amber theme token next pass.
 
 **W4 note:** the first fan-out hit transient server-side rate-limiting (11/11 agents); the retry succeeded (115→25). Healed 6/7 backlog P1 + the inline guest-data-loss P2: i18n raw-key leak (tomorrow), broken weekday names + latent object-`.map` crash, save-button loading-string-at-rest, **task-completion notification orphan**, guest-migration-skipped-on-missing-profile, checklist a11y, and TasksTab guest-gate→in-place GuestUpgrade (via a clean `navigationRef` extraction). #5 (recurring task uses one-time notif trigger) is **native-only** (web no-ops scheduling) → deferred with spec + device-verification requirement; the shipped web surface is P1-clean. 4th wave, same loop.
 
