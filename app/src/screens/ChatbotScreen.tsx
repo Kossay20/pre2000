@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TextInput, FlatList, TouchableOpacity, KeyboardAvoidingView, Platform, ActivityIndicator, Linking, Keyboard } from 'react-native';
+import { View, Text, StyleSheet, TextInput, FlatList, TouchableOpacity, KeyboardAvoidingView, Platform, ActivityIndicator, Linking, Keyboard, AccessibilityInfo } from 'react-native';
 import { showAlert } from '../utils/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { analyzeMessage, fetchSuggestions } from '../services/chatbotService';
@@ -90,6 +90,12 @@ export const ChatbotScreen = () => {
                 setMessages(prev => prev.filter(m => m.text !== t('common.chatError')));
             }
             setMessages(prev => [...prev, botMsg]);
+            // W6 #4 (a11y): announce the reply so screen-reader users know one arrived (covers
+            // native/iOS where the alert live-region isn't enough). Emergencies lead with the
+            // localized severity word (emoji stripped so the SR doesn't read "🚨").
+            const isEmergency = (response as any)?.redFlag?.severity === 'emergency';
+            const announcement = (isEmergency ? `${t('common.chatEmergency').replace(/[^\p{L}\p{N}\s]/gu, '')}. ` : '') + response.message;
+            AccessibilityInfo.announceForAccessibility(announcement);
         } catch (error) {
             const errorMsg: Message = {
                 id: (Date.now() + 1).toString(),
@@ -138,10 +144,16 @@ export const ChatbotScreen = () => {
                 {item.data?.type === 'red_flag' &&
                     (item.data?.redFlag?.severity === 'emergency' ||
                      item.data?.redFlag?.severity === 'urgent_consult') && (
-                    <View style={[
-                        styles.alertContainer,
-                        item.data?.redFlag?.severity === 'emergency' && styles.alertContainerCritical,
-                    ]}>
+                    <View
+                        style={[
+                            styles.alertContainer,
+                            item.data?.redFlag?.severity === 'emergency' && styles.alertContainerCritical,
+                        ]}
+                        // W6 #4 (a11y): the emergency block is the most urgent content — announce it
+                        // assertively so a screen-reader user hears it immediately (RN-Web → role=alert + aria-live).
+                        accessibilityRole="alert"
+                        accessibilityLiveRegion="assertive"
+                    >
                         <Text style={styles.alertTitle}>
                             {item.data?.redFlag?.severity === 'emergency'
                                 ? t('common.chatEmergency')
@@ -420,17 +432,20 @@ const styles = StyleSheet.create({
     },
     alertTitle: {
         fontWeight: 'bold',
-        color: theme.colors.error,
+        // W6 #3 (a11y): the most safety-critical text must be legible. error #E57373 on the alert
+        // tint was 2.6:1 (WCAG fail); red800 is ≥4.9:1 on both surfaceRose and surfaceOrangeTint.
+        color: theme.colors.red800,
         fontSize: 13,
         marginBottom: 6,
     },
     alertText: {
-        color: theme.colors.error,
+        color: theme.colors.red800,
         fontSize: 12,
     },
     callButton: {
         marginTop: 8,
-        backgroundColor: theme.colors.error,
+        // W6 #3: white-on-error was sub-AA; white-on-red800 = 5.6:1.
+        backgroundColor: theme.colors.red800,
         paddingHorizontal: 16,
         paddingVertical: 12,
         minHeight: 44,
