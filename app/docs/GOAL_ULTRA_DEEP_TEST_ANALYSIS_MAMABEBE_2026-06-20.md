@@ -7,7 +7,7 @@ widest pass possible. Not surface-level: every interactive element × every stat
 **Branch base**: `feat/interaction-ux-2026-06-18` (the converged UX overhaul, 30 commits, jest 1867 green).
 **Mama & Bébé only** — this plan adapts the ultra-architect methodology; there is NO FoodKing/NF525/POS here.
 
-> **▶ EXECUTION STATUS** (live): see [`reports/test-e2e/ultra-deep/CONVERGENCE_LEDGER.md`](../reports/test-e2e/ultra-deep/CONVERGENCE_LEDGER.md) — the per-wave ledger. As of 2026-06-20: W0 inventory done · **W1 (S1) VALIDATED** (19/21) · **W2 (S2 Home) P1-VALIDATED** (9/30) · **W3 (S3 Calendar) P1-VALIDATED** (7/25, incl. a ship crash) · **W4 (S4 Reminders/Tasks) P1-VALIDATED-web** (8 healed; #5 native-notif deferred) — **all P0+P1=0 on the web target**. Per-wave backlogs/status: `W{n}_BACKLOG.json` + `W{n}_STATUS.md`. The per-feature loop is **proven to scale across 4 full waves**; W5 (Content) next.
+> **▶ EXECUTION STATUS** (live): see [`reports/test-e2e/ultra-deep/CONVERGENCE_LEDGER.md`](../reports/test-e2e/ultra-deep/CONVERGENCE_LEDGER.md) — the per-wave ledger. As of 2026-06-22: W0 inventory · **W1 (S1) VALIDATED** · **W2 (S2 Home) P1-VALIDATED** · **W3 (S3 Calendar) P1-VALIDATED** (incl. ship crash) · **W4 (S4 Reminders/Tasks) P1-VALIDATED-web** (#5 native-notif deferred) · **W5 (S5 Content) P1-VALIDATED** (incl. a patient-safety mislabel: Vitamine A shown as Safe) — **5 systems at P0+P1=0**. Per-wave backlogs/status: `W{n}_BACKLOG.json` + `W{n}_STATUS.md`; consolidated `CONVERGENCE_LEDGER.md`. Loop **proven across 5 waves** (absorbed 2 infra outages); W6 (Chatbot) next.
 
 ---
 
