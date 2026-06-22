@@ -743,3 +743,19 @@ describe('Chatbot triage — benign pain complaints (generic synonym) must NOT e
     });
   }
 });
+
+// W6 P0 — VERIFIED hemorrhage UNDER-escalation (reproduced live against analyzeMessage).
+// FuzzyMatcher corrected "heavy" to the capitalized vocab token "Heavy", which KeywordEngine
+// assigned WITHOUT re-lowercasing (KeywordEngine.ts:154) → INTENSIFIER_TOKENS.has("Heavy") was
+// false → the generic bleeding/blood token was gated away → type=info (no escalation). "severe
+// bleeding" escalated, proving "heavy" specifically was broken — the single most common layperson
+// hemorrhage phrasing. These MUST escalate.
+describe('Chatbot triage — W6 P0: "heavy" hemorrhage variants must escalate', () => {
+  const heavyVariants = ['heavy bleding', 'heavy blood', 'I have heavy bleding', 'Heavy bleeding'];
+  for (const text of heavyVariants) {
+    it(`[en] "${text}" → escalates (hemorrhage)`, async () => {
+      const r: any = await analyzeMessage(text);
+      expect({ phrase: text, escalates: escalates(r) }).toMatchObject({ escalates: true });
+    });
+  }
+});
