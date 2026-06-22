@@ -602,6 +602,34 @@ export const _analyzeMessage = async (text: string): Promise<ChatResponse> => {
     );
     const arGenericCorroborated = hasArIntensifier || presentGenericArConcepts.size >= 2;
 
+    // W6 #2 (SAFETY — scoped AR/TN over-escalation guard). Arabic Path B set strongMatch
+    // UNCONDITIONALLY, so a NEGATED specific symptom ("ما عنديش نزيف" = I do NOT have bleeding)
+    // still fired an EMERGENCY (decision below only applies negation when !strongMatch). Detect a
+    // negation lexeme within the 3 tokens BEFORE the matched token (scoped, like romNegated) so the
+    // negated specific token neither strong-matches nor counts, and feeds the negation guard.
+    // SCOPED hard: callers gate it on `!GENERIC_AR_TOKENS.has(keyword)` so it NEVER touches a generic
+    // like حركة 'movement', where ABSENCE is the emergency ("لا أشعر بحركة الجنين" must still escalate).
+    const AR_NEG_WORDS = new Set([
+        'لا', 'ما', 'ليس', 'ليست', 'لست', 'لسنا', 'لم', 'لن', 'مش', 'موش', 'مهوش',
+        'بدون', 'دون', 'غير', 'معنديش', 'ماعنديش', 'منيش', 'مانيش', 'ماعندناش',
+    ]);
+    const isArNegWord = (w: string): boolean => {
+        if (!w) return false;
+        const s = stripArClitic(w);
+        return AR_NEG_WORDS.has(w) || AR_NEG_WORDS.has(s) || /^ما.+ش$/.test(w) || /^ما.+ش$/.test(s);
+    };
+    const arTokenNegated = (keyword: string): boolean => {
+        for (let i = 0; i < arabicWordTokens.length; i++) {
+            const tk = arabicWordTokens[i];
+            if (tk === keyword || stripArClitic(tk) === keyword) {
+                for (let j = Math.max(0, i - 3); j < i; j++) {
+                    if (isArNegWord(arabicWordTokens[j])) return true;
+                }
+            }
+        }
+        return false;
+    };
+
     // 2. Check Red Flags (Critical) — use cache
     const redFlags = await getRedFlagsCached();
     const matchedFlags: { flag: RedFlag; severityScore: number; matchCount: number }[] = [];
@@ -708,6 +736,17 @@ export const _analyzeMessage = async (text: string): Promise<ChatResponse> => {
                     if (!gatedAway) {
                         matchCount++;
                     }
+                    // W6 #2: a SPECIFIC AR symptom token reaching the flag via Path A (when
+                    // processQuery didn't move it to negative[] — e.g. the TN circumfix ما...ش) but
+                    // negated within its preceding window is a NEGATED report. Feed the negation
+                    // guard so the flag is dropped below (Path A sets no strongMatch). Scoped to
+                    // specific tokens — generics + the multiword fetal-movement keyword are untouched.
+                    if (textIsArabic
+                        && !GENERIC_AR_TOKENS.has(keyword)
+                        && !GENERIC_FLAG_TOKENS.has(keyword)
+                        && arTokenNegated(keyword)) {
+                        negatedCount++;
+                    }
                 }
                 // Path B (U-FIX-1 + CB-R7-03): WORD-BOUNDARY match for Arabic/Tunisian script, which
                 // doesn't go through the latin tokenizer. We match a single-word AR keyword as a WHOLE
@@ -716,13 +755,18 @@ export const _analyzeMessage = async (text: string): Promise<ChatResponse> => {
                 // a strong match. Specific AR tokens stay single-hit, strong triggers.
                 else if (textIsArabic && keyword.length >= 2 && arTokenMatchesKeyword(keyword)) {
                     const arGatedAway = GENERIC_AR_TOKENS.has(keyword) && !arGenericCorroborated;
+                    // W6 #2: a SPECIFIC AR symptom token negated within the preceding window is a
+                    // NEGATED report — don't strong-match, and feed the negation guard so the flag is
+                    // dropped. Generic tokens are excluded (absence-is-emergency symptoms must survive).
+                    const arNeg = !GENERIC_AR_TOKENS.has(keyword) && arTokenNegated(keyword);
                     if (!arGatedAway) {
                         matchCount++;
-                        // Only a SPECIFIC (non-generic) AR token is a strong, negation-surviving match.
-                        if (!GENERIC_AR_TOKENS.has(keyword)) {
+                        // Only a SPECIFIC (non-generic), NON-NEGATED AR token is a strong match.
+                        if (!GENERIC_AR_TOKENS.has(keyword) && !arNeg) {
                             strongMatch = true;
                         }
                     }
+                    if (arNeg) negatedCount++;
                 }
             }
             // Negation guard (only via tokenized path — negation in arabic NLP is harder)

@@ -759,3 +759,36 @@ describe('Chatbot triage — W6 P0: "heavy" hemorrhage variants must escalate', 
     });
   }
 });
+
+// W6 #2 — AR/TN NEGATED emergency symptom must NOT escalate (cry-wolf over-escalation).
+// Arabic Path B set strongMatch unconditionally, bypassing the negation guard (decision line 742
+// only applies negation when !strongMatch). A scoped guard (negation token within a short window
+// BEFORE the matched specific AR token) suppresses these — WITHOUT touching genuine emergencies.
+describe('Chatbot triage — W6 #2: AR/TN negated symptoms must NOT over-escalate', () => {
+  const negatedNoEscalate = [
+    'ما عنديش نزيف',        // I do NOT have bleeding (TN)
+    'لا يوجد نزيف',          // there is no bleeding
+    'لا أعاني من نزيف',      // I do not suffer from bleeding
+    'ماعنديش دم',            // I have no blood (TN, no space)
+  ];
+  for (const text of negatedNoEscalate) {
+    it(`[ar/tn] "${text}" → does NOT escalate`, async () => {
+      const r: any = await analyzeMessage(text);
+      expect({ phrase: text, escalates: escalates(r) }).toMatchObject({ escalates: false });
+    });
+  }
+
+  // CONTROLS — these MUST still escalate (the guard must be SCOPED, never suppress a real emergency).
+  const controlsMustEscalate = [
+    'عندي نزيف',              // I have bleeding
+    'عندي نزيف ومش خايفة',   // I have bleeding and am not scared (negation modifies "scared", not bleeding)
+    'نزيف غزير',              // heavy bleeding
+    'لا أشعر بحركة الجنين',   // I no longer feel the baby move (real emergency that begins with لا)
+  ];
+  for (const text of controlsMustEscalate) {
+    it(`[ar] CONTROL "${text}" → STILL escalates`, async () => {
+      const r: any = await analyzeMessage(text);
+      expect({ phrase: text, escalates: escalates(r) }).toMatchObject({ escalates: true });
+    });
+  }
+});
