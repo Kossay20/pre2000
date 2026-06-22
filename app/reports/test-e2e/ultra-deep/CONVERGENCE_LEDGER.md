@@ -22,7 +22,10 @@ The 10-agent army (read-only, parallel, per feature): logic-verifier · reasoner
 | **W3** | S3 Calendar | (10-agent) 100→25 | **7/25** (3 P1 + #1 + 3 UX) | **0** | ✅ probed (/calendar) | ✅ **P1-VALIDATED** (incl. a ship-surface white-screen crash) |
 | **W4** | S4 Reminders/Tasks | (10-agent) 115→25 (retry; 1st infra-blocked) | **8 healed** (6 P1 + inline-P2 + a11y) | **0** (web) | — | ✅ **P1-VALIDATED (web)** · #5 native-notif deferred |
 | **W5** | S5 Content | (10-agent) 91→24 (retry; 1st 529-blocked) | **5 healed** (incl. patient-safety P1) | **0** | — | ✅ **P1-VALIDATED** (safety mislabel, RTL chips, 2× contrast + search) |
-| W6–W9 | S6…S9 | queued | — | — | — | ⏳ pending |
+| **W6** | S6 Chatbot | (10-agent + triage-safety lens) 75→25 | **P0 + 3 P1 healed** | P0=0; #2/#5b P1 left | — | 🟡 **P0-clean, P1-partial** (hemorrhage P0 FIXED; AR-negation #2 next) |
+| W7–W9 | S7…S9 | queued | — | — | — | ⏳ pending |
+
+**W6 note — the program's first true P0.** The army (after disk recovery) empirically reproduced a **hemorrhage UNDER-escalation**: "heavy bleeding"/"heavy blood"/typos returned NO emergency (FuzzyMatcher → capitalized "Heavy" vocab token, un-lowercased at KeywordEngine.ts:154 → intensifier check missed → bleeding token gated). A pregnant user typing the single most common hemorrhage phrasing got no call-doctor action. Fixed (lowercase corrected token) + 4 red→green tests (fe823a4). Plus emergency-path P1s: legibility (red800, WCAG), screen-reader live-region announce, and over-long-message clamp (was silently dropped untriaged). Remaining P1: #2 AR/TN negated-emergency over-escalation (verified, test-driven next), #5b rate-limit triage split, severity-taxonomy unification.
 
 **W5 note:** the headline catch of the whole program — **supplements_db labeled 4 supplements (incl. Vitamine A, a teratogen) as ✓ Safe** because an accented `à_surveiller` token never matched the ASCII config and fell through to the green default; the bundled DB is the de-facto primary source so every user saw it. Fixed at the data + boundary + fail-safe-default (never green) + guard test. Also hardened the food search (diacritic/script-insensitive) and made the RTL filter chips reachable (useRtlScrollFix). 2 contrast P1s (#2/#3, illegible safety pills/chips) remain → need a dark-amber theme token next pass.
 
