@@ -53,9 +53,13 @@ export const ChatbotScreen = () => {
     const MAX_INPUT_LENGTH = 500; // ── FIX: prevent arbitrarily long messages
 
     const handleSend = async (text: string = inputText, isRetry = false) => {
-        const messageText = text.trim();
+        let messageText = text.trim();
         if (!messageText) return;
-        if (messageText.length > MAX_INPUT_LENGTH) return; // silently ignore oversized input
+        // W6 #5 (SAFETY): CLAMP an over-long message instead of silently dropping it. A panicked
+        // user pasting a long description with "I'm bleeding heavily" buried in it must still be
+        // triaged (the engine handles long input). The TextInput maxLength caps typed text; this
+        // guards the paste/programmatic/retry paths that previously returned with no triage at all.
+        if (messageText.length > MAX_INPUT_LENGTH) messageText = messageText.slice(0, MAX_INPUT_LENGTH);
         Keyboard.dismiss(); // ── FIX: close keyboard on send
 
         // Rate limit check
