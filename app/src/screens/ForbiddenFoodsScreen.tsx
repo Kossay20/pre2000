@@ -23,6 +23,7 @@ import { theme } from '../theme';
 import { getShadowStyle } from '../utils/styleUtils';
 import { getLocalizedContent } from '../utils/i18nHelpers';
 import { normalizeForSearch } from '../utils/searchNormalize';
+import { useRtlScrollFix } from '../hooks/useRtlScrollFix';
 
 // Import data
 import forbiddenFoodsData from '../data/forbidden_foods.json';
@@ -68,6 +69,8 @@ export const ForbiddenFoodsScreen = () => {
     const isRTL = ['ar', 'tn'].includes(i18n.language); // ── FIX: RTL layout
     const [searchQuery, setSearchQuery] = useState('');
     const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
+    // W5 #4: keep the category-filter row scrollable/reachable under RTL (ar/tn) on web.
+    const categoryScrollRef = useRtlScrollFix();
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
     // Filter foods
@@ -152,6 +155,7 @@ export const ForbiddenFoodsScreen = () => {
 
             {/* Category Filters */}
             <ScrollView
+                ref={categoryScrollRef}
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 style={styles.categoriesScroll}

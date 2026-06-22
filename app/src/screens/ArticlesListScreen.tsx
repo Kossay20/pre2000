@@ -7,6 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { db } from '../config/firebase';
 import { Article, ArticleAntigravity } from '../types';
 import { getLocalizedContent } from '../utils/i18nHelpers';
+import { useRtlScrollFix } from '../hooks/useRtlScrollFix';
 import { getAntigravityArticlesByCategory } from '../services/contentService'; // ANTIGRAVITY
 import { getAllLocalArticles } from '../services/localContentFallback';
 import { getBookmarks, subscribeBookmarks } from '../services/bookmarkService';
@@ -32,6 +33,8 @@ const CATEGORY_ICONS: Record<string, string> = {
 export const ArticlesListScreen = () => {
     useScreenAnalytics('ArticlesListScreen');
     const [articles, setArticles] = useState<(Article | ArticleAntigravity)[]>([]);
+    // W5 #4: keep the category/favoris filter row reachable under RTL (ar/tn) on web.
+    const chipScrollRef = useRtlScrollFix();
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null); // task 10c: null = "All"
     // task 10b — "Favoris" filter chip: when active, show only bookmarked items.
@@ -270,6 +273,7 @@ export const ArticlesListScreen = () => {
                 </View>
 
                 <ScrollView
+                    ref={chipScrollRef}
                     horizontal
                     showsHorizontalScrollIndicator={false}
                     contentContainerStyle={styles.chipRow}

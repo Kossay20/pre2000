@@ -11,6 +11,7 @@ import { Tag } from '../components/common/Tag';
 import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { getLocalizedContent } from '../utils/i18nHelpers';
+import { useRtlScrollFix } from '../hooks/useRtlScrollFix';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
 import { getAllLocalSupplements } from '../services/localContentFallback';
 import { getBookmarks, subscribeBookmarks } from '../services/bookmarkService';
@@ -19,6 +20,8 @@ export const SupplementsListScreen = () => {
     useScreenAnalytics('SupplementsListScreen');
     const { t, i18n } = useTranslation();
     const [supplements, setSupplements] = useState<Supplement[]>([]);
+    // W5 #4: keep the safety/category/favoris filter row reachable under RTL (ar/tn) on web.
+    const chipScrollRef = useRtlScrollFix();
     const [searchQuery, setSearchQuery] = useState('');
     // task 10c: null = "All". Constrained to the pregnancy_safety union.
     const [selectedSafety, setSelectedSafety] = useState<Supplement['pregnancy_safety'] | null>(null);
@@ -217,6 +220,7 @@ export const SupplementsListScreen = () => {
                 </View>
 
                 <ScrollView
+                    ref={chipScrollRef}
                     horizontal
                     showsHorizontalScrollIndicator={false}
                     contentContainerStyle={styles.chipRow}
