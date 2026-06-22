@@ -76,6 +76,7 @@ rebuilds (for ar visual probes) require freed space — inline code-path verific
 | **G2** | `firebase deploy --only firestore:rules` | operator |
 | **G3** | Device smoke fr/ar/tn (notifications, native RTL — incl. S4 #5 recurring-notif verification) | operator |
 | **G4** | Clinical/copy review (DDR jargon, supplement safety taxonomy, chatbot triage thresholds) | operator + clinician |
+| **G5** | Reclaim disk — root volume at 99% (≈211Mi free); blocks dist rebuilds + full parallel-agent runs | operator |
 
 ## §6 — Honest closure
 This is a **1000h+ program by design**; "DONE" = all 9 systems VALIDATED + W10 convergence + owner gates G1–G4
