@@ -115,7 +115,13 @@ export const SupplementsListScreen = () => {
     }, [supplements, searchQuery, selectedSafety, favoritesActive, bookmarkedIds, i18n.language]);
 
     const getSafetyConfig = (safety: string) => {
-        return SAFETY_CONFIG[safety as keyof typeof SAFETY_CONFIG] || SAFETY_CONFIG.ok;
+        // W5 #1 (PATIENT-SAFETY): normalize accents so a data token like 'à_surveiller' resolves to
+        // 'a_surveiller', and FAIL SAFE to caution (⚠) for any unrecognized token — NEVER to 'ok'/green.
+        // The old `|| SAFETY_CONFIG.ok` silently rendered mislabeled supplements (incl. Vitamine A,
+        // teratogenic) as ✓ Safe. Defaulting an unknown safety to "à surveiller" is the conservative
+        // failure mode (over-caution, never under-caution).
+        const key = (safety || '').normalize('NFD').replace(/[̀-ͯ]/g, '') as keyof typeof SAFETY_CONFIG;
+        return SAFETY_CONFIG[key] || SAFETY_CONFIG.a_surveiller;
     };
 
     const renderItem = ({ item }: { item: Supplement }) => {
