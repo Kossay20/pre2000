@@ -16,6 +16,12 @@ Traced the full active path and confirmed severity values agree end-to-end (no m
 → The emergency call-doctor UI **does** fire for critical/urgent flags. The earlier FuzzyMatcher
   over-escalation guards (CB-R5-02) are present. No live triage bug found in this pass.
 
+## ALSO VERIFIED SOLID (inline) + 1 fix
+- **a11y/RTL**: message bubbles mirror correctly in ar/tn (ChatbotScreen:118-119 isRTL alignSelf flip); send/retry/emergency-call/article/tip/reminder/suggestion buttons all carry role+label; send button has disabled+busy state. **Fix shipped (cd818ea):** the composer input lacked an accessibilityLabel (placeholder-only) → added label + returnKeyType=send + onSubmitEditing.
+- **Rate-limit UX**: `chatbotLimiter.tryRequest()` gate (ChatbotScreen:62) degrades gracefully — pushes a localized `common.chatRateLimit` bot message, no crash/silent-fail. Oversized input capped by maxLength.
+- **Error state**: catch pushes a localized `chatError` bot message with a retry action (verified).
+→ S6's high-risk surface (triage + a11y/RTL + rate-limit + error) is solid by inline verification. Army-dependent depth deferred to G5-clearance: full 4-lang canned-reply parity audit, streaming/empty-state micro-states, severity-taxonomy unification + guard test, perf of the FlatList.
+
 ## LATENT (P3, note for the full W6) — severity-token type inconsistency
 `schema.ts:18 DbRedFlag.severity` is typed French (`'faible'|'modéré'|'élevé'|'critique'`) — the SQLite
 shape — while the ACTIVE engine + screen use English (`'emergency'|'urgent_consult'|…`). The SQLite/
