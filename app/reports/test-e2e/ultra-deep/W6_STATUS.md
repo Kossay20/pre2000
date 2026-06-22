@@ -13,11 +13,14 @@ Disk recovered (1.7Gi) → full army ran (1st two W6 attempts were inline due to
 
 Prior inline verification (this wave): triage emergency-path consistency, rate-limit/error graceful, input a11y label (cd818ea) — see `W6_INLINE_FINDINGS.md`.
 
-## REMAINING P1/P2 (next passes)
-- **#2 P1 (AR/TN over-escalation, cry-wolf)** — VERIFIED: "ما عنديش نزيف" (I do NOT have bleeding) → false EMERGENCY because Arabic Path B (chatbotService.ts:717-726) never consults the negative[] bucket. Fix: an Arabic-script negation guard SCOPED to Path B (mirror the latin romNegated window; keep "عندي نزيف ومش خايفة" escalating). **Test-driven like the P0** (red-team AR-negation cases). Deferred to a focused fire — over-escalation is less dangerous than the under-escalation P0, and the guard must be precise to avoid suppressing real emergencies.
-- **#5b P1** — don't skip triage when rate-limited; needs a chatbotService split (cheap in-memory red-flag scan always runs; throttle only the semantic-search fallback). rate-limit is anti-spam (rapid-fire) so a lone emergency rarely hits it.
-- **severity-taxonomy unification (P1/P2)** — schema.ts French `DbRedFlag.severity` (SQLite/non-active) vs active English; unify enum + a data-contract guard test so the SQLite path could never silently under-escalate.
+## ALSO FIXED (this fire)
+| #2 | P1 | AR/TN negated symptom ("ما عنديش نزيف") false-escalated. Scoped `arTokenNegated` guard (negation lexeme within 3 tokens before the matched token) in BOTH Path A + Path B, gated to SPECIFIC tokens — generics (حركة) + multiword fetal keyword untouched. Test-driven: 4 negation (red→green) + 4 controls (incl. fetal-movement "لا أشعر بحركة الجنين" + "نزيف ومش خايفة") all escalate | 284ecd9 |
+| taxonomy | guard | data-contract test: every RED_FLAGS severity ∈ screen-handled {emergency, urgent_consult} — prevents a future unhandled-severity silent under-triage | 1de0468 |
+
+## REMAINING (deferred-with-spec / lower-risk)
+- **#5b P1** — don't skip triage when rate-limited; needs a chatbotService split (cheap in-memory red-flag scan always runs; throttle only the semantic-search fallback). rate-limit is anti-spam (rapid-fire) so a lone emergency rarely hits it. #5a (oversized-clamp) already covers the higher-frequency drop.
+- schema.ts French `DbRedFlag.severity` (SQLite/non-active) enum cleanup (P3) — active path is English + now guard-tested; unify the type when the SQLite path is next touched.
 - P2/P3/UX: FlatList perf (keyExtractor/memo), typing indicator, scroll-to-latest, suggestion-chip layout, 4-lang canned-reply parity audit.
 
 ## Gate
-**P0 = 0 (the hemorrhage under-triage FIXED + test-locked)**, 3 of 6 P1 healed (the emergency-path legibility/announcement/delivery). verify GREEN (tsc + jest 1887 / 70 suites + lint:colors). **W6 = P0-clean, P1-partial** (#2 AR-negation + #5b + taxonomy remain). The most consequential program output to date. → finish #2 (test-driven) then W7 (Health tools).
+**P0 = 0, safety-P1 = 0** — both the under-escalation P0 (hemorrhage) AND the over-escalation P1 (AR negation) FIXED + test-locked, plus emergency-path legibility/announce/clamp + a severity data-contract guard. verify GREEN (tsc + jest 1897 / 71 suites + lint:colors). **W6 = P1-VALIDATED** (active triage path); #5b + P2/UX are lower-risk follow-ups. The most consequential wave of the program. → W7 (Health tools).

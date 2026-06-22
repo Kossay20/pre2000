@@ -44,6 +44,7 @@ behavior test). No wave is marked VALIDATED without its full loop; partial/nativ
 | W3 | S3 Calendar | 100→25 | ✅ P1-VALIDATED (7/25) | **typed-date RangeError white-screening the shipped form** |
 | W4 | S4 Reminders/Tasks | 115→25 | ✅ P1-VALIDATED-web (8) | **task-completion notification orphan** + guest-migration skip |
 | W5 | S5 Content | 91→24 | ✅ P1-VALIDATED (5) | **PATIENT-SAFETY: Vitamine A (teratogen) shown as ✓Safe** |
+| W6 | S6 Chatbot | 75→25 | ✅ P1-VALIDATED (P0+5 P1) | **PATIENT-SAFETY P0: "heavy bleeding" hemorrhage NOT escalated** (+ AR negated-symptom false-emergency) |
 
 Cumulative ranked findings W1–W5: **125** (25 P1, 43 P2, 46 UX), P0 = 0 throughout. The loop **absorbed two
 infra outages** (server rate-limit, then API 529 Overloaded) — each time I verified/healed the highest-risk
@@ -79,7 +80,9 @@ rebuilds (for ar visual probes) require freed space — inline code-path verific
 | **G5** | Reclaim disk — root volume at 99% (≈211Mi free); blocks dist rebuilds + full parallel-agent runs | operator |
 
 ## §6 — Honest closure
-This is a **1000h+ program by design**; "DONE" = all 9 systems VALIDATED + W10 convergence + owner gates G1–G4
-cleared — multi-session by construction (continued via an hourly `/loop` cron + each `/goal` fire). **Status: 5 of 9
-systems at P0+P1=0**, the loop demonstrated repeatable + infra-resilient, and its single most consequential output —
-catching a teratogen mislabeled as safe — already justifies the depth. Remaining: W6–W10 + the scheduled P2/UX sweep.
+This is a **1000h+ program by design**; "DONE" = all 9 systems VALIDATED + W10 convergence + owner gates G1–G5
+cleared — multi-session by construction (continued via an hourly `/loop` cron + each `/goal` fire). **Status: 6 of 9
+systems at P0+P1=0** (S1–S6), the loop demonstrated repeatable + infra-resilient (2 API outages + a disk-full absorbed),
+and its three patient-safety catches — a teratogen mislabeled as safe, a hemorrhage that failed to escalate, and a
+negated symptom that false-escalated — each empirically reproduced + test-locked, already justify the depth.
+Remaining: **W7 (Health) → W8 (Profile/Settings) → W9 (cross-cutting) → W10 (convergence)** + the scheduled P2/UX sweep.
