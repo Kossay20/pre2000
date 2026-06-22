@@ -22,6 +22,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '../theme';
 import { getShadowStyle } from '../utils/styleUtils';
 import { getLocalizedContent } from '../utils/i18nHelpers';
+import { normalizeForSearch } from '../utils/searchNormalize';
 
 // Import data
 import forbiddenFoodsData from '../data/forbidden_foods.json';
@@ -78,11 +79,14 @@ export const ForbiddenFoodsScreen = () => {
         }
 
         if (searchQuery.trim()) {
-            const query = searchQuery.toLowerCase();
+            // W5: diacritic/case/script-insensitive — "pate" matches "pâté", and Arabic matches
+            // regardless of harakat/alef-hamza. Safety-critical: a mis-accented query must still
+            // surface a forbidden food.
+            const query = normalizeForSearch(searchQuery);
             result = result.filter(f =>
-                getLocalizedContent(f, 'name', i18n.language).toLowerCase().includes(query) ||
-                getLocalizedContent(f, 'risk', i18n.language).toLowerCase().includes(query) ||
-                getLocalizedContent(f, 'alternative', i18n.language).toLowerCase().includes(query)
+                normalizeForSearch(getLocalizedContent(f, 'name', i18n.language)).includes(query) ||
+                normalizeForSearch(getLocalizedContent(f, 'risk', i18n.language)).includes(query) ||
+                normalizeForSearch(getLocalizedContent(f, 'alternative', i18n.language)).includes(query)
             );
         }
 
@@ -140,6 +144,9 @@ export const ForbiddenFoodsScreen = () => {
                     value={searchQuery}
                     onChangeText={setSearchQuery}
                     placeholderTextColor={theme.colors.neutral400}
+                    accessibilityLabel={t('common.searchFoodPlaceholder')}
+                    returnKeyType="search"
+                    clearButtonMode="while-editing"
                 />
             </View>
 
