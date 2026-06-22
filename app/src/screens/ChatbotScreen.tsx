@@ -303,6 +303,9 @@ export const ChatbotScreen = () => {
                     placeholder={t('common.chatAskQuestion')}
                     placeholderTextColor={theme.colors.textLight}
                     textAlign={isRTL ? 'right' : 'left'}
+                    accessibilityLabel={t('common.chatAskQuestion')}
+                    returnKeyType="send"
+                    onSubmitEditing={() => handleSend()}
                 />
                 <TouchableOpacity
                     onPress={() => handleSend()}
