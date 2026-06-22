@@ -98,6 +98,18 @@ export const WeekRecommendationsScreen = () => {
         }
     };
 
+    // W5 #2 (a11y): the safety LABEL renders in a DARK token (the pastel getSafetyColor failed WCAG
+    // as text on the light card — 1.6–2.6:1). Verified ≥4.5:1 on white. getSafetyColor stays for the
+    // decorative icon-container background.
+    const getSafetyTextColor = (safety: string) => {
+        switch (safety) {
+            case 'ok': return theme.colors.green800;
+            case 'a_surveiller': return theme.colors.deepOrange900;
+            case 'deconseille': return theme.colors.red800;
+            default: return theme.colors.textSecondary;
+        }
+    };
+
     // D6-07 a11y: convey safety with an icon + text label, not color alone.
     const getSafetyIcon = (safety: string) => {
         switch (safety) {
@@ -183,7 +195,7 @@ export const WeekRecommendationsScreen = () => {
                                     <Text style={[theme.typography.h3, styles.title] as any}>{getLocalizedContent(supplement, 'name', i18n.language)}</Text>
                                     {/* D6-07: explicit safety icon + label so safety isn't conveyed by color alone */}
                                     <View style={styles.safetyRow}>
-                                        <Text style={[styles.safetyText, { color: getSafetyColor(supplement.pregnancy_safety) }]}>
+                                        <Text style={[styles.safetyText, { color: getSafetyTextColor(supplement.pregnancy_safety) }]}>
                                             {getSafetyIcon(supplement.pregnancy_safety)} {getSafetyLabel(supplement.pregnancy_safety)}
                                         </Text>
                                     </View>

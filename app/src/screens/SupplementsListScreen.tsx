@@ -52,10 +52,13 @@ export const SupplementsListScreen = () => {
     }, []);
 
     // ── Inside component so t() is never stale (language change safe) ──
+    // W5 #2 (a11y/safety): the pill ICON+LABEL render in DARK tokens (not the pastel success/warning/
+    // error) so the safety signal is legible on its light tint — verified ≥4.5:1 (green800/greenTint
+    // 4.56, deepOrange900/orangeTint 5.11, red800/rose 4.91). Was 1.6–2.6:1 (illegible).
     const SAFETY_CONFIG = {
-        ok: { icon: '✓', label: t('common.safetyOk'), color: theme.colors.success, bgColor: theme.colors.surfaceGreenTint },
-        a_surveiller: { icon: '⚠', label: t('common.safetyMonitor'), color: theme.colors.warning, bgColor: theme.colors.surfaceOrangeTint },
-        deconseille: { icon: '✗', label: t('common.safetyNotRecommended'), color: theme.colors.error, bgColor: theme.colors.surfaceRose },
+        ok: { icon: '✓', label: t('common.safetyOk'), color: theme.colors.green800, bgColor: theme.colors.surfaceGreenTint },
+        a_surveiller: { icon: '⚠', label: t('common.safetyMonitor'), color: theme.colors.deepOrange900, bgColor: theme.colors.surfaceOrangeTint },
+        deconseille: { icon: '✗', label: t('common.safetyNotRecommended'), color: theme.colors.red800, bgColor: theme.colors.surfaceRose },
     };
 
     useEffect(() => {
@@ -86,10 +89,13 @@ export const SupplementsListScreen = () => {
 
     // task 10c: safety filter chips. Reuses the existing supplementSafety.* labels.
     // Built inside the component so t() is never stale on language change.
-    const SAFETY_FILTERS: { value: Supplement['pregnancy_safety']; label: string; color: string }[] = [
-        { value: 'ok', label: t('common.supplementSafety.safe'), color: theme.colors.success },
-        { value: 'a_surveiller', label: t('common.supplementSafety.caution'), color: theme.colors.warning },
-        { value: 'deconseille', label: t('common.supplementSafety.avoid'), color: theme.colors.error },
+    // W5 #3 (a11y): `color` = the inactive chip's accent dot; `fill` = the DARK selected background so
+    // the white active label is legible (white on green800 5.13:1 / deepOrange900 5.60:1 / red800 ≥5:1).
+    // Was selected={backgroundColor: pastel color} + white text → 1.7–3.0:1 (illegible active label).
+    const SAFETY_FILTERS: { value: Supplement['pregnancy_safety']; label: string; color: string; fill: string }[] = [
+        { value: 'ok', label: t('common.supplementSafety.safe'), color: theme.colors.success, fill: theme.colors.green800 },
+        { value: 'a_surveiller', label: t('common.supplementSafety.caution'), color: theme.colors.warning, fill: theme.colors.deepOrange900 },
+        { value: 'deconseille', label: t('common.supplementSafety.avoid'), color: theme.colors.error, fill: theme.colors.red800 },
     ];
 
     const filteredSupplements = React.useMemo(() => {
@@ -276,7 +282,7 @@ export const SupplementsListScreen = () => {
                                 style={[
                                     styles.chip,
                                     selected
-                                        ? { backgroundColor: filter.color, borderColor: filter.color }
+                                        ? { backgroundColor: filter.fill, borderColor: filter.fill }
                                         : styles.chipInactive,
                                 ]}
                                 accessibilityRole="button"
