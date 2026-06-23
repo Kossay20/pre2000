@@ -45,6 +45,7 @@ behavior test). No wave is marked VALIDATED without its full loop; partial/nativ
 | W4 | S4 Reminders/Tasks | 115→25 | ✅ P1-VALIDATED-web (8) | **task-completion notification orphan** + guest-migration skip |
 | W5 | S5 Content | 91→24 | ✅ P1-VALIDATED (5) | **PATIENT-SAFETY: Vitamine A (teratogen) shown as ✓Safe** |
 | W6 | S6 Chatbot | 75→25 | ✅ P1-VALIDATED (P0+5 P1) | **PATIENT-SAFETY P0: "heavy bleeding" hemorrhage NOT escalated** (+ AR negated-symptom false-emergency) |
+| W7 | S7 Health tools | army rate-limited ×2 → **inline-verified** | ✅ inline P0/P1-clean | timer/date DST-immune + a11y solid; ContractionTimer 5-1-1 guidance → G4 |
 
 Cumulative ranked findings W1–W5: **125** (25 P1, 43 P2, 46 UX), P0 = 0 throughout. The loop **absorbed two
 infra outages** (server rate-limit, then API 529 Overloaded) — each time I verified/healed the highest-risk
@@ -81,8 +82,19 @@ rebuilds (for ar visual probes) require freed space — inline code-path verific
 
 ## §6 — Honest closure
 This is a **1000h+ program by design**; "DONE" = all 9 systems VALIDATED + W10 convergence + owner gates G1–G5
-cleared — multi-session by construction (continued via an hourly `/loop` cron + each `/goal` fire). **Status: 6 of 9
-systems at P0+P1=0** (S1–S6), the loop demonstrated repeatable + infra-resilient (2 API outages + a disk-full absorbed),
-and its three patient-safety catches — a teratogen mislabeled as safe, a hemorrhage that failed to escalate, and a
-negated symptom that false-escalated — each empirically reproduced + test-locked, already justify the depth.
-Remaining: **W7 (Health) → W8 (Profile/Settings) → W9 (cross-cutting) → W10 (convergence)** + the scheduled P2/UX sweep.
+cleared — multi-session by construction (continued via an hourly `/loop` cron + each `/goal` fire).
+
+**Execution frontier (2026-06-23, honest):**
+- **S1–S6: army-VALIDATED, P0+P1=0** — full 10-agent loop, every finding verified at file:line + test-locked.
+- **S7 (Health): inline-verified P0/P1-clean** — the 10-agent army was rate-limited on both attempts, so the
+  high-risk surface (timer/date correctness, numeric + checklist a11y, chart RTL) was verified by single-reviewer
+  inline analysis (no code P0/P1; ContractionTimer 5-1-1 guidance → G4). The full-army P2/UX sweep is re-queued
+  for API recovery. This is labelled as one-reviewer depth, NOT the 10-lens sweep — no fiction.
+- **S8 (Profile/Settings), S9 (cross-cutting): anchored, army-pending** — screens/services identified (§4); the
+  10-agent analysis runs when the API stops throttling parallel fan-outs (or inline, subsequent fires).
+- **W10 convergence + owner gates G1–G5**: pending.
+
+The loop is repeatable + infra-resilient — it absorbed **2 API 529/overload outages, persistent rate-limiting of the
+parallel army, and a disk-full event**, each time falling back to inline verification + retry without losing the gate
+or shipping unverified work. Its three test-locked patient-safety catches (teratogen-as-safe, hemorrhage-not-escalated,
+negated-symptom-false-emergency) already justify the "deep, not surface" mandate. ~57 verify-green commits.

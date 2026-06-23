@@ -19,8 +19,22 @@ The S7 health services do NOT do that:
 All 3 WeightTracker numeric `TextInput`s carry an accessibilityLabel (setup weight:464 / height:476 /
 add-weight:620) + decimal-pad keyboard. (The W2 numeric-a11y gap does not recur here.)
 
-## Status
-S7's two highest-risk classes (timer/date correctness + numeric a11y) are inline-verified clean. The
-full W7 army (re-queued, w5kzlo3k0) will enumerate the P2/UX tier (chart a11y/RTL + dir=ltr scroller,
-contraction "when to go to hospital" guidance, dashboard empty states, timer reduced-motion, persistence
-guest→auth migration, unit localization). No wave marked VALIDATED without its full loop.
+## ALSO VERIFIED SOLID
+- **Checklist a11y (HospitalBag)**: exemplary — `accessibilityRole="checkbox"` + `accessibilityState.checked`
+  + explicit web `aria-checked` (HospitalBagChecklistScreen.tsx:137-140), with a documented Cycle-8.2 fix
+  splitting nested touchables to avoid SR confusion. Better than W4's task checklist was.
+- **Chart RTL**: HealthDashboard + WeightTracker ScrollViews are VERTICAL (no `horizontal`) → the RTL
+  horizontal-scroller gotcha (useRtlScrollFix) does NOT apply here.
+
+## NOTABLE GAP (→ owner gate G4, clinical review — not an unreviewed code fix)
+- **ContractionTimer has no 5-1-1 / "when to go to the hospital" guidance** (grep: zero hospital/5-1-1/
+  maternité cues in screen or service). A contraction timer should tell the user the standard threshold
+  (contractions ~5 min apart, ~1 min long, for ~1 hour → go in). Authoring the exact thresholds + wording
+  is a CLINICAL content decision — flagged for G4 (clinical/copy review), not invented here.
+
+## Status — W7 retry ALSO rate-limited (w5kzlo3k0); inline-verification is the binding mode
+S7's high-risk classes (timer/date correctness, numeric a11y, checklist a11y, chart RTL) are inline-verified
+clean — **no code P0/P1 found**. The only substantive improvement (5-1-1 guidance) needs clinical review.
+The full 10-agent W7 army is re-queued for API recovery to enumerate the P2/UX tier (dashboard empty states,
+timer reduced-motion, persistence guest→auth migration, unit/number localization). **S7 = inline-verified
+P0/P1-clean; full-army VALIDATED pending API recovery.** No fiction: this is one-reviewer depth, not the 10-lens sweep.
