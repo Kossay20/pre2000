@@ -90,7 +90,10 @@ cleared — multi-session by construction (continued via an hourly `/loop` cron 
   high-risk surface (timer/date correctness, numeric + checklist a11y, chart RTL) was verified by single-reviewer
   inline analysis (no code P0/P1; ContractionTimer 5-1-1 guidance → G4). The full-army P2/UX sweep is re-queued
   for API recovery. This is labelled as one-reviewer depth, NOT the 10-lens sweep — no fiction.
-- **S8 (Profile/Settings), S9 (cross-cutting): anchored, army-pending** — screens/services identified (§4); the
+- **S8 (Profile/Settings): anchored + highest-risk flow inline-spot-checked SOLID** — the GDPR/account-delete
+  path is well-built (ProfileScreen:526 confirm-before-purge; handles the requires-recent-login reauth-then-delete;
+  Settings uses confirmAction for destructive ops; delete button a11y-labeled). Full-army P2/UX sweep army-pending.
+- **S9 (cross-cutting): anchored, army-pending** — AuthContext/PregnancyContext/Toast/shared components (§4); the
   10-agent analysis runs when the API stops throttling parallel fan-outs (or inline, subsequent fires).
 - **W10 convergence + owner gates G1–G5**: pending.
 
