@@ -16,7 +16,13 @@ export const OfflineNotice = () => {
     }
 
     return (
-        <View style={[styles.container, { paddingTop: insets.top }]}>
+        // W9: announce the connectivity change to assistive tech — a banner that appears
+        // silently is invisible to screen-reader users (RN-Web → role=status + aria-live=polite).
+        <View
+            style={[styles.container, { paddingTop: insets.top }]}
+            accessibilityRole="alert"
+            accessibilityLiveRegion="polite"
+        >
             <View style={styles.contentContainer}>
                 <Text style={styles.text}>
                     {t('offline_title', '📡 Pas de connexion Internet')}
