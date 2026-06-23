@@ -14,8 +14,10 @@ supervisor verification** (the binding fallback under API throttling). One real 
 - **Settings Switch a11y**: `accessibilityRole="switch"` + `accessibilityState.checked` + label (SettingsScreen:172-179); buttons role+label+busy.
 - **purge breadth**: kick/contraction/hospitalbag/ramadan(Art.9)/hydration/ttc all in the list; per-uid weight/checklist/completions via dynamic prefixes.
 
-## REMAINING (P2/UX — next pass / full-army)
-- **export completeness P2**: `dataExportService` omits kick_counter / contraction_timer / hospital_bag / bookmarks histories from the GDPR export bundle (they ARE purged on delete, but not exported) — add them to `generateExportData` for full Art.20 portability.
+## ALSO FIXED
+| #2 | P2 (GDPR Art.20) | export omitted kick/contraction/hospitalbag/bookmark histories → incomplete data-portability copy. Added a `tools` section to generateExportData (allSettled-resilient), schema v3→4, +tests. Now the GDPR pair is symmetric: delete purges everything (Art.17) ↔ export includes everything (Art.20) | c99292c |
+
+## REMAINING (P2/UX — full-army, API-pending)
 - Full-army P2/UX tier (profile-edit validation/feedback, settings grouping, language-change reload UX, contrast audit, RTL row sweep) — army-pending API recovery.
 
 ## Gate
