@@ -31,11 +31,9 @@ import { cancelAllNotifications } from '../services/notificationService';
 // `reminders_v2_completions_${userId}`, `@daily_checklist_v2_${date}`). These cannot be
 // listed statically. They are purged via `purgeDynamicPrivateKeys()` below which scans
 // `AsyncStorage.getAllKeys()` for known prefixes.
-const PRIVATE_STORAGE_KEY_PREFIXES = [
-    '@weight_entries_',                  // weightService — guest weight history per uid
-    'reminders_v2_completions_',         // remindersV2Service — per-user streak data
-    '@daily_checklist_v2_',              // dailyChecklistService — per-day progress
-] as const;
+// W8 #1: the canonical key lists live in ./storageKeys (pure module) so they can be unit-tested
+// without loading this Provider — see storageKeys.test.ts.
+import { PRIVATE_STORAGE_KEYS, PRIVATE_STORAGE_KEY_PREFIXES } from './storageKeys';
 
 const purgeDynamicPrivateKeys = async () => {
     try {
@@ -52,30 +50,6 @@ const purgeDynamicPrivateKeys = async () => {
     }
 };
 
-const PRIVATE_STORAGE_KEYS = [
-    'user_profile',
-    'guestProfile',
-    // NOTE: 'app_locale' intentionally NOT purged — language is a device preference, not per-session
-    '@pregnancy_context',
-    '@reminder_settings_v1',
-    '@task_statuses_v1',
-    '@baby_message_enabled_v1',
-    '@baby_message_hour_v1',
-    'reminder_settings_v2',
-    'reminders_v2_settings_guest',       // RemindersV2Service guest settings
-    'reminders_v2_completions',          // NOTIF-06: streak/completion data
-    '@rdv_reminders',                    // RDV notification records (@ prefix required)
-    '@rdv_preferences',                  // RDV user preferences (@ prefix required)
-    'in_app_review_actions_count',       // STORAGE-FIX: Review trigger count
-    'in_app_review_last_prompt',         // STORAGE-FIX: Last review prompt date
-    'in_app_review_install_date',        // STORAGE-FIX: App install date for review
-    'hydration_data_v1',                 // STORAGE-FIX: Hydration tracking (preferences + daily intake)
-    'ttcProfile',                        // TTC-FIX: standalone TTC snapshot (lastPeriodDate, cycleLength, fertile window)
-    'kick_counter_v1',                   // Cycle 8 Epic 1: kick session history (pregnancy-stage data)
-    'contraction_timer_v1',              // Cycle 8 Epic 1: contraction history (labor-timing data)
-    'hospital_bag_v1',                   // Cycle 8 Epic 1: bag checklist + custom items
-    'ramadan_pregnancy_v1',              // Cycle 8 Epic 2: GDPR Art. 9 (religion + health) — must purge
-] as const;
 
 // Re-export pure helper extracted to ./loginHelpers so it can be unit-tested
 // without loading AuthContext.tsx (whose JSX trips ts-jest under module:"preserve").
