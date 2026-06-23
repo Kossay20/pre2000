@@ -46,6 +46,7 @@ behavior test). No wave is marked VALIDATED without its full loop; partial/nativ
 | W5 | S5 Content | 91→24 | ✅ P1-VALIDATED (5) | **PATIENT-SAFETY: Vitamine A (teratogen) shown as ✓Safe** |
 | W6 | S6 Chatbot | 75→25 | ✅ P1-VALIDATED (P0+5 P1) | **PATIENT-SAFETY P0: "heavy bleeding" hemorrhage NOT escalated** (+ AR negated-symptom false-emergency) |
 | W7 | S7 Health tools | army rate-limited ×2 → **inline-verified** | ✅ inline P0/P1-clean | timer/date DST-immune + a11y solid; ContractionTimer 5-1-1 guidance → G4 |
+| W8 | S8 Profile/Settings | army blocked → **inline-verified** | ✅ inline + privacy-P2 fixed | **PRIVACY: bookmarks survived delete + leaked across users (GDPR Art.17)** — fixed + guard-tested |
 
 Cumulative ranked findings W1–W5: **125** (25 P1, 43 P2, 46 UX), P0 = 0 throughout. The loop **absorbed two
 infra outages** (server rate-limit, then API 529 Overloaded) — each time I verified/healed the highest-risk
@@ -90,9 +91,10 @@ cleared — multi-session by construction (continued via an hourly `/loop` cron 
   high-risk surface (timer/date correctness, numeric + checklist a11y, chart RTL) was verified by single-reviewer
   inline analysis (no code P0/P1; ContractionTimer 5-1-1 guidance → G4). The full-army P2/UX sweep is re-queued
   for API recovery. This is labelled as one-reviewer depth, NOT the 10-lens sweep — no fiction.
-- **S8 (Profile/Settings): anchored + highest-risk flow inline-spot-checked SOLID** — the GDPR/account-delete
-  path is well-built (ProfileScreen:526 confirm-before-purge; handles the requires-recent-login reauth-then-delete;
-  Settings uses confirmAction for destructive ops; delete button a11y-labeled). Full-army P2/UX sweep army-pending.
+- **S8 (Profile/Settings): inline-verified + privacy-P2 FIXED** — found & fixed a GDPR Art.17 leak (bookmarks
+  survived account-delete + leaked across users on a shared device; c502b38, guard-tested). GDPR delete/export +
+  Settings Switch a11y inline-verified solid. Export-completeness P2 (kick/contraction/bag/bookmark histories) +
+  full-army P2/UX sweep pending. See W8_STATUS.md.
 - **S9 (cross-cutting): anchored, army-pending** — AuthContext/PregnancyContext/Toast/shared components (§4); the
   10-agent analysis runs when the API stops throttling parallel fan-outs (or inline, subsequent fires).
 - **W10 convergence + owner gates G1–G5**: pending.
