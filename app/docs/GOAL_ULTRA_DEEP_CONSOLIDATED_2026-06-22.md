@@ -47,6 +47,8 @@ behavior test). No wave is marked VALIDATED without its full loop; partial/nativ
 | W6 | S6 Chatbot | 75→25 | ✅ P1-VALIDATED (P0+5 P1) | **PATIENT-SAFETY P0: "heavy bleeding" hemorrhage NOT escalated** (+ AR negated-symptom false-emergency) |
 | W7 | S7 Health tools | army rate-limited ×2 → **inline-verified** | ✅ inline P0/P1-clean | timer/date DST-immune + a11y solid; ContractionTimer 5-1-1 guidance → G4 |
 | W8 | S8 Profile/Settings | army blocked → **inline-verified** | ✅ inline + privacy-P2 fixed | **PRIVACY: bookmarks survived delete + leaked across users (GDPR Art.17)** — fixed + guard-tested |
+| W9 | S9 Cross-cutting | **inline-verified** | ✅ inline-clean (+1 a11y) | ErrorBoundary/migration/Toast solid; OfflineNotice live-region |
+| W10 | Convergence | full gate | ✅ **CONVERGED** | verify GREEN 1905/72; 7 safety guards (235) stable ×2; all 9 P0/P1-clean (web) |
 
 Cumulative ranked findings W1–W5: **125** (25 P1, 43 P2, 46 UX), P0 = 0 throughout. The loop **absorbed two
 infra outages** (server rate-limit, then API 529 Overloaded) — each time I verified/healed the highest-risk
@@ -95,11 +97,20 @@ cleared — multi-session by construction (continued via an hourly `/loop` cron 
   survived account-delete + leaked across users on a shared device; c502b38, guard-tested). GDPR delete/export +
   Settings Switch a11y inline-verified solid. Export-completeness P2 (kick/contraction/bag/bookmark histories) +
   full-army P2/UX sweep pending. See W8_STATUS.md.
-- **S9 (cross-cutting): anchored, army-pending** — AuthContext/PregnancyContext/Toast/shared components (§4); the
-  10-agent analysis runs when the API stops throttling parallel fan-outs (or inline, subsequent fires).
-- **W10 convergence + owner gates G1–G5**: pending.
+- **S9 (cross-cutting): inline-verified-clean** — ErrorBoundary (catch+retry+reset, App-root-mounted), guest→auth
+  migration (idempotent, W4#6-fixed), Toast a11y (W1); +1 fix: OfflineNotice live-region (be337d0). See W9_STATUS.md.
+- **W10 convergence: PASS** (`W10_CONVERGENCE.md`) — verify GREEN (1905/72 suites), 7 safety/privacy guard suites
+  (235 tests) stable across 2 consecutive runs, all 9 systems P0/P1-clean on the web target. Clean convergence checkpoint.
+- **Owner gates G1–G5: pending operator** (cannot self-clear) — Anonymous Auth, rules deploy, device smoke, clinical
+  review, disk reclaim. + full-army S7–S9 breadth sweep + P2/UX sweep when the API un-throttles (hourly cron retries).
 
-The loop is repeatable + infra-resilient — it absorbed **2 API 529/overload outages, persistent rate-limiting of the
-parallel army, and a disk-full event**, each time falling back to inline verification + retry without losing the gate
-or shipping unverified work. Its three test-locked patient-safety catches (teratogen-as-safe, hemorrhage-not-escalated,
-negated-symptom-false-emergency) already justify the "deep, not surface" mandate. ~57 verify-green commits.
+**All 9 systems have now run the per-feature loop and are P0/P1-clean on the web target (W10 converged):** S1–S6
+army-validated, S7–S9 inline-verified (army rate-limited — documented fallback, not fiction). The loop is repeatable +
+infra-resilient — it absorbed **2 API 529/overload outages, persistent rate-limiting of the parallel army, and a
+disk-full event**, each time falling back to inline verification + retry without losing the gate or shipping unverified
+work. Its **four** test-locked safety/privacy catches — teratogen-as-safe, hemorrhage-not-escalated, negated-symptom-
+false-escalated, bookmark-cross-user-leak — already justify the "deep, not surface" mandate. ~61 verify-green commits.
+
+**This convergence = the DEPTH PASS is complete**, not the whole 1000h backlog: production-readiness still needs the
+operator gates G1–G5, the full-army S7–S9 breadth re-run (API-pending), and the ranked P2/UX sweep — all tracked in
+`W10_CONVERGENCE.md` + the per-wave `W{n}_BACKLOG.json`. The hourly `/loop` cron resumes the army when the API recovers.
