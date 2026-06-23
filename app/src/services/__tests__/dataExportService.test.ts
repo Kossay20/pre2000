@@ -76,6 +76,11 @@ jest.mock('../healthService', () => ({
     getSymptomsHistory: jest.fn(),
 }));
 jest.mock('../reminderPersistence', () => ({ loadReminderSettingsAuth: jest.fn() }));
+// W8 export-completeness (GDPR Art.20)
+jest.mock('../kickCounterService', () => ({ loadState: jest.fn() }));
+jest.mock('../contractionTimerService', () => ({ loadState: jest.fn() }));
+jest.mock('../hospitalBagService', () => ({ loadState: jest.fn() }));
+jest.mock('../bookmarkService', () => ({ getBookmarks: jest.fn() }));
 
 // ---------------------------------------------------------------------------
 // Imports (after mocks)
@@ -99,6 +104,10 @@ import {
     getSymptomsHistory,
 } from '../healthService';
 import { loadReminderSettingsAuth } from '../reminderPersistence';
+import { loadState as loadKickState } from '../kickCounterService';
+import { loadState as loadContractionState } from '../contractionTimerService';
+import { loadState as loadHospitalBagState } from '../hospitalBagService';
+import { getBookmarks } from '../bookmarkService';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -122,6 +131,10 @@ const mGetGlucose = getGlucoseHistory as jest.Mock;
 const mGetSymptoms = getSymptomsHistory as jest.Mock;
 const mLoadReminderSettingsAuth = loadReminderSettingsAuth as jest.Mock;
 const mLoadUserSettings = loadUserSettings as jest.Mock;
+const mLoadKick = loadKickState as jest.Mock;
+const mLoadContraction = loadContractionState as jest.Mock;
+const mLoadHospitalBag = loadHospitalBagState as jest.Mock;
+const mGetBookmarks = getBookmarks as jest.Mock;
 
 /** Make every sibling service resolve with sensible non-empty defaults. */
 function primeAllResolved() {
@@ -134,6 +147,11 @@ function primeAllResolved() {
     mGetSymptoms.mockResolvedValue([{ s: 'nausea' }]);
     mLoadReminderSettingsAuth.mockResolvedValue({ v1: true });
     mLoadUserSettings.mockResolvedValue({ v2: true });
+    // W8 export-completeness (GDPR Art.20)
+    mLoadKick.mockResolvedValue({ sessions: [{ id: 'k1' }] });
+    mLoadContraction.mockResolvedValue({ contractions: [{ id: 'c1' }] });
+    mLoadHospitalBag.mockResolvedValue({ checked: { item1: true } });
+    mGetBookmarks.mockResolvedValue([{ id: 'b1', type: 'article' }]);
     // Inline userTaskStatuses query.
     mockGetDocs.mockResolvedValue({
         docs: [
@@ -211,7 +229,7 @@ describe('generateExportData — authenticated user', () => {
         expect(data.profile.dueDate).toBe('2026-09-01');
         expect(data.metadata.appVersion).toBe('1.0.0');
         expect(data.metadata.platform).toBe('ios');
-        expect(data.metadata.schemaVersion).toBe(3);
+        expect(data.metadata.schemaVersion).toBe(4);
         expect(typeof data.metadata.exportedAt).toBe('string');
         expect(new Date(data.metadata.exportedAt).toISOString()).toBe(data.metadata.exportedAt);
     });
@@ -227,6 +245,16 @@ describe('generateExportData — authenticated user', () => {
         expect(data.reminders.taskStatuses).toEqual({
             uidAAAA_t1_w10: { completed: true },
             uidAAAA_t2_w11: { completed: false },
+        });
+    });
+
+    test('W8: includes the local tool histories (kick/contraction/bag/bookmarks)', async () => {
+        const data = await generateExportData(authUser, profile);
+        expect(data.tools).toEqual({
+            kickCounter: { sessions: [{ id: 'k1' }] },
+            contractionTimer: { contractions: [{ id: 'c1' }] },
+            hospitalBag: { checked: { item1: true } },
+            bookmarks: [{ id: 'b1', type: 'article' }],
         });
     });
 });
@@ -331,6 +359,11 @@ describe('generateExportData — resilience via Promise.allSettled / unwrap', ()
         mLoadReminderSettingsAuth.mockRejectedValue(new Error('x'));
         mLoadUserSettings.mockRejectedValue(new Error('x'));
         mockGetDocs.mockRejectedValue(new Error('x'));
+        // W8: the tool-history fetches fail too.
+        mLoadKick.mockRejectedValue(new Error('x'));
+        mLoadContraction.mockRejectedValue(new Error('x'));
+        mLoadHospitalBag.mockRejectedValue(new Error('x'));
+        mGetBookmarks.mockRejectedValue(new Error('x'));
 
         const data = await generateExportData(authUser, profile);
 
@@ -344,8 +377,10 @@ describe('generateExportData — resilience via Promise.allSettled / unwrap', ()
             symptomsLog: [],
         });
         expect(data.reminders).toEqual({ settingsV1: {}, taskStatuses: {}, settingsV2: {} });
+        // W8: tool histories fall back cleanly (objects → {}, bookmarks → []).
+        expect(data.tools).toEqual({ kickCounter: {}, contractionTimer: {}, hospitalBag: {}, bookmarks: [] });
         // Envelope metadata still present.
-        expect(data.metadata.schemaVersion).toBe(3);
+        expect(data.metadata.schemaVersion).toBe(4);
     });
 });
 
@@ -377,7 +412,7 @@ describe('exportUserData', () => {
 
         // Contents are valid pretty-printed JSON of the export.
         const parsed = JSON.parse(contents);
-        expect(parsed.metadata.schemaVersion).toBe(3);
+        expect(parsed.metadata.schemaVersion).toBe(4);
         expect(parsed.profile.name).toBe('Lina');
         // pretty-printed (indent of 2) → contains newlines.
         expect(contents).toContain('\n');

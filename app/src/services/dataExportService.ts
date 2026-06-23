@@ -17,6 +17,12 @@ import {
 import {
     loadReminderSettingsAuth,
 } from './reminderPersistence';
+// W8 export-completeness (GDPR Art.20 portability): include the local tool histories that were
+// purged on delete (W8 #1) but missing from the export bundle. All AsyncStorage-backed (guest+auth).
+import { loadState as loadKickState } from './kickCounterService';
+import { loadState as loadContractionState } from './contractionTimerService';
+import { loadState as loadHospitalBagState } from './hospitalBagService';
+import { getBookmarks } from './bookmarkService';
 
 const log = createLogger('DataExportService');
 
@@ -30,8 +36,10 @@ const log = createLogger('DataExportService');
  *           with values = full UserTaskStatus document
  *           (`{ user_id, task_id, week_number, completed, completed_at }`).
  *   Reason: collapsed 46 per-week round-trips into 1 query for cost/perf.
+ * - v4 (W8 GDPR Art.20): added `tools` { kickCounter, contractionTimer, hospitalBag, bookmarks } —
+ *   local AsyncStorage histories that were purged on delete but missing from the export bundle.
  */
-const EXPORT_SCHEMA_VERSION = 3;
+const EXPORT_SCHEMA_VERSION = 4;
 
 // Symptoms history helper takes a look-back in days. Use ~11 years so every
 // entry the user ever created is exported (RGPD Art. 15 / Art. 20 — full data).
@@ -103,6 +111,10 @@ export const generateExportData = async (user: any, profile: any) => {
             loadReminderSettingsAuth(userId),    // 7 userReminderSettings (V1)
             taskStatusesPromise,                 // 8 userTaskStatuses (merged)
             loadUserSettings(userId),            // 9 reminder_settings_v2
+            loadKickState(),                     // 10 kick counter history
+            loadContractionState(),              // 11 contraction timer history
+            loadHospitalBagState(),              // 12 hospital bag checklist
+            getBookmarks(),                      // 13 saved articles/supplements
         ]);
 
         const appointments = unwrap(settled[0], 'appointments', [] as any[]);
@@ -135,6 +147,11 @@ export const generateExportData = async (user: any, profile: any) => {
             'reminders.settingsV2',
             {} as Record<string, any>
         );
+        // W8 export-completeness (GDPR Art.20)
+        const kickCounter = unwrap(settled[10], 'kickCounter', {} as Record<string, any>);
+        const contractionTimer = unwrap(settled[11], 'contractionTimer', {} as Record<string, any>);
+        const hospitalBag = unwrap(settled[12], 'hospitalBag', {} as Record<string, any>);
+        const bookmarks = unwrap(settled[13], 'bookmarks', [] as any[]);
 
         // P0 GDPR FIX: Anonymize userId — raw Firebase UID must never appear in shared exports
         const anonymizedId = isGuest
@@ -168,6 +185,13 @@ export const generateExportData = async (user: any, profile: any) => {
                 settingsV1,
                 taskStatuses,
                 settingsV2,
+            },
+            // W8 export-completeness (GDPR Art.20): local tool histories + saved content.
+            tools: {
+                kickCounter,
+                contractionTimer,
+                hospitalBag,
+                bookmarks,
             },
         };
 
