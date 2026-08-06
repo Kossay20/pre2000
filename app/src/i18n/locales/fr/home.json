@@ -49,5 +49,7 @@
   "defaultWarning": "Consultez votre médecin en cas de doute.",
   "welcomeTitle": "Bienvenue dans votre espace 🌸",
   "welcomeBody": "Suivez votre grossesse semaine par semaine, ajoutez vos rendez-vous et explorez nos ressources. Tout est là pour vous accompagner.",
-  "welcomeDismiss": "C'est parti !"
+  "welcomeDismiss": "C'est parti !",
+  "completeProfileCta": "Compléter mon profil",
+  "completeProfileHint": "Renseignez la date de vos dernières règles pour afficher votre semaine."
 }

@@ -323,12 +323,22 @@ export const HomeScreen = () => {
             <EmptyState
                 icon={isRealError ? '😔' : '🤰'}
                 title={isRealError ? t('errorBoundary.title') : t('common.noDataAvailable')}
-                subtitle={isRealError ? t('errorBoundary.message') : undefined}
+                // STRANDED-USER FIX: the non-error branch used to render no action at
+                // all. Any account whose profile has no LMP — a signup that skipped
+                // onboarding, a cold start before the profile syncs — landed on a bare
+                // "no data available" screen with nothing to tap and no way to enter a
+                // date, i.e. a permanently bricked Home. Send them where the date is set.
                 action={
                     isRealError ? (
                         <Button title={t('errorBoundary.retry')} onPress={refetch} />
-                    ) : undefined
+                    ) : (
+                        <Button
+                            title={t('home.completeProfileCta')}
+                            onPress={() => navigation.navigate('Profile' as never)}
+                        />
+                    )
                 }
+                subtitle={isRealError ? t('errorBoundary.message') : t('home.completeProfileHint')}
             />
         );
     }
