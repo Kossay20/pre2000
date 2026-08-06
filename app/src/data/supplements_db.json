@@ -7,6 +7,7 @@
     "category": "vitamine",
     "short_description_fr": "Vitamine essentielle pour la formation du tube neural du bébé et la prévention des malformations congénitales.",
     "short_description_ar": "فيتامين أساسي لتكوّن الأنبوب العصبي للجنين والوقاية من التشوهات الخلقية.",
+    "short_description_tn": "فيتامين ضروري باش يتكوّن الأنبوب العصبي متاع الصغير وباش توقّي من التشوهات الخلقية.",
     "short_description_en": "Essential vitamin for the formation of the baby's neural tube and the prevention of congenital malformations.",
     "pregnancy_safety": "ok",
     "pregnancy_notes_fr": "L'acide folique est crucial pendant les premières semaines de grossesse pour prévenir les anomalies du tube neural (spina bifida). La supplémentation doit idéalement commencer avant la conception et se poursuivre jusqu'à la 12e semaine. Les besoins augmentent de 50% pendant la grossesse.",
@@ -19,10 +20,13 @@
     "name_tn": "حمض الفوليك (فيتامين ب9)",
     "pregnancy_notes_en": "Folic acid is crucial during the first weeks of pregnancy to prevent neural tube defects (spina bifida). Supplementation should ideally begin before conception and continue until the 12th week. Requirements increase by 50% during pregnancy.",
     "pregnancy_notes_ar": "يُعد حمض الفوليك بالغ الأهمية خلال الأسابيع الأولى من الحمل للوقاية من تشوهات الأنبوب العصبي (السنسنة المشقوقة). يجب أن يبدأ التكميل بشكل مثالي قبل الحمل وأن يستمر حتى الأسبوع الثاني عشر. تزداد الاحتياجات بنسبة 50% خلال الحمل.",
+    "pregnancy_notes_tn": "حمض الفوليك مهم برشا في الأسابيع الأولى متاع الحمل باش يوقّي من تشوهات الأنبوب العصبي (السنسنة المشقوقة). الأحسن تبداي فيه قبل ما تحبلي وتكمّلي عليه حتى للأسبوع الثاني عشر. الحاجة بيه تزيد بـ50% وقت الحمل.",
     "typical_dose_text_en": "WHO and HAS generally recommend 400 to 800 µg per day, ideally starting 4 weeks before conception. Certain situations (medical history, diabetes) may require higher doses on medical advice.",
     "typical_dose_text_ar": "توصي منظمة الصحة العالمية وهيئة HAS عمومًا بتناول 400 إلى 800 ميكروغرام يوميًا، مع البدء بشكل مثالي قبل 4 أسابيع من الحمل. قد تستلزم بعض الحالات (السوابق المرضية، السكري) جرعات أعلى بناءً على المشورة الطبية.",
+    "typical_dose_text_tn": "منظمة الصحة العالمية وهيئة HAS ينصحو عادة بـ400 إلى 800 ميكروغرام في النهار، والأحسن تبداي 4 أسابيع قبل الحمل. فما حالات (سوابق مرضية، السكري) تنجم تلزمها جرعات أعلى بنصيحة الطبيب.",
     "precautions_en": "No known toxicity at recommended doses. Very high doses (>1000 µg/day) must be medically prescribed.",
-    "precautions_ar": "لا توجد سمية معروفة عند الجرعات الموصى بها. يجب وصف الجرعات العالية جدًا (>1000 ميكروغرام/يوم) طبيًا."
+    "precautions_ar": "لا توجد سمية معروفة عند الجرعات الموصى بها. يجب وصف الجرعات العالية جدًا (>1000 ميكروغرام/يوم) طبيًا.",
+    "precautions_tn": "ما فماش سمية معروفة في الجرعات المنصوح بيها. الجرعات العالية برشا (>1000 ميكروغرام/نهار) لازم يوصفها الطبيب."
   },
   {
     "supplement_id": "s02_fer",
@@ -32,6 +36,7 @@
     "category": "minéral",
     "short_description_fr": "Minéral essentiel pour la production d'hémoglobine, le transport de l'oxygène et la prévention de l'anémie.",
     "short_description_ar": "معدن أساسي لإنتاج الهيموغلوبين، ونقل الأكسجين، والوقاية من فقر الدم.",
+    "short_description_tn": "معدن ضروري باش يتصنع الهيموغلوبين، وينقل الأكسجين، ويوقّي من فقر الدم.",
     "short_description_en": "Essential mineral for the production of hemoglobin, oxygen transport, and the prevention of anemia.",
     "pregnancy_safety": "ok",
     "pregnancy_notes_fr": "Les besoins en fer augmentent considérablement pendant la grossesse pour soutenir la croissance du fœtus et du placenta, ainsi que l'augmentation du volume sanguin maternel. La carence en fer est la cause la plus fréquente d'anémie pendant la grossesse, associée à un risque accru de faible poids de naissance et de naissance prématurée.",
@@ -44,10 +49,13 @@
     "name_tn": "الحديد",
     "pregnancy_notes_en": "Iron requirements increase considerably during pregnancy to support the growth of the fetus and placenta, as well as the increase in maternal blood volume. Iron deficiency is the most common cause of anemia during pregnancy, associated with an increased risk of low birth weight and premature birth.",
     "pregnancy_notes_ar": "تزداد الاحتياجات من الحديد بشكل كبير خلال الحمل لدعم نمو الجنين والمشيمة، إضافة إلى زيادة حجم الدم لدى الأم. يُعد نقص الحديد السبب الأكثر شيوعًا لفقر الدم خلال الحمل، ويرتبط بخطر متزايد لانخفاض وزن المولود والولادة المبكرة.",
+    "pregnancy_notes_tn": "الحاجة للحديد تزيد ياسر وقت الحمل باش ينمو الجنين والمشيمة، وزادة خاطر حجم الدم متاع الأم يزيد. نقص الحديد هو السبب الأكثر انتشارا لفقر الدم وقت الحمل، ومرتبط بخطر أكبر متاع وزن ولادة ضعيف وولادة قبل وقتها.",
     "typical_dose_text_en": "WHO recommends preventive supplementation of 30 to 60 mg of elemental iron per day. In case of confirmed anemia, the dose may be increased to 100-200 mg per day. The exact dose must be determined by a healthcare professional after a blood test.",
     "typical_dose_text_ar": "توصي منظمة الصحة العالمية بتكميل وقائي يتراوح بين 30 و60 ملغ من الحديد العنصري يوميًا. في حال وجود فقر دم مؤكد، يمكن رفع الجرعة إلى 100-200 ملغ يوميًا. يجب أن يحدد مختص في الصحة الجرعة الدقيقة بعد إجراء تحليل دم.",
+    "typical_dose_text_tn": "منظمة الصحة العالمية تنصح بتكميل وقائي من 30 إلى 60 ملغ من الحديد العنصري في النهار. كان فما فقر دم مؤكد، تنجم الجرعة تطلع لـ100-200 ملغ في النهار. الجرعة بالضبط لازم يحددها مختص في الصحة بعد تحليل دم.",
     "precautions_en": "Iron supplements can cause gastrointestinal disturbances (constipation, nausea). It is recommended to take them with vitamin C to improve absorption and to avoid taking them with tea, coffee, or dairy products.",
-    "precautions_ar": "قد تسبب مكملات الحديد اضطرابات معدية معوية (إمساك، غثيان). يُنصح بتناولها مع فيتامين سي لتحسين الامتصاص، وتجنّب تناولها مع الشاي أو القهوة أو منتجات الألبان."
+    "precautions_ar": "قد تسبب مكملات الحديد اضطرابات معدية معوية (إمساك، غثيان). يُنصح بتناولها مع فيتامين سي لتحسين الامتصاص، وتجنّب تناولها مع الشاي أو القهوة أو منتجات الألبان.",
+    "precautions_tn": "مكملات الحديد تنجم تعمل اضطرابات في المعدة والكرش (إمساك، غثيان). ينصحو تاخذيها مع فيتامين سي باش يتحسّن الامتصاص، وتتجنّبي تاخذيها مع الشاي ولا القهوة ولا مشتقات الحليب."
   },
   {
     "supplement_id": "s03_vitamine_d",
@@ -57,6 +65,7 @@
     "category": "vitamine",
     "short_description_fr": "Essentielle pour l'absorption du calcium, la santé osseuse de la mère et du bébé, et la fonction immunitaire.",
     "short_description_ar": "أساسي لامتصاص الكالسيوم، وصحة عظام الأم والطفل، ووظيفة المناعة.",
+    "short_description_tn": "ضروري باش يتمتص الكالسيوم، ولصحة عظام الأم والصغير، وللمناعة.",
     "short_description_en": "Essential for calcium absorption, bone health of the mother and baby, and immune function.",
     "pregnancy_safety": "ok",
     "pregnancy_notes_fr": "La carence en vitamine D est fréquente pendant la grossesse et est associée à un risque accru de pré-éclampsie, de diabète gestationnel et de faible poids de naissance. La supplémentation est particulièrement recommandée pour les femmes ayant une faible exposition au soleil ou une peau foncée.",
@@ -69,10 +78,13 @@
     "name_tn": "فيتامين د",
     "pregnancy_notes_en": "Vitamin D deficiency is common during pregnancy and is associated with an increased risk of pre-eclampsia, gestational diabetes, and low birth weight. Supplementation is particularly recommended for women with low sun exposure or dark skin.",
     "pregnancy_notes_ar": "يُعد نقص فيتامين د شائعًا خلال الحمل ويرتبط بخطر متزايد للإصابة بمقدمات الارتعاج، وسكري الحمل، وانخفاض وزن المولود. يُوصى بالتكميل بشكل خاص للنساء ذوات التعرض المنخفض للشمس أو ذوات البشرة الداكنة.",
+    "pregnancy_notes_tn": "نقص فيتامين د شائع وقت الحمل ومرتبط بخطر أكبر متاع مقدمات الارتعاج (تسمم الحمل)، وسكري الحمل، ووزن ولادة ضعيف. التكميل منصوح بيه خاصة للنساء اللي ما يتعرضوش برشا للشمس ولا عندهم بشرة داكنة.",
     "typical_dose_text_en": "The NHS (UK) recommends 10 µg (400 IU) per day for all pregnant women. The ACOG (USA) recommends 600 IU per day. In France, a single dose of 100,000 IU is often prescribed in the 6th or 7th month. The dose must be individualized by a healthcare professional.",
     "typical_dose_text_ar": "توصي هيئة NHS (المملكة المتحدة) بتناول 10 ميكروغرام (400 وحدة دولية) يوميًا لجميع الحوامل. وتوصي ACOG (الولايات المتحدة) بـ 600 وحدة دولية يوميًا. في فرنسا، غالبًا ما تُوصف جرعة وحيدة قدرها 100000 وحدة دولية في الشهر السادس أو السابع. يجب أن يُفرّد مختص في الصحة الجرعة.",
+    "typical_dose_text_tn": "هيئة NHS (المملكة المتحدة) تنصح بـ10 ميكروغرام (400 وحدة دولية) في النهار لكل النساء الحوامل. وACOG (الولايات المتحدة) تنصح بـ600 وحدة دولية في النهار. في فرنسا، ياسر مرات يوصفو جرعة وحيدة قدها 100000 وحدة دولية في الشهر السادس ولا السابع. الجرعة لازم يحددها مختص في الصحة حسب كل حالة.",
     "precautions_en": "Vitamin D overdose is rare but can be toxic, leading to hypercalcemia. Do not exceed 4000 IU/day without medical advice.",
-    "precautions_ar": "تُعد الجرعة الزائدة من فيتامين د نادرة لكنها قد تكون سامة، إذ تؤدي إلى فرط كالسيوم الدم. لا تتجاوز 4000 وحدة دولية/يوم دون مشورة طبية."
+    "precautions_ar": "تُعد الجرعة الزائدة من فيتامين د نادرة لكنها قد تكون سامة، إذ تؤدي إلى فرط كالسيوم الدم. لا تتجاوز 4000 وحدة دولية/يوم دون مشورة طبية.",
+    "precautions_tn": "الجرعة الزايدة من فيتامين د نادرة أما تنجم تكون سامة وتعمل فرط كالسيوم في الدم. ما تفوتيش 4000 وحدة دولية/نهار من غير مشورة طبية."
   },
   {
     "supplement_id": "s04_iode",
@@ -82,6 +94,7 @@
     "category": "minéral",
     "short_description_fr": "Indispensable à la production des hormones thyroïdiennes, cruciales pour le développement du cerveau du fœtus.",
     "short_description_ar": "لا غنى عنه لإنتاج هرمونات الغدة الدرقية، البالغة الأهمية لنمو دماغ الجنين.",
+    "short_description_tn": "ما ينجمش يتعوّض باش تتصنع هرمونات الغدة الدرقية، اللي مهمين برشا لنمو مخ الجنين.",
     "short_description_en": "Indispensable for the production of thyroid hormones, crucial for the development of the fetal brain.",
     "pregnancy_safety": "ok",
     "pregnancy_notes_fr": "Les besoins en iode augmentent de près de 50% pendant la grossesse. Une carence peut entraîner des troubles du développement neurologique irréversibles chez l'enfant (crétinisme). La supplémentation est recommandée dans les zones où le sel n'est pas systématiquement iodé.",
@@ -94,10 +107,13 @@
     "name_tn": "اليود",
     "pregnancy_notes_en": "Iodine requirements increase by nearly 50% during pregnancy. A deficiency can lead to irreversible neurological development disorders in the child (cretinism). Supplementation is recommended in areas where salt is not systematically iodized.",
     "pregnancy_notes_ar": "تزداد الاحتياجات من اليود بنحو 50% خلال الحمل. قد يؤدي النقص إلى اضطرابات في النمو العصبي لا رجعة فيها لدى الطفل (القماءة). يُوصى بالتكميل في المناطق التي لا يُيوّد فيها الملح بشكل منهجي.",
+    "pregnancy_notes_tn": "الحاجة لليود تزيد تقريبا بـ50% وقت الحمل. النقص ينجم يعمل اضطرابات في النمو العصبي متاع الطفل ما ترجعش لورا (القماءة). التكميل منصوح بيه في المناطق اللي الملح فيها ما يتيوّدش بصفة منهجية.",
     "typical_dose_text_en": "WHO and ACOG recommend an intake of 220-250 µg per day. Most prenatal vitamins contain 150 µg of iodine. The use of iodized cooking salt is an effective public health strategy.",
     "typical_dose_text_ar": "توصي منظمة الصحة العالمية وACOG بتناول 220-250 ميكروغرام يوميًا. تحتوي معظم فيتامينات ما قبل الولادة على 150 ميكروغرام من اليود. يُعد استخدام ملح الطعام المُيوّد استراتيجية فعّالة للصحة العامة.",
+    "typical_dose_text_tn": "منظمة الصحة العالمية وACOG ينصحو بتناول 220-250 ميكروغرام في النهار. أغلب فيتامينات ما قبل الولادة فيها 150 ميكروغرام من اليود. استعمال ملح الطعام المُيوّد استراتيجية ناجعة للصحة العامة.",
     "precautions_en": "An excess of iodine can also be harmful to the thyroid. Do not exceed 500 µg/day without medical advice, especially in the case of pre-existing thyroid disease.",
-    "precautions_ar": "قد يكون فرط اليود أيضًا ضارًا بالغدة الدرقية. لا تتجاوز 500 ميكروغرام/يوم دون مشورة طبية، خاصة في حال وجود مرض مسبق في الغدة الدرقية."
+    "precautions_ar": "قد يكون فرط اليود أيضًا ضارًا بالغدة الدرقية. لا تتجاوز 500 ميكروغرام/يوم دون مشورة طبية، خاصة في حال وجود مرض مسبق في الغدة الدرقية.",
+    "precautions_tn": "الزيادة في اليود زادة تنجم تضر بالغدة الدرقية. ما تفوتيش 500 ميكروغرام/نهار من غير مشورة طبية، خاصة كان عندك مرض في الغدة الدرقية من قبل."
   },
   {
     "supplement_id": "s05_dha_omega3",
@@ -107,6 +123,7 @@
     "category": "acide gras",
     "short_description_fr": "Acide gras essentiel pour le développement du cerveau et de la rétine du fœtus.",
     "short_description_ar": "حمض دهني أساسي لنمو دماغ الجنين وشبكية عينه.",
+    "short_description_tn": "حمض دهني ضروري لنمو مخ الجنين وشبكية عينيه.",
     "short_description_en": "Essential fatty acid for the development of the fetal brain and retina.",
     "pregnancy_safety": "ok",
     "pregnancy_notes_fr": "Un apport suffisant en DHA est associé à une meilleure acuité visuelle et à un meilleur développement cognitif chez l'enfant. Il pourrait également réduire le risque d'accouchement prématuré.",
@@ -119,10 +136,13 @@
     "name_tn": "دي إتش إيه (أوميغا 3)",
     "pregnancy_notes_en": "A sufficient intake of DHA is associated with better visual acuity and better cognitive development in the child. It may also reduce the risk of premature birth.",
     "pregnancy_notes_ar": "يرتبط التناول الكافي من DHA بحدة بصرية أفضل ونمو معرفي أفضل لدى الطفل. وقد يقلل أيضًا من خطر الولادة المبكرة.",
+    "pregnancy_notes_tn": "الكمية الكافية من DHA مرتبطة بحدة نظر أحسن ونمو ذهني أحسن عند الطفل. زادة تنجم تنقّص من خطر الولادة قبل وقتها.",
     "typical_dose_text_en": "The recommendations are at least 200 mg of DHA per day. This can be achieved by consuming 1 to 2 servings of oily fish per week. If dietary intake is insufficient, supplementation is recommended.",
     "typical_dose_text_ar": "تنص التوصيات على تناول ما لا يقل عن 200 ملغ من DHA يوميًا. يمكن تحقيق ذلك بتناول حصة إلى حصتين من الأسماك الدهنية أسبوعيًا. إذا كان التناول الغذائي غير كافٍ، يُوصى بالتكميل.",
+    "typical_dose_text_tn": "التوصيات تقول على الأقل 200 ملغ من DHA في النهار. تنجمي توصلي لهذا كان تاكلي حصة إلى حصتين من الحوت الدهني في الجمعة. كان الماكلة ما تكفيش، ينصحو بالتكميل.",
     "precautions_en": "Fish oil supplements can cause fishy burps and digestive disturbances. Choose purified oils to avoid contaminants (mercury).",
-    "precautions_ar": "قد تسبب مكملات زيت السمك تجشؤًا برائحة السمك واضطرابات هضمية. اختر الزيوت المنقّاة لتجنّب الملوّثات (الزئبق)."
+    "precautions_ar": "قد تسبب مكملات زيت السمك تجشؤًا برائحة السمك واضطرابات هضمية. اختر الزيوت المنقّاة لتجنّب الملوّثات (الزئبق).",
+    "precautions_tn": "مكملات زيت الحوت تنجم تعمل تجشؤ بريحة الحوت واضطرابات في الهضم. اختاري زيوت منقّاة باش تتجنبي الملوّثات (الزئبق)."
   },
   {
     "supplement_id": "s06_calcium",
@@ -132,6 +152,7 @@
     "category": "minéral",
     "short_description_fr": "Essentiel pour la construction des os et des dents du bébé, ainsi que pour la santé osseuse de la mère.",
     "short_description_ar": "أساسي لبناء عظام الطفل وأسنانه، إضافة إلى صحة عظام الأم.",
+    "short_description_tn": "ضروري باش تتبنى عظام الصغير وسنانو، وزادة لصحة عظام الأم.",
     "short_description_en": "Essential for building the baby's bones and teeth, as well as for the mother's bone health.",
     "pregnancy_safety": "ok",
     "pregnancy_notes_fr": "Si l'apport maternel est insuffisant, le fœtus puise dans les réserves de la mère, ce qui peut augmenter son risque d'ostéoporose plus tard. Les besoins sont particulièrement élevés au troisième trimestre.",
@@ -144,10 +165,13 @@
     "name_tn": "الكالسيوم",
     "pregnancy_notes_en": "If maternal intake is insufficient, the fetus draws on the mother's reserves, which can increase her risk of osteoporosis later. Requirements are particularly high in the third trimester.",
     "pregnancy_notes_ar": "إذا كان تناول الأم غير كافٍ، يستمد الجنين من مخزون الأم، مما قد يزيد لاحقًا من خطر إصابتها بهشاشة العظام. تكون الاحتياجات مرتفعة بشكل خاص في الثلث الثالث من الحمل.",
+    "pregnancy_notes_tn": "كان الأم ما تاخذش كمية كافية، الجنين ياخذ من المخزون متاعها، وهذا ينجم يزيد في خطر هشاشة العظام عندها من بعد. الحاجة تكون عالية برشا في الثلاثي الثالث.",
     "typical_dose_text_en": "The recommended intake is 1000 to 1300 mg per day. Supplementation is generally only necessary if dietary intake (dairy products, green vegetables) is insufficient.",
     "typical_dose_text_ar": "التناول الموصى به هو 1000 إلى 1300 ملغ يوميًا. لا يكون التكميل ضروريًا عمومًا إلا إذا كان التناول الغذائي (منتجات الألبان، الخضروات الخضراء) غير كافٍ.",
+    "typical_dose_text_tn": "الكمية المنصوح بيها هي 1000 إلى 1300 ملغ في النهار. التكميل عادة ما يلزمش كان الماكلة (مشتقات الحليب، الخضرة الخضراء) تكفي.",
     "precautions_en": "An excess of calcium can cause constipation and interfere with the absorption of iron and zinc. Do not exceed 2500 mg/day.",
-    "precautions_ar": "قد يسبب فرط الكالسيوم الإمساك ويتداخل مع امتصاص الحديد والزنك. لا تتجاوز 2500 ملغ/يوم."
+    "precautions_ar": "قد يسبب فرط الكالسيوم الإمساك ويتداخل مع امتصاص الحديد والزنك. لا تتجاوز 2500 ملغ/يوم.",
+    "precautions_tn": "الزيادة في الكالسيوم تنجم تعمل إمساك وتتداخل مع امتصاص الحديد والزنك. ما تفوتيش 2500 ملغ/نهار."
   },
   {
     "supplement_id": "s07_magnesium",
@@ -157,6 +181,7 @@
     "category": "minéral",
     "short_description_fr": "Participe à plus de 300 réactions enzymatiques, aide à réguler la pression artérielle et peut réduire les crampes.",
     "short_description_ar": "يشارك في أكثر من 300 تفاعل إنزيمي، ويساعد على تنظيم ضغط الدم، وقد يقلل التشنجات.",
+    "short_description_tn": "يدخل في أكثر من 300 تفاعل إنزيمي، يعاون على تنظيم ضغط الدم، وينجم ينقّص التشنجات.",
     "short_description_en": "Participates in more than 300 enzymatic reactions, helps regulate blood pressure, and may reduce cramps.",
     "pregnancy_safety": "ok",
     "pregnancy_notes_fr": "Le magnésium peut aider à prévenir les crampes musculaires fréquentes pendant la grossesse. Il est également étudié pour son rôle potentiel dans la prévention de la pré-éclampsie et de la restriction de croissance fœtale.",
@@ -169,10 +194,13 @@
     "name_tn": "المغنيسيوم",
     "pregnancy_notes_en": "Magnesium may help prevent the muscle cramps that are common during pregnancy. It is also being studied for its potential role in the prevention of pre-eclampsia and fetal growth restriction.",
     "pregnancy_notes_ar": "قد يساعد المغنيسيوم على الوقاية من التشنجات العضلية الشائعة خلال الحمل. كما يُدرَس لدوره المحتمل في الوقاية من مقدمات الارتعاج وتقييد نمو الجنين.",
+    "pregnancy_notes_tn": "المغنيسيوم ينجم يعاون باش تتفادي تشنجات العضلات اللي تجي برشا وقت الحمل. زادة قاعدين يدرسوه على دورو الممكن في الوقاية من مقدمات الارتعاج وتقييد نمو الجنين.",
     "typical_dose_text_en": "The recommended intake is 350-360 mg per day. Supplementation (generally 300 mg/day) may be considered in case of cramps or risk of hypertension, on medical advice.",
     "typical_dose_text_ar": "التناول الموصى به هو 350-360 ملغ يوميًا. يمكن النظر في التكميل (عادة 300 ملغ/يوم) في حال التشنجات أو خطر ارتفاع ضغط الدم، بناءً على المشورة الطبية.",
+    "typical_dose_text_tn": "الكمية المنصوح بيها هي 350-360 ملغ في النهار. التكميل (عادة 300 ملغ/نهار) ينجم يتاخذ في الحسبان كان فما تشنجات ولا خطر ارتفاع في ضغط الدم، وبنصيحة الطبيب.",
     "precautions_en": "An excess of magnesium can cause diarrhea. People with kidney failure should avoid supplements.",
-    "precautions_ar": "قد يسبب فرط المغنيسيوم الإسهال. يجب على المصابين بالقصور الكلوي تجنّب المكملات."
+    "precautions_ar": "قد يسبب فرط المغنيسيوم الإسهال. يجب على المصابين بالقصور الكلوي تجنّب المكملات.",
+    "precautions_tn": "الزيادة في المغنيسيوم تنجم تعمل إسهال. اللي عندهم قصور في الكلى لازم يتجنبو المكملات."
   },
   {
     "supplement_id": "s08_vitamine_b12",
@@ -182,6 +210,7 @@
     "category": "vitamine",
     "short_description_fr": "Cruciale pour la formation des globules rouges, la fonction nerveuse et la synthèse de l'ADN.",
     "short_description_ar": "بالغة الأهمية لتكوّن كريات الدم الحمراء، ووظيفة الأعصاب، وتخليق الحمض النووي (DNA).",
+    "short_description_tn": "مهمة برشا باش تتكوّن كريات الدم الحمراء، ولخدمة الأعصاب، ولتصنيع الحمض النووي (DNA).",
     "short_description_en": "Crucial for the formation of red blood cells, nerve function, and DNA synthesis.",
     "pregnancy_safety": "ok",
     "pregnancy_notes_fr": "Une carence en B12 peut entraîner une anémie et des troubles neurologiques chez la mère et le fœtus. La supplémentation est essentielle pour les femmes végétariennes et végétaliennes.",
@@ -194,10 +223,13 @@
     "name_tn": "فيتامين ب12",
     "pregnancy_notes_en": "A B12 deficiency can lead to anemia and neurological disorders in the mother and fetus. Supplementation is essential for vegetarian and vegan women.",
     "pregnancy_notes_ar": "قد يؤدي نقص فيتامين ب12 إلى فقر الدم واضطرابات عصبية لدى الأم والجنين. يُعد التكميل أساسيًا للنساء النباتيات والنباتيات الصرفات.",
+    "pregnancy_notes_tn": "نقص فيتامين ب12 ينجم يعمل فقر دم واضطرابات عصبية عند الأم والجنين. التكميل ضروري للنساء النباتيات والنباتيات الصرفات.",
     "typical_dose_text_en": "The recommended intake is 2.6 µg per day. Most prenatal vitamins contain this dose. In case of confirmed deficiency, higher doses are necessary by medical prescription.",
     "typical_dose_text_ar": "التناول الموصى به هو 2,6 ميكروغرام يوميًا. تحتوي معظم فيتامينات ما قبل الولادة على هذه الجرعة. في حال وجود نقص مؤكد، تكون الجرعات الأعلى ضرورية بوصفة طبية.",
+    "typical_dose_text_tn": "الكمية المنصوح بيها هي 2,6 ميكروغرام في النهار. أغلب فيتامينات ما قبل الولادة فيها هالجرعة. كان فما نقص مؤكد، يلزمو جرعات أعلى بوصفة طبية.",
     "precautions_en": "Vitamin B12 is considered safe, even at high doses, because the excess is eliminated by the body.",
-    "precautions_ar": "يُعد فيتامين ب12 آمنًا حتى عند الجرعات العالية، لأن الفائض يُطرح من الجسم."
+    "precautions_ar": "يُعد فيتامين ب12 آمنًا حتى عند الجرعات العالية، لأن الفائض يُطرح من الجسم.",
+    "precautions_tn": "فيتامين ب12 يعتبروه آمن حتى في الجرعات العالية، خاطر الزايد يخرج من الجسم."
   },
   {
     "supplement_id": "s09_zinc",
@@ -207,6 +239,7 @@
     "category": "minéral",
     "short_description_fr": "Oligo-élément essentiel pour la croissance cellulaire, le développement du fœtus et la fonction immunitaire.",
     "short_description_ar": "عنصر نزر أساسي لنمو الخلايا، ونمو الجنين، ووظيفة المناعة.",
+    "short_description_tn": "عنصر نزر ضروري لنمو الخلايا، ولنمو الجنين، وللمناعة.",
     "short_description_en": "Essential trace element for cell growth, fetal development, and immune function.",
     "pregnancy_safety": "a_surveiller",
     "pregnancy_notes_fr": "Une carence en zinc peut être associée à un faible poids de naissance et à un accouchement prématuré. Cependant, l'OMS ne recommande pas la supplémentation systématique, sauf en cas de carence avérée.",
@@ -219,10 +252,13 @@
     "name_tn": "الزنك",
     "pregnancy_notes_en": "A zinc deficiency may be associated with low birth weight and premature birth. However, WHO does not recommend systematic supplementation, except in case of confirmed deficiency.",
     "pregnancy_notes_ar": "قد يرتبط نقص الزنك بانخفاض وزن المولود والولادة المبكرة. غير أن منظمة الصحة العالمية لا توصي بالتكميل المنهجي إلا في حال وجود نقص مؤكد.",
+    "pregnancy_notes_tn": "نقص الزنك ينجم يكون مرتبط بوزن ولادة ضعيف وولادة قبل وقتها. أما منظمة الصحة العالمية ما تنصحش بالتكميل المنهجي كان ما فماش نقص مؤكد.",
     "typical_dose_text_en": "The recommended intake is 11-12 mg per day. Supplementation is generally not necessary with a balanced diet. The upper limit is 40 mg/day.",
     "typical_dose_text_ar": "التناول الموصى به هو 11-12 ملغ يوميًا. لا يكون التكميل ضروريًا عمومًا مع نظام غذائي متوازن. الحد الأعلى هو 40 ملغ/يوم.",
+    "typical_dose_text_tn": "الكمية المنصوح بيها هي 11-12 ملغ في النهار. التكميل عادة ما يلزمش كان الماكلة متوازنة. الحد الأعلى هو 40 ملغ/نهار.",
     "precautions_en": "An excess of zinc can interfere with the absorption of copper and iron, and cause nausea. Do not exceed the upper limit without medical advice.",
-    "precautions_ar": "قد يتداخل فرط الزنك مع امتصاص النحاس والحديد، ويسبب الغثيان. لا تتجاوز الحد الأعلى دون مشورة طبية."
+    "precautions_ar": "قد يتداخل فرط الزنك مع امتصاص النحاس والحديد، ويسبب الغثيان. لا تتجاوز الحد الأعلى دون مشورة طبية.",
+    "precautions_tn": "الزيادة في الزنك تنجم تتداخل مع امتصاص النحاس والحديد، وتعمل غثيان. ما تفوتيش الحد الأعلى من غير مشورة طبية."
   },
   {
     "supplement_id": "s10_vitamine_c",
@@ -232,6 +268,7 @@
     "category": "vitamine",
     "short_description_fr": "Antioxydant important pour la synthèse du collagène, la fonction immunitaire et l'absorption du fer.",
     "short_description_ar": "مضاد أكسدة مهم لتخليق الكولاجين، ووظيفة المناعة، وامتصاص الحديد.",
+    "short_description_tn": "مضاد أكسدة مهم لتصنيع الكولاجين، وللمناعة، ولامتصاص الحديد.",
     "short_description_en": "Important antioxidant for collagen synthesis, immune function, and iron absorption.",
     "pregnancy_safety": "a_surveiller",
     "pregnancy_notes_fr": "La vitamine C est essentielle, mais l'OMS ne recommande pas la supplémentation systématique car les preuves de bénéfices sont insuffisantes et certaines études suggèrent un risque accru de rupture prématurée des membranes à haute dose.",
@@ -244,10 +281,13 @@
     "name_tn": "فيتامين سي",
     "pregnancy_notes_en": "Vitamin C is essential, but WHO does not recommend systematic supplementation because the evidence of benefits is insufficient and some studies suggest an increased risk of premature rupture of the membranes at high doses.",
     "pregnancy_notes_ar": "يُعد فيتامين سي أساسيًا، لكن منظمة الصحة العالمية لا توصي بالتكميل المنهجي لأن الأدلة على الفوائد غير كافية، وتشير بعض الدراسات إلى خطر متزايد للتمزق المبكر للأغشية عند الجرعات العالية.",
+    "pregnancy_notes_tn": "فيتامين سي ضروري، أما منظمة الصحة العالمية ما تنصحش بالتكميل المنهجي خاطر الأدلة على الفوائد ما تكفيش، وفما دراسات تقول إلي فما خطر أكبر متاع تمزق مبكر للأغشية وقت الجرعات العالية.",
     "typical_dose_text_en": "The recommended intake is 85-120 mg per day, easily reached through a diet rich in fruits and vegetables. Supplementation is generally not necessary.",
     "typical_dose_text_ar": "التناول الموصى به هو 85-120 ملغ يوميًا، ويسهل بلوغه عبر نظام غذائي غني بالفواكه والخضروات. لا يكون التكميل ضروريًا عمومًا.",
+    "typical_dose_text_tn": "الكمية المنصوح بيها هي 85-120 ملغ في النهار، وتنجمي توصليلها بسهولة بماكلة فيها برشا غلة وخضرة. التكميل عادة ما يلزمش.",
     "precautions_en": "Doses greater than 2000 mg/day can cause digestive disturbances. It is preferable to favor dietary sources.",
-    "precautions_ar": "قد تسبب الجرعات التي تتجاوز 2000 ملغ/يوم اضطرابات هضمية. يُفضّل إعطاء الأولوية للمصادر الغذائية."
+    "precautions_ar": "قد تسبب الجرعات التي تتجاوز 2000 ملغ/يوم اضطرابات هضمية. يُفضّل إعطاء الأولوية للمصادر الغذائية.",
+    "precautions_tn": "الجرعات اللي تفوت 2000 ملغ/نهار تنجم تعمل اضطرابات في الهضم. الأحسن تعتمدي على المصادر الغذائية."
   },
   {
     "supplement_id": "s11_vitamine_a",
@@ -257,6 +297,7 @@
     "category": "vitamine",
     "short_description_fr": "Essentielle pour la vision, la fonction immunitaire et le développement fœtal, mais un excès est dangereux.",
     "short_description_ar": "أساسي للبصر، ووظيفة المناعة، ونمو الجنين، لكن فرطه خطير.",
+    "short_description_tn": "ضروري للنظر، وللمناعة، ولنمو الجنين، أما الزيادة فيه خطيرة.",
     "short_description_en": "Essential for vision, immune function, and fetal development, but an excess is dangerous.",
     "pregnancy_safety": "a_surveiller",
     "pregnancy_notes_fr": "Un excès de vitamine A sous forme de rétinol est tératogène et peut causer de graves malformations congénitales. La supplémentation n'est recommandée qu'en cas de carence avérée et sous stricte surveillance médicale.",
@@ -269,10 +310,13 @@
     "name_tn": "فيتامين أ",
     "pregnancy_notes_en": "An excess of vitamin A in the form of retinol is teratogenic and can cause serious congenital malformations. Supplementation is only recommended in case of confirmed deficiency and under strict medical supervision.",
     "pregnancy_notes_ar": "يُعد فرط فيتامين أ على شكل ريتينول مُسببًا للتشوهات ويمكن أن يسبب تشوهات خلقية خطيرة. لا يُوصى بالتكميل إلا في حال وجود نقص مؤكد وتحت إشراف طبي صارم.",
+    "pregnancy_notes_tn": "الزيادة في فيتامين أ في شكل ريتينول تسبب التشوهات وتنجم تعمل تشوهات خلقية خطيرة. التكميل ما ينصحوش بيه كان ما فماش نقص مؤكد، ولازم يكون تحت إشراف طبي صارم.",
     "typical_dose_text_en": "The recommended intake is 770 µg RE per day. The safe upper limit is 3000 µg RE (10,000 IU) per day. It is crucial not to exceed this limit.",
     "typical_dose_text_ar": "التناول الموصى به هو 770 ميكروغرام مكافئ ريتينول (ER) يوميًا. الحد الأعلى للسلامة هو 3000 ميكروغرام مكافئ ريتينول (ER) (10000 وحدة دولية) يوميًا. من الضروري عدم تجاوز هذا الحد.",
+    "typical_dose_text_tn": "الكمية المنصوح بيها هي 770 ميكروغرام مكافئ ريتينول (ER) في النهار. الحد الأعلى للسلامة هو 3000 ميكروغرام مكافئ ريتينول (ER) (10000 وحدة دولية) في النهار. ضروري ما تفوتيش هالحد.",
     "precautions_en": "Avoid supplements containing high doses of vitamin A and the regular consumption of liver. Favor the carotenoids (provitamin A) from fruits and vegetables, which are safe.",
-    "precautions_ar": "تجنّبي المكملات التي تحتوي على جرعات عالية من فيتامين أ والاستهلاك المنتظم للكبد. أعطي الأولوية للكاروتينويدات (طليعة فيتامين أ) من الفواكه والخضروات، فهي آمنة."
+    "precautions_ar": "تجنّبي المكملات التي تحتوي على جرعات عالية من فيتامين أ والاستهلاك المنتظم للكبد. أعطي الأولوية للكاروتينويدات (طليعة فيتامين أ) من الفواكه والخضروات، فهي آمنة.",
+    "precautions_tn": "تجنّبي المكملات اللي فيها جرعات عالية من فيتامين أ، وما تاكليش الكبدة بصفة منتظمة. أعطي الأولوية للكاروتينويدات (طليعة فيتامين أ) اللي في الغلة والخضرة، هذوكم آمنين."
   },
   {
     "supplement_id": "s12_probiotiques",
@@ -282,6 +326,7 @@
     "category": "micro-organismes",
     "short_description_fr": "Micro-organismes vivants qui peuvent améliorer la santé digestive et immunitaire de la mère et du bébé.",
     "short_description_ar": "كائنات دقيقة حية قد تحسّن الصحة الهضمية والمناعية للأم والطفل.",
+    "short_description_tn": "كائنات دقيقة حيّة تنجم تحسّن صحة الهضم والمناعة عند الأم والصغير.",
     "short_description_en": "Living micro-organisms that can improve the digestive and immune health of the mother and baby.",
     "pregnancy_safety": "ok",
     "pregnancy_notes_fr": "Les probiotiques sont considérés comme sûrs pendant la grossesse. Ils peuvent aider à réduire le risque de diabète gestationnel, de pré-éclampsie, et d'allergies (eczéma) chez le bébé.",
@@ -294,10 +339,13 @@
     "name_tn": "البروبيوتيك",
     "pregnancy_notes_en": "Probiotics are considered safe during pregnancy. They may help reduce the risk of gestational diabetes, pre-eclampsia, and allergies (eczema) in the baby.",
     "pregnancy_notes_ar": "تُعد البروبيوتيك آمنة خلال الحمل. وقد تساعد على تقليل خطر سكري الحمل، ومقدمات الارتعاج، والحساسية (الإكزيما) لدى الطفل.",
+    "pregnancy_notes_tn": "البروبيوتيك تعتبر آمنة وقت الحمل. تنجم تعاون باش تنقّص خطر سكري الحمل، ومقدمات الارتعاج، والحساسية (الإكزيما) عند الصغير.",
     "typical_dose_text_en": "There is no standard dosage. The dosage depends on the specific strains (Lactobacillus, Bifidobacterium). It is recommended to follow the product's instructions and to consult a healthcare professional.",
     "typical_dose_text_ar": "لا توجد جرعة قياسية. تعتمد الجرعة على السلالات المحددة (العصيات اللبنية Lactobacillus، البيفيدوباكتيريا Bifidobacterium). يُوصى باتباع تعليمات المنتج واستشارة مختص في الصحة.",
+    "typical_dose_text_tn": "ما فماش جرعة قياسية. الجرعة تتبدل حسب السلالات (العصيات اللبنية Lactobacillus، البيفيدوباكتيريا Bifidobacterium). ينصحو تتبعي تعليمات المنتوج وتستشيري مختص في الصحة.",
     "precautions_en": "Side effects are rare and generally mild (gas, bloating). Immunocompromised people should consult a doctor before any use.",
-    "precautions_ar": "الآثار الجانبية نادرة وعادة ما تكون خفيفة (غازات، انتفاخ). يجب على الأشخاص ذوي المناعة المثبّطة استشارة الطبيب قبل أي تناول."
+    "precautions_ar": "الآثار الجانبية نادرة وعادة ما تكون خفيفة (غازات، انتفاخ). يجب على الأشخاص ذوي المناعة المثبّطة استشارة الطبيب قبل أي تناول.",
+    "precautions_tn": "الآثار الجانبية نادرة وعادة تكون خفيفة (غازات، انتفاخ). اللي مناعتهم مثبّطة لازم يستشيرو الطبيب قبل أي تناول."
   },
   {
     "supplement_id": "s13_choline",
@@ -307,6 +355,7 @@
     "category": "nutriment essentiel",
     "short_description_fr": "Nutriment essentiel pour le développement du cerveau et du système nerveux du fœtus.",
     "short_description_ar": "مغذٍّ أساسي لنمو دماغ الجنين وجهازه العصبي.",
+    "short_description_tn": "مغذّي ضروري لنمو مخ الجنين وجهازو العصبي.",
     "short_description_en": "Essential nutrient for the development of the fetal brain and nervous system.",
     "pregnancy_safety": "ok",
     "pregnancy_notes_fr": "La plupart des femmes enceintes n'atteignent pas l'apport recommandé en choline par l'alimentation seule. La choline joue un rôle clé dans la prévention des anomalies du tube neural et le développement cognitif de l'enfant.",
@@ -319,10 +368,13 @@
     "name_tn": "الكولين",
     "pregnancy_notes_en": "Most pregnant women do not reach the recommended intake of choline through diet alone. Choline plays a key role in the prevention of neural tube defects and the cognitive development of the child.",
     "pregnancy_notes_ar": "لا تبلغ معظم الحوامل التناول الموصى به من الكولين عبر النظام الغذائي وحده. يؤدي الكولين دورًا رئيسيًا في الوقاية من تشوهات الأنبوب العصبي والنمو المعرفي للطفل.",
+    "pregnancy_notes_tn": "أغلب النساء الحوامل ما يوصلوش للكمية المنصوح بيها من الكولين بالماكلة برك. الكولين عندو دور رئيسي في الوقاية من تشوهات الأنبوب العصبي وفي النمو الذهني متاع الطفل.",
     "typical_dose_text_en": "The recommended intake is 450 mg per day. Supplementation may be necessary to reach this target, on medical advice.",
     "typical_dose_text_ar": "التناول الموصى به هو 450 ملغ يوميًا. قد يكون التكميل ضروريًا لبلوغ هذا الهدف، بناءً على المشورة الطبية.",
+    "typical_dose_text_tn": "الكمية المنصوح بيها هي 450 ملغ في النهار. التكميل ينجم يلزم باش توصلي لهالهدف، وبنصيحة الطبيب.",
     "precautions_en": "An excessive intake (more than 3500 mg/day) can cause a fishy body odor and digestive disturbances.",
-    "precautions_ar": "قد يسبب التناول المفرط (أكثر من 3500 ملغ/يوم) رائحة جسم تشبه رائحة السمك واضطرابات هضمية."
+    "precautions_ar": "قد يسبب التناول المفرط (أكثر من 3500 ملغ/يوم) رائحة جسم تشبه رائحة السمك واضطرابات هضمية.",
+    "precautions_tn": "التناول المفرط (أكثر من 3500 ملغ/نهار) ينجم يعمل ريحة جسم كيف ريحة الحوت واضطرابات في الهضم."
   },
   {
     "supplement_id": "s14_vitamine_k",
@@ -332,6 +384,7 @@
     "category": "vitamine",
     "short_description_fr": "Essentielle pour la coagulation sanguine. Une dose est administrée à tous les nouveau-nés pour prévenir les saignements.",
     "short_description_ar": "أساسي لتخثّر الدم. تُعطى جرعة لجميع المواليد الجدد للوقاية من النزيف.",
+    "short_description_tn": "ضروري لتخثّر الدم. يعطيو جرعة منّو لكل المواليد الجدد باش يوقّيوهم من النزيف.",
     "short_description_en": "Essential for blood coagulation. A dose is administered to all newborns to prevent bleeding.",
     "pregnancy_safety": "ok",
     "pregnancy_notes_fr": "La supplémentation prénatale n'est généralement pas nécessaire, car la carence est rare. L'enjeu principal est la prévention de la maladie hémorragique du nouveau-né par une injection à la naissance.",
@@ -344,10 +397,13 @@
     "name_tn": "فيتامين ك",
     "pregnancy_notes_en": "Prenatal supplementation is generally not necessary, as deficiency is rare. The main issue is the prevention of hemorrhagic disease of the newborn through an injection at birth.",
     "pregnancy_notes_ar": "لا يكون التكميل قبل الولادة ضروريًا عمومًا، لأن النقص نادر. التحدي الرئيسي هو الوقاية من المرض النزفي للمولود الجديد عبر حقنة عند الولادة.",
+    "pregnancy_notes_tn": "التكميل قبل الولادة عادة ما يلزمش، خاطر النقص نادر. الأهم هو الوقاية من المرض النزفي متاع المولود الجديد بحقنة وقت الولادة.",
     "typical_dose_text_en": "The recommended intake is 90 µg per day, easily reached through diet. No routine supplementation is recommended.",
     "typical_dose_text_ar": "التناول الموصى به هو 90 ميكروغرام يوميًا، ويسهل بلوغه عبر النظام الغذائي. لا يُوصى بأي تكميل روتيني.",
+    "typical_dose_text_tn": "الكمية المنصوح بيها هي 90 ميكروغرام في النهار، وتنجمي توصليلها بسهولة بالماكلة. ما فما حتى تكميل روتيني منصوح بيه.",
     "precautions_en": "May interact with anticoagulant medications. Supplementation must be validated by a doctor.",
-    "precautions_ar": "قد يتفاعل مع الأدوية المضادة للتخثّر. يجب أن يصادق الطبيب على التكميل."
+    "precautions_ar": "قد يتفاعل مع الأدوية المضادة للتخثّر. يجب أن يصادق الطبيب على التكميل.",
+    "precautions_tn": "ينجم يتفاعل مع الأدوية المضادة للتخثّر. التكميل لازم يوافق عليه الطبيب."
   },
   {
     "supplement_id": "s15_selenium",
@@ -357,6 +413,7 @@
     "category": "minéral",
     "short_description_fr": "Antioxydant important pour la fonction thyroïdienne et la protection cellulaire.",
     "short_description_ar": "مضاد أكسدة مهم لوظيفة الغدة الدرقية وحماية الخلايا.",
+    "short_description_tn": "مضاد أكسدة مهم لخدمة الغدة الدرقية ولحماية الخلايا.",
     "short_description_en": "Important antioxidant for thyroid function and cellular protection.",
     "pregnancy_safety": "a_surveiller",
     "pregnancy_notes_fr": "Une carence peut être liée à un risque de pré-éclampsie et de troubles thyroïdiens. Cependant, la supplémentation systématique n'est pas recommandée car un excès est toxique.",
@@ -369,9 +426,12 @@
     "name_tn": "السيلينيوم",
     "pregnancy_notes_en": "A deficiency may be linked to a risk of pre-eclampsia and thyroid disorders. However, systematic supplementation is not recommended because an excess is toxic.",
     "pregnancy_notes_ar": "قد يرتبط النقص بخطر مقدمات الارتعاج واضطرابات الغدة الدرقية. غير أن التكميل المنهجي غير موصى به لأن الفرط سام.",
+    "pregnancy_notes_tn": "النقص ينجم يكون مرتبط بخطر مقدمات الارتعاج واضطرابات الغدة الدرقية. أما التكميل المنهجي ما ينصحوش بيه خاطر الزيادة سامة.",
     "typical_dose_text_en": "The recommended intake is 60 µg per day. The upper limit is 400 µg/day. Supplementation should be avoided except in case of confirmed deficiency and on medical advice.",
     "typical_dose_text_ar": "التناول الموصى به هو 60 ميكروغرام يوميًا. الحد الأعلى هو 400 ميكروغرام/يوم. يجب تجنّب التكميل إلا في حال وجود نقص مؤكد وبناءً على المشورة الطبية.",
+    "typical_dose_text_tn": "الكمية المنصوح بيها هي 60 ميكروغرام في النهار. الحد الأعلى هو 400 ميكروغرام/نهار. لازم تتجنبي التكميل كان ما فماش نقص مؤكد، وبنصيحة الطبيب.",
     "precautions_en": "An excess of selenium (selenosis) is toxic and can cause hair loss, digestive and neurological disturbances.",
-    "precautions_ar": "يُعد فرط السيلينيوم (التسمم بالسيلينيوم) سامًا وقد يسبب تساقط الشعر واضطرابات هضمية وعصبية."
+    "precautions_ar": "يُعد فرط السيلينيوم (التسمم بالسيلينيوم) سامًا وقد يسبب تساقط الشعر واضطرابات هضمية وعصبية.",
+    "precautions_tn": "الزيادة في السيلينيوم (التسمم بالسيلينيوم) سامة وتنجم تعمل تساقط شعر واضطرابات في الهضم والأعصاب."
   }
 ]

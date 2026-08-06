@@ -9,7 +9,7 @@
         "timesPerDay": "{{count}}×/يوم",
         "scheduledHours": "📅 الأوقات المبرمجة:",
         "weekTitle": "تذكيرات الأسبوع",
-        "viewAll": "عرض الكل →",
+        "viewAll": "عرض الكل ←",
         "priorityHigh": "عالية",
         "priorityMedium": "متوسطة",
         "priorityLow": "منخفضة",

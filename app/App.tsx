@@ -39,6 +39,7 @@ import { configureNotifications } from './src/services/rdvNotificationService';
 import { cleanupPastReminders } from './src/services/rdvNotificationService';
 import { setupRTL } from './src/i18n/rtl';
 import { LocaleDirectionProvider } from './src/i18n/LocaleDirectionProvider';
+import { isRtlLang } from './src/hooks/useRtl';
 import * as Notifications from 'expo-notifications';
 import { AppState, AppStateStatus } from 'react-native';
 import { getAuth } from 'firebase/auth';
@@ -361,6 +362,12 @@ const AppContent = () => {
 
   return (
     <NavigationContainer
+      // AR-RTL: React Navigation derives its direction from
+      // `I18nManager.getConstants().isRTL`, which stays false on web (forceRTL is
+      // deliberately skipped there — it looped). That left the header back arrow
+      // pointing left in Arabic, where "back" must point right. Drive it from the
+      // UI language instead, which is correct on every platform.
+      direction={isRtlLang(i18n.language) ? 'rtl' : 'ltr'}
       linking={linking}
       documentTitle={{
         formatter: (options: any, route: any) => {

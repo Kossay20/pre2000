@@ -57,6 +57,20 @@ export const RtlAwareChevron: React.FC<RtlAwareChevronProps> = ({
     const { i18n } = useTranslation();
     const isRtl = i18n.language === 'ar' || i18n.language === 'tn';
     const glyph = resolveChevronGlyph(direction, variant, isRtl);
+
+    // AR-RTL DOUBLE-FLIP FIX. The 'thin' (‹ ›) and 'bold' (❮ ❯) glyphs are
+    // Bidi_Mirrored characters: inside an RTL paragraph the text engine already
+    // draws them mirrored, on top of the swap resolveChevronGlyph() just did.
+    // Two flips cancel out, so in Arabic every chevron pointed the wrong way —
+    // the "arrows are inverted in Arabic" report. ('arrow' → ← and 'caret' ▶ ◀
+    // are not mirrored, which is why those variants looked fine.)
+    // Wrapping the glyph in an LTR isolate (U+2066 … U+2069) puts it at an
+    // even embedding level, so the engine renders it exactly as authored and
+    // our explicit swap is the only one that applies. Isolates are zero-width
+    // formatting characters handled by the Unicode Bidi Algorithm on web, iOS
+    // and Android alike — unlike `writingDirection`, which is iOS-only.
+    const rendered = isRtl ? `⁦${glyph}⁩` : glyph;
+
     const isDecorative = accessibilityLabel === undefined;
     return (
         <Text
@@ -65,7 +79,7 @@ export const RtlAwareChevron: React.FC<RtlAwareChevronProps> = ({
             importantForAccessibility={isDecorative ? 'no-hide-descendants' : 'yes'}
             accessibilityLabel={accessibilityLabel}
         >
-            {glyph}
+            {rendered}
         </Text>
     );
 };
