@@ -111,7 +111,15 @@ const HomeStack = () => {
           navigate('AuthChoice') silently no-op'd). RegisterScreen in upgradeMode links the
           anonymous account in place — no re-onboarding. */}
       <Stack.Screen name="GuestUpgrade" component={RegisterScreen} initialParams={{ upgradeMode: true }} options={{ headerShown: true, title: t('common.screen.createAccount') }} />
-      {/* NAV-FIX: PrivacyPolicy is already registered in AuthStack — no duplicate here */}
+      {/* PRIVACY-REACHABILITY FIX. AuthStack and MainTabs are mutually exclusive
+          (`user ? <MainTabs/> : <AuthStack/>`), so registering PrivacyPolicy only in
+          AuthStack made it unreachable for every logged-in user: the links in
+          SettingsScreen and ProfileScreen were silent no-ops, and so was the "terms &
+          privacy" line on the guest-upgrade signup form. The app's medical disclaimer
+          lives on that screen too. Apple requires an in-app privacy policy, so this is
+          a store blocker as much as a broken link. Same fix already applied to
+          GuestUpgrade just above. */}
+      <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} options={{ headerShown: true, title: t('common.screen.legalNotice') }} />
       <Stack.Screen name="HealthDashboard" component={HealthDashboardScreen} options={{ title: t('common.screen.myHealth') }} />
       <Stack.Screen name="WeightTracker" component={WeightTrackerScreen} options={{ title: t('common.screen.weightTracking') }} />
       <Stack.Screen name="ForbiddenFoods" component={ForbiddenFoodsScreen} options={{ title: t('common.screen.forbiddenFoods') }} />

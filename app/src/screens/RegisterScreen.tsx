@@ -5,12 +5,12 @@ import { analyticsService } from '../services/analyticsService';
 import {
     View, Text, StyleSheet, TextInput, ScrollView,
     TouchableOpacity, KeyboardAvoidingView, Platform,
-    Pressable, Keyboard,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { theme } from '../theme';
 import { Button } from '../components/common/Button';
 import { RtlAwareChevron } from '../components/common/RtlAwareChevron';
+import { DismissKeyboardView } from '../components/common/DismissKeyboardView';
 import { ErrorMessage } from '../components/common/ErrorMessage';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useToast } from '../context/ToastContext';
@@ -21,6 +21,7 @@ import { useAuthLoading } from '../hooks/useAuthLoading';
 import { retryOperation } from '../utils/retry';
 import { useTranslation } from 'react-i18next';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
+import { hasPendingAppointmentDraft } from '../utils/pendingAppointmentDraft';
 
 export const RegisterScreen = () => {
     useScreenAnalytics('RegisterScreen');
@@ -30,7 +31,16 @@ export const RegisterScreen = () => {
     const route = useRoute<any>();
     // NAV-01: when reached as the in-app guest-upgrade route, link the account in place
     // and return the user to where they were (no AuthStack, no re-onboarding).
-    const upgradeMode = route.params?.upgradeMode === true;
+    // UPGRADE-MODE FIX. This used to be `=== true`, a strict boolean check. The route
+    // is deep-linkable (`/create-account?upgradeMode=true`) and React Navigation
+    // rebuilds screen params from the URL, so the flag arrives as the STRING "true"
+    // — which failed the check. The guest-upgrade screen then silently fell into the
+    // fresh-registration branch: it created a brand-new account instead of linking
+    // the guest, and finished with `navigate('Onboarding')`, a route that does not
+    // exist inside HomeStack. The action was dropped, the user stayed on the form
+    // with no feedback, and a second attempt reported "email already in use" —
+    // the reported "I can't create an account".
+    const upgradeMode = route.params?.upgradeMode === true || route.params?.upgradeMode === 'true';
     const { showToast } = useToast();
     const { loading, withLoading } = useAuthLoading();
     // AUDIT-FIX (page-by-page validation 2026-06-02): language-derived RTL — I18nManager.isRTL is
@@ -110,11 +120,33 @@ export const RegisterScreen = () => {
                     // Link the guest in place — no re-onboarding; return to the prior screen.
                     await retryOperation(() => upgradeGuest(email.trim(), password));
                     showToast(t('common.accountCreated', { defaultValue: 'Compte créé ✅' }), 'success');
-                    if (navigation.canGoBack()) navigation.goBack();
-                    else navigation.navigate('HomeMain' as any);
+                    // GUEST-DRAFT FIX: if the upgrade was triggered by a guest trying to
+                    // save an appointment, land them back on that form — AddAppointment
+                    // restores the stashed draft on mount. goBack() would drop them on
+                    // Home instead, stranding the draft and making them retype it.
+                    if (await hasPendingAppointmentDraft()) {
+                        navigation.getParent()?.navigate('Calendrier' as any, { screen: 'AddAppointment' });
+                    } else if (navigation.canGoBack()) {
+                        navigation.goBack();
+                    } else {
+                        navigation.navigate('HomeMain' as any);
+                    }
                 } else {
                     await retryOperation(() => register(email.trim(), password));
-                    navigation.navigate('Onboarding');
+                    // Safety net: this screen is registered in two stacks and only
+                    // AuthStack has 'Onboarding'. If we ever land here from the other
+                    // one, an unhandled NAVIGATE would silently strand the user on a
+                    // form whose account was already created. Fall back instead.
+                    const hasOnboarding = navigation
+                        .getState()
+                        ?.routeNames?.includes('Onboarding');
+                    if (hasOnboarding) {
+                        navigation.navigate('Onboarding');
+                    } else if (navigation.canGoBack()) {
+                        navigation.goBack();
+                    } else {
+                        navigation.navigate('HomeMain' as any);
+                    }
                 }
             } catch (error: any) {
                 log.error('[RegisterScreen] Registration error:', error);
@@ -131,8 +163,10 @@ export const RegisterScreen = () => {
             style={{ flex: 1 }}
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-            {/* PHASE 3.1 FIX: TouchableWithoutFeedback deprecated → Pressable */}
-            <Pressable onPress={Keyboard.dismiss}>
+            {/* FOCUS FIX: on web, Pressable's responder preventDefault()s pointer-down
+                and blocks focusing the inputs underneath — the form could not be typed
+                into at all. DismissKeyboardView is a no-op on web, unchanged on native. */}
+            <DismissKeyboardView>
                 <ScrollView
                     contentContainerStyle={styles.container}
                     keyboardShouldPersistTaps="handled"
@@ -319,7 +353,7 @@ export const RegisterScreen = () => {
                         )}
                     </View>
                 </ScrollView>
-            </Pressable>
+            </DismissKeyboardView>
         </KeyboardAvoidingView>
     );
 };

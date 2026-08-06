@@ -27,6 +27,11 @@ import { getPickerLocale } from '../utils/pickerLocale';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
 import { showAlert } from '../utils/alert';
 import { confirmAction } from '../utils/uiUtils';
+import {
+    savePendingAppointmentDraft,
+    loadPendingAppointmentDraft,
+    clearPendingAppointmentDraft,
+} from '../utils/pendingAppointmentDraft';
 import { styles } from './AddAppointmentScreen.styles';
 
 
@@ -119,6 +124,36 @@ export const AddAppointmentScreen = () => {
     const [reminderJ, setReminderJ] = useState(true);     // Jour J à 8h
     const [reminderH2, setReminderH2] = useState(false);  // 2h avant
     const [loadingReminders, setLoadingReminders] = useState(!!editingEvent);
+
+    const isGuest = !!user?.isGuest;
+
+    // GUEST-DRAFT FIX (restore side). When a guest hits Save we stash the form and
+    // send them to the account screen; on the way back, authenticated, we refill it
+    // so they don't have to retype anything. Only restores for a real account and
+    // only for a fresh form (never clobbers an event being edited).
+    useEffect(() => {
+        if (isGuest || editingEvent) return;
+        let cancelled = false;
+        (async () => {
+            const draft = await loadPendingAppointmentDraft();
+            if (!draft || cancelled) return;
+            setTitle(draft.title);
+            setType(draft.type);
+            const restoredDate = new Date(draft.date);
+            if (!isNaN(restoredDate.getTime())) {
+                setDate(restoredDate);
+                setTempDate(restoredDate);
+            }
+            setLocation(draft.location);
+            setNotes(draft.notes);
+            setReminderJ1(draft.reminderJ1);
+            setReminderJ(draft.reminderJ);
+            setReminderH2(draft.reminderH2);
+            await clearPendingAppointmentDraft();
+            showToast(t('addAppointment.draftRestored'), 'success');
+        })();
+        return () => { cancelled = true; };
+    }, [isGuest, editingEvent]);
 
     // Load existing reminder preferences when editing
     useEffect(() => {
@@ -327,32 +362,59 @@ export const AddAppointmentScreen = () => {
 
         if (!effectiveUid) {
             log.error('[AddAppointmentScreen] No UID available. User may not be authenticated.');
-            // WEB-ALERT: showAlert surfaces the message on web too (Alert.alert is a no-op there).
-            showAlert(t('addAppointment.notConnectedTitle'), t('addAppointment.notConnectedMsg'));
+            // DEAD-END FIX: this used to show a message and stop, leaving the user
+            // stuck on a form they could never submit. Offer the way out — same
+            // draft-preserving path as the guest branch below.
+            await savePendingAppointmentDraft({
+                title: title.trim(),
+                type,
+                date: date.toISOString(),
+                location,
+                notes,
+                reminderJ1,
+                reminderJ,
+                reminderH2,
+            });
+            confirmAction(
+                t('addAppointment.notConnectedTitle'),
+                t('addAppointment.notConnectedMsg'),
+                () => navigation.getParent()?.navigate('Home', { screen: 'GuestUpgrade' }),
+                undefined,
+                t('addAppointment.cancel'),
+                t('addAppointment.guestAlertCreate')
+            );
             return;
         }
 
         // Guest check
         if (user?.isGuest) {
-            // CAL-01: Alert.alert is a no-op on react-native-web, so a guest tapping
-            // Save previously got zero feedback. On web, surface the prompt via
-            // window.confirm (OK = create account → AuthChoice) so the dead-end is fixed.
-            if (Platform.OS === 'web') {
-                const goToAuth = window.confirm(
-                    `${t('addAppointment.guestAlertTitle')}\n\n${t('addAppointment.guestAlertMsg')}`
-                );
-                if (goToAuth) {
-                    navigation.getParent()?.navigate('Home', { screen: 'GuestUpgrade' });
-                }
-                return;
-            }
+            // GUEST-DRAFT FIX: a guest used to lose everything they had typed here —
+            // the form was fully open, Save was the first sign an account was needed,
+            // and the data was dropped on the way to the signup screen. Persist the
+            // draft first; RegisterScreen sends them back here after signup and the
+            // restore effect above refills the form.
+            await savePendingAppointmentDraft({
+                title: title.trim(),
+                type,
+                date: date.toISOString(),
+                location,
+                notes,
+                reminderJ1,
+                reminderJ,
+                reminderH2,
+            });
 
-            // WEB-ALERT: confirmAction fires the "create account" callback on native;
-            // the web path above already handles guests via window.confirm.
+            const goToUpgrade = () =>
+                navigation.getParent()?.navigate('Home', { screen: 'GuestUpgrade' });
+
+            // confirmAction handles both platforms (window.confirm on web,
+            // Alert.alert on native). The previous web branch called window.confirm
+            // directly, which cannot render the localized "create account" button
+            // label — it always showed the browser's OK/Cancel.
             confirmAction(
                 t('addAppointment.guestAlertTitle'),
                 t('addAppointment.guestAlertMsg'),
-                () => navigation.getParent()?.navigate('Home', { screen: 'GuestUpgrade' }),
+                goToUpgrade,
                 undefined,
                 t('addAppointment.cancel'),
                 t('addAppointment.guestAlertCreate')
@@ -447,6 +509,22 @@ export const AddAppointmentScreen = () => {
                         {editingEvent ? t('addAppointment.editSubtitle') : t('addAppointment.newSubtitle')}
                     </Text>
                 </View>
+
+                {/* GUEST-BANNER FIX: a guest used to get the whole form with no hint
+                    that saving needs an account — the block only fired on Save, after
+                    everything was typed. Say it up front, with the way out one tap away. */}
+                {isGuest && (
+                    <TouchableOpacity
+                        style={styles.guestBanner}
+                        onPress={() => navigation.getParent()?.navigate('Home', { screen: 'GuestUpgrade' })}
+                        accessibilityRole="button"
+                        accessibilityLabel={t('addAppointment.guestAlertCreate')}
+                    >
+                        <Text style={styles.guestBannerTitle}>{t('addAppointment.guestBannerTitle')}</Text>
+                        <Text style={styles.guestBannerMsg}>{t('addAppointment.guestBannerMsg')}</Text>
+                        <Text style={styles.guestBannerCta}>{t('addAppointment.guestAlertCreate')}</Text>
+                    </TouchableOpacity>
+                )}
 
                 <View style={styles.form}>
                     {/* Title Input */}

@@ -501,8 +501,20 @@ export const _analyzeMessage = async (text: string): Promise<ChatResponse> => {
     // "my water broke, no pain" still escalates (the "no" doesn't scope the ROM verb).
     const ROM_CUE_FRAG = 'broke|broken|break|breaking|burst|ruptur\\w*|leak\\w*|gush\\w*|perdu|perdre|perds|perte|rompu\\w*|eaux|water\\w*|fluid|membran\\w*';
     const NEG_FRAG = "not|no|n'?t|pas|jamais|aucun\\w*|sans|never|don'?t|doesn'?t|didn'?t|hasn'?t|haven'?t|isn'?t|cannot|can'?t";
+    // ReDoS FIX (SAFETY-CRITICAL). The separator class used to be `[^a-zà-ÿ]`, which
+    // excludes only letters and therefore OVERLAPS `\w` on digits and `_`. Inside
+    // `([^a-zà-ÿ]+\w+){0,3}` that ambiguity makes the number of ways to split the
+    // input explode, so a non-matching message backtracks exponentially:
+    // measured on this exact pattern, " not " + "_"*60 took 1.6 s, *80 took 12.5 s
+    // and *100 took 63 s of fully blocked JS thread — an iOS watchdog kill, on the
+    // obstetric red-flag path of all places. `MAX_INPUT_LENGTH = 500` is far above
+    // the danger threshold. Excluding digits and `_` from the separator makes the
+    // two classes disjoint, so each position has exactly one parse and the match is
+    // linear. The set of accepted strings is unchanged: a separator is meant to be
+    // whitespace/punctuation between words, never part of a word.
+    const SEP = '[^a-zà-ÿ0-9_]';
     const romNegated = new RegExp(
-        `(^|[^a-zà-ÿ])(${NEG_FRAG})([^a-zà-ÿ]+\\w+){0,3}[^a-zà-ÿ]+(${ROM_CUE_FRAG})\\b`, 'i'
+        `(^|${SEP})(${NEG_FRAG})(${SEP}+\\w+){0,3}${SEP}+(${ROM_CUE_FRAG})\\b`, 'i'
     ).test(normalizedText);
     const ruptureOfMembranes =
         !romNegated

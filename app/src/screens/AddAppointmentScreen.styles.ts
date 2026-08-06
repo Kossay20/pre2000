@@ -22,6 +22,32 @@ export const styles = StyleSheet.create({
         ...theme.typography.body,
         color: theme.colors.textLight,
     },
+    // Guest banner — shown above the form so the account requirement is known
+    // before anything is typed, not after Save.
+    guestBanner: {
+        backgroundColor: theme.colors.surfaceBlueTint,
+        borderRadius: 12,
+        padding: theme.spacing.m,
+        marginBottom: theme.spacing.l,
+        borderStartWidth: 4,
+        borderStartColor: theme.colors.info,
+    },
+    guestBannerTitle: {
+        ...theme.typography.body,
+        fontWeight: '700' as const,
+        color: theme.colors.info,
+        marginBottom: theme.spacing.xs,
+    },
+    guestBannerMsg: {
+        ...theme.typography.caption,
+        color: theme.colors.textSecondary,
+    },
+    guestBannerCta: {
+        ...theme.typography.body,
+        fontWeight: '700' as const,
+        color: theme.colors.accent,
+        marginTop: theme.spacing.s,
+    },
     form: {
         gap: theme.spacing.l,
     },

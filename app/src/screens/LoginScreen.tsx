@@ -4,7 +4,6 @@ import React, { useState, useRef } from 'react';
 import {
     View, Text, StyleSheet, TextInput, ScrollView,
     TouchableOpacity, KeyboardAvoidingView, Platform,
-    Pressable, Keyboard,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { auth } from '../config/firebase';
@@ -13,6 +12,7 @@ import { sendPasswordResetEmail } from 'firebase/auth';
 import { theme } from '../theme';
 import { Button } from '../components/common/Button';
 import { RtlAwareChevron } from '../components/common/RtlAwareChevron';
+import { DismissKeyboardView } from '../components/common/DismissKeyboardView';
 import { ErrorMessage } from '../components/common/ErrorMessage';
 import { SuccessMessage } from '../components/common/SuccessMessage';
 import { validateEmail, validatePasswordForLogin } from '../utils/validation';
@@ -135,8 +135,10 @@ export const LoginScreen = () => {
             style={{ flex: 1 }}
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-            {/* PHASE 3.1 FIX: TouchableWithoutFeedback deprecated → Pressable */}
-            <Pressable onPress={Keyboard.dismiss}>
+            {/* FOCUS FIX: on web, Pressable's responder preventDefault()s pointer-down
+                and blocks focusing the inputs underneath — the form could not be typed
+                into at all. DismissKeyboardView is a no-op on web, unchanged on native. */}
+            <DismissKeyboardView>
                 <ScrollView
                     contentContainerStyle={styles.container}
                     keyboardShouldPersistTaps="handled"
@@ -257,7 +259,7 @@ export const LoginScreen = () => {
                         </TouchableOpacity>
                     </View>
                 </ScrollView>
-            </Pressable>
+            </DismissKeyboardView>
         </KeyboardAvoidingView>
     );
 };
