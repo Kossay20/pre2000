@@ -63,11 +63,36 @@ log.debug('[i18n] ✅ i18n initialized');
 // with the active language. Without this, document.documentElement.lang stays
 // 'en' even when displaying French content — auto-translate extensions and
 // screen readers misidentify the document language.
+// AR-RTL ROOT CAUSE (web): react-native-web 0.21 compiles `marginStart/End`,
+// `paddingStart/End` and `start/end` to the *logical* CSS properties
+// (`margin-inline-end`, `inset-inline-start`, …). Those resolve against the
+// element's OWN `direction` — and RN-Web stamps `dir="auto"` on every <Text>.
+// Per the HTML spec, `dir="auto"` on a node with no strong directional
+// character (an emoji icon, a number, "•", ":") resolves to **ltr**, NOT to the
+// parent's direction. Result in Arabic: every emoji/numeric Text kept its
+// spacing and insets on the LTR side — icons glued to their label, badges on
+// the wrong edge, chevrons offset the wrong way — across the whole app.
+// Fix: while the document is RTL, give RN-Web's text nodes an explicit author
+// `direction: rtl`, which outranks the UA's `dir="auto"` resolution. The
+// `unicode-bidi: isolate` RN-Web sets stays untouched, so genuinely LTR runs
+// (emails, URLs, "mmol/L") still render internally left-to-right — exactly what
+// native does under `I18nManager.forceRTL(true)`.
+const RTL_DIR_STYLE_ID = 'mb-rtl-dir-fix';
+const ensureRtlDirStyle = () => {
+    if (typeof document === 'undefined') return;
+    if (document.getElementById(RTL_DIR_STYLE_ID)) return;
+    const style = document.createElement('style');
+    style.id = RTL_DIR_STYLE_ID;
+    style.textContent = 'html[dir="rtl"] [dir="auto"]{direction:rtl;}';
+    document.head.appendChild(style);
+};
+
 const syncHtmlLangDir = (lng: string) => {
     if (typeof document === 'undefined') return;
     try {
         document.documentElement.lang = lng;
         document.documentElement.dir = (lng === 'ar' || lng === 'tn') ? 'rtl' : 'ltr';
+        ensureRtlDirStyle();
     } catch (e) {
         log.debug('[i18n] Could not sync html lang/dir:', e);
     }

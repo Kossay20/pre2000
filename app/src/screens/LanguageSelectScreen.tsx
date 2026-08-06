@@ -14,6 +14,7 @@ import { RtlAwareChevron } from '../components/common/RtlAwareChevron';
 import { useTranslation } from 'react-i18next';
 import { changeLanguage } from '../i18n/rtl';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
+import { useRtl } from '../hooks/useRtl';
 
 // T7-FIX-F53 : utiliser le nom natif comme label principal pour AR/TN aussi
 // (idem FR/EN). Un user arabophone reconnaît "العربية" en premier coup d'œil
@@ -35,6 +36,10 @@ export const LanguageSelectScreen = () => {
     const navigation = useNavigation();
     const { t } = useTranslation();
     const { showToast } = useToast();
+    // AR-RTL fix: react-native-web puts `dir="auto"` on every Text, so a Latin
+    // label ("English", "Français") was left-aligned while its Arabic subtitle was
+    // right-aligned inside the same card. Pin the alignment to the UI language.
+    const { textAlign } = useRtl();
     const [selectedLanguage, setSelectedLanguage] = useState(i18n.language || 'fr');
     const [loading, setLoading] = useState(false);
 
@@ -117,23 +122,28 @@ export const LanguageSelectScreen = () => {
                             <View style={styles.languageInfo}>
                                 <Text style={[
                                     styles.languageName,
+                                    { textAlign },
                                     selectedLanguage === language.code && styles.languageNameSelected,
                                 ]}>
                                     {language.name}
                                 </Text>
                                 <Text style={[
                                     styles.languageNative,
+                                    { textAlign },
                                     selectedLanguage === language.code && styles.languageNativeSelected,
                                 ]}>
                                     {t(language.descKey)}
                                 </Text>
                             </View>
+                            {/* AR-RTL fix: the checkmark used `position:absolute; right:20`, a
+                                physical inset that stayed on the right in Arabic and collided
+                                with the flag. In-flow at the end of the row it mirrors for free. */}
+                            {selectedLanguage === language.code && (
+                                <View style={styles.checkmark}>
+                                    <Text style={styles.checkmarkText}>✓</Text>
+                                </View>
+                            )}
                         </View>
-                        {selectedLanguage === language.code && (
-                            <View style={styles.checkmark}>
-                                <Text style={styles.checkmarkText}>✓</Text>
-                            </View>
-                        )}
                     </TouchableOpacity>
                 ))}
 
@@ -249,9 +259,7 @@ const styles = StyleSheet.create({
         color: theme.colors.accent,
     },
     checkmark: {
-        position: 'absolute',
-        top: 20,
-        right: 20,
+        marginStart: 12,
         width: 32,
         height: 32,
         borderRadius: 16,

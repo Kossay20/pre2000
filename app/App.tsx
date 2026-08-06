@@ -38,6 +38,7 @@ import { OfflineNotice } from './src/components/common/OfflineNotice';
 import { configureNotifications } from './src/services/rdvNotificationService';
 import { cleanupPastReminders } from './src/services/rdvNotificationService';
 import { setupRTL } from './src/i18n/rtl';
+import { LocaleDirectionProvider } from './src/i18n/LocaleDirectionProvider';
 import * as Notifications from 'expo-notifications';
 import { AppState, AppStateStatus } from 'react-native';
 import { getAuth } from 'firebase/auth';
@@ -428,20 +429,22 @@ function App() {
   }, []);
 
   return (
-    <SafeAreaProvider>
-      <StatusBar style="dark" backgroundColor="#FFFFFF" />
-      <OfflineNotice />
-      <AuthProvider>
-        <ToastProvider>
-          <ErrorBoundary>
-            <PregnancyProvider>
-              <AppInitializer />
-              <AppContent />
-            </PregnancyProvider>
-          </ErrorBoundary>
-        </ToastProvider>
-      </AuthProvider>
-    </SafeAreaProvider>
+    <LocaleDirectionProvider>
+      <SafeAreaProvider>
+        <StatusBar style="dark" backgroundColor="#FFFFFF" />
+        <OfflineNotice />
+        <AuthProvider>
+          <ToastProvider>
+            <ErrorBoundary>
+              <PregnancyProvider>
+                <AppInitializer />
+                <AppContent />
+              </PregnancyProvider>
+            </ErrorBoundary>
+          </ToastProvider>
+        </AuthProvider>
+      </SafeAreaProvider>
+    </LocaleDirectionProvider>
   );
 }
 
