@@ -164,3 +164,66 @@ ab02e92 fix(i18n): bottom tab labels stayed in the fallback language after a tab
 - `showAlert` utilise `window.alert`/`window.confirm` sur web (bloquants). Le
   double dialogue est corrigé, mais une vraie version web devrait router ces
   appels vers la modale interne.
+
+---
+
+## 8. Passe finition / optimisation / déploiement (même run)
+
+### Déployé en production
+`firebase deploy --only firestore:rules,firestore:indexes` sur
+`pregnancy-app-1f939`. **Un premier déploiement était inopérant** : le
+`match /{document=**}` imbriqué que j'avais ajouté pour la purge RGPD matche
+*zéro ou plus* de segments — donc aussi le **document parent**, ce qui
+court-circuitait le garde de taille placé dessus (vérifié en direct : un prénom
+d'1 Mo accepté). Corrigé en `/{sub}/{doc=**}` et redéployé. Vérifié contre la
+production avec un vrai compte, **9/9 conformes** :
+
+| Attendu | Cas |
+|---|---|
+| ALLOWED | prénom normal ; prénom de 50 caractères |
+| DENIED | prénom de 51 caractères ; prénom d'1 Mo |
+| ALLOWED | lecture de son profil ; lecture **et** écriture de sa sous-collection héritée (le chemin de la purge RGPD, refusé avant ce correctif) |
+| DENIED | lecture du profil d'un autre ; lecture de la sous-collection d'un autre |
+
+### Optimisation — mesurée sur de vrais builds `expo export --platform ios`
+- **Export : 26 Mo → 16 Mo.**
+- Images bébé : 1024×1024 (~1,24 Mo pièce) pour un rendu à ~200 px →
+  600 px + quantification : **11 124 858 → 1 237 830 octets (−88 %)**. PNG
+  conservé plutôt que WebP (11× plus petit encore) : le décodage WebP côté iOS
+  dépend du pipeline image de la plateforme, invérifiable sans device.
+- Icônes : 3,09 Mo → 1,08 Mo, 1024×1024 préservé (exigence App Store).
+  `icon.png` et `adaptive-icon.png` étaient le **même fichier**.
+- `chatbot_data.ts` embarquait une copie intégrale des 80 articles (vérifié
+  80/80 identiques) : 1 488 534 → 32 805 octets. **Gain bytecode réel : 414 Ko**,
+  pas les ~2,17 Mo que la taille source suggère — Hermes déduplique déjà les
+  littéraux de chaîne identiques. `DB_VERSION` 3→4 pour re-semer SQLite.
+- Premier affichage : `App.tsx` rendait `null` pour toute la navigation tant
+  qu'`AuthContext` chargeait, et ce verrou ne se levait qu'après l'init Firebase
+  **et** un `getDoc` Firestore attendu. Le cache local levait déjà l'état mais
+  pas le verrou.
+- Re-rendus : valeurs de provider mémoïsées (`ToastContext` 6 consommateurs,
+  `PregnancyContext` 17 + cascade depuis `useAuth`) ; l'intervalle horaire de
+  `PregnancyContext` n'invalide plus l'arbre quand rien n'a changé.
+
+### Défauts de correction trouvés dans cette passe
+- `ForbiddenFoodsScreen` triait **en place** le tableau du module JSON importé —
+  réordonnant l'état partagé, définitivement, pour tous les autres consommateurs.
+- `HospitalBagChecklistScreen` : contournement RTL manuel devenu un double
+  retournement après le `LocaleProvider` — libellé arabe collé à la case à cocher
+  sur les 26 items. **Régression que j'avais introduite.**
+- `row-reverse` en RTL sur Home / ArticleDetail / SupplementDetail : sous
+  `dir=rtl`, `row` miroite déjà — flèche retour à gauche et marque-page à droite
+  en arabe, soit l'inverse du correct.
+- `BabyEvolutionScreen` : le positionnement initial ne s'appliquait jamais
+  (`setTimeout` contre la mise en page) — une utilisatrice en semaine 9 ouvrait
+  l'écran sur le **mois 1**, en français aussi. Et le carrousel se lisait de
+  gauche à droite en arabe alors que les points se miroitaient.
+- `ProfileScreen` affichait « Utilisateur invité » à un compte pleinement
+  inscrit, parce que le champ `email` manque dans les documents profil écrits par
+  le parcours d'upgrade et le bootstrap à froid.
+
+### Non déployé, volontairement
+La **soumission App Store**. Elle exige des identifiants Apple absents du dépôt
+et constitue une distribution publique irréversible : elle demande un feu vert
+explicite, pas une déduction.
+
