@@ -40,6 +40,17 @@ création du compte, `confirmAction` localisé partout.
 3. **Flèches codées en dur dans les traductions.** `onboarding.{editInfos,back,changeWeek}`
    et `reminders.viewAll` pointaient du mauvais côté en ar/tn.
 
+4. **Libellés d'onglets figés sur la langue de repli.** Déclarés en `options`
+   statiques par écran, ils étaient capturés par React Navigation à la
+   construction du descripteur — au démarrage à froid, pendant que le détecteur
+   de langue asynchrone lisait encore `app_locale`, donc alors qu'i18n était
+   encore sur le repli `fr`. Avec `unmountOnBlur: true`, tout onglet revisité
+   était reconstruit depuis cette capture : UI entièrement arabe, **libellés du
+   bas en français** dès le premier changement d'onglet. Vérifié que ce n'était
+   pas l'état i18n (`documentElement.lang` = `ar`, `app_locale` = `ar` au moment
+   du symptôme). Les **icônes** n'ont jamais eu le bug car elles vivent dans
+   `screenOptions`, réévalué à chaque rendu — les libellés y sont désormais aussi.
+
 Divers : badge ✓ du sélecteur de langue en `position:absolute; right:20` (chevauchait
 le drapeau), flèche retour de React Navigation non miroitée (`direction` prop),
 `dir="auto"` de RN-Web résolvant en `ltr` sur les Text purement emoji.
@@ -116,7 +127,7 @@ identifiants ou une configuration proxy en clair**. 28 artefacts de build
 ## 5. Gate de vérification
 
 - `npm run verify` : **73 suites / 1913 tests** ✅ (lint couleurs + `tsc --noEmit` + Jest)
-- Playwright E2E : **38/38** ✅ (run isolé, 10,5 min — 4 langues × 5 onglets)
+- Playwright E2E : **38/38** ✅ (run isolé — 4 langues × 5 onglets)
 - `firebase deploy --only firestore:rules --dry-run` : compilation réussie ✅
 - Parité i18n : 0 clé manquante ar/tn/en ✅
 
@@ -129,7 +140,18 @@ e04e047 fix(AR/RTL): stop chevron double-flip, mirror nav back arrow, fix arrow 
 65ab3de fix(home): give the empty Home state a way out instead of stranding the user
 b06fd59 test(e2e): fix language-card selection — the "ar" test was exercising the TN card
 50a3d7b fix(security,a11y,i18n): close GDPR purge no-op, PII leak, unbounded inputs; remove orphan credential scripts
+ab02e92 fix(i18n): bottom tab labels stayed in the fallback language after a tab switch
 ```
+
+### Vérifications négatives (constats testés, PAS des bugs)
+
+- Le pager à onglets supérieurs (Rappels / Tâches), réputé rendre un 2e onglet
+  blanc en RTL sur web, **rend correctement** — testé en arabe.
+- Le changement de langue en cours de session met tout à jour instantanément,
+  sans rechargement, barre d'onglets comprise (testé ar → fr → ar).
+- Un état transitoire « libellés FR + contenu AR » observé pendant le
+  développement s'est révélé être un artefact HMR ; le bug réel, distinct et
+  reproductible, est celui décrit en §2.4.
 
 ## 7. Reste ouvert
 
