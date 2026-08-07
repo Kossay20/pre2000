@@ -142,12 +142,6 @@ export const HospitalBagChecklistScreen: React.FC = () => {
                                         <View
                                             style={[
                                                 styles.checkbox,
-                                                // Gap lives on the side facing the label: right edge in
-                                                // LTR (marginEnd), left edge in RTL (marginStart). Explicit
-                                                // because RN-Web doesn't flip logical margins without forceRTL.
-                                                isRTL
-                                                    ? { marginEnd: 0, marginStart: theme.spacing.m }
-                                                    : { marginEnd: theme.spacing.m, marginStart: 0 },
                                                 checked && styles.checkboxChecked,
                                             ]}
                                         >
@@ -293,8 +287,14 @@ const styles = StyleSheet.create({
         borderRadius: 6,
         borderWidth: 2,
         borderColor: theme.colors.border,
-        // checkbox→label gap is applied inline per direction (see render) — RN-Web does not
-        // flip logical marginEnd without I18nManager.forceRTL, which is skipped on web.
+        // DOUBLE-FLIP FIX: the checkbox→label gap used to be swapped by hand in the
+        // render (`isRTL ? {marginStart} : {marginEnd}`) because RN-Web would not
+        // mirror logical margins while I18nManager.forceRTL was skipped on web.
+        // The app now wraps the tree in RN-Web's LocaleProvider, so `marginEnd` DOES
+        // mirror — and the manual swap flipped it a second time, putting the gap on
+        // the row's outer edge and leaving the Arabic label touching the checkbox
+        // border. A plain logical margin is correct on every platform now.
+        marginEnd: theme.spacing.m,
         alignItems: 'center',
         justifyContent: 'center',
     },
