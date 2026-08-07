@@ -109,6 +109,13 @@ export const LanguageSelectScreen = () => {
                 {LANGUAGES.map((language) => (
                     <TouchableOpacity
                         key={language.code}
+                        // Stable E2E hook. The suite used to locate these cards by
+                        // flag emoji and positional index; when the Arabic card swapped
+                        // 🇩🇿 for a region-neutral 🌍 the regex silently matched only
+                        // three cards, so the "ar" test was actually clicking the
+                        // Tunisian card and the en/tn tests broke outright. A testID
+                        // cannot drift with the visual design.
+                        testID={`lang_card_${language.code}`}
                         style={[
                             styles.languageCard,
                             selectedLanguage === language.code && styles.languageCardSelected,

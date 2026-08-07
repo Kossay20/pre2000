@@ -105,15 +105,17 @@ for (const L of LANGS) {
       // Language screen should appear (no seeded state)
       await expect(page.locator('html')).toBeVisible({ timeout: 20_000 });
 
-      // Select the language card by position (0-based). Use the list of tappable
-      // divs/buttons on the language list — each language card is a TouchableOpacity.
-      const cards = page.locator('[role="button"], [data-testid], div[tabindex="0"]');
-      // More robust: get all clickable elements in the language-list container.
-      // We know the order: FR=0, AR=1, TN=2, EN=3 (LanguageSelectScreen.tsx:21-24).
-      // Use nth() on the flag-emoji text containers.
-      const langCards = page.locator('text=/🇫🇷|🇩🇿|🇹🇳|🇬🇧/').locator('..');
-      await expect(langCards.first()).toBeVisible({ timeout: 20_000 });
-      await langCards.nth(L.cardIndex).click();
+      // Select the language card by its testID.
+      // This used to match flag emoji with `text=/🇫🇷|🇩🇿|🇹🇳|🇬🇧/` and index into the
+      // result with nth(). When the Arabic card replaced 🇩🇿 with a region-neutral 🌍
+      // the regex matched only three cards, so every index shifted: `en` (index 3)
+      // timed out, `tn` (index 2) clicked English, and — worst — `ar` (index 1)
+      // clicked the Tunisian card and PASSED, since both are RTL and share the same
+      // Arabic copy. Arabic had no real E2E coverage at all. A testID is immune to
+      // that class of drift.
+      const langCard = page.locator(`[data-testid="lang_card_${L.code}"]`);
+      await expect(langCard).toBeVisible({ timeout: 20_000 });
+      await langCard.click();
       await page.waitForTimeout(600);
 
       // Check the doc dir switches after language selection

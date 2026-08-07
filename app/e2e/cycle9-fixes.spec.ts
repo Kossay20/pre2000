@@ -113,11 +113,19 @@ test.describe('Cycle 9 — fix regression net (cold-boot Language)', () => {
 
     test('LanguageSelectScreen — 4 languages rendered + active checkmark', async ({ page }) => {
         await gotoLanguageHydrated(page);
+        // Assert on the four cards themselves, not on their subtitles. The subtitle
+        // used to be a frozen English/French string ("Arabic"), but it is now
+        // localized via t(descKey), so asserting "Arabic" tested a bug that has since
+        // been fixed and failed once the UI language was French.
+        for (const code of ['fr', 'ar', 'tn', 'en']) {
+            await expect(page.locator(`[data-testid="lang_card_${code}"]`)).toBeVisible();
+        }
         const text = await page.evaluate(() => document.body.innerText);
+        // Native names are language-independent, so they are safe to assert on.
         expect(text).toContain('Français');
         expect(text).toContain('English');
-        expect(text).toContain('Arabic');
-        expect(text).toContain('Arabe + Darija');
+        expect(text).toContain('العربية');
+        expect(text).toContain('العربية + الدارجة (Beta)');
         // Active language has ✓ checkmark.
         expect(text).toContain('✓');
         // No raw i18n keys leaked.
