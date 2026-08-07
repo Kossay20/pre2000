@@ -523,6 +523,10 @@ export const styles = StyleSheet.create({
         gap: 8,
     },
     quickActionPill: {
+        // `row` mirrors on its own under the document's dir=rtl — the inline
+        // `isRTL ? 'row-reverse' : 'row'` this replaces was a double flip that made
+        // the pills read left-to-right in Arabic.
+        flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
         minHeight: 44,
@@ -548,6 +552,7 @@ export const styles = StyleSheet.create({
     },
     // #9 — "Return to current week" pill, shown only while previewing another week.
     todayPill: {
+        flexDirection: 'row',
         alignSelf: 'center',
         alignItems: 'center',
         justifyContent: 'center',

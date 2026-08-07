@@ -185,9 +185,13 @@ export const SupplementDetailScreen = () => {
 
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-            {/* Back button + bookmark toggle. RTL-safe: row-reverse flips the
+            {/* Back button + bookmark toggle.
+                DOUBLE-FLIP FIX: dropped the RTL `row-reverse` — under dir=rtl a plain
+                `flexDirection: 'row'` already lays children out right-to-left, so the
+                extra reverse cancelled it and Arabic got the LTR arrangement.
+                (was: RTL-safe: row-reverse flips the
                 bookmark to the opposite side of the back arrow (task 10b). */}
-            <View style={[styles.headerBar, isRTL && styles.headerBarRTL]}>
+            <View style={styles.headerBar}>
                 <TouchableOpacity
                     onPress={() => navigation.goBack()}
                     style={styles.backButton}
@@ -276,7 +280,7 @@ export const SupplementDetailScreen = () => {
                                     key={linked.article_id}
                                     onPress={() => navigation.navigate('ArticleDetail', { articleId: linked.article_id })}
                                     activeOpacity={0.7}
-                                    style={[styles.chip, isRTL && styles.chipRTL]}
+                                    style={styles.chip}
                                     accessibilityRole="button"
                                     accessibilityLabel={label}
                                     accessibilityHint={t('a11y.readArticle')}
@@ -327,9 +331,6 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginBottom: theme.spacing.m,
     },
-    headerBarRTL: {
-        flexDirection: 'row-reverse',
-    },
     backButton: {
         alignSelf: 'flex-start',
     },
@@ -368,9 +369,6 @@ const styles = StyleSheet.create({
         backgroundColor: theme.colors.cardBackground,
         borderWidth: 1,
         borderColor: theme.colors.border,
-    },
-    chipRTL: {
-        flexDirection: 'row-reverse',
     },
     chipText: {
         ...theme.typography.label,

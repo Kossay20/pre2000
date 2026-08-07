@@ -358,9 +358,14 @@ export const ArticleDetailScreen = () => {
             contentContainerStyle={styles.contentContainer}
         >
             <View style={styles.header}>
-                {/* Back button + bookmark toggle. RTL-safe: row-reverse flips the
-                    bookmark to the opposite side of the back arrow (task 10b). */}
-                <View style={[styles.headerBar, isRTL && styles.headerBarRTL]}>
+                {/* Back button + bookmark toggle.
+                    DOUBLE-FLIP FIX: this used to add `row-reverse` for RTL. Under the
+                    document's dir=rtl, plain `flexDirection: 'row'` ALREADY lays children
+                    out right-to-left, so the extra reverse cancelled it and Arabic got the
+                    LTR arrangement — back arrow on the left, bookmark on the right. The
+                    same (correct) reasoning is already documented in ToastContext and
+                    OnboardingScreen; these two detail screens had drifted from it. */}
+                <View style={styles.headerBar}>
                     <TouchableOpacity
                         onPress={() => navigation.goBack()}
                         style={styles.backButton}
@@ -473,7 +478,7 @@ export const ArticleDetailScreen = () => {
                                     key={linked.article_id}
                                     onPress={() => (navigation as any).push('ArticleDetail', { articleId: linked.article_id })}
                                     activeOpacity={0.7}
-                                    style={[styles.chip, isRTL && styles.chipRTL]}
+                                    style={styles.chip}
                                     accessibilityRole="button"
                                     accessibilityLabel={label}
                                     accessibilityHint={t('a11y.readArticle')}
@@ -503,7 +508,7 @@ export const ArticleDetailScreen = () => {
                                     key={linked.supplement_id}
                                     onPress={() => navigation.navigate('SupplementDetail', { supplementId: linked.supplement_id })}
                                     activeOpacity={0.7}
-                                    style={[styles.chip, isRTL && styles.chipRTL]}
+                                    style={styles.chip}
                                     accessibilityRole="button"
                                     accessibilityLabel={label}
                                     accessibilityHint={t('a11y.openSupplement')}
@@ -542,9 +547,6 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center',
         marginBottom: theme.spacing.m,
-    },
-    headerBarRTL: {
-        flexDirection: 'row-reverse',
     },
     backButton: {
         alignSelf: 'flex-start',
@@ -592,9 +594,6 @@ const styles = StyleSheet.create({
         backgroundColor: theme.colors.cardBackground,
         borderWidth: 1,
         borderColor: theme.colors.border,
-    },
-    chipRTL: {
-        flexDirection: 'row-reverse',
     },
     chipText: {
         ...theme.typography.label,

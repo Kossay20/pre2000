@@ -424,7 +424,7 @@ export const HomeScreen = () => {
                 une exploration (pas une vraie grossesse). CTA pour basculer si
                 grossesse réelle survient (vise Profile pour reset onboarding). */}
             {user?.isCurious && (
-                <View style={[styles.curiousBanner, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <View style={styles.curiousBanner}>
                     <Text style={styles.curiousBannerEmoji}>👀</Text>
                     <View style={styles.curiousBannerTextContainer}>
                         <Text style={styles.curiousBannerTitle}>{t('home.curiousTitle')}</Text>
@@ -530,7 +530,7 @@ export const HomeScreen = () => {
                                 testID="home_return_to_today"
                                 accessibilityRole="button"
                                 accessibilityLabel={t('home.currentWeek')}
-                                style={[styles.todayPill, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+                                style={styles.todayPill}
                             >
                                 <Text style={styles.todayPillIcon}>👁️</Text>
                                 <Text style={styles.todayPillText}>{t('home.currentWeek')}</Text>
@@ -555,7 +555,7 @@ export const HomeScreen = () => {
                                 testID="home_quick_appointments"
                                 accessibilityRole="button"
                                 accessibilityLabel={t('home.myAppointments')}
-                                style={[styles.quickActionPill, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+                                style={styles.quickActionPill}
                             >
                                 <Text style={styles.quickActionPillIcon}>📅</Text>
                                 <Text style={styles.quickActionPillLabel} numberOfLines={1}>{t('home.myAppointments')}</Text>
@@ -566,7 +566,7 @@ export const HomeScreen = () => {
                                 testID="home_quick_add_task"
                                 accessibilityRole="button"
                                 accessibilityLabel={t('home.addTask', 'Tâche')}
-                                style={[styles.quickActionPill, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+                                style={styles.quickActionPill}
                             >
                                 <Text style={styles.quickActionPillIcon}>➕</Text>
                                 <Text style={styles.quickActionPillLabel} numberOfLines={1}>{t('home.addTask', 'Tâche')}</Text>
@@ -588,7 +588,7 @@ export const HomeScreen = () => {
                                 testID="home_quick_add_appointment"
                                 accessibilityRole="button"
                                 accessibilityLabel={t('home.addAppointment', 'RDV')}
-                                style={[styles.quickActionPill, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+                                style={styles.quickActionPill}
                             >
                                 <Text style={styles.quickActionPillIcon}>➕</Text>
                                 <Text style={styles.quickActionPillLabel} numberOfLines={1}>{t('home.addAppointment', 'RDV')}</Text>
@@ -599,7 +599,7 @@ export const HomeScreen = () => {
                                 testID="home_quick_search"
                                 accessibilityRole="button"
                                 accessibilityLabel={t('common.search')}
-                                style={[styles.quickActionPill, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+                                style={styles.quickActionPill}
                             >
                                 <Text style={styles.quickActionPillIcon}>🔍</Text>
                                 <Text style={styles.quickActionPillLabel} numberOfLines={1}>{t('common.search')}</Text>
@@ -618,7 +618,7 @@ export const HomeScreen = () => {
             <View style={[styles.contentContainer, { marginTop: -60 }]}>
                 {/* POST-PARTUM / ETERNAL PREGNANCY BANNER */}
                 {isInvalid && (
-                    <View style={[styles.postpartumBanner, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                    <View style={styles.postpartumBanner}>
                         <Text style={styles.postpartumEmoji}>🍼</Text>
                         <View style={styles.postpartumTextContainer}>
                             <Text style={styles.postpartumTitle}>{t('home.postpartumTitle')}</Text>
