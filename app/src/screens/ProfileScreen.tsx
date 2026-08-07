@@ -38,7 +38,7 @@ const MAX_WEIGHT_KG = 200;
 
 export const ProfileScreen = () => {
     useScreenAnalytics('ProfileScreen');
-    const { user, logout, resetProfile, updateProfile, deleteAccount, reauthenticateAndDelete } = useAuth();
+    const { user, firebaseUser, logout, resetProfile, updateProfile, deleteAccount, reauthenticateAndDelete } = useAuth();
     const { profile, setProfile } = usePregnancy();
     const { currentWeekNumber } = useCurrentWeek();
     const navigation = useNavigation();
@@ -319,7 +319,13 @@ export const ProfileScreen = () => {
                         {t('common.week')} {currentWeekNumber || '—'}
                     </Text>
                     <Text style={styles.headerSubtitle}>
-                        {user?.email || t('profile.guestUser')}
+                        {/* GUEST-LABEL FIX: this read only the Firestore profile's `email`
+                            field. A profile document written without that field — which is
+                            what the guest-upgrade and cold-start bootstrap paths produce —
+                            made a fully registered, signed-in user read "Utilisateur invité"
+                            under their own name. Firebase auth always knows the address, so
+                            fall back to it before calling anyone a guest. */}
+                        {user?.email || firebaseUser?.email || t('profile.guestUser')}
                     </Text>
                     {user?.isGuest && (
                         <Button
