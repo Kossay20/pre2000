@@ -22,8 +22,7 @@
       },
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "NSUserNotificationsUsageDescription": "Mama & Bébé vous envoie des rappels bienveillants pour votre bien-être et celui de votre bébé.",
-        "NSMotionUsageDescription": "Utilisé pour détecter l'activité physique."
+        "NSUserNotificationsUsageDescription": "Mama & Bébé vous envoie des rappels bienveillants pour votre bien-être et celui de votre bébé."
       },
       "privacyManifests": {
         "NSPrivacyCollectedDataTypes": [

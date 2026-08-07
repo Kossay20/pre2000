@@ -57,6 +57,28 @@ i18n
         },
     });
 
+// TUNISIAN PLURALS FIX. Our Derja locale uses the code `tn`, but in CLDR `tn`
+// is Setswana — a two-form language (one / other). i18next resolves plural rules
+// through Intl.PluralRules on that code, so every Arabic form we ship for `tn`
+// (_zero, _two, _few, _many) was dead: 0, 2, 3 and 11 all fell through to
+// _other. Tunisian rendered "3 مهمة" where Arabic correctly renders "3 مهام",
+// and the same for every pluralized string in the locale.
+// Derja is Arabic, so borrow Arabic's rules. Renaming the locale to `ar-TN`
+// would also work but would invalidate the persisted `app_locale` value and
+// every `language === 'tn'` comparison in the codebase.
+try {
+    const pluralResolver: any = (i18n as any).services?.pluralResolver;
+    if (pluralResolver?.getRule) {
+        const originalGetRule = pluralResolver.getRule.bind(pluralResolver);
+        pluralResolver.getRule = (code: string, options?: unknown) =>
+            originalGetRule(code === 'tn' ? 'ar' : code, options);
+    } else {
+        log.warn('[i18n] pluralResolver unavailable — tn will use Setswana plural rules');
+    }
+} catch (e) {
+    log.warn('[i18n] Could not alias tn plural rules to ar:', e);
+}
+
 log.debug('[i18n] ✅ i18n initialized');
 
 // P1-2 FIX (E2E audit 2026-05-08): on web, sync <html lang> and <html dir>

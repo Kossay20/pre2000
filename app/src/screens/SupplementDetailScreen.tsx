@@ -293,6 +293,16 @@ export const SupplementDetailScreen = () => {
             {supplement.sources && (
                 <Text style={[theme.typography.caption, styles.source]}>{`${t('common.source')} : ${supplement.sources}`}</Text>
             )}
+
+            {/* MEDICAL-DISCLAIMER FIX. This screen shows concrete dosages and a green
+                "safe during pregnancy" pill, and was the only such surface with no
+                disclaimer — the chatbot, kick counter, contraction timer, forbidden
+                foods and Ramadan screens all carry one. Beyond the App Store health
+                guideline, a dosage shown without "ask your doctor" is the riskiest
+                thing this app can display. Same visual pattern as ForbiddenFoods. */}
+            <View style={styles.disclaimer}>
+                <Text style={styles.disclaimerText}>{t('common.supplementsDisclaimer')}</Text>
+            </View>
         </ScrollView>
     );
 };
@@ -375,5 +385,19 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         marginTop: theme.spacing.m,
         fontStyle: 'italic',
+    },
+    disclaimer: {
+        backgroundColor: theme.colors.surfaceAmberTint,
+        borderRadius: 12,
+        padding: 12,
+        marginTop: theme.spacing.l,
+        marginBottom: theme.spacing.l,
+        borderWidth: 1,
+        borderColor: theme.colors.amberBorder,
+    },
+    disclaimerText: {
+        fontSize: 12,
+        color: theme.colors.accentOrangeDeep,
+        lineHeight: 18,
     },
 });

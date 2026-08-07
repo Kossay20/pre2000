@@ -455,7 +455,8 @@
     "invalidNumber": "Numéro invalide. Format attendu : chiffres, +, espaces, tirets (4-20 chars).",
     "validationError": "Nom et numéro requis",
     "addError": "Erreur lors de l'ajout",
-    "deleteError": "Erreur lors de la suppression"
+    "deleteError": "Erreur lors de la suppression",
+    "tooManyContacts": "Vous ne pouvez pas enregistrer plus de {{max}} contacts d’urgence."
   },
   "a11y": {
     "previousDay": "Jour précédent",
@@ -793,5 +794,6 @@
   "goToTasks": "Aller aux Tâches",
   "chatbotTitle": "Assistant grossesse",
   "chatbotSubtitle": "Conseils grossesse",
-  "addToFavorites": "Ajouter aux favoris"
+  "addToFavorites": "Ajouter aux favoris",
+  "supplementsDisclaimer": "⚠️ Ces informations sont fournies à titre indicatif et ne remplacent pas un avis médical.\nNe commencez ni n’arrêtez jamais un complément sans en parler à votre médecin ou sage-femme."
 }

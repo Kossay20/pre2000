@@ -189,16 +189,50 @@ describe('showAlert', () => {
                 expect(onDestroy).toHaveBeenCalledTimes(1);
             });
 
-            it('with multiple buttons but the positive one lacking onPress, still calls confirm? No — confirm only runs when onPress exists', () => {
-                // confirmButton exists (non-cancel) but has no onPress → outer guard
-                // `confirmButton && confirmButton.onPress` is false → confirm NOT called.
+            it('shows the confirm even when the positive button has no onPress', () => {
+                // Previously the implementation required `confirmButton.onPress` to
+                // exist before showing a confirm, so a Cancel/OK pair with no handler
+                // degraded to a plain alert — the user lost the choice entirely. The
+                // dialog is now driven by the button set, not by handler presence; a
+                // handler-less button simply does nothing when chosen.
                 showAlert('Titre', 'Message', [
                     { text: 'Annuler', style: 'cancel' },
                     { text: 'OK' },
                 ]);
 
-                expect(confirmSpy).not.toHaveBeenCalled();
-                expect(alertSpy).toHaveBeenCalledTimes(1);
+                expect(confirmSpy).toHaveBeenCalledTimes(1);
+                // Exactly one dialog: no alert stacked in front of the confirm.
+                expect(alertSpy).not.toHaveBeenCalled();
+            });
+
+            it('shows exactly one dialog — no alert stacked before the confirm', () => {
+                // REGRESSION GUARD: the old web path always ran window.alert first and
+                // then window.confirm with the IDENTICAL text, so the user had to
+                // dismiss the same message twice before the choice appeared.
+                confirmSpy.mockReturnValue(true);
+                showAlert('Titre', 'Message', [
+                    { text: 'Annuler', style: 'cancel' },
+                    { text: 'OK', onPress: jest.fn() },
+                ]);
+
+                expect(alertSpy).not.toHaveBeenCalled();
+                expect(confirmSpy).toHaveBeenCalledTimes(1);
+            });
+
+            it('fires the cancel button onPress when the confirm is dismissed', () => {
+                // Native Alert.alert invokes the cancel handler; the web path never
+                // did, so cancel-side cleanup silently did nothing on web.
+                confirmSpy.mockReturnValue(false);
+                const onCancel = jest.fn();
+                const onConfirm = jest.fn();
+
+                showAlert('Titre', 'Message', [
+                    { text: 'Annuler', style: 'cancel', onPress: onCancel },
+                    { text: 'OK', onPress: onConfirm },
+                ]);
+
+                expect(onCancel).toHaveBeenCalledTimes(1);
+                expect(onConfirm).not.toHaveBeenCalled();
             });
 
             it('with two buttons where ALL are cancel, fires nothing extra', () => {
@@ -256,8 +290,10 @@ describe('showAlert', () => {
         it('passes buttons through untouched (no confirm/onPress execution by the wrapper)', () => {
             mockPlatform.OS = 'ios';
             const onPress = jest.fn();
+            // `as const` on style: showAlert's buttons are now typed (AlertButton[])
+            // instead of `any[]`, so a widened `string` no longer satisfies the union.
             const buttons = [
-                { text: 'Annuler', style: 'cancel' },
+                { text: 'Annuler', style: 'cancel' as const },
                 { text: 'OK', onPress },
             ];
 

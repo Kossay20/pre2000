@@ -43,7 +43,7 @@ jest.mock('firebase/firestore', () => ({
   })),
 }));
 
-import { purgeUserFirestoreData, topLevelCollectionsToDelete, legacySubCollections } from '../gdprPurge';
+import { purgeUserFirestoreData, topLevelCollectionsToDelete, legacySubCollections, legacyParentCollections } from '../gdprPurge';
 import { deleteDoc } from 'firebase/firestore';
 
 const UID = 'user-xyz';
@@ -91,6 +91,28 @@ describe('purgeUserFirestoreData (GDPR Art. 17)', () => {
     await purgeUserFirestoreData({}, UID);
     expect(totalDeletes).toBe(3);
     expect(legacySubCollections).toContain('journal');
+  });
+
+  // REGRESSION GUARD. Before the rules fix, `match /userProfiles/{userId}` covered
+  // only the document, so every subcollection read was permission-denied, swallowed
+  // by the per-collection catch and downgraded to a warn — the purge reported success
+  // while legacy health data survived. `users/{uid}` was not swept at all even though
+  // DemoDataService writes users/{uid}/{weights,events}.
+  it('sweeps legacy subcollections under BOTH userProfiles/{uid} and users/{uid}', async () => {
+    SUB_COUNTS = {
+      [`userProfiles/${UID}/weights`]: 2,
+      [`users/${UID}/weights`]: 3,
+      [`users/${UID}/events`]: 1,
+    };
+    await purgeUserFirestoreData({}, UID);
+    expect(totalDeletes).toBe(6);
+    expect(legacyParentCollections).toEqual(['userProfiles', 'users']);
+  });
+
+  it('deletes the legacy users/{uid} document as well as userProfiles/{uid}', async () => {
+    await purgeUserFirestoreData({}, UID);
+    expect(deleteDoc).toHaveBeenCalledWith({ path: `userProfiles/${UID}` });
+    expect(deleteDoc).toHaveBeenCalledWith({ path: `users/${UID}` });
   });
 
   it('does not abort the whole purge if one collection query throws', async () => {

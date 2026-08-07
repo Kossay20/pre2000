@@ -123,7 +123,13 @@ const HomeStack = () => {
       <Stack.Screen name="HealthDashboard" component={HealthDashboardScreen} options={{ title: t('common.screen.myHealth') }} />
       <Stack.Screen name="WeightTracker" component={WeightTrackerScreen} options={{ title: t('common.screen.weightTracking') }} />
       <Stack.Screen name="ForbiddenFoods" component={ForbiddenFoodsScreen} options={{ title: t('common.screen.forbiddenFoods') }} />
-      <Stack.Screen name="Diagnostic" component={DiagnosticScreen} options={{ title: t('common.screen.dataDiagnostic') }} />
+      {/* DEV-SURFACE FIX: the Settings entry point is already __DEV__-gated, but the
+          screen itself was registered unconditionally AND deep-linkable at
+          /diagnostic, so a production build still shipped an internal data-dump
+          screen reachable by URL. Gate the registration, not just the menu item. */}
+      {__DEV__ && (
+        <Stack.Screen name="Diagnostic" component={DiagnosticScreen} options={{ title: t('common.screen.dataDiagnostic') }} />
+      )}
       <Stack.Screen name="LanguageSelect" component={LanguageSelectScreen} options={{ title: t('common.screen.language') }} />
       <Stack.Screen name="BabyEvolution" component={BabyEvolutionScreen} options={{ headerShown: false }} />
       <Stack.Screen name="KickCounter" component={KickCounterScreen} options={{ title: t('cycle8.kickCounter.title') }} />
@@ -304,7 +310,8 @@ const AppContent = () => {
             ArticleDetail: 'article/:articleId',
             SupplementDetail: 'supplement/:supplementId',
             WeekRecommendations: 'recommendations',
-            Diagnostic: 'diagnostic',
+            // Dev-only, matching the __DEV__-gated screen registration above.
+            ...(__DEV__ ? { Diagnostic: 'diagnostic' } : {}),
             HealthDashboard: 'health',
             WeightTracker: 'weight',
             Profile: 'profile',

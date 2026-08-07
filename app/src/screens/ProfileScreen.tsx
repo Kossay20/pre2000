@@ -27,6 +27,14 @@ import { calculatePregnancyWeek, calculateCurrentWeek } from '../utils/pregnancy
 import { LineChart } from 'react-native-chart-kit';
 import { Ionicons } from '@expo/vector-icons';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
+import { validateProfile } from '../utils/validation';
+
+// Same physical bounds WeightTrackerScreen enforces (see its handleSetup), so the
+// two screens cannot disagree about what a plausible height/weight is.
+const MIN_HEIGHT_CM = 100;
+const MAX_HEIGHT_CM = 250;
+const MIN_WEIGHT_KG = 30;
+const MAX_WEIGHT_KG = 200;
 
 export const ProfileScreen = () => {
     useScreenAnalytics('ProfileScreen');
@@ -82,9 +90,37 @@ export const ProfileScreen = () => {
     const dpa = calculateDPA(lmp);
 
     const handleSave = async () => {
-        if (!firstName.trim()) {
-            showAlert(t('common.error'), t('profile.errorFirstName'));
+        // VALIDATION FIX: this screen only checked "firstName is non-empty".
+        // validateProfile — which caps both names at 50 chars and rejects a future
+        // LMP — was imported nowhere but OnboardingScreen, so the edit path bypassed
+        // it entirely and wrote unbounded values straight to Firestore.
+        const profileValidation = validateProfile({
+            firstName,
+            lastName,
+            lmp,
+        });
+        if (!profileValidation.valid) {
+            showAlert(t('common.error'), t(profileValidation.error || 'profile.errorFirstName'));
             return;
+        }
+
+        // Height/weight were bounded only by maxLength (3 and 5 chars), so 999 cm and
+        // 99999 kg persisted and then fed the BMI and weight-gain calculations.
+        // WeightTracker already gates the same two fields at 100-250 cm / 30-200 kg;
+        // apply the identical range here so one screen cannot poison the other.
+        if (height.trim()) {
+            const h = parseFloat(height);
+            if (!isFinite(h) || h < MIN_HEIGHT_CM || h > MAX_HEIGHT_CM) {
+                showAlert(t('common.error'), t('profile.errorHeightRange', { min: MIN_HEIGHT_CM, max: MAX_HEIGHT_CM }));
+                return;
+            }
+        }
+        if (prePregnancyWeight.trim()) {
+            const w = parseFloat(prePregnancyWeight);
+            if (!isFinite(w) || w < MIN_WEIGHT_KG || w > MAX_WEIGHT_KG) {
+                showAlert(t('common.error'), t('profile.errorWeightRange', { min: MIN_WEIGHT_KG, max: MAX_WEIGHT_KG }));
+                return;
+            }
         }
 
         const { isInvalid } = calculatePregnancyWeek(lmp);
@@ -304,12 +340,22 @@ export const ProfileScreen = () => {
                     <Text style={styles.sectionTitle}>{t('profile.personalInfo')}</Text>
                     <View style={styles.card}>
                         <View style={styles.form}>
+                            {/* UNBOUNDED-INPUT FIX: these two had no maxLength (unlike
+                                height/weight below), and handleSave only checks that
+                                firstName is non-empty — validateProfile, which caps both
+                                at 50 chars, is never called on this edit path. A pasted
+                                megabyte was persisted to Firestore, mirrored to
+                                AsyncStorage, re-read on every cold start and rendered
+                                untruncated in the header. Bounded here and in
+                                firestore.rules, matching validation.ts:182-188. */}
                             <Text style={styles.label}>{t('common.firstName')} *</Text>
                             <TextInput
                                 style={styles.input}
                                 value={firstName}
                                 onChangeText={setFirstName}
                                 placeholder={t('common.enterFirstName')}
+                                maxLength={50}
+                                accessibilityLabel={t('common.firstName')}
                             />
 
                             <Text style={styles.label}>{t('common.lastName')}</Text>
@@ -318,6 +364,8 @@ export const ProfileScreen = () => {
                                 value={lastName}
                                 onChangeText={setLastName}
                                 placeholder={t('common.enterLastName')}
+                                maxLength={50}
+                                accessibilityLabel={t('common.lastName')}
                             />
 
                             <Text style={styles.label}>{t('common.country')}</Text>

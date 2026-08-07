@@ -12,6 +12,9 @@ const log = createLogger('EmergencyContactsSection');
 export { TEL_VALIDATION_REGEX, sanitizeTelNumber } from './EmergencyContactsSection.helpers';
 import { TEL_VALIDATION_REGEX, sanitizeTelNumber } from './EmergencyContactsSection.helpers';
 
+/** Upper bound on the contacts array so it cannot bloat the profile document. */
+const MAX_EMERGENCY_CONTACTS = 10;
+
 export const EmergencyContactsSection = () => {
     const { t } = useTranslation();
     const { profile, setProfile } = usePregnancy();
@@ -50,6 +53,14 @@ export const EmergencyContactsSection = () => {
 
         if (!TEL_VALIDATION_REGEX.test(newNumber.trim())) {
             showAlert(t('common.error'), t('emergency.invalidNumber'));
+            return;
+        }
+
+        // The list was appended to with no cap, so it could grow without bound
+        // inside the profile document (which is re-read on every cold start).
+        // 10 emergency contacts is already far beyond any real use.
+        if (contacts.length >= MAX_EMERGENCY_CONTACTS) {
+            showAlert(t('common.error'), t('emergency.tooManyContacts', { max: MAX_EMERGENCY_CONTACTS }));
             return;
         }
 
@@ -201,11 +212,16 @@ export const EmergencyContactsSection = () => {
                         ))}
                     </View>
 
+                    {/* UNBOUNDED-INPUT FIX: the phone field was validated by regex but
+                        the name was only checked for non-emptiness and had no
+                        maxLength, so it rode into the profile document unbounded. */}
                     <TextInput
                         style={styles.input}
                         placeholder={t('emergency.name')}
                         value={newName}
                         onChangeText={setNewName}
+                        maxLength={50}
+                        accessibilityLabel={t('emergency.name')}
                     />
                     <TextInput
                         style={styles.input}

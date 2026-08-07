@@ -294,7 +294,16 @@ export const saveUserEvent = async (
         log.error('[CalendarService] Error saving user event:', error);
         log.error('[CalendarService] Error details:', JSON.stringify(error));
         if (error.code === 'permission-denied') {
-            log.error('[CalendarService] PERMISSION DENIED. Check Firestore rules. User ID used:', cleanedEvent.user_id);
+            // PII FIX: this used to append the raw Firebase UID. `error` is the one
+            // log level that is not __DEV__-gated, and its extra args are forwarded to
+            // Sentry verbatim — which defeated the deliberate SHA-256 UID hashing in
+            // logger.setUser(). Sentry already carries the hashed user on every event,
+            // so the raw value added nothing but a privacy leak. Log only whether a
+            // uid was present, which is the part that actually aids diagnosis.
+            log.error(
+                '[CalendarService] PERMISSION DENIED. Check Firestore rules. user_id present:',
+                !!cleanedEvent.user_id,
+            );
         }
         throw error;
     }

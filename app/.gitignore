@@ -69,3 +69,6 @@ e2e/r*_shots/
 e2e/audit2/round-*/
 e2e/audit2/*_shots/
 reports/test-e2e/**/round-*/
+
+# Build artifacts from `expo export` — must never be committed.
+dist-*/

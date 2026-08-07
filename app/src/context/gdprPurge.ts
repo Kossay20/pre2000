@@ -26,7 +26,10 @@ export const topLevelCollectionsToDelete = [
     'symptomsLog',          // healthService.saveSymptomEntry
 ] as const;
 
-// Legacy nested data under userProfiles/{uid}/… from earlier app versions.
+// Legacy nested data under userProfiles/{uid}/… and users/{uid}/… from earlier
+// app versions. Both parents must be swept: `users/` predates the userProfiles
+// schema and DemoDataService still writes users/{uid}/{weights,events}.
+export const legacyParentCollections = ['userProfiles', 'users'] as const;
 export const legacySubCollections = ['weights', 'events', 'journal', 'chatbot_history'] as const;
 
 const BATCH_LIMIT = 400;
@@ -69,13 +72,26 @@ export const purgeUserFirestoreData = async (db: any, uid: string): Promise<void
         }
     }
 
-    // 3. Legacy subcollections under userProfiles/{uid}
-    for (const subColName of legacySubCollections) {
-        try {
-            const subSnap = await getDocs(collection(db, 'userProfiles', uid, subColName));
-            if (subSnap.size > 0) await deleteDocsInBatches(db, subSnap.docs);
-        } catch (err) {
-            log.warn(`Failed to cleanup subcollection ${subColName}`, err);
+    // 3. Legacy subcollections under userProfiles/{uid} AND users/{uid}.
+    // `users/{uid}` was missing: DemoDataService writes users/{uid}/{weights,events},
+    // so those documents were never in the purge set at all. Both parents are now
+    // covered by an owner-scoped nested wildcard in firestore.rules — before that,
+    // every read here was permission-denied and silently skipped.
+    for (const parentCol of legacyParentCollections) {
+        for (const subColName of legacySubCollections) {
+            try {
+                const subSnap = await getDocs(collection(db, parentCol, uid, subColName));
+                if (subSnap.size > 0) await deleteDocsInBatches(db, subSnap.docs);
+            } catch (err) {
+                log.warn(`Failed to cleanup subcollection ${parentCol}/${subColName}`, err);
+            }
         }
+    }
+
+    // 4. The legacy `users/{uid}` document itself (pre-userProfiles schema).
+    try {
+        await deleteDoc(doc(db, 'users', uid));
+    } catch (err) {
+        log.warn('Failed to delete legacy users/ document', err);
     }
 };

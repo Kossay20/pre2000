@@ -713,7 +713,8 @@
     "invalidNumber": "Invalid number. Expected format: digits, +, spaces, dashes (4-20 chars).",
     "validationError": "Please fill all fields",
     "addError": "Could not add contact",
-    "deleteError": "Could not delete contact"
+    "deleteError": "Could not delete contact",
+    "tooManyContacts": "You cannot save more than {{max}} emergency contacts."
   },
   "gamification": {
     "currentStreak": "Current Streak",
@@ -793,5 +794,6 @@
   "goToTasks": "Go to Tasks",
   "chatbotTitle": "Pregnancy Assistant",
   "chatbotSubtitle": "Pregnancy guidance",
-  "addToFavorites": "Add to favorites"
+  "addToFavorites": "Add to favorites",
+  "supplementsDisclaimer": "⚠️ This information is for guidance only and does not replace medical advice.\nNever start or stop a supplement without talking to your doctor or midwife."
 }

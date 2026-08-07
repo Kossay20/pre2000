@@ -593,14 +593,22 @@ describe('saveUserEvent', () => {
         expect(mockLog.error).toHaveBeenCalled();
     });
 
-    test('logs the permission-denied branch when setDoc rejects with that code', async () => {
+    test('logs the permission-denied branch WITHOUT leaking the raw uid', async () => {
+        // PII REGRESSION GUARD. This branch used to pass `cleanedEvent.user_id`
+        // straight to log.error — the one log level that is not __DEV__-gated and
+        // whose extra args are forwarded to Sentry verbatim, defeating the SHA-256
+        // UID hashing in logger.setUser(). It now logs only presence.
         const err = Object.assign(new Error('denied'), { code: 'permission-denied' });
         mockedSetDoc.mockRejectedValueOnce(err);
         await expect(saveUserEvent(baseInput())).rejects.toBe(err);
         expect(mockLog.error).toHaveBeenCalledWith(
             expect.stringContaining('PERMISSION DENIED'),
-            'user_123'
+            true
         );
+        const loggedRawUid = mockLog.error.mock.calls.some((args: unknown[]) =>
+            args.some(a => typeof a === 'string' && a.includes('user_123')),
+        );
+        expect(loggedRawUid).toBe(false);
     });
 });
 

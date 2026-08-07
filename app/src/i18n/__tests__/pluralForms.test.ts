@@ -29,10 +29,11 @@ describe('I3 — count-based keys pluralize correctly per language', () => {
     { lng: 'en', at1: '1 task', at3: '3 tasks', at11: '11 tasks' },
     { lng: 'fr', at1: '1 tâche', at3: '3 tâches', at11: '11 tâches' },
     { lng: 'ar', at1: '1 مهمة', at3: '3 مهام', at11: '11 مهمة' },
-    // TN: the custom 'tn' code is not a CLDR language, so Intl.PluralRules('tn') yields only
-    // 'other' — TN renders the singular at all counts. This matches Tunisian dialect (looser
-    // plural agreement than MSA) and is consistent with the existing "Darija needs native
-    // review" gate; we assert the ACTUAL behavior rather than force MSA rules onto the dialect.
+    // TN on a BARE i18next instance: 'tn' is Setswana in CLDR, so Intl.PluralRules('tn')
+    // offers only one/other and every Arabic form authored for tn is unreachable —
+    // the singular is rendered at all counts. This suite deliberately documents that
+    // raw behaviour. The SHIPPED app does not have it: src/i18n/index.ts aliases the
+    // tn plural resolver to Arabic, covered by tnPluralAlias.test.ts.
     { lng: 'tn', at1: '1 مهمة', at3: '3 مهمة', at11: '11 مهمة' },
   ];
 
