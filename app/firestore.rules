@@ -138,9 +138,14 @@ service cloud.firestore {
     // a log.warn — so "delete my account" reported success while the legacy health
     // data survived forever, contradicting the erasure promise in PrivacyPolicyScreen.
     // The nested wildcard is still owner-scoped, so this grants no cross-user access.
+    // NOTE on the nested match shape: `match /{document=**}` would match ZERO or
+    // more segments, i.e. it also matches the PARENT document — which silently
+    // short-circuits any guard placed on the parent's own `allow write` (verified
+    // live: a 1 MB firstName was accepted). `/{sub}/{doc=**}` requires at least a
+    // collection + document, so it covers subcollections only.
     match /users/{userId} {
       allow read, write: if isOwner(userId);
-      match /{document=**} {
+      match /{sub}/{doc=**} {
         allow read, write: if isOwner(userId);
       }
     }
@@ -153,7 +158,7 @@ service cloud.firestore {
       // validateProfile, so an arbitrarily large string could be persisted and then
       // re-read on every cold start — a per-user storage/bandwidth amplifier.
       allow write: if isOwner(userId) && validProfileNames();
-      match /{document=**} {
+      match /{sub}/{doc=**} {
         allow read, write: if isOwner(userId);
       }
     }
