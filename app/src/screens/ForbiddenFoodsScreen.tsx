@@ -93,9 +93,13 @@ export const ForbiddenFoodsScreen = () => {
             );
         }
 
-        // Sort by severity
+        // Sort by severity.
+        // MUTATION FIX: this used to call `result.sort(...)` directly. With no
+        // filter active, `result` IS `foods` — the array object from the JSON module
+        // import — so Array.prototype.sort reordered shared module state in place,
+        // permanently, for every other consumer of that import. Copy before sorting.
         const severityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
-        return result.sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
+        return [...result].sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
     }, [searchQuery, selectedCategory, i18n.language]);
 
     const toggleExpand = (id: string) => {

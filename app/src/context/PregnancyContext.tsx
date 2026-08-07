@@ -1,7 +1,7 @@
 import { createLogger } from '../utils/logger';
 const log = createLogger('PregnancyContext');
 // src/context/PregnancyContext.tsx
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { useMemo, createContext, useContext, useEffect, useState } from 'react';
 import { getDoc, doc } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -254,7 +254,19 @@ export const PregnancyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
         const { week, day, isInvalid } = calculatePregnancyWeek(lmpDate);
         log.debug(`[PregnancyContext] 📊 Week ${week}, Day ${day}, isInvalid=${isInvalid}`);
-        setPregnancyInfo({ week, dayInWeek: day, isInvalid: isInvalid ?? false, mode: 'pregnant' });
+        // Bail out when nothing actually changed. This runs on an hourly interval,
+        // and it used to hand back a NEW object every time regardless — invalidating
+        // the whole consumer tree once an hour, forever, for no reason (the week and
+        // day only change at midnight).
+        setPregnancyInfo(prev =>
+            prev
+                && prev.mode === 'pregnant'
+                && prev.week === week
+                && prev.dayInWeek === day
+                && prev.isInvalid === (isInvalid ?? false)
+                ? prev
+                : { week, dayInWeek: day, isInvalid: isInvalid ?? false, mode: 'pregnant' }
+        );
         setTtcInfo(null);
     };
 
@@ -294,8 +306,16 @@ export const PregnancyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         }
     };
 
+    // Fresh object literal on every render meant all 17 consumers re-rendered
+    // whenever this provider did — and since PregnancyProvider itself consumes
+    // useAuth(), every AuthContext render cascaded through here.
+    const contextValue = useMemo(
+        () => ({ profile, setProfile, pregnancyInfo, ttcInfo, loading }),
+        [profile, setProfile, pregnancyInfo, ttcInfo, loading],
+    );
+
     return (
-        <PregnancyContext.Provider value={{ profile, setProfile, pregnancyInfo, ttcInfo, loading }}>
+        <PregnancyContext.Provider value={contextValue}>
             {children}
         </PregnancyContext.Provider>
     );

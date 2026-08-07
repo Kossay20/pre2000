@@ -6,7 +6,10 @@ import { ARTICLES, RED_FLAGS, SUGGESTIONS } from '../../../data/chatbot_data';
 const log = createLogger('DatabaseService');
 
 const DB_NAME = 'chatbot.db';
-const DB_VERSION = 3; // Bumped: adds TN dialect keywords/messages for red flags + suggestions label_tn
+// Bumped to 4: ARTICLES now comes from articles_db.json instead of an inlined copy
+// in chatbot_data.ts. Existing installs must re-seed so the SQLite rows match the
+// single source of truth (v3 added TN dialect keywords/messages + suggestions label_tn).
+const DB_VERSION = 4;
 const DB_VERSION_KEY = 'chatbot_db_version';
 
 export class DatabaseService {

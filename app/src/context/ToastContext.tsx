@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
+import React, { useMemo, createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, Animated, TouchableOpacity, Platform } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { theme } from '../theme';
@@ -115,8 +115,14 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
     };
 
+    // The provider used to pass a fresh `{ showToast }` literal on every render, so
+    // all 6 consumers re-rendered whenever ToastProvider did (i.e. on every toast
+    // show/hide). `showToast` itself is already a stable useCallback — only the
+    // wrapper object was churning.
+    const contextValue = useMemo(() => ({ showToast }), [showToast]);
+
     return (
-        <ToastContext.Provider value={{ showToast }}>
+        <ToastContext.Provider value={contextValue}>
             {children}
             {visible && (
                 <Animated.View

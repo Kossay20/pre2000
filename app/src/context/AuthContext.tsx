@@ -118,7 +118,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 if (storedProfile) {
                     const profile = JSON.parse(storedProfile);
                     setUser(profile);
-                    log.debug('[AuthContext] ⚡️ Restored user from AsyncStorage');
+                    // FIRST-PAINT FIX: App.tsx renders `null` for the entire
+                    // NavigationContainer while `loading` is true, and `loading` only
+                    // cleared at the END of the onAuthStateChanged callback — i.e.
+                    // after Firebase auth init AND an awaited Firestore getDoc. A
+                    // returning user therefore stared at a blank screen for a network
+                    // round-trip, and for much longer on a slow or flaky connection.
+                    // The cached profile is enough to paint the right tree now; the
+                    // Firestore read below reconciles it a moment later. This does not
+                    // widen what can be shown — the signed-out branch already leaves a
+                    // cached `user` in place — it only shows the same state sooner.
+                    setLoading(false);
+                    log.debug('[AuthContext] ⚡️ Restored user from AsyncStorage (painting from cache)');
                 }
             } catch (e) {
                 log.error('Failed to load local user', e);
