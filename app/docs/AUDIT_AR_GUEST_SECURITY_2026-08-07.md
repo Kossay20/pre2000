@@ -40,17 +40,6 @@ création du compte, `confirmAction` localisé partout.
 3. **Flèches codées en dur dans les traductions.** `onboarding.{editInfos,back,changeWeek}`
    et `reminders.viewAll` pointaient du mauvais côté en ar/tn.
 
-4. **Libellés d'onglets figés sur la langue de repli.** Déclarés en `options`
-   statiques par écran, ils étaient capturés par React Navigation à la
-   construction du descripteur — au démarrage à froid, pendant que le détecteur
-   de langue asynchrone lisait encore `app_locale`, donc alors qu'i18n était
-   encore sur le repli `fr`. Avec `unmountOnBlur: true`, tout onglet revisité
-   était reconstruit depuis cette capture : UI entièrement arabe, **libellés du
-   bas en français** dès le premier changement d'onglet. Vérifié que ce n'était
-   pas l'état i18n (`documentElement.lang` = `ar`, `app_locale` = `ar` au moment
-   du symptôme). Les **icônes** n'ont jamais eu le bug car elles vivent dans
-   `screenOptions`, réévalué à chaque rendu — les libellés y sont désormais aussi.
-
 Divers : badge ✓ du sélecteur de langue en `position:absolute; right:20` (chevauchait
 le drapeau), flèche retour de React Navigation non miroitée (`direction` prop),
 `dir="auto"` de RN-Web résolvant en `ltr` sur les Text purement emoji.
@@ -149,9 +138,21 @@ ab02e92 fix(i18n): bottom tab labels stayed in the fallback language after a tab
   blanc en RTL sur web, **rend correctement** — testé en arabe.
 - Le changement de langue en cours de session met tout à jour instantanément,
   sans rechargement, barre d'onglets comprise (testé ar → fr → ar).
-- Un état transitoire « libellés FR + contenu AR » observé pendant le
-  développement s'est révélé être un artefact HMR ; le bug réel, distinct et
-  reproductible, est celui décrit en §2.4.
+- **Faux positif corrigé — libellés d'onglets en français.** J'ai d'abord
+  diagnostiqué des libellés d'onglets figés sur la langue de repli `fr` et livré
+  un correctif (ab02e92). C'était faux. La cause réelle est **la traduction
+  automatique de Chrome** : `document.documentElement` portait
+  `class="translated-ltr"` avec 258 balises `<font>` injectées et `lang="fr"`,
+  et les mots français variaient d'une capture à l'autre pour le même libellé
+  (« Maison » puis « Principal ») — signature d'une traduction machine, pas de
+  clés i18n. Contre-épreuve : avec le code d'origine restauré et aucune
+  traduction active (`fonts: 0`), le DOM après changement d'onglet renvoie
+  `["الرئيسية","التقويم","التذكيرات","الموارد","المساعدة"]`. Le correctif a été
+  reverté (6421554 → revert).
+  **Leçon de méthode** : sur un audit RTL/i18n conduit dans un navigateur dont
+  la locale diffère de celle de l'app, toujours vérifier
+  `documentElement.className` / le nombre de balises `<font>` avant de conclure
+  à un bug de traduction.
 
 ## 7. Reste ouvert
 

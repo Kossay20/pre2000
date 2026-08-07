@@ -186,14 +186,6 @@ const RemindersStack = () => {
   );
 };
 
-const TAB_LABEL_KEYS: Record<string, string> = {
-  Home: 'common.nav.home',
-  Calendrier: 'common.nav.calendar',
-  Rappels: 'common.nav.reminders',
-  Ressources: 'common.nav.resources',
-  Chatbot: 'common.nav.chatbot',
-};
-
 const MainTabs = () => {
   const { t } = useTranslation();
   return (
@@ -219,17 +211,6 @@ const MainTabs = () => {
         // icons. RNWeb was rendering the emoji twice in the a11y tree (`tab "🏠 🏠
         // Accueil"`) because emoji <Text> got mirrored as accessibilityLabel.
         // Ionicons is rendered via SVG/font, no a11y duplication, branding-grade.
-        // I18N-STALE-LABEL FIX: these labels used to live in each <Tab.Screen
-        // options={{ tabBarLabel: t(...) }}>. React Navigation captures a screen's
-        // static `options` when the descriptor is built, and with
-        // `unmountOnBlur: true` a tab that is revisited gets rebuilt from that
-        // original capture — which, on a cold start, happened while the async
-        // language detector had not yet resolved and i18n was still on the `fr`
-        // fallback. An Arabic user therefore saw the whole UI in Arabic with
-        // FRENCH tab labels as soon as they switched tabs. The icons never had the
-        // bug because they are declared here, in `screenOptions`, which is a
-        // function re-evaluated on every render — so the labels now live here too.
-        tabBarLabel: TAB_LABEL_KEYS[route.name] ? t(TAB_LABEL_KEYS[route.name]) : route.name,
         tabBarIcon: ({ color, size, focused }) => {
           let iconName: keyof typeof Ionicons.glyphMap = 'help-circle-outline';
           if (route.name === 'Home') iconName = focused ? 'home' : 'home-outline';
@@ -248,11 +229,11 @@ const MainTabs = () => {
         },
       })}
     >
-      <Tab.Screen name="Home" component={HomeStack} />
-      <Tab.Screen name="Calendrier" component={CalendarStack} />
-      <Tab.Screen name="Rappels" component={RemindersStack} />
-      <Tab.Screen name="Ressources" component={ResourcesStack} />
-      <Tab.Screen name="Chatbot" component={ChatbotScreen} />
+      <Tab.Screen name="Home" component={HomeStack} options={{ tabBarLabel: t('common.nav.home') }} />
+      <Tab.Screen name="Calendrier" component={CalendarStack} options={{ tabBarLabel: t('common.nav.calendar') }} />
+      <Tab.Screen name="Rappels" component={RemindersStack} options={{ tabBarLabel: t('common.nav.reminders') }} />
+      <Tab.Screen name="Ressources" component={ResourcesStack} options={{ tabBarLabel: t('common.nav.resources') }} />
+      <Tab.Screen name="Chatbot" component={ChatbotScreen} options={{ tabBarLabel: t('common.nav.chatbot') }} />
     </Tab.Navigator>
   );
 };
