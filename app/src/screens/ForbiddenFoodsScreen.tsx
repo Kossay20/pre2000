@@ -28,6 +28,7 @@ import { useRtlScrollFix } from '../hooks/useRtlScrollFix';
 // Import data
 import forbiddenFoodsData from '../data/forbidden_foods.json';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
+import { HALAL_GUIDANCE_REVIEWED } from '../config/featureFlags';
 
 interface ForbiddenFood {
     id: string;
@@ -114,7 +115,11 @@ export const ForbiddenFoodsScreen = () => {
         });
     };
 
-    const showHalalLens = i18n.language === 'ar' || i18n.language === 'tn';
+    // Hidden until an imam and a dietitian sign the content off — the card renders
+    // its own "pending review" note, and shipping that is the same App Review 2.1
+    // exposure as the Ramadan screen. See featureFlags.ts.
+    const showHalalLens =
+        HALAL_GUIDANCE_REVIEWED && (i18n.language === 'ar' || i18n.language === 'tn');
     const halalItemKeys = ['alcohol', 'pork', 'gelatin', 'nonHalalMeat', 'cookingWine'];
 
     return (

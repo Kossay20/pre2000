@@ -72,6 +72,40 @@ describe('unreviewed clinical content stays unreachable', () => {
     expect(preceding).toContain(`...(${FLAG} ?`);
   });
 
+  describe('halal lens on the foods-to-avoid screen', () => {
+    // Same exposure as the Ramadan screen, and easier to miss: it is a card inside
+    // an otherwise-reviewed screen, shown only in ar/tn — to exactly the audience
+    // most likely to act on it. Gating one and shipping the other would make the
+    // decision arbitrary rather than principled.
+    const HALAL_FLAG = 'HALAL_GUIDANCE_REVIEWED';
+
+    it('keeps its pending-review note in all four locales', () => {
+      const missing = LOCALES.filter((locale) => {
+        const bundle = JSON.parse(read(`src/i18n/locales/${locale}/cycle8.json`));
+        return !bundle?.forbiddenFoodsHalal?.draftNote;
+      });
+      expect(missing).toEqual([]);
+    });
+
+    it('is off until an imam and a dietitian sign it off', () => {
+      expect(flags[HALAL_FLAG]).toBe(false);
+    });
+
+    it('gates the card, not just the language check', () => {
+      const screen = read('src/screens/ForbiddenFoodsScreen.tsx');
+      const match = screen.match(/const showHalalLens\s*=([\s\S]{0,200}?);/);
+      expect(match).not.toBeNull();
+      expect(match?.[1]).toContain(HALAL_FLAG);
+    });
+
+    it('is a separate flag — the two approvals come from different people', () => {
+      expect(flags[HALAL_FLAG]).not.toBe(undefined);
+      expect(read('src/config/featureFlags.ts')).toMatch(
+        new RegExp(`export const ${HALAL_FLAG}\\s*=\\s*(true|false);`),
+      );
+    });
+  });
+
   it('the flag is a plain constant, not remote config', () => {
     // A surface that can be switched on after review is precisely what both
     // stores forbid.

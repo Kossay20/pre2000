@@ -27,3 +27,22 @@
  * URL-reachable in production builds.
  */
 export const RAMADAN_GUIDANCE_CLINICALLY_REVIEWED = false;
+
+/**
+ * Halal lens on the "foods to avoid" screen (shown for ar / tn only).
+ *
+ * Same exposure as the Ramadan screen, and it was easy to miss because it is a
+ * card inside an otherwise-reviewed screen rather than a screen of its own: it
+ * renders `cycle8.forbiddenFoodsHalal.draftNote` — "Content pending review by an
+ * imam and a registered dietitian" — in all four languages, to exactly the
+ * audience most likely to act on it.
+ *
+ * Gating one self-declared-unreviewed surface and shipping another would make the
+ * decision arbitrary rather than principled, so this follows
+ * [[RAMADAN_GUIDANCE_CLINICALLY_REVIEWED]]. Flip it in the commit that records the
+ * imam + dietitian sign-off, and drop the draft note with it.
+ *
+ * Kept separate from the Ramadan flag on purpose: the reviewers are not the same
+ * people, so the two approvals will not necessarily arrive together.
+ */
+export const HALAL_GUIDANCE_REVIEWED = false;
