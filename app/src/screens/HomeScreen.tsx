@@ -58,6 +58,7 @@ import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getContentWidth } from '../utils/layout';
 import { RAMADAN_GUIDANCE_CLINICALLY_REVIEWED } from '../config/featureFlags';
+import { useRefetchOnReconnect } from '../hooks/useRefetchOnReconnect';
 
 const width = getContentWidth();
 const HOME_WELCOME_SEEN_KEY = '@home_welcome_seen_v1';
@@ -67,6 +68,10 @@ export const HomeScreen = () => {
     const [overrideWeek, setOverrideWeek] = useState<number | null>(null);
     const [overrideDay, setOverrideDay] = useState<number | null>(null);
     const { weekData, loading, error, currentWeekNumber, currentDay, isInvalid, refetch } = useCurrentWeek(overrideWeek ?? undefined);
+    // Reads here are one-shot getDocs, so nothing re-delivers when the network
+    // returns: without this, coming out of a tunnel leaves the error card up while
+    // the offline banner disappears and implies everything is fine again.
+    useRefetchOnReconnect(refetch);
     const { t, i18n } = useTranslation();
     const { isRTL } = useRtl();
     // W2 #3: ref to the horizontal recommendations carousel so we can apply the documented
