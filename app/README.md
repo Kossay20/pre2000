@@ -99,7 +99,38 @@ app/
 | `npm run ios` | Lance sur simulateur iOS |
 | `npm run web` | Lance en mode web |
 | `npm test` | Exécute les tests |
+| `npm run verify` | Gate complète : couleurs + `tsc --noEmit` + Jest |
+| `npm run test:rules` | Règles Firestore contre l'émulateur (nécessite un JDK) |
+| `npm run e2e:web` | Suite Playwright sur l'export web |
+| `npm run store:icons` | Régénère icônes, splash et wordmark |
+| `npm run store:feature` | Régénère le feature graphic Play |
+| `npm run store:shots` | Régénère les 54 screenshots store |
 | `npm run import-data` | Importe les données depuis CSV |
+
+## 🏗️ Build natif en local
+
+Utile pour vérifier que le projet compile réellement, sans compte développeur.
+
+```bash
+export ANDROID_HOME="$HOME/Library/Android/sdk"
+export JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home
+
+npx expo prebuild --platform android --clean
+cd android && ./gradlew assembleRelease
+```
+
+**Le JDK importe.** Gradle 8.14 ne sait pas lire les classes compilées par Java 25 :
+la build s'arrête sur `Unsupported class file major version 69`, un message qui ne
+dit rien de la cause. Il faut un **JDK 21** (ou 17). `/usr/libexec/java_home -V`
+liste ceux qui sont enregistrés ; Homebrew installe le sien ailleurs, d'où le
+chemin explicite ci-dessus.
+
+Sans `google-services.json` ni `GoogleService-Info.plist`, `app.config.ts` retire
+les plugins `@react-native-firebase` : le projet se génère et compile quand même,
+simplement sans App Check. Une build `APP_ENV=production` refuse de démarrer et
+nomme le fichier manquant.
+
+iOS demande Xcode complet — les Command Line Tools seuls ne suffisent pas.
 
 ## 📱 Fonctionnalités Principales
 

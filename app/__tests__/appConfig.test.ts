@@ -102,6 +102,56 @@ describe('app.config.ts — native Firebase file wiring', () => {
     });
   });
 
+  describe('React Native Firebase plugins', () => {
+    // Making `googleServicesFile` conditional was not enough, and only a real
+    // `expo prebuild` showed why: the @react-native-firebase/app plugin does not
+    // treat the field as optional. With it unset it throws "Path to
+    // google-services.json is not defined" and kills prebuild before generating a
+    // single file — so a clone without the per-project Firebase files could not
+    // build at all, which was the exact opposite of the intent.
+    const FIREBASE = ['@react-native-firebase/app', '@react-native-firebase/app-check'];
+    const WITH_FIREBASE = {
+      ...(BASE_CONFIG as object),
+      plugins: ['expo-sqlite', ...FIREBASE, 'expo-font'],
+    } as unknown as ConfigContext['config'];
+
+    it('drops them when the config files are absent, so prebuild can run', () => {
+      withFirebaseFiles({ android: false, ios: false });
+
+      const config = loadConfigFactory()({ config: WITH_FIREBASE } as ConfigContext);
+
+      expect(pluginNames(config)).not.toContain('@react-native-firebase/app');
+      expect(pluginNames(config)).not.toContain('@react-native-firebase/app-check');
+    });
+
+    it('keeps every other plugin while doing so', () => {
+      withFirebaseFiles({ android: false, ios: false });
+
+      const config = loadConfigFactory()({ config: WITH_FIREBASE } as ConfigContext);
+
+      expect(pluginNames(config)).toEqual(['expo-sqlite', 'expo-font']);
+    });
+
+    it('keeps them when both files are present', () => {
+      withFirebaseFiles({ android: true, ios: true });
+
+      const config = loadConfigFactory()({ config: WITH_FIREBASE } as ConfigContext);
+
+      expect(pluginNames(config)).toEqual(expect.arrayContaining(FIREBASE));
+    });
+
+    it.each([
+      ['android only', { android: true, ios: false }],
+      ['ios only', { android: false, ios: true }],
+    ])('drops them when only the %s file is there — a half-wired native layer is worse', (_l, presence) => {
+      withFirebaseFiles(presence);
+
+      const config = loadConfigFactory()({ config: WITH_FIREBASE } as ConfigContext);
+
+      expect(pluginNames(config)).not.toEqual(expect.arrayContaining(FIREBASE));
+    });
+  });
+
   describe('Sentry config plugin', () => {
     // Sentry.init runs in production (App.tsx), but without the config plugin the
     // native build uploads no source maps, so every crash arrives as minified

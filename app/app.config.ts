@@ -63,6 +63,34 @@ const withSentryPlugin = (plugins: Plugins): Plugins => {
   return [...plugins, entry];
 };
 
+/** Config plugins that abort prebuild outright when the Firebase files are absent. */
+const FIREBASE_PLUGINS = ['@react-native-firebase/app', '@react-native-firebase/app-check'];
+
+/**
+ * Drop the React Native Firebase plugins when their config files are not there.
+ *
+ * Making `googleServicesFile` conditional is not enough on its own — which only a
+ * real `expo prebuild` revealed. The `@react-native-firebase/app` plugin does not
+ * treat the field as optional: with it unset it throws
+ * "Path to google-services.json is not defined" and kills prebuild before a single
+ * file is generated. So the intended behaviour — a clone without the per-project
+ * Firebase files can still build — needs the plugins themselves gated, not just
+ * the path.
+ *
+ * Dropping them is safe: `src/config/firebase.ts` already wraps the App Check
+ * init in try/catch precisely because the native module is absent in Expo Go and
+ * in any build made without prebuilding it. What changes is nothing at runtime,
+ * and a build that can actually be produced.
+ *
+ * A production build never reaches this — it fails earlier, by design, naming the
+ * missing file. Shipping a store binary with a silently disabled anti-abuse layer
+ * is the one outcome worth refusing.
+ */
+const withFirebasePlugins = (plugins: Plugins, filesPresent: boolean): Plugins =>
+  filesPresent
+    ? plugins
+    : plugins.filter((p) => !FIREBASE_PLUGINS.includes(Array.isArray(p) ? String(p[0]) : String(p)));
+
 export default ({ config }: ConfigContext): ExpoConfig => {
   const isProductionBuild = process.env.APP_ENV === 'production';
   const hasAndroidFirebaseFile = existsInProject(ANDROID_FIREBASE_FILE);
@@ -87,7 +115,9 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     ...config,
     name: config.name ?? 'Mama & Bébé',
     slug: config.slug ?? 'mama-bebe',
-    plugins: withSentryPlugin(config.plugins ?? []),
+    plugins: withSentryPlugin(
+      withFirebasePlugins(config.plugins ?? [], hasAndroidFirebaseFile && hasIosFirebaseFile),
+    ),
     ios: {
       ...config.ios,
       ...(hasIosFirebaseFile ? { googleServicesFile: IOS_FIREBASE_FILE } : {}),
