@@ -57,6 +57,7 @@ import { HomeScreenNavigationProp } from '../types/navigation';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getContentWidth } from '../utils/layout';
+import { RAMADAN_GUIDANCE_CLINICALLY_REVIEWED } from '../config/featureFlags';
 
 const width = getContentWidth();
 const HOME_WELCOME_SEEN_KEY = '@home_welcome_seen_v1';
@@ -949,23 +950,28 @@ export const HomeScreen = () => {
                             </TouchableOpacity>
                         )}
 
-                        {/* Cycle 8 — Ramadan & Pregnancy (reachable for all locales; the screen is complete and useful) */}
-                        <TouchableOpacity
-                            style={styles.toolCard}
-                            activeOpacity={0.7}
-                            onPress={() => navigation.navigate('RamadanPregnancy')}
-                            accessibilityLabel={t('cycle8.ramadan.title')}
-                            accessibilityRole="button"
-                        >
-                            <LinearGradient
-                                colors={[theme.colors.surfacePurpleTint, theme.colors.gradientRoseStart]}
-                                style={styles.toolIconContainer}
+                        {/* Cycle 8 — Ramadan & Pregnancy. Hidden until the guidance is
+                            clinically signed off: the screen renders its own "content
+                            pending clinical review" banner, and shipping that to a store
+                            reviewer is App Review 2.1 territory. See featureFlags.ts. */}
+                        {RAMADAN_GUIDANCE_CLINICALLY_REVIEWED && (
+                            <TouchableOpacity
+                                style={styles.toolCard}
+                                activeOpacity={0.7}
+                                onPress={() => navigation.navigate('RamadanPregnancy')}
+                                accessibilityLabel={t('cycle8.ramadan.title')}
+                                accessibilityRole="button"
                             >
-                                <Text style={styles.toolEmoji}>🌙</Text>
-                            </LinearGradient>
-                            <Text style={styles.toolTitle}>{t('cycle8.ramadan.title')}</Text>
-                            <Text style={styles.toolSubtitle}>{t('cycle8.ramadan.subtitle')}</Text>
-                        </TouchableOpacity>
+                                <LinearGradient
+                                    colors={[theme.colors.surfacePurpleTint, theme.colors.gradientRoseStart]}
+                                    style={styles.toolIconContainer}
+                                >
+                                    <Text style={styles.toolEmoji}>🌙</Text>
+                                </LinearGradient>
+                                <Text style={styles.toolTitle}>{t('cycle8.ramadan.title')}</Text>
+                                <Text style={styles.toolSubtitle}>{t('cycle8.ramadan.subtitle')}</Text>
+                            </TouchableOpacity>
+                        )}
                     </View>
                 </View>
 

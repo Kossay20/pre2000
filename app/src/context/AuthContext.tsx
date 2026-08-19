@@ -54,6 +54,7 @@ const purgeDynamicPrivateKeys = async () => {
 // Re-export pure helper extracted to ./loginHelpers so it can be unit-tested
 // without loading AuthContext.tsx (whose JSX trips ts-jest under module:"preserve").
 import { resolveLoginProfile, shouldPreserveExistingProfile } from './loginHelpers';
+import { deriveIsGuest, hasPermanentAccount } from './accountMode';
 export { resolveLoginProfile } from './loginHelpers';
 export type { ResolvedLoginProfile } from './loginHelpers';
 
@@ -404,13 +405,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             city,
             ageRange,
             isFirstPregnancy,
-            isGuest: !isAuthenticated,
+            isGuest: deriveIsGuest(effectiveUser),
             ...ttcFields,
             ...curiousFields,
         };
 
         try {
-            if (isAuthenticated) {
+            // Gated on a PERMANENT account, not merely on being authenticated: an
+            // anonymous session would otherwise read `userProfiles/<uid>` and, on a
+            // hit, adopt it with `isGuest: false` — re-introducing the very bug this
+            // guards against, one layer down.
+            if (hasPermanentAccount(effectiveUser)) {
                 // W1 #3 — re-onboarding data-loss guard. If this authenticated uid ALREADY has a
                 // complete profile (a returning user re-ran onboarding and recovered via the
                 // email-already-in-use → login path), do NOT overwrite their stored lmp/firstName/
@@ -497,7 +502,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             // (rappels, checklist, etc.) restaient locales alors que l'utilisateur est
             // désormais authentifié. `loginAsGuest` est le seul point d'entrée pour lier
             // le profil onboarding à un compte — on migre ici, best-effort et idempotent.
-            if (isAuthenticated) {
+            // Permanent account only. Migrating for an anonymous session would push a
+            // guest's local data into Firestore behind their back, while every screen
+            // still tells them their data is not tied to an account — and the upgrade
+            // path (`upgradeGuest`) already migrates at the moment they do create one.
+            if (hasPermanentAccount(effectiveUser)) {
                 try {
                     await migrateAllGuestDataToAuth(uid);
                     log.info('[AuthContext] ✅ Guest → auth migration after onboarding signup');

@@ -777,7 +777,7 @@
     "deleteAccountMsg": "This action is irreversible. All your data will be permanently deleted.",
     "deleteAccountError": "Could not delete account. Please sign in again and retry.",
     "guestMode": "👤 Guest mode",
-    "guestData": "Your data is saved locally only.",
+    "guestData": "Your data isn't linked to any account. Create one so you don't lose it.",
     "guestUser": "Guest",
     "secureAccount": "✅ Secure account",
     "cloudData": "Your data is saved in the cloud."

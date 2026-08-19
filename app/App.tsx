@@ -36,6 +36,7 @@ import { ToastProvider, useToast } from './src/context/ToastContext';
 import { ErrorBoundary } from './src/components/common/ErrorBoundary';
 import { OfflineNotice } from './src/components/common/OfflineNotice';
 import { TabletFrame } from './src/components/common/TabletFrame';
+import { RAMADAN_GUIDANCE_CLINICALLY_REVIEWED } from './src/config/featureFlags';
 import { configureNotifications } from './src/services/rdvNotificationService';
 import { cleanupPastReminders } from './src/services/rdvNotificationService';
 import { setupRTL } from './src/i18n/rtl';
@@ -136,7 +137,12 @@ const HomeStack = () => {
       <Stack.Screen name="KickCounter" component={KickCounterScreen} options={{ title: t('cycle8.kickCounter.title') }} />
       <Stack.Screen name="ContractionTimer" component={ContractionTimerScreen} options={{ title: t('cycle8.contractionTimer.title') }} />
       <Stack.Screen name="HospitalBag" component={HospitalBagChecklistScreen} options={{ title: t('cycle8.hospitalBag.title') }} />
-      <Stack.Screen name="RamadanPregnancy" component={RamadanPregnancyScreen} options={{ title: t('cycle8.ramadan.title') }} />
+      {/* Gated until the guidance is clinically signed off — see featureFlags.ts.
+          The registration is gated, not just the Home entry point: DiagnosticScreen
+          taught us that a menu-hidden screen stays reachable by URL otherwise. */}
+      {RAMADAN_GUIDANCE_CLINICALLY_REVIEWED && (
+        <Stack.Screen name="RamadanPregnancy" component={RamadanPregnancyScreen} options={{ title: t('cycle8.ramadan.title') }} />
+      )}
     </Stack.Navigator>
   );
 };
@@ -322,7 +328,9 @@ const AppContent = () => {
             KickCounter: 'kick-counter',
             ContractionTimer: 'contraction-timer',
             HospitalBag: 'hospital-bag',
-            RamadanPregnancy: 'ramadan',
+            // Gated with the screen registration above; a linking entry for an
+            // unregistered route would resolve to nothing and blank the container.
+            ...(RAMADAN_GUIDANCE_CLINICALLY_REVIEWED ? { RamadanPregnancy: 'ramadan' } : {}),
             BabyEvolution: 'baby-evolution',
             LanguageSelect: 'language',
           }

@@ -25,7 +25,7 @@
   "reset": "Reset Profile",
   "guestMode": "Guest Mode",
   "secureAccount": "Secure Account",
-  "guestData": "Your data is saved locally",
+  "guestData": "Your data isn't linked to any account",
   "cloudData": "Your data is synced to the cloud",
   "confirmLogout": "Log Out",
   "confirmLogoutMsg": "Are you sure you want to log out?",

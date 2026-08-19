@@ -777,7 +777,7 @@
     "deleteAccountMsg": "Cette action est irréversible. Toutes vos données seront supprimées définitivement.",
     "deleteAccountError": "Impossible de supprimer le compte. Reconnectez-vous et réessayez.",
     "guestMode": "👤 Mode Invitée",
-    "guestData": "Vos données sont sauvegardées localement uniquement.",
+    "guestData": "Vos données ne sont liées à aucun compte. Créez-en un pour ne rien perdre.",
     "guestUser": "Invitée",
     "secureAccount": "✅ Compte sécurisé",
     "cloudData": "Vos données sont sauvegardées dans le cloud."

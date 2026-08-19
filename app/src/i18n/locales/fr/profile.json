@@ -25,7 +25,7 @@
   "reset": "Réinitialiser mon profil",
   "guestMode": "Mode Invité",
   "secureAccount": "Compte Sécurisé",
-  "guestData": "Vos données sont sauvegardées localement",
+  "guestData": "Vos données ne sont liées à aucun compte",
   "cloudData": "Vos données sont synchronisées dans le cloud",
   "confirmLogout": "Déconnexion",
   "confirmLogoutMsg": "Êtes-vous sûre de vouloir vous déconnecter ?",
