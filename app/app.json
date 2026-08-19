@@ -143,7 +143,6 @@
         "backgroundColor": "#FF6B9D"
       },
       "package": "com.mamabebe.app",
-      "googleServicesFile": "./google-services.json",
       "versionCode": 8,
       "allowBackup": false,
       "permissions": [
@@ -178,7 +177,9 @@
       ],
       "expo-sqlite",
       "@react-native-firebase/app",
-      "@react-native-firebase/app-check"
+      "@react-native-firebase/app-check",
+      "expo-font",
+      "expo-localization"
     ],
     "extra": {
       "privacyPolicyUrl": "https://www.mama-et-bebe.com/privacy.html",
