@@ -62,6 +62,17 @@ Les gates ont **une seule numérotation** : celle du §5. Les anciens G1–G5 di
 | **B11** | 🟡 P2 | `firestore.indexes.json` = **47 octets** (vide) alors que le code fait des requêtes composées | `ls -la firestore.indexes.json` | Requêtes en échec `failed-precondition` en prod sur données réelles |
 | **B12** | ⚪ décision | `ios.supportsTablet: true` | `app.json` | Apple **exige** alors un jeu de screenshots iPad 13" + une UI iPad correcte |
 
+### §1.2b Bloqueurs trouvés pendant l'exécution (vague W3, captures réelles)
+
+| # | Sévérité | Fait | Preuve | Conséquence |
+|---|---|---|---|---|
+| **B13** | 🔴 P1 review | L'écran **Ramadan & Grossesse** affiche en production un bandeau **« ⚠️ Contenu en cours de revue clinique. À valider avec votre médecin et un imam. »**, traduit dans les 4 langues, et il est accessible depuis l'accueil | `src/i18n/locales/{fr,en,ar,tn}/cycle8.json` clé `ramadan.draftBanner` ; `RamadanPregnancyScreen.tsx:193` ; `HomeScreen.tsx:956` | **Contenu marqué non validé, visible par le reviewer** → Apple 2.1 (App Completeness) + risque médical réel (jeûne pendant la grossesse). **Décision requise** : masquer l'entrée jusqu'à GT-4, ou obtenir la revue avant soumission |
+| **B14** | 🔴 P1 comportement | Activer Anonymous Auth (**GT-2**) inverse le mode invité : `isGuest: !isAuthenticated` devient **false** pour une utilisatrice qui a choisi « Continuer en invitée », puisque `signInAnonymously` réussit | `AuthContext.tsx:407` (`isGuest: !isAuthenticated`) + `:345` + `:228` (`upgradeGuest` écrit explicitement pour `current.isAnonymous`) ; les entrées vers `GuestUpgrade` testent toutes `user?.isGuest` (`CalendarScreen.tsx:378`, `AddAppointmentScreen.tsx:390`) | Le parcours de conversion invité→compte devient **inatteignable** au moment même où il devient utile ; `upgradeGuest`'s anonymous-link branch devient du code mort. **Toute la campagne d'audit a tourné avec Anonymous Auth OFF** — cette configuration n'a jamais été exercée. Correctif ≠ une ligne : `isGuest` conditionne aussi la synchro profil→Firestore (`AuthContext.tsx:564`). **À traiter juste après GT-2, avant soumission** |
+| **B15** | 🟠 P1 vitrine | **iPad** : la mise en page téléphone est étirée à 1032 pt — typographie minuscule, cartes pleine largeur, grandes zones vides | `store/screenshots/ipad-13/*` | Vous avez choisi de garder `supportsTablet: true` → il faut un conteneur `maxWidth` + une passe de revue par écran, sinon l'expérience iPad dessert l'app auprès du reviewer |
+| **B16** | ✅ corrigé | L'onglet **Chatbot** n'avait aucun chemin de deep link, alors que les 4 autres en avaient un ; le catch-all `getStateFromPath` renvoyait silencieusement sur l'accueil | `App.tsx` linking config | Une notification pointant vers l'assistant n'ouvrait pas l'assistant. Corrigé + `__tests__/deepLinking.test.ts` (vérifié rouge sur le code d'avant) |
+| **B17** | ⚪ vérifié, pas un défaut | Un invité ne peut ni charger ni enregistrer d'événement de calendrier | `calendarService.ts:206,244,266` + bannière et conversion de compte dans `AddAppointmentScreen.tsx:516` avec **préservation du brouillon** | Comportement produit assumé et correctement traité en UX. **Mais** : impossible de produire une capture calendrier non vide hors backend → écran retiré du jeu de screenshots, à re-shooter en W7 |
+| **B18** | 🟡 P2 | `/recommendations` est vide en semaine 25 hors-ligne (« Aucune recommandation pour cette semaine ») | sonde des routes, 2026-08-19 | Soit dépendance Firestore, soit trou de données. À revérifier post-GT-2 |
+
 ### §1.3 Ce qui n'est pas prouvable en local (gates §5)
 Compte EAS non connecté (`eas whoami` → *Not logged in*), donc : pas de build, pas de credentials, pas de submit.
 Backend Firestore non déployé/seedé, Auth anonyme non activée → parcours invité non prouvable.
@@ -159,13 +170,24 @@ Sentry, Crashlytics/vitals, alertes budget Firebase, App Check en **monitor** pu
 
 | Gate | Ce qu'il faut | Où | Bloque |
 |---|---|---|---|
-| **GT-1** | **Compte Apple Developer Program** (99 $/an) actif + **Google Play Console** (25 $) actif. ⚠️ Si le compte Play est *personnel* (créé après nov. 2023) : **12 testeurs pendant 14 jours continus en closed testing** avant d'accéder à la production. Un compte *organisation* en est exempt. | apple.com/developer, play.google.com/console | W6, W8 — **et le calendrier entier** |
+| **GT-1** | **Compte Apple Developer Program** (99 $/an) + **Google Play Console** (25 $). **Réponse owner 2026-08-19 : les deux seront payés une fois l'app prête et vérifiée.** ⚠️ **Cette séquence est risquée** — voir §5b. | apple.com/developer, play.google.com/console | W6, W8 — **et le calendrier entier** |
 | **GT-2** | Firebase live : **Anonymous Auth activée** + `firebase deploy --only firestore:rules,firestore:indexes` + `npm run import-data` (seed) | Firebase Console + CLI | W7, §7.3 |
 | **GT-3** | `eas login` (ou `EXPO_TOKEN`), credentials iOS (Apple ID + team) et Android (Play service account JSON) | terminal + Play Console → API access | W6, W8 |
 | **GT-4** | **Revue clinique** (sage-femme/gynéco) : articles, dosages compléments, triage chatbot. Apple 1.4.1 / Play « Health apps » exigent l'exactitude médicale. | humain qualifié | W8 (risque de rejet + risque légal) |
 | **GT-5** | Déposer `google-services.json` + `GoogleService-Info.plist` (Firebase Console → Paramètres du projet → Vos applications) à la racine `app/` | Firebase Console | W6 (App Check + init native) |
-| **GT-6** | Choisir : garder `supportsTablet: true` (⇒ screenshots iPad + UI iPad à valider) ou passer à `false` (⇒ iPhone-only, moins de surface de rejet) | décision produit | T3.5, W8 |
+| **GT-6** | ~~Choisir iPad~~ — **TRANCHÉ 2026-08-19 : on garde `supportsTablet: true`.** Conséquences actées : jeu de screenshots iPad 13" produit (✅ W3) **et** correction de la mise en page iPad requise (**B15**) | décision owner | ✅ décidé |
 | **GT-7** | Compte de **démo** pour les reviewers (email + mot de passe, données pré-remplies) | à créer après GT-2 | W8 |
+
+### §5b — Le vrai chemin critique : ouvrir les comptes MAINTENANT, pas à la fin
+
+Vous prévoyez de payer les deux comptes « une fois l'app prête ». C'est l'ordre le plus intuitif et le plus coûteux en délai. Raisons :
+
+1. **Google Play, compte personnel** (le type n'est pas encore tranché) : un compte personnel créé après novembre 2023 doit faire tourner un **test fermé avec ≥12 testeurs pendant 14 jours consécutifs** avant même de pouvoir demander l'accès à la production. Ce chrono ne démarre qu'une fois le compte créé **et** un build publié sur le canal fermé. Attendre que tout soit parfait ajoute mécaniquement **2 à 3 semaines** à la fin.
+   → **Recommandation** : créer le compte Play tout de suite, et **en type « Organisation »** si vous avez une structure (l'organisation est exempte de cette obligation). La vérification d'identité/entreprise prend elle-même plusieurs jours.
+2. **Apple** : la validation du compte (identité, éventuellement D-U-N-S pour une organisation) prend de quelques heures à plusieurs jours. Sans compte : pas de certificat, pas de provisioning, donc **aucun build iOS signable** — et donc aucune vérification possible sur device réel (§7.1, §7.4, §7.5), qui est précisément l'étape « vraiment prêt ».
+3. Sans GT-1, tout ce qui reste testable est le web. Les trois zones que vous avez citées — **notifications, reconnexion, base de données** — ne se prouvent que sur un binaire natif.
+
+**Ce que ça ne bloque pas** : tout le travail W1–W5 (config, assets, fiches, vérifications statiques) se fait sans compte, et c'est ce qui est en cours.
 
 ---
 

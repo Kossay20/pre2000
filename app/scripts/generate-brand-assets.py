@@ -377,6 +377,13 @@ def build_splash() -> None:
     out.putalpha(canvas)
     save(out, ASSETS / "splash-icon.png")
 
+    # Tightly-cropped mark + wordmark, for layouts that size it by height — a
+    # splash asset carries deliberate transparent margin, and anything that sets
+    # `height:` on it ends up rendering the padding, not the artwork.
+    trimmed = Image.new("RGBA", (art.shape[1], art.shape[0]), (255, 255, 255, 0))
+    trimmed.putalpha(Image.fromarray((art * 255).astype(np.uint8), "L"))
+    save(trimmed, STORE_OUT.parent / "brand" / "wordmark.png")
+
     r, g, b = (int(round(background[..., c][panel].mean())) for c in range(3))
     print(f"  splash backgroundColor to set in app.json: #{r:02X}{g:02X}{b:02X}")
 

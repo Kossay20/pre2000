@@ -342,7 +342,12 @@ const AppContent = () => {
           screens: {
             ResourcesMain: 'resources',
           }
-        }
+        },
+        // Every other tab was URL-addressable; this one was not, so `/chatbot`
+        // fell through `getStateFromPath`'s catch-all and landed on Home. Chatbot
+        // is a Tab.Screen directly under MainTabs (no inner Stack), so it takes a
+        // path string rather than a `screens` map.
+        Chatbot: 'chatbot',
       }
     }
   };
