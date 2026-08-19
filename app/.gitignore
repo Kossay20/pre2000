@@ -84,3 +84,8 @@ dist-*/
 # committed. eas.json references it by path; the file is delivered out of band.
 google-service-account.json
 **/google-service-account.json
+
+# Firestore emulator artefacts (`npm run test:rules`).
+firestore-debug.log
+ui-debug.log
+firebase-debug.log
