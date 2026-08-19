@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, Dimensions, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { LineChart, BarChart } from 'react-native-chart-kit';
 import { useNavigation } from '@react-navigation/native';
 import { theme } from '../../theme';
@@ -19,9 +19,10 @@ import { RtlAwareChevron } from '../../components/common/RtlAwareChevron';
 // Cycle 5 F702 — EmptyState avec CTA cohérent design system.
 import { EmptyState } from '../../components/common/EmptyState';
 import { Button } from '../../components/common/Button';
+import { getContentWidth } from '../../utils/layout';
 
 const log = createLogger('StatisticsScreen');
-const screenWidth = Dimensions.get('window').width;
+const screenWidth = getContentWidth();
 
 export const StatisticsScreen = () => {
     useScreenAnalytics('StatisticsScreen');

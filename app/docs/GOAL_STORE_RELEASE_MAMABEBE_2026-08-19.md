@@ -352,6 +352,13 @@ Chaque ligne = une preuve à produire, pas une opinion.
 | Date | Vague | Fait | Preuve |
 |---|---|---|---|
 | 2026-08-19 | W0 | État des lieux ; `npm run verify` GREEN 73/1913 ; 12 bloqueurs identifiés (B1–B12) | §1 |
+| 2026-08-19 | **W1** ✅ | **B3** `expo-font` installé · **B4** 5 paquets réalignés → `expo-doctor` **18/18** · **B1+B2** `app.config.ts` référence les fichiers Firebase quand ils existent, **refuse** un build `APP_ENV=production` sans eux, en les nommant · garde `__tests__/appConfig.test.ts` (13) | commit `620a0c2` |
+| 2026-08-19 | **W3** ✅ | **B6** jeu d'icônes reconstruit (plein cadre iOS · foreground Android tenant dans le cercle ⌀66 dp garanti · fond + monochrome · **icône de notification blanche sur transparent**, elle pointait sur l'icône couleur = carré blanc dans la barre d'état) · splash refait (c'était une maquette carrée sur `#FF6B9D` → bandes discordantes à chaque démarrage) · garde `storeAssets.test.ts` (16, lecture directe de l'en-tête PNG) | commit `7647520` |
+| 2026-08-19 | **W3** ✅ | **B7** pipeline complet : **54 screenshots** (3 formats × 3 langues × 6 écrans) aux dimensions exactes + **feature graphic Play** ×3 + `store/listing.json` (limites vérifiées par test — a attrapé une description courte FR à 81/80) | commit `b0e9334` |
+| 2026-08-19 | **W3** ✅ | **B16** onglet Chatbot rendu adressable par URL + garde `deepLinking.test.ts` (vérifiée rouge sur le code d'avant) | commit `b0e9334` |
+| 2026-08-19 | **W2** ✅ | **B11** `firestore.indexes.json` déployé était **vide** (une copie remplie traînait à la racine, orpheline) → 3 index dérivés du code + garde `firestoreIndexes.test.ts` qui **scanne les `query()` du source** · **duplication** : `reminderService.ts` (V1, 288 l.) + sa suite (615 l.) supprimés, plus aucun import · **B8** plugin Sentry conditionnel · **B9** `channel` EAS par profil · **B10** `npm run verify` refuse Node < 20.19 · **secret** `google-service-account.json` ajouté au `.gitignore` | commit `4fc9d61` |
+| 2026-08-19 | **W5** ✅ | `babel.config.js` : `api.cache(true)` figeait la config → le retrait des `console.*` en prod pouvait ne jamais s'appliquer (cache Metro amorcé en dev). Clé de cache sur `NODE_ENV` + garde `babelConfig.test.ts` (7) | en cours |
+| 2026-08-19 | **W3** ✅ | **B15** mise en page iPad : `TabletFrame` centre l'app dans une colonne de largeur téléphone au-delà de 700 pt (no-op en dessous) ; les 9 modules qui se dimensionnaient sur la **fenêtre** passent par `getContentWidth()` borné — sinon carrousels et graphiques débordaient la colonne | en cours |
 
 ---
 

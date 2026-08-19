@@ -9,7 +9,6 @@ import {
     TouchableOpacity,
     ScrollView,
     KeyboardAvoidingView,
-    Dimensions,
     Animated,
     BackHandler,
 } from 'react-native';
@@ -45,8 +44,9 @@ import {
     type DateMethod,
 } from './onboardingConstants';
 import { styles } from './OnboardingScreen.styles';
+import { getContentWidth } from '../utils/layout';
 
-const { width } = Dimensions.get('window');
+const width = getContentWidth();
 
 
 export const OnboardingScreen = () => {

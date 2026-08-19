@@ -35,6 +35,7 @@ import { theme } from './src/theme';
 import { ToastProvider, useToast } from './src/context/ToastContext';
 import { ErrorBoundary } from './src/components/common/ErrorBoundary';
 import { OfflineNotice } from './src/components/common/OfflineNotice';
+import { TabletFrame } from './src/components/common/TabletFrame';
 import { configureNotifications } from './src/services/rdvNotificationService';
 import { cleanupPastReminders } from './src/services/rdvNotificationService';
 import { setupRTL } from './src/i18n/rtl';
@@ -465,7 +466,14 @@ function App() {
             <ErrorBoundary>
               <PregnancyProvider>
                 <AppInitializer />
-                <AppContent />
+                {/* `ios.supportsTablet` is true, so this runs at 1032pt on an iPad
+                    while every screen is laid out for a phone. TabletFrame centres
+                    the app in a phone-width column above 700pt and is a no-op
+                    below it. See the component for why this rather than 33
+                    re-layouts. */}
+                <TabletFrame>
+                  <AppContent />
+                </TabletFrame>
               </PregnancyProvider>
             </ErrorBoundary>
           </ToastProvider>

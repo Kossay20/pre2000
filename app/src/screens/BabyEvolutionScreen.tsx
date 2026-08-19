@@ -12,7 +12,6 @@ import {
     StyleSheet,
     ScrollView,
     Image,
-    Dimensions,
     TouchableOpacity,
     Animated,
     ActivityIndicator,
@@ -29,8 +28,9 @@ import { theme } from '../theme';
 import { RtlAwareChevron } from '../components/common/RtlAwareChevron';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
 import { localizeUnit } from '../utils/localizedFormat';
+import { getContentWidth } from '../utils/layout';
 
-const { width } = Dimensions.get('window');
+const width = getContentWidth();
 const CARD_WIDTH = width - 48;
 
 // #12: localize the unit suffix of the fruit-comparison size (e.g. "14cm", "2mm")

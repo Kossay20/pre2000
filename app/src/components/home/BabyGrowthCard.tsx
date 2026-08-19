@@ -7,8 +7,7 @@ import {
     StyleSheet,
     TouchableOpacity,
     Animated,
-    Dimensions,
-} from 'react-native';
+    } from 'react-native';
 import { Week } from '../../types';
 import { getLocalizedContent } from '../../utils/i18nHelpers';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -16,8 +15,9 @@ import { getBabyGrowthForWeek } from '../../config/babyGrowthData';
 import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { RtlAwareChevron } from '../common/RtlAwareChevron';
+import { getContentWidth } from '../../utils/layout';
 
-const { width } = Dimensions.get('window');
+const width = getContentWidth();
 
 interface BabyGrowthCardProps {
     currentWeek: number;

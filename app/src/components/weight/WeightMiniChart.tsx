@@ -1,12 +1,13 @@
 import React from 'react';
-import { View, Text, Dimensions } from 'react-native';
+import { View, Text } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
 import { theme } from '../../theme';
 import { styles } from '../../screens/WeightTrackerScreen.styles';
 import { hexToRgba } from '../../utils/styleUtils';
 import type { WeightEntry } from '../../services/weightService';
+import { getContentWidth } from '../../utils/layout';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const SCREEN_WIDTH = getContentWidth();
 
 interface WeightMiniChartProps {
     weightHistory: WeightEntry[];

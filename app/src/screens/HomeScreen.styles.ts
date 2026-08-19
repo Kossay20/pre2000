@@ -1,8 +1,9 @@
-import { Dimensions, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { theme } from '../theme';
 import { getTextShadowStyle } from '../utils/styleUtils';
+import { getContentWidth } from '../utils/layout';
 
-const { width } = Dimensions.get('window');
+const width = getContentWidth();
 
 export const styles = StyleSheet.create({
     // NEW STYLES FOR UNIFIED DESIGN

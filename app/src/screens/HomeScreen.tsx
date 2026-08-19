@@ -8,7 +8,6 @@ import {
     TouchableOpacity,
     Image,
     RefreshControl,
-    Dimensions,
     Modal,
     Alert,
     ActivityIndicator,
@@ -57,8 +56,9 @@ import { getUserTasks } from '../services/taskService';
 import { HomeScreenNavigationProp } from '../types/navigation';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getContentWidth } from '../utils/layout';
 
-const { width } = Dimensions.get('window');
+const width = getContentWidth();
 const HOME_WELCOME_SEEN_KEY = '@home_welcome_seen_v1';
 
 export const HomeScreen = () => {

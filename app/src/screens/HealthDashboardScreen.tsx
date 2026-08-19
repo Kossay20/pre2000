@@ -11,7 +11,6 @@ import {
 } from 'react-native';
 import { showAlert } from '../utils/alert';
 import { LineChart } from 'react-native-chart-kit';
-import { Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../context/AuthContext';
 import { usePregnancy } from '../context/PregnancyContext';
@@ -49,8 +48,9 @@ import { HealthGlucoseModal } from '../components/health/HealthGlucoseModal';
 import { EmptyState } from '../components/common/EmptyState';
 import { Button } from '../components/common/Button';
 import { styles } from './HealthDashboardScreen.styles';
+import { getContentWidth } from '../utils/layout';
 
-const screenWidth = Dimensions.get('window').width;
+const screenWidth = getContentWidth();
 
 export const HealthDashboardScreen = () => {
     useScreenAnalytics('HealthDashboardScreen');
