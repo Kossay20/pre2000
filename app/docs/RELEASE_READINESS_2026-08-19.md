@@ -33,6 +33,9 @@ Prouvé = une commande le rejoue et échoue si quelqu'un casse la propriété.
 | Reconnexion réseau | 11 cas de détection de front, dont les 4 cas « ne doit PAS déclencher » | inclus dans `verify` |
 | Contenu non revu | écran Ramadan inatteignable par les 3 chemins (accueil, route, deep link) | inclus dans `verify` |
 | Parcours web | suite Playwright multilingue (rendu, fuites de clés i18n, direction RTL, erreurs console) | `npm run e2e:web` |
+| **Génération du projet natif** | `expo prebuild` va au bout — impossible avant aujourd'hui : le plugin `@react-native-firebase` tuait la génération dès l'absence des fichiers de config | `npx expo prebuild -p android` |
+| Manifeste Android généré | seules INTERNET, POST_NOTIFICATIONS, RECEIVE_BOOT_COMPLETED, VIBRATE demandées ; les 10 autres marquées `tools:node="remove"` | inspection du manifeste généré |
+| Icônes natives | les 3 calques adaptatifs + l'icône de notification produits à toutes les densités, rendu vérifié sous masques rond / squircle / carré | inspection de `android/app/src/main/res` |
 
 ---
 
@@ -49,6 +52,28 @@ Fait correctement, vérifié par lecture et par les tests disponibles — mais a
 | Retrait des `console.*` en prod | le piège de cache babel est corrigé et testé ; l'effet réel se constate sur un bundle prod | inspection du bundle de release |
 | Suppression de compte de bout en bout | la purge est testée, les règles autorisent l'effacement complet — mais sur un backend vide | après activation du backend |
 | Screenshots représentatifs | ce sont des captures RN-Web encadrées, même code et même UI, mais chrome système synthétique | re-capture sur simulateur |
+
+---
+
+## §3b — Le chemin le plus court : un compte Expo **gratuit**
+
+Je me suis trompé de cadrage dans le rapport précédent en présentant le build natif comme dépendant des comptes payants. Ce n'est pas vrai :
+
+> **`eas build --profile preview --platform android` ne demande qu'un compte Expo gratuit.**
+> Ni compte Apple, ni compte Google Play, ni même les fichiers Firebase.
+> Il produit un **APK installable** sur n'importe quel téléphone Android.
+
+Ce seul build ferme presque toute la colonne 🟡 ci-dessus : démarrage réel, notifications réellement reçues, RTL natif en arabe, reconnexion, suppression de compte. Trois commandes :
+
+```bash
+cd app
+npx eas login          # compte Expo gratuit, 2 minutes
+npx eas build --profile preview --platform android
+```
+
+La compilation tourne sur l'infrastructure Expo, ce qui contourne au passage la seule chose qui m'a bloqué localement : **il ne reste que 3,3 Go libres sur ce disque**, là où une compilation React Native New Architecture en réclame 6 à 8. J'ai lancé la build, vu Gradle consommer 2,6 Go sans même atteindre la phase de compilation, et je l'ai arrêtée puis nettoyée plutôt que de saturer la machine.
+
+iOS reste hors de portée ici pour une autre raison : **Xcode n'est pas installé** (seulement les Command Line Tools). Un build iOS passera aussi par EAS.
 
 ---
 
@@ -81,4 +106,5 @@ Aucune de ces lignes n'est du travail de développement. Elles sont dans cet ord
 
 Je ne dirai pas « on est prêt à publier » tant que je n'aurai pas vu un binaire démarrer sur un appareil réel. Tout ce qui est écrit au §2 est prouvé et le restera ; tout ce qui est au §3 est du travail correct qui attend sa preuve. Confondre les deux serait la seule vraie faute possible à ce stade.
 
-**État actuel : prêt à construire. Pas encore prêt à publier — et l'écart n'est plus du code.**
+**État actuel : le projet natif se génère, la suite est verte, le pack store est complet.
+Ce qui manque n'est plus du code — c'est un compte Expo gratuit pour produire le premier binaire, puis vos comptes store pour le publier.**
