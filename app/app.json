@@ -11,7 +11,7 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#FF6B9D"
+      "backgroundColor": "#FDADBB"
     },
     "ios": {
       "supportsTablet": true,
@@ -140,7 +140,9 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#FF6B9D"
+        "backgroundImage": "./assets/adaptive-icon-background.png",
+        "monochromeImage": "./assets/adaptive-icon-monochrome.png",
+        "backgroundColor": "#FC9096"
       },
       "package": "com.mamabebe.app",
       "versionCode": 8,
@@ -169,7 +171,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/icon.png",
+          "icon": "./assets/notification-icon.png",
           "color": "#FF6B9D",
           "defaultChannel": "default",
           "sounds": []
