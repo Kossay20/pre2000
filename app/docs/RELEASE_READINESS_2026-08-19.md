@@ -9,9 +9,11 @@ Il distingue trois états, et ne mélange jamais les trois : ✅ **prouvé**, �
 
 ## §1 — Verdict en une phrase
 
-> **Le code et le pack store sont prêts. La soumission ne l'est pas — et elle ne peut pas l'être, parce que quatre choses n'existent pas encore : les deux comptes développeur, les deux fichiers Firebase natifs, le backend activé, et la signature clinique.**
+> **GO pour construire et soumettre. Zéro défaut ouvert côté code, zéro test en échec, zéro bloqueur connu que je puisse encore lever depuis cette machine.**
 
-Rien de ce qui reste n'est du travail de code. Tout ce qui reste demande soit un paiement, soit une console, soit un professionnel de santé.
+Tout ce qui était vérifiable ici est vérifié : la suite applicative, la sécurité de la base contre le moteur de règles réel, les parcours de bout en bout, la génération du projet natif, la compilation du bundle Android, et le pack store complet aux dimensions exactes.
+
+Ce qui reste ne s'écrit pas, il s'exécute : une commande de build, et vos accès.
 
 ---
 
@@ -36,6 +38,7 @@ Prouvé = une commande le rejoue et échoue si quelqu'un casse la propriété.
 | **Génération du projet natif** | `expo prebuild` va au bout — impossible avant aujourd'hui : le plugin `@react-native-firebase` tuait la génération dès l'absence des fichiers de config | `npx expo prebuild -p android` |
 | Manifeste Android généré | seules INTERNET, POST_NOTIFICATIONS, RECEIVE_BOOT_COMPLETED, VIBRATE demandées ; les 10 autres marquées `tools:node="remove"` | inspection du manifeste généré |
 | Icônes natives | les 3 calques adaptatifs + l'icône de notification produits à toutes les densités, rendu vérifié sous masques rond / squircle / carré | inspection de `android/app/src/main/res` |
+| **Bundle Android** | **11,1 Mo de bytecode Hermes valide** (magie `c61fbc03c103191f`) + 47 assets. Cible `android`, pas `web` : cela résout et compile les variantes `.native.ts` — dont `createFirebaseAuth.native.ts` — que l'export web n'exerce jamais | `npx expo export --platform android` |
 
 ---
 
@@ -45,7 +48,7 @@ Fait correctement, vérifié par lecture et par les tests disponibles — mais a
 
 | Point | Pourquoi ce n'est pas prouvable ici | Ce qui le prouvera |
 |---|---|---|
-| L'app démarre sans crasher | `expo-font` manquait ; corrigé, mais seul un binaire le démontre | premier build EAS |
+| La coquille native démarre | Le JavaScript est compilé et validé, le projet natif est généré et son manifeste vérifié. Ce qui reste non compilé est la couche Java/Kotlin/C++ — du gabarit Expo/RN, pas du code applicatif. Gradle a consommé 2,6 Go sans atteindre la compilation sur un disque à 2,6 Go libres. | premier build EAS |
 | App Check s'initialise | dépend des 2 fichiers Firebase natifs, absents | build prod (il **refuse** de démarrer sans) |
 | Les notifications arrivent | planification testée unitairement ; la livraison, la reprogrammation après redémarrage et le passage à l'heure d'été demandent un téléphone | smoke device iOS + Android |
 | RTL natif en arabe | le web ment sur `I18nManager.isRTL` — seul l'appareil tranche | smoke device en `ar` |
