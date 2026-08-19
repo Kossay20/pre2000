@@ -18,6 +18,8 @@ module.exports = {
         '/node_modules/',
         '/e2e/',
         '/scripts/',
+        // Needs a JVM and a running Firestore emulator — `npm run test:rules`.
+        '/firestore-rules-tests/',
     ],
     globals: {
         __DEV__: true,
