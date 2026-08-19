@@ -31,6 +31,38 @@ const IOS_FIREBASE_FILE = './GoogleService-Info.plist';
 const existsInProject = (relativePath: string): boolean =>
   fs.existsSync(path.resolve(__dirname, relativePath));
 
+/**
+ * Add the Sentry config plugin only when it can be configured.
+ *
+ * `App.tsx` calls `Sentry.init` in production, but without the config plugin the
+ * native build never uploads source maps — so every production stack trace
+ * arrives as minified Hermes bytecode offsets, which is barely better than no
+ * crash reporting at all.
+ *
+ * The plugin is gated on the credentials being present rather than added
+ * unconditionally: it injects Gradle and Xcode build steps, and a half-configured
+ * upload step fails the build. With `SENTRY_ORG` / `SENTRY_PROJECT` absent (local
+ * dev, CI, anyone cloning) the config is byte-identical to not having it.
+ * Set both as EAS secrets, along with `SENTRY_AUTH_TOKEN`, to switch it on.
+ */
+type Plugins = NonNullable<ExpoConfig['plugins']>;
+
+const withSentryPlugin = (plugins: Plugins): Plugins => {
+  const organization = process.env.SENTRY_ORG;
+  const project = process.env.SENTRY_PROJECT;
+  if (!organization || !project) return plugins;
+  if (plugins.some((p) => (Array.isArray(p) ? p[0] : p) === '@sentry/react-native/expo')) {
+    return plugins;
+  }
+  // Annotated rather than inferred: a bare array literal widens to `(string |
+  // object)[]`, which does not satisfy the `[string, any]` tuple in ExpoConfig.
+  const entry: [string, Record<string, string>] = [
+    '@sentry/react-native/expo',
+    { organization, project, url: 'https://sentry.io/' },
+  ];
+  return [...plugins, entry];
+};
+
 export default ({ config }: ConfigContext): ExpoConfig => {
   const isProductionBuild = process.env.APP_ENV === 'production';
   const hasAndroidFirebaseFile = existsInProject(ANDROID_FIREBASE_FILE);
@@ -55,6 +87,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     ...config,
     name: config.name ?? 'Mama & Bébé',
     slug: config.slug ?? 'mama-bebe',
+    plugins: withSentryPlugin(config.plugins ?? []),
     ios: {
       ...config.ios,
       ...(hasIosFirebaseFile ? { googleServicesFile: IOS_FIREBASE_FILE } : {}),

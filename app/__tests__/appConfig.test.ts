@@ -31,7 +31,11 @@ const BASE_CONFIG = {
   version: '1.0.0',
   ios: { bundleIdentifier: 'com.mamabebe.app', supportsTablet: true },
   android: { package: 'com.mamabebe.app', versionCode: 8 },
+  plugins: ['expo-sqlite', ['expo-notifications', { icon: './assets/notification-icon.png' }]],
 } as unknown as ConfigContext['config'];
+
+const pluginNames = (config: ExpoConfig): string[] =>
+  (config.plugins ?? []).map((p) => (Array.isArray(p) ? String(p[0]) : String(p)));
 
 const ANDROID_FILE = './google-services.json';
 const IOS_FILE = './GoogleService-Info.plist';
@@ -46,7 +50,7 @@ const withFirebaseFiles = ({ android, ios }: { android: boolean; ios: boolean })
 };
 
 describe('app.config.ts — native Firebase file wiring', () => {
-  const originalAppEnv = process.env.APP_ENV;
+  const originalEnv = { ...process.env };
 
   // NB: no `jest.resetModules()` here. Resetting the registry would hand
   // app.config.ts a *fresh* `fs` mock instance, leaving the `existsSync` handle
@@ -56,11 +60,12 @@ describe('app.config.ts — native Firebase file wiring', () => {
   beforeEach(() => {
     existsSync.mockReset();
     delete process.env.APP_ENV;
+    delete process.env.SENTRY_ORG;
+    delete process.env.SENTRY_PROJECT;
   });
 
   afterAll(() => {
-    if (originalAppEnv === undefined) delete process.env.APP_ENV;
-    else process.env.APP_ENV = originalAppEnv;
+    process.env = originalEnv;
   });
 
   describe('outside a production build', () => {
@@ -94,6 +99,65 @@ describe('app.config.ts — native Firebase file wiring', () => {
 
       expect(config.android?.googleServicesFile).toBe(ANDROID_FILE);
       expect(config.ios?.googleServicesFile).toBe(IOS_FILE);
+    });
+  });
+
+  describe('Sentry config plugin', () => {
+    // Sentry.init runs in production (App.tsx), but without the config plugin the
+    // native build uploads no source maps, so every crash arrives as minified
+    // Hermes offsets. The plugin injects Gradle/Xcode steps, though, and a
+    // half-configured upload step fails the build — hence the gate.
+    beforeEach(() => {
+      withFirebaseFiles({ android: false, ios: false });
+    });
+
+    it('is absent when the credentials are not set', () => {
+      const config = loadConfigFactory()({ config: BASE_CONFIG } as ConfigContext);
+      expect(pluginNames(config)).not.toContain('@sentry/react-native/expo');
+    });
+
+    it('is added when both org and project are set', () => {
+      process.env.SENTRY_ORG = 'mama-bebe';
+      process.env.SENTRY_PROJECT = 'mobile';
+
+      const config = loadConfigFactory()({ config: BASE_CONFIG } as ConfigContext);
+      expect(pluginNames(config)).toContain('@sentry/react-native/expo');
+
+      const entry = (config.plugins ?? []).find(
+        (p) => Array.isArray(p) && p[0] === '@sentry/react-native/expo',
+      ) as [string, Record<string, string>];
+      expect(entry[1]).toMatchObject({ organization: 'mama-bebe', project: 'mobile' });
+    });
+
+    it.each([
+      ['only org', { SENTRY_ORG: 'mama-bebe' }],
+      ['only project', { SENTRY_PROJECT: 'mobile' }],
+    ])('stays off with %s — a partial config breaks the build', (_label, env) => {
+      Object.assign(process.env, env);
+      const config = loadConfigFactory()({ config: BASE_CONFIG } as ConfigContext);
+      expect(pluginNames(config)).not.toContain('@sentry/react-native/expo');
+    });
+
+    it('never drops the plugins declared in app.json', () => {
+      process.env.SENTRY_ORG = 'mama-bebe';
+      process.env.SENTRY_PROJECT = 'mobile';
+
+      const config = loadConfigFactory()({ config: BASE_CONFIG } as ConfigContext);
+      expect(pluginNames(config)).toEqual(
+        expect.arrayContaining(['expo-sqlite', 'expo-notifications']),
+      );
+    });
+
+    it('does not add itself twice', () => {
+      process.env.SENTRY_ORG = 'mama-bebe';
+      process.env.SENTRY_PROJECT = 'mobile';
+      const factory = loadConfigFactory();
+
+      const once = factory({ config: BASE_CONFIG } as ConfigContext);
+      const twice = factory({ config: once as unknown as ConfigContext['config'] } as ConfigContext);
+
+      const occurrences = pluginNames(twice).filter((n) => n === '@sentry/react-native/expo');
+      expect(occurrences).toHaveLength(1);
     });
   });
 

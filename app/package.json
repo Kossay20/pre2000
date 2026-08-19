@@ -1,6 +1,9 @@
 {
   "name": "mama-bebe",
   "version": "1.0.0",
+  "engines": {
+    "node": ">=20.19.0"
+  },
   "main": "node_modules/expo/AppEntry.js",
   "scripts": {
     "android": "expo run:android",
@@ -12,6 +15,7 @@
     "ios": "expo run:ios",
     "lint": "tsc --noEmit",
     "lint:colors": "bash scripts/check-theme-strings.sh",
+    "preverify": "node scripts/check-node-version.js",
     "start": "expo start",
     "store:build": "npx expo export --platform web --output-dir dist",
     "store:feature": "tsx scripts/generate-feature-graphic.ts",

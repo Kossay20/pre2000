@@ -78,3 +78,9 @@ dist-*/
 # binaries. The feature graphic and icons ARE committed (small and stable).
 /store/screenshots/
 /store/feature-graphic/_*.html
+
+# Play Console service account used by `eas submit` (submit.production.android).
+# It is a private key with upload rights on the whole app — it must never be
+# committed. eas.json references it by path; the file is delivered out of band.
+google-service-account.json
+**/google-service-account.json
