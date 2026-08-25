@@ -11,3 +11,6 @@
 # Playwright MCP screenshots (ad-hoc captures, fonts root level)
 e2e-fix-*.png
 e2e-mcp-*.png
+
+# Archives de données — le contenu décompressé est suivi, les .zip sont redondants
+*.zip
