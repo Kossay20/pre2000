@@ -8,6 +8,8 @@ import {
     matchContext,
     applyContextRules,
     isHotSeason,
+    isRamadan,
+    ramadanTableHorizon,
     buildContextProfile
 } from '../contextMatcher';
 import { ContextProfile, ReminderDefinition, ContextRule } from '../../types/remindersV2';
@@ -285,5 +287,55 @@ describe('buildContextProfile', () => {
 describe('isHotSeason', () => {
     test('should return boolean', () => {
         expect(typeof isHotSeason()).toBe('boolean');
+    });
+});
+
+// ============================================
+// TEST: the Ramadan window table
+// ============================================
+
+describe('isRamadan', () => {
+    const on = (iso: string) => isRamadan(new Date(`${iso}T12:00:00Z`));
+
+    it('is true inside a window and false on either side of it', () => {
+        expect(on('2026-02-17')).toBe(false);
+        expect(on('2026-02-18')).toBe(true);   // first day
+        expect(on('2026-03-01')).toBe(true);
+        expect(on('2026-03-19')).toBe(true);   // last day
+        expect(on('2026-03-20')).toBe(false);
+    });
+
+    it('sees both of the two Ramadans that fall in 2030', () => {
+        // The old Record<year, window> shape could hold only one window per
+        // Gregorian year. It kept January's and silently lost December's.
+        expect(on('2030-01-20')).toBe(true);
+        expect(on('2030-06-01')).toBe(false);
+        expect(on('2030-12-28')).toBe(true);
+    });
+
+    it('sees a window that starts in one year and ends in the next', () => {
+        // A January 2031 date found no 2031 entry at all and returned false, even
+        // though the fast that began 26 December 2030 was still running.
+        expect(on('2031-01-10')).toBe(true);
+        expect(on('2031-01-24')).toBe(true);
+        expect(on('2031-01-25')).toBe(false);
+    });
+
+    it('returns false past the horizon rather than guessing', () => {
+        // A wrong "yes" shifts a pregnant woman's hydration reminders into the
+        // middle of the night. Silence is the safe failure.
+        expect(on('2099-01-01')).toBe(false);
+    });
+});
+
+describe('the Ramadan table cannot rot quietly', () => {
+    it('still covers at least three years ahead', () => {
+        // The previous table expired in 2030 with nothing to announce it — the
+        // function just started returning false forever. This fails loudly while
+        // there is still time to extend it.
+        const horizon = new Date(`${ramadanTableHorizon()}T00:00:00Z`);
+        const threeYearsOut = new Date();
+        threeYearsOut.setUTCFullYear(threeYearsOut.getUTCFullYear() + 3);
+        expect(horizon.getTime()).toBeGreaterThan(threeYearsOut.getTime());
     });
 });

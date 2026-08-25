@@ -134,6 +134,35 @@ describe('user profiles', () => {
     );
   });
 
+  it('bounds how many fields the profile document can carry', async () => {
+    // This document holds declared diagnoses, and the GDPR export reads it through
+    // a whitelist — a field nobody declared is one the subject can never see in her
+    // own export. Owner-scoped, so not a cross-user hole; this stops a hand-rolled
+    // client planting arbitrary health fields in it.
+    const wide: Record<string, boolean> = {};
+    for (let i = 0; i < 60; i++) wide[`f${i}`] = true;
+    await assertFails(setDoc(doc(asAlice(), `userProfiles/${ALICE}`), wide));
+  });
+
+  it('still accepts a complete real profile — the cap is not too tight', async () => {
+    // A finished profile already carries around 27 fields. A ceiling that a real
+    // user trips is worse than no ceiling, because it fails at onboarding.
+    await assertSucceeds(
+      setDoc(doc(asAlice(), `userProfiles/${ALICE}`), {
+        firstName: 'Amira', lastName: 'B', locale: 'ar', country: 'tunisia',
+        city: 'Tunis', ageRange: '25-29', isFirstPregnancy: true,
+        lmp: '2026-02-01', pregnancyStartDate: '2026-02-01', dpa: '2026-11-08',
+        height: 165, prePregnancyWeight: 60, emergencyContacts: [],
+        hasGestationalDiabetes: true, hasHypertension: false, isTwinPregnancy: false,
+        medicalProfileAnsweredAt: '2026-08-25T10:00:00.000Z',
+        isTTC: false, cycleLength: 28, ovulationDate: '2026-02-15',
+        fertileWindowStart: '2026-02-10', fertileWindowEnd: '2026-02-16',
+        isCurious: false, exploreWeek: 0, email: 'a@b.co',
+        createdAt: '2026-08-25T10:00:00.000Z', updatedAt: '2026-08-25T10:00:00.000Z',
+      }),
+    );
+  });
+
   it('lets the owner DELETE their own profile — GDPR art. 17', async () => {
     // `allow write` covers delete, and on a delete `request.resource` is null, so a
     // validator that dereferences request.resource.data raises a null error and

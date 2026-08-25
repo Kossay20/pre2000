@@ -63,6 +63,20 @@ service cloud.firestore {
     // compared against a boolean and quietly match nothing — reproducing, from the
     // server side, exactly the inert-rule defect the client fix closed. Typed here
     // so no direct SDK call can plant one.
+    // The profile document is the one that carries declared diagnoses, and the
+    // GDPR export reads it through a hand-written whitelist — so a field nobody
+    // declared is a field the subject can never see in her own export and the
+    // purge logic does not know to reason about. Owner-scoped, so this is not a
+    // cross-user hole; it stops a compromised or hand-rolled client from planting
+    // arbitrary health fields in it.
+    //
+    // Deliberately not hasReasonableSize()'s < 30: a complete profile already
+    // carries around 27 fields, so that ceiling would break on the next feature
+    // rather than on an attack.
+    function profileFieldCountSane() {
+      return request.resource.data.size() <= 45;
+    }
+
     function validMedicalFlags() {
       return (!('hasGestationalDiabetes' in request.resource.data)
               || request.resource.data.hasGestationalDiabetes is bool)
@@ -183,7 +197,10 @@ service cloud.firestore {
       // deletion rejected outright: no auth-user delete, no collection purges, no
       // local AsyncStorage wipe. "Delete my account" was broken end to end, and a
       // health diagnosis is now among what it failed to erase. GDPR art. 17.
-      allow create, update: if isOwner(userId) && validProfileNames() && validMedicalFlags();
+      allow create, update: if isOwner(userId)
+                            && validProfileNames()
+                            && validMedicalFlags()
+                            && profileFieldCountSane();
       allow delete: if isOwner(userId);
       match /{sub}/{doc=**} {
         allow read, write: if isOwner(userId);
