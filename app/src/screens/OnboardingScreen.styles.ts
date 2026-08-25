@@ -228,6 +228,34 @@ export const styles = StyleSheet.create({
         fontWeight: '700',
         lineHeight: 16,
     },
+    // Collapsed by default. The medical question is genuinely optional and it made
+    // step 3 — already the longest — roughly a third taller, pushing Continue off a
+    // small screen. Onboarding completion is the funnel that matters most, so the
+    // question states itself in the header and only opens for someone it concerns.
+    disclosureHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 12,
+        paddingVertical: 14,
+        paddingHorizontal: 16,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: theme.colors.neutral200,
+        backgroundColor: theme.colors.neutral25,
+    },
+    disclosureHeaderOpen: {
+        borderColor: theme.colors.primary,
+    },
+    disclosureTitle: {
+        flex: 1,
+        fontSize: 15,
+        fontWeight: '600',
+        color: theme.colors.neutral900,
+    },
+    disclosureBody: {
+        paddingTop: 14,
+    },
     inputHint: {
         fontSize: 14,
         color: theme.colors.textSecondary,

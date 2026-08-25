@@ -186,6 +186,7 @@
     ],
     "extra": {
       "privacyPolicyUrl": "https://www.mama-et-bebe.com/privacy.html",
+      "accountDeletionUrl": "https://www.mama-et-bebe.com/delete-account.html",
       "marketingUrl": "https://www.mama-et-bebe.com",
       "eas": {
         "projectId": "75911d23-9cdf-4b98-833a-ee7807efe4e6"

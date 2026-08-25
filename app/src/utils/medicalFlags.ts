@@ -85,6 +85,30 @@ export function sanitizeMedicalFlags(input: unknown): MedicalFlags {
     return out;
 }
 
+/**
+ * Turn the onboarding answers into flags, or into nothing at all.
+ *
+ * The copy promises "leave everything unticked and continue", and the block is
+ * collapsed by default — so most women will pass it without opening it. Writing
+ * an answered `false` for someone who never saw the question would record a
+ * declaration she never made, and would make `hasAnsweredMedicalProfile` true
+ * for a woman who was never really asked.
+ *
+ * Nothing is lost by being honest: the rule engine reads undefined and false the
+ * same conservative way, so an untouched profile behaves identically either way.
+ * What differs is whether the app can later tell "she said no" from "she never
+ * answered" — which is exactly what decides whether asking again is a repeat.
+ */
+export function medicalFlagsFromAnswers(
+    answers: { hasGestationalDiabetes: boolean; hasHypertension: boolean; isTwinPregnancy: boolean },
+    answeredAt: string
+): MedicalFlags | undefined {
+    const declaredSomething =
+        answers.hasGestationalDiabetes || answers.hasHypertension || answers.isTwinPregnancy;
+    if (!declaredSomething) return undefined;
+    return { ...answers, medicalProfileAnsweredAt: answeredAt };
+}
+
 /** True once the question has been put to the user, whatever they answered. */
 export function hasAnsweredMedicalProfile(flags?: MedicalFlags | null): boolean {
     return typeof flags?.medicalProfileAnsweredAt === 'string' && flags.medicalProfileAnsweredAt.length > 0;

@@ -20,6 +20,8 @@ import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { usePregnancy } from '../context/PregnancyContext';
 import { theme } from '../theme';
+import { RtlAwareChevron } from '../components/common/RtlAwareChevron';
+import { medicalFlagsFromAnswers } from '../utils/medicalFlags';
 import { Button } from '../components/common/Button';
 import { ErrorMessage } from '../components/common/ErrorMessage';
 import { format, subDays } from 'date-fns';
@@ -91,6 +93,8 @@ export const OnboardingScreen = () => {
     const [hasGestationalDiabetes, setHasGestationalDiabetes] = useState(false);
     const [hasHypertension, setHasHypertension] = useState(false);
     const [isTwinPregnancy, setIsTwinPregnancy] = useState(false);
+    // Collapsed by default — see disclosureHeader in the styles for why.
+    const [medicalOpen, setMedicalOpen] = useState(false);
 
     // TTC-specific state
     const [cycleLength, setCycleLength] = useState(28);
@@ -288,20 +292,10 @@ export const OnboardingScreen = () => {
                     authenticatedUser ?? undefined,
                     undefined, // ttcOptions
                     undefined, // curiousOptions
-                    // The copy promises "leave everything unticked and continue", so
-                    // that has to produce a real skip: no flags, no timestamp, the
-                    // profile stays undefined. Writing an answered `false` for a woman
-                    // who never scrolled to the block would record a declaration she
-                    // never made — and the rule engine reads undefined and false the
-                    // same conservative way, so nothing is lost by being honest.
-                    hasGestationalDiabetes || hasHypertension || isTwinPregnancy
-                        ? {
-                              hasGestationalDiabetes,
-                              hasHypertension,
-                              isTwinPregnancy,
-                              medicalProfileAnsweredAt: new Date().toISOString(),
-                          }
-                        : undefined
+                    medicalFlagsFromAnswers(
+                        { hasGestationalDiabetes, hasHypertension, isTwinPregnancy },
+                        new Date().toISOString(),
+                    )
                 ));
 
                 log.debug('[Onboarding] ✅ Profile created successfully!');
@@ -614,7 +608,25 @@ export const OnboardingScreen = () => {
             </View>
 
             <View style={styles.inputGroup}>
-                <Text style={[styles.inputLabel, rtlText]}>{t('common.medicalProfile.title')}</Text>
+                <TouchableOpacity
+                    style={[styles.disclosureHeader, medicalOpen && styles.disclosureHeaderOpen]}
+                    onPress={() => setMedicalOpen(!medicalOpen)}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('common.medicalProfile.title')}
+                    accessibilityState={{ expanded: medicalOpen }}
+                    {...(Platform.OS === 'web' ? { 'aria-expanded': medicalOpen } : {})}
+                >
+                    <Text style={[styles.disclosureTitle, rtlText]}>
+                        {t('common.medicalProfile.title')}
+                    </Text>
+                    <RtlAwareChevron
+                        direction={medicalOpen ? 'up' : 'down'}
+                        color={theme.colors.textSecondary}
+                    />
+                </TouchableOpacity>
+
+                {medicalOpen && (
+                <View style={styles.disclosureBody}>
                 <Text style={[styles.inputHint, rtlText]}>{t('common.medicalProfile.intro')}</Text>
                 <View style={styles.radioGroup}>
                     {([
@@ -647,6 +659,8 @@ export const OnboardingScreen = () => {
                 </View>
                 <Text style={[styles.inputHint, rtlText]}>{t('common.medicalProfile.none')}</Text>
                 <Text style={[styles.privacyNote, rtlText]}>{t('common.medicalProfile.privacyNote')}</Text>
+                </View>
+                )}
             </View>
 
             <View style={styles.navButtons}>

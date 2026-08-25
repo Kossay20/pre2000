@@ -13,11 +13,17 @@
   ],
   "shared": {
     "bundleId": "com.mamabebe.app",
-    "primaryCategory": { "apple": "Health & Fitness", "play": "Health & Fitness" },
-    "secondaryCategory": { "apple": "Medical" },
+    "primaryCategory": {
+      "apple": "Health & Fitness",
+      "play": "Health & Fitness"
+    },
+    "secondaryCategory": {
+      "apple": "Medical"
+    },
     "supportUrl": "https://www.mama-et-bebe.com/support.html",
     "marketingUrl": "https://www.mama-et-bebe.com",
     "privacyPolicyUrl": "https://www.mama-et-bebe.com/privacy.html",
+    "accountDeletionUrl": "https://www.mama-et-bebe.com/delete-account.html",
     "contentRating": {
       "appleTarget": "12+",
       "note": "Educational medical/reproductive-health content. Answer Apple's questionnaire with 'Infrequent/Mild Medical or Treatment Information'; Play IARC as an educational health reference."
@@ -25,7 +31,10 @@
   },
   "locales": {
     "fr": {
-      "storeLocale": { "apple": "fr-FR", "play": "fr-FR" },
+      "storeLocale": {
+        "apple": "fr-FR",
+        "play": "fr-FR"
+      },
       "name": "Mama & Bébé — Grossesse",
       "subtitle": "Suivi semaine par semaine",
       "shortDescription": "Grossesse semaine par semaine : rappels, santé et conseils multilingues.",
@@ -35,7 +44,10 @@
       "whatsNew": "Première version publique.\n\n• Suivi semaine par semaine et évolution du bébé\n• Rendez-vous, rappels et suivi santé\n• Assistant multilingue (bêta) avec orientation d'urgence\n• Français, anglais, arabe et tunisien, avec interface droite-à-gauche complète"
     },
     "en": {
-      "storeLocale": { "apple": "en-US", "play": "en-US" },
+      "storeLocale": {
+        "apple": "en-US",
+        "play": "en-US"
+      },
       "name": "Mama & Bébé: Pregnancy",
       "subtitle": "Week-by-week pregnancy care",
       "shortDescription": "Week-by-week pregnancy tracking: reminders, health log, 4 languages.",
@@ -45,7 +57,10 @@
       "whatsNew": "First public release.\n\n• Week-by-week tracking and baby growth\n• Appointments, reminders and health logging\n• Multilingual assistant (beta) with emergency guidance\n• French, English, Arabic and Tunisian, with full right-to-left layout"
     },
     "ar": {
-      "storeLocale": { "apple": "ar", "play": "ar" },
+      "storeLocale": {
+        "apple": "ar",
+        "play": "ar"
+      },
       "name": "ماما وبيبي — الحمل",
       "subtitle": "متابعة الحمل أسبوعاً بأسبوع",
       "shortDescription": "متابعة الحمل أسبوعاً بأسبوع: تذكيرات ومتابعة صحية ودعم بلغتك.",

@@ -120,6 +120,31 @@ describe('store listing', () => {
       ).expo;
       expect(listing.shared.privacyPolicyUrl).toBe(appJson.extra.privacyPolicyUrl);
       expect(listing.shared.marketingUrl).toBe(appJson.extra.marketingUrl);
+      expect(listing.shared.accountDeletionUrl).toBe(appJson.extra.accountDeletionUrl);
+    });
+
+    it('publishes an account-deletion page, in both listing languages', () => {
+      // Play requires a publicly reachable URL where a user can request account and
+      // data deletion, and checks it. A declared URL with no page behind it is a
+      // rejection, and the page is the last thing anyone thinks to deploy.
+      const site = path.resolve(__dirname, '..', '..', 'website');
+      for (const file of ['delete-account.html', 'delete-account-en.html']) {
+        expect(fs.existsSync(path.join(site, file))).toBe(true);
+      }
+      expect(listing.shared.accountDeletionUrl).toMatch(/\/delete-account\.html$/);
+    });
+
+    it('the deletion page names what deletion actually erases', () => {
+      // The page is a promise about health data. It must at least name the
+      // declared conditions, which are the newest thing it covers and the easiest
+      // to forget when the page is written once and never revisited.
+      const fr = fs.readFileSync(
+        path.resolve(__dirname, '..', '..', 'website', 'delete-account.html'),
+        'utf8',
+      );
+      expect(fr).toContain('Votre suivi médical déclaré');
+      expect(fr).toMatch(/glyc[ée]mie/i);
+      expect(fr).toMatch(/contact@mama-et-bebe\.com/);
     });
 
     it('uses the shipped bundle identifier', () => {

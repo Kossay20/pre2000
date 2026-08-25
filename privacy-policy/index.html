@@ -38,9 +38,22 @@
         <ul>
             <li><strong>Informations de Compte :</strong> Adresse email (uniquement pour l'authentification via Firebase
                 Auth).</li>
-            <li><strong>Données de Santé :</strong> Informations liées à la grossesse (semaine de grossesse, poids,
-                rendez-vous médicaux) que vous saisissez manuellement. Ces données sont stockées de manière sécurisée
-                sur Google Firebase.</li>
+            <li><strong>Données de Grossesse :</strong> date de vos dernières règles, terme prévu, semaine en
+                cours, prénom, pays, tranche d'âge, taille et poids d'avant grossesse. Vous les saisissez
+                vous-même et aucune n'est obligatoire au-delà de la date qui permet de calculer votre semaine.</li>
+            <li><strong>Données de Santé que vous enregistrez :</strong> poids, tension artérielle, glycémie,
+                symptômes, mouvements du bébé, contractions, rendez-vous médicaux, rappels et checklist de
+                maternité. Vous décidez ce que vous enregistrez ; l'application n'en déduit aucun diagnostic.</li>
+            <li><strong>Suivi médical déclaré :</strong> si vous choisissez de nous l'indiquer, le fait qu'un
+                professionnel de santé vous ait signalé un diabète gestationnel, une hypertension de la grossesse
+                ou une grossesse gémellaire. <strong>La question est facultative</strong> et vous pouvez la
+                modifier ou la vider à tout moment dans les réglages. Cette information sert uniquement à ajuster
+                les rappels qui vous sont proposés.</li>
+            <li><strong>Contacts d'Urgence :</strong> les personnes que vous ajoutez vous-même pour les avoir sous
+                la main.</li>
+            <li><strong>Conversations avec l'assistant :</strong> vos échanges avec l'assistant multilingue.</li>
+            <li>Toutes ces données sont stockées de manière sécurisée sur Google Firebase, chiffrées en transit,
+                et ne sont accessibles qu'à vous.</li>
             <li><strong>Données Techniques :</strong> Identifiants techniques anonymes pour assurer le bon
                 fonctionnement de l'application et détecter les erreurs (via Sentry).</li>
         </ul>
@@ -76,12 +89,18 @@
             stockées sur l'infrastructure sécurisée de Google Cloud Platform (Firebase).</p>
 
         <h3>6. Vos Droits</h3>
-        <p>Vous disposez à tout moment du droit d'accès, de rectification et de suppression de vos données :</p>
+        <p>Le RGPD vous donne ces droits, et l'application les met en œuvre sans passer par nous :</p>
         <ul>
-            <li><strong>Suppression dans l'app :</strong> Allez dans <em>Profil → Paramètres → Supprimer mon
-                    compte</em>. Toutes vos données seront immédiatement et définitivement effacées.</li>
-            <li>Par email : En nous contactant à <a href="mailto:contact@mama-et-bebe.com">contact@mama-et-bebe.com</a>
-                pour toute demande relative à vos données.</li>
+            <li><strong>Accès et portabilité (art. 15 et 20) :</strong> exportez l'intégralité de vos données au
+                format JSON depuis <em>Réglages → Confidentialité et données → Exporter mes données</em>. L'export
+                contient tout ce qui est listé en section 2, y compris votre suivi médical déclaré.</li>
+            <li><strong>Effacement (art. 17) :</strong> supprimez votre compte et toutes vos données depuis
+                <em>Réglages → Confidentialité et données → Supprimer mon compte</em>. La suppression est
+                immédiate et définitive : profil, données de santé, rendez-vous, rappels, conversations et copie
+                locale sur l'appareil. Rien n'est conservé.</li>
+            <li><strong>Rectification (art. 16) :</strong> toute donnée saisie est modifiable dans l'application.</li>
+            <li><strong>Retrait du consentement :</strong> le suivi médical déclaré peut être vidé à tout moment
+                sans supprimer le reste de votre compte.</li>
         </ul>
 
         <div class="legal-info">

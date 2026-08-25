@@ -14,7 +14,13 @@
  * These tests pin the payload shape rather than the happy path, because the happy
  * path passed.
  */
-import { sanitizeMedicalFlags, toContextUserFlags } from '../../utils/medicalFlags';
+import {
+    sanitizeMedicalFlags,
+    toContextUserFlags,
+    medicalFlagsFromAnswers,
+    hasAnsweredMedicalProfile,
+} from '../../utils/medicalFlags';
+import { buildContextProfile } from '../../utils/contextMatcher';
 
 describe('sanitizeMedicalFlags', () => {
     it('keeps the three booleans and the timestamp', () => {
@@ -115,5 +121,47 @@ describe('toContextUserFlags', () => {
             has_hypertension: undefined,
             is_twins: undefined,
         });
+    });
+});
+
+describe('medicalFlagsFromAnswers — skipping has to be a real outcome', () => {
+    const AT = '2026-08-25T10:00:00.000Z';
+    const none = { hasGestationalDiabetes: false, hasHypertension: false, isTwinPregnancy: false };
+
+    it('returns nothing when the block was never opened', () => {
+        // It is collapsed by default and the copy says "leave everything unticked
+        // and continue". Recording an answered `false` there would log a
+        // declaration the woman never made.
+        expect(medicalFlagsFromAnswers(none, AT)).toBeUndefined();
+    });
+
+    it('records the answers and the timestamp when something is declared', () => {
+        expect(medicalFlagsFromAnswers({ ...none, hasHypertension: true }, AT)).toEqual({
+            hasGestationalDiabetes: false,
+            hasHypertension: true,
+            isTwinPregnancy: false,
+            medicalProfileAnsweredAt: AT,
+        });
+    });
+
+    it('a skip leaves hasAnsweredMedicalProfile false, a declaration makes it true', () => {
+        expect(hasAnsweredMedicalProfile(medicalFlagsFromAnswers(none, AT))).toBe(false);
+        expect(
+            hasAnsweredMedicalProfile(
+                medicalFlagsFromAnswers({ ...none, isTwinPregnancy: true }, AT),
+            ),
+        ).toBe(true);
+    });
+
+    it('a skip and a declared-no read identically to the rule engine', () => {
+        // The two differ at the mapping layer — a skip yields undefineds, a
+        // declared-no yields falses — and converge only once buildContextProfile
+        // applies its `?? false`. That convergence is the whole reason being honest
+        // about the difference costs nothing: the engine cannot tell them apart,
+        // while the profile still records which one happened.
+        const skipped = buildContextProfile(24, toContextUserFlags(medicalFlagsFromAnswers(none, AT)));
+        const declaredNo = buildContextProfile(24, toContextUserFlags(none));
+        expect(skipped).toEqual(declaredNo);
+        expect(skipped.has_gestational_diabetes).toBe(false);
     });
 });
