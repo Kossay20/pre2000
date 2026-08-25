@@ -134,6 +134,25 @@ describe('user profiles', () => {
     );
   });
 
+  it('lets the owner DELETE their own profile — GDPR art. 17', async () => {
+    // `allow write` covers delete, and on a delete `request.resource` is null, so a
+    // validator that dereferences request.resource.data raises a null error and
+    // denies. gdprPurge deletes this document first and does not catch, so the
+    // whole account deletion rejects — every later purge step, the auth-user
+    // delete, and the local AsyncStorage wipe never run.
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), `userProfiles/${ALICE}`), {
+        firstName: 'Amira',
+        hasGestationalDiabetes: true,
+      });
+    });
+    await assertSucceeds(deleteDoc(doc(asAlice(), `userProfiles/${ALICE}`)));
+  });
+
+  it('still refuses a delete by anyone else', async () => {
+    await assertFails(deleteDoc(doc(asMallory(), `userProfiles/${ALICE}`)));
+  });
+
   it("keeps a diagnosis owner-scoped — it is health data", async () => {
     await assertFails(
       setDoc(doc(asMallory(), `userProfiles/${ALICE}`), { hasGestationalDiabetes: true }),
