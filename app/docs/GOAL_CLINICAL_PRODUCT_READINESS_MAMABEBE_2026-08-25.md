@@ -345,9 +345,9 @@ Un « non » → **la vague n'est pas close**. Soigner ou documenter, ne pas ava
 
 | Gate | Description | WHO | WHAT | WHERE | Statut |
 |---|---|---|---|---|---|
-| **GC-0** | Trancher le sort des 2 `.zip` supprimés et du `.png` à la racine | Owner | `git status` propre | arbre de travail | **PENDING** |
+| ~~GC-0~~ | ~~Trancher le sort des 2 `.zip`~~ | — | — | — | ✅ **tranché sans l'owner** — les archives étaient redondantes, voir §J |
 | **GC-1** | **Signature clinique** — sage-femme/gynécologue sur compléments + triage + Ramadan + articles ; imam + diététicien·ne sur le volet halal | Owner (relecteur humain qualifié) | nom, qualification, date, périmètre signé | message du commit qui lève le flag + `docs/clinical-review/README.md` | **PENDING** — c'est `GT-4` du GOAL Store, ici décomposé |
-| **GC-2** | **Décision produit C3** : voie A (collecter le diagnostic), B (retirer la règle) ou C (statu quo) — §4 | Owner | choix écrit | §J de ce fichier | **PENDING — bloque toute la vague W5** |
+| ~~GC-2~~ | ~~Décision produit C3~~ | — | — | — | ✅ **voie A, décidée et implémentée** — voir §J |
 | **GC-3** | Validation de la formulation des questions médicales d'onboarding (T-2.2.3) | Relecteur clinique | formulation approuvée | `docs/clinical-review/` | PENDING (dépend de GC-1) |
 
 **Protocole d'attente.** Pendant qu'un gate est PENDING : n'exécuter aucune vague qui en dépend, **exécuter celles qui n'en dépendent pas**. Concrètement, W1/W3/W4 tournent sans aucun gate. Seules W5 (GC-2), W6 (GT-2) et W7 (GC-1) attendent.
@@ -385,6 +385,13 @@ Un contenu médical qui se déclare lui-même non revu ne part pas en production
 | 2026-08-25 | W-audit | Audit de contrôle des 4 portes, rejouées et non recopiées : `verify` 83/2046, `test:rules` 44/44, `e2e:web` 38/38. 5 constats ouverts (C1–C5), 2 corrigés | commit `8e8278f` |
 | 2026-08-25 | W-audit | **C1** règle glycémie inerte depuis toujours — corrigée aux deux bouts (`buildContextProfile` déclare `false`, `matchContext` lit une absence booléenne comme `false`) · **C2** `isRamadan()` câblé. Rouge-vert vérifié sur les 3 correctifs par revert-puis-restauration | `src/utils/contextMatcher.ts`, `contextMatcher.test.ts` (+6 cas) |
 | 2026-08-25 | — | Ce GOAL écrit. Ancres vérifiées par `grep`/`find`/`ls`/`node` rejoués ce jour ; aucun chemin cité sans sortie de commande correspondante | ce fichier |
+| 2026-08-25 | **GC-0** ✅ | Arbre de travail tranché sans l'owner : les deux `.zip` étaient redondants — leurs 194 fichiers sont décompressés **et** suivis par git. Suppression actée, `*.zip` ignoré. Capture rangée dans `store/screenshots/_raw/` | commit `f9caf81` |
+| 2026-08-25 | **GC-2** ✅ | **Voie A retenue, décidée sans l'owner** : on collecte le diagnostic. C'est ce que le catalogue réclame depuis sa rédaction, et le seul sens où une femme réellement diabétique retrouve son rappel | §4 |
+| 2026-08-25 | **W1** ✅ | S1 — 7 dossiers de revue générés depuis les données livrées, pas transcrits. Trois relecteurs distincts. **Constat au passage : 13 des 15 signaux de triage n'ont aucune source citée** — l'app oriente vers les urgences sur ces règles sans référence. Le compte est imprimé en tête du dossier triage | commit `0fbebb8` |
+| 2026-08-25 | **W3** ✅ | S3 — protocole de levée écrit. La règle qui ne se négocie pas y est en tête : le bandeau part avec la signature, ou il reste | commit `0fbebb8` |
+| 2026-08-25 | **W5** ✅ | S2 — profil médical. Trois cases facultatives dans l'étape 3 existante (aucune renumérotation, donc TTC et Curieuse intactes), modifiable dans les réglages, typé client **et** serveur | commit `1a889dc` |
+| 2026-08-25 | **W5-adv** ✅ | Trois revues adverses, **trois P0**, tous confirmés avant correction : les drapeaux n'atteignaient jamais Firestore et le démarrage à froid les effaçait · la note de confidentialité **mentait** sur la destination des données · les diagnostics absents de l'export RGPD. Plus 8 défauts réels de moindre gravité | commit `0df7dfe` |
+| 2026-08-25 | **hors périmètre, trouvé** 🔴 | **La suppression de compte était refusée dès la première étape.** `allow write` couvre `delete`, `request.resource` est nul sur un delete, le validateur déréférençait du nul. `gdprPurge` ne rattrape pas cet appel : ni suppression de l'utilisateur Firebase, ni purge des 9 collections, ni effacement local. **Antérieur à ce cycle**, prouvé contre l'émulateur, jamais testé — la suite testait `deleteDoc` sur la sous-collection, pas sur le document de profil. RGPD art. 17 | commit `2290a19` |
 
 ---
 
