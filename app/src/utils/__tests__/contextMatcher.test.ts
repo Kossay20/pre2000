@@ -29,6 +29,20 @@ describe('matchContext', () => {
         expect(matchContext({ trimester: 1 }, baseProfile)).toBe(false);
     });
 
+    // baseProfile declares no diagnosis, which is the shape every production
+    // profile had. A boolean condition must read that absence as `false` rather
+    // than as a value that matches nothing.
+    test('an absent boolean flag reads as false', () => {
+        expect(matchContext({ has_gestational_diabetes: false }, baseProfile)).toBe(true);
+        expect(matchContext({ has_gestational_diabetes: true }, baseProfile)).toBe(false);
+        expect(matchContext({ has_hypertension: false }, baseProfile)).toBe(true);
+        expect(matchContext({ is_twins: true }, baseProfile)).toBe(false);
+    });
+
+    test('an absent non-boolean flag still matches nothing', () => {
+        expect(matchContext({ work_schedule: 'office' }, baseProfile)).toBe(false);
+    });
+
     test('should match week with exact value', () => {
         expect(matchContext({ week_of_pregnancy: 20 }, baseProfile)).toBe(true);
         expect(matchContext({ week_of_pregnancy: 21 }, baseProfile)).toBe(false);
@@ -190,6 +204,28 @@ describe('buildContextProfile', () => {
         expect(typeof profile.is_hot_season).toBe('boolean');
     });
 
+    // is_hot_season called isHotSeason(); is_ramadan sat at a hardcoded `false`
+    // while isRamadan() went uncalled from anywhere in the app, so the flag could
+    // never be true and the docstring's "the user flag overrides this
+    // calculation" described a calculation that never ran.
+    test('is_ramadan comes from the calendar, and the user flag overrides it', () => {
+        jest.useFakeTimers().setSystemTime(new Date('2026-03-01T12:00:00Z'));
+        try {
+            expect(buildContextProfile(20).is_ramadan).toBe(true);
+            expect(buildContextProfile(20, { is_ramadan: false }).is_ramadan).toBe(false);
+        } finally {
+            jest.useRealTimers();
+        }
+
+        jest.useFakeTimers().setSystemTime(new Date('2026-08-25T12:00:00Z'));
+        try {
+            expect(buildContextProfile(20).is_ramadan).toBe(false);
+            expect(buildContextProfile(20, { is_ramadan: true }).is_ramadan).toBe(true);
+        } finally {
+            jest.useRealTimers();
+        }
+    });
+
     test('should include optional user flags', () => {
         const profile = buildContextProfile(20, {
             has_gestational_diabetes: true,
@@ -197,6 +233,48 @@ describe('buildContextProfile', () => {
         });
         expect(profile.has_gestational_diabetes).toBe(true);
         expect(profile.is_twins).toBe(true);
+    });
+
+    // The app has no screen that collects a gestational-diabetes or hypertension
+    // diagnosis, so every production caller invokes buildContextProfile without
+    // flags. Leaving them `undefined` breaks the rule engine's strict equality:
+    // `when: { has_gestational_diabetes: false }` never matched, so the glucose
+    // reminder authored for diabetic users only was offered to everyone.
+    // Undeclared means not declared, and the profile must say so.
+    test('undeclared medical flags default to false, not undefined', () => {
+        const profile = buildContextProfile(20);
+        expect(profile.has_gestational_diabetes).toBe(false);
+        expect(profile.has_hypertension).toBe(false);
+        expect(profile.is_twins).toBe(false);
+    });
+
+    test('an explicit false is preserved, not overwritten by the default', () => {
+        const profile = buildContextProfile(20, {
+            has_gestational_diabetes: false,
+            has_hypertension: true
+        });
+        expect(profile.has_gestational_diabetes).toBe(false);
+        expect(profile.has_hypertension).toBe(true);
+    });
+
+    test('a disable rule keyed on an undeclared flag fires', () => {
+        const glucoseOnlyForDiabetics: ReminderDefinition = {
+            id: 'rem_follow_glucose',
+            category_id: 'follow',
+            title: { fr: 'Contrôle glycémie', ar: '', tn: '', en: 'Glucose check' },
+            source_ui: 'reminders_only',
+            context_rules: [
+                { when: { has_gestational_diabetes: false }, then: { disable: true }, priority: 1 }
+            ]
+        } as unknown as ReminderDefinition;
+
+        expect(applyContextRules(glucoseOnlyForDiabetics, buildContextProfile(20))).toBeNull();
+        expect(
+            applyContextRules(
+                glucoseOnlyForDiabetics,
+                buildContextProfile(20, { has_gestational_diabetes: true })
+            )
+        ).not.toBeNull();
     });
 });
 

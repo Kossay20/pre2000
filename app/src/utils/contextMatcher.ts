@@ -32,6 +32,14 @@ function matchNum(value: number, cond: number | NumComparator): boolean {
 
 /**
  * Check if a rule's "when" condition matches the user's profile
+ *
+ * A boolean condition compared against a profile key that is absent reads the
+ * absence as `false`: the flags are diagnoses, and one that was never declared
+ * was not declared. Without this, `buildContextProfile` was the only thing
+ * standing between a hand-built profile and the bug where
+ * `when: { has_gestational_diabetes: false } → disable` silently never fired.
+ * Both directions stay conservative — an undeclared diagnosis cannot switch on a
+ * condition-specific reminder, nor raise a reminder's intensity.
  */
 export function matchContext(rule: ContextRuleWhen, profile: ContextProfile): boolean {
     for (const key of Object.keys(rule) as (keyof ContextRuleWhen)[]) {
@@ -45,7 +53,9 @@ export function matchContext(rule: ContextRuleWhen, profile: ContextProfile): bo
                 return false;
             }
         } else {
-            if (actual !== expected) return false;
+            const resolved =
+                actual === undefined && typeof expected === 'boolean' ? false : actual;
+            if (resolved !== expected) return false;
         }
     }
     return true;
@@ -136,6 +146,15 @@ export function isRamadan(now: Date = new Date()): boolean {
 
 /**
  * Build a ContextProfile from user data
+ *
+ * The medical booleans default to `false`, not `undefined`. `matchContext`
+ * compares with strict equality, so an undefined flag silently fails to match a
+ * rule written as `when: { has_gestational_diabetes: false }` — the disable rule
+ * never fired, and the glucose-check reminder authored for diabetic users only
+ * was listed for every user. No screen collects these diagnoses yet, so every
+ * production caller passes no flags at all and the whole class of rules was
+ * dead. Undeclared means not declared, and the profile has to say so rather than
+ * leave a hole for the rule engine to trip over.
  */
 export function buildContextProfile(
     weekOfPregnancy: number,
@@ -153,10 +172,10 @@ export function buildContextProfile(
         trimester,
         week_of_pregnancy: weekOfPregnancy,
         is_hot_season: isHotSeason(),
-        is_ramadan: userFlags?.is_ramadan ?? false,
-        has_gestational_diabetes: userFlags?.has_gestational_diabetes,
-        has_hypertension: userFlags?.has_hypertension,
-        is_twins: userFlags?.is_twins,
+        is_ramadan: userFlags?.is_ramadan ?? isRamadan(),
+        has_gestational_diabetes: userFlags?.has_gestational_diabetes ?? false,
+        has_hypertension: userFlags?.has_hypertension ?? false,
+        is_twins: userFlags?.is_twins ?? false,
         work_schedule: userFlags?.work_schedule,
     };
 }
