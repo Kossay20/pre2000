@@ -20,7 +20,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { usePregnancy } from '../context/PregnancyContext';
 import { useAuth } from '../context/AuthContext';
-import { MEDICAL_FLAG_KEYS, MedicalFlagKey } from '../utils/medicalFlags';
+import { MEDICAL_FLAG_KEYS, MedicalFlagKey, hasAnsweredMedicalProfile } from '../utils/medicalFlags';
 import { auth } from '../config/firebase';
 import {
     loadBabyMessageEnabled,
@@ -215,12 +215,26 @@ export const SettingsScreen = () => {
             {/* Declared conditions — the reminders catalogue keys context rules on
                 these, so an answer given once at onboarding has to stay editable:
                 a gestational-diabetes diagnosis usually arrives around week 24,
-                long after the question was asked. */}
+                long after the question was asked. Pregnant users only — the
+                onboarding question is not asked in the TTC or exploring flows, and
+                offering a "twin pregnancy" switch to someone who is not pregnant is
+                not a neutral thing to do. */}
+            {!user?.isTTC && !user?.isCurious && (
             <View style={styles.section}>
                 <View style={[styles.sectionHeader, styles.sectionHeaderRow]}>
                     <Ionicons name="medkit-outline" size={20} color={theme.colors.accent} style={styles.sectionIcon} />
                     <Text style={styles.sectionTitle}>{t('common.medicalProfile.settingsTitle')}</Text>
                 </View>
+
+                {/* The clinician framing travels with the switches. Without it a user
+                    self-declares "Gestational diabetes" with no context, which is the
+                    one thing this question must never ask her to do. */}
+                <Text style={styles.sectionCopy}>{t('common.medicalProfile.intro')}</Text>
+                <Text style={styles.sectionCopy}>
+                    {hasAnsweredMedicalProfile(user ?? undefined)
+                        ? t('common.medicalProfile.settingsSubtitle')
+                        : t('common.medicalProfile.notAnswered')}
+                </Text>
 
                 {MEDICAL_FLAG_KEYS.map((key) => {
                     const labelKey: Record<MedicalFlagKey, string> = {
@@ -238,11 +252,16 @@ export const SettingsScreen = () => {
                             </View>
                             <Switch
                                 value={value}
-                                onValueChange={(next) => {
-                                    void updateProfile({
+                                onValueChange={async (next) => {
+                                    // updateProfile reports cloud-sync failure on
+                                    // purpose. Discarding it left the switch snapping
+                                    // silently back to the old value, since `value`
+                                    // reads from the profile.
+                                    const res = await updateProfile({
                                         [key]: next,
                                         medicalProfileAnsweredAt: new Date().toISOString(),
                                     });
+                                    if (!res.ok) showAlert(t('common.error'), t('common.medicalProfile.syncWarning'));
                                 }}
                                 trackColor={{ false: theme.colors.neutral300, true: theme.colors.accent }}
                                 thumbColor={value ? theme.colors.white : theme.colors.iosGroupedBackground}
@@ -255,10 +274,11 @@ export const SettingsScreen = () => {
                     );
                 })}
 
-                <Text style={styles.settingDescription}>
+                <Text style={styles.sectionCopy}>
                     {t('common.medicalProfile.privacyNote')}
                 </Text>
             </View>
+            )}
 
             {/* Permissions Debug Section */}
             <View style={styles.section}>
@@ -579,6 +599,16 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: theme.colors.textSecondary,
         lineHeight: 20,
+    },
+    // Section-level copy sits directly inside `section`, which has no padding of
+    // its own — every other description in this screen is nested in settingRow's
+    // inset and inherits it. Without this it renders flush against the card edge.
+    sectionCopy: {
+        fontSize: 14,
+        color: theme.colors.textSecondary,
+        lineHeight: 20,
+        paddingHorizontal: 16,
+        paddingBottom: 12,
     },
     hourSelector: {
         padding: 16,

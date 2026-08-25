@@ -78,6 +78,39 @@ describe('rem_follow_bp stays available to everyone', () => {
     });
 });
 
+describe('a reminder the user already switched on is never taken away', () => {
+    // remindersScheduler honours the stored `enabled` flag and never consults the
+    // context rules. So hiding an enabled reminder from the list does not stop its
+    // notification — it only removes the card that would switch it off. Anyone who
+    // had enabled the glucose check before this rule started working would have
+    // been left with a daily prompt and no way to silence it.
+    const idsKeeping = (
+        flags: Parameters<typeof toContextUserFlags>[0],
+        enabled: string[],
+    ) =>
+        getAvailableReminders(
+            buildContextProfile(WEEK, toContextUserFlags(flags)),
+            undefined,
+            new Set(enabled),
+        ).map(r => r.id);
+
+    it('keeps an enabled reminder a context rule would otherwise hide', () => {
+        expect(idsKeeping(undefined, ['rem_follow_glucose'])).toContain('rem_follow_glucose');
+    });
+
+    it('does not resurrect one the user never enabled', () => {
+        expect(idsKeeping(undefined, ['rem_follow_bp'])).not.toContain('rem_follow_glucose');
+    });
+
+    it('an empty keep-set behaves exactly like no keep-set', () => {
+        const withEmpty = idsKeeping(undefined, []);
+        const without = getAvailableReminders(
+            buildContextProfile(WEEK, toContextUserFlags(undefined)),
+        ).map(r => r.id);
+        expect(withEmpty).toEqual(without);
+    });
+});
+
 describe('the catalogue is not otherwise disturbed', () => {
     it('declaring a condition only ever adds reminders, never removes one', () => {
         const base = idsFor(undefined);

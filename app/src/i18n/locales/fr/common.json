@@ -797,15 +797,16 @@
   "addToFavorites": "Ajouter aux favoris",
   "supplementsDisclaimer": "⚠️ Ces informations sont fournies à titre indicatif et ne remplacent pas un avis médical.\nNe commencez ni n’arrêtez jamais un complément sans en parler à votre médecin ou sage-femme.",
   "medicalProfile": {
-    "title": "Un suivi médical particulier ?",
-    "intro": "Si votre médecin ou votre sage-femme vous a signalé l'un de ces points, dites-le-nous : certains rappels s'y adaptent. Sinon, passez — rien n'est obligatoire ici.",
+    "title": "Votre médecin vous a-t-il signalé quelque chose ?",
+    "intro": "Si votre médecin ou votre sage-femme vous a signalé l'un de ces points, cochez-le : certains rappels s'y adaptent. Sinon, laissez tout décoché et continuez — rien n'est obligatoire ici.",
     "gestationalDiabetes": "Diabète gestationnel",
     "hypertension": "Hypertension de la grossesse",
     "twins": "Grossesse gémellaire",
-    "none": "Aucun, ou je préfère ne pas répondre",
-    "privacyNote": "Ces informations restent sur votre téléphone et dans votre compte. Elles servent uniquement à ajuster vos rappels, et ne remplacent aucun avis médical.",
+    "none": "Rien de tout cela ne me concerne, ou je préfère ne pas répondre : laissez tout décoché.",
+    "privacyNote": "Ces informations sont enregistrées dans votre compte, sur nos serveurs sécurisés. Elles ne sont ni partagées ni vendues, servent uniquement à ajuster vos rappels, et ne remplacent aucun avis médical.",
     "settingsTitle": "Suivi médical",
     "settingsSubtitle": "Modifiable à tout moment",
-    "notAnswered": "Non renseigné"
+    "notAnswered": "Non renseigné",
+    "syncWarning": "Modification enregistrée sur cet appareil, mais pas encore synchronisée avec votre compte. Elle repartira à la prochaine connexion."
   }
 }

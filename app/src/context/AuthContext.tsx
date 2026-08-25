@@ -498,6 +498,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 if (ttcFields.fertileWindowStart) profileData.fertileWindowStart = ttcFields.fertileWindowStart;
                 if (ttcFields.fertileWindowEnd) profileData.fertileWindowEnd = ttcFields.fertileWindowEnd;
 
+                // Declared conditions. This payload is a whitelist built field by
+                // field, and the first cut of this feature spread the flags into the
+                // in-memory profile and AsyncStorage but never named them here — so
+                // they never left the device. The cold start then rebuilds the
+                // profile from this document alone, with no merge against the cache,
+                // and writes the result back over AsyncStorage: a woman would have
+                // declared gestational diabetes, seen the glucose reminder appear,
+                // restarted once, and lost both.
+                if (medicalFields.hasGestationalDiabetes !== undefined)
+                    profileData.hasGestationalDiabetes = medicalFields.hasGestationalDiabetes;
+                if (medicalFields.hasHypertension !== undefined)
+                    profileData.hasHypertension = medicalFields.hasHypertension;
+                if (medicalFields.isTwinPregnancy !== undefined)
+                    profileData.isTwinPregnancy = medicalFields.isTwinPregnancy;
+                if (medicalFields.medicalProfileAnsweredAt !== undefined)
+                    profileData.medicalProfileAnsweredAt = medicalFields.medicalProfileAnsweredAt;
+
                 await setDoc(doc(db, 'userProfiles', uid), profileData, { merge: true });
                 log.debug('[AuthContext] ✅ Profile saved to Firestore');
             }

@@ -396,7 +396,16 @@ export const RemindersTab = () => {
     }
 
     const essentials = getEssentialReminders(profile);
-    const allReminders = getAvailableReminders(profile, ['reminders_only', 'both_but_single_entry']);
+    // Anything already switched on stays listed even if a context rule would now
+    // hide it — otherwise the notification keeps firing with no card to stop it.
+    const enabledIds = new Set(
+        Object.entries(settings).filter(([, v]) => v?.enabled).map(([id]) => id),
+    );
+    const allReminders = getAvailableReminders(
+        profile,
+        ['reminders_only', 'both_but_single_entry'],
+        enabledIds,
+    );
     const essentialIds = new Set(essentials.map(e => e.id));
     const nonEssentialReminders = allReminders.filter(r => !essentialIds.has(r.id));
 

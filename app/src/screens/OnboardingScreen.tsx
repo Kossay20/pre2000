@@ -288,12 +288,20 @@ export const OnboardingScreen = () => {
                     authenticatedUser ?? undefined,
                     undefined, // ttcOptions
                     undefined, // curiousOptions
-                    {
-                        hasGestationalDiabetes,
-                        hasHypertension,
-                        isTwinPregnancy,
-                        medicalProfileAnsweredAt: new Date().toISOString(),
-                    }
+                    // The copy promises "leave everything unticked and continue", so
+                    // that has to produce a real skip: no flags, no timestamp, the
+                    // profile stays undefined. Writing an answered `false` for a woman
+                    // who never scrolled to the block would record a declaration she
+                    // never made — and the rule engine reads undefined and false the
+                    // same conservative way, so nothing is lost by being honest.
+                    hasGestationalDiabetes || hasHypertension || isTwinPregnancy
+                        ? {
+                              hasGestationalDiabetes,
+                              hasHypertension,
+                              isTwinPregnancy,
+                              medicalProfileAnsweredAt: new Date().toISOString(),
+                          }
+                        : undefined
                 ));
 
                 log.debug('[Onboarding] ✅ Profile created successfully!');
@@ -616,18 +624,28 @@ export const OnboardingScreen = () => {
                     ] as const).map(([key, value, setValue]) => (
                         <TouchableOpacity
                             key={key}
-                            style={[styles.radioOption, value && styles.radioOptionSelected]}
+                            style={[styles.checkOption, value && styles.checkOptionSelected]}
                             onPress={() => setValue(!value)}
                             accessibilityRole="checkbox"
                             accessibilityLabel={t(`common.medicalProfile.${key}`)}
                             accessibilityState={{ checked: value }}
+                            {...(Platform.OS === 'web' ? { 'aria-checked': value } : {})}
                         >
+                            {/* A drawn box, like every other checkbox in the app. The
+                                first cut reused the single-select radio style above and
+                                signalled "on" with a tick prefix — multi-select
+                                semantics wearing single-select clothes, and an
+                                unchecked row with no affordance at all. */}
+                            <View style={[styles.checkBox, value && styles.checkBoxSelected]}>
+                                {value && <Text style={styles.checkMark}>{'\u2713'}</Text>}
+                            </View>
                             <Text style={[styles.radioText, rtlText]}>
-                                {value ? '\u2713 ' : ''}{t(`common.medicalProfile.${key}`)}
+                                {t(`common.medicalProfile.${key}`)}
                             </Text>
                         </TouchableOpacity>
                     ))}
                 </View>
+                <Text style={[styles.inputHint, rtlText]}>{t('common.medicalProfile.none')}</Text>
                 <Text style={[styles.privacyNote, rtlText]}>{t('common.medicalProfile.privacyNote')}</Text>
             </View>
 

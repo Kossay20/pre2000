@@ -38,8 +38,13 @@ const log = createLogger('DataExportService');
  *   Reason: collapsed 46 per-week round-trips into 1 query for cost/perf.
  * - v4 (W8 GDPR Art.20): added `tools` { kickCounter, contractionTimer, hospitalBag, bookmarks } —
  *   local AsyncStorage histories that were purged on delete but missing from the export bundle.
+ * - v5: added the declared conditions (gestational diabetes / hypertension / twin
+ *   pregnancy) and the timestamp of the answer. These live on the AUTH profile, and
+ *   the export spreads PregnancyContext's `profile`, which is a hand-written
+ *   whitelist that does not carry them — so a health diagnosis was absent from a
+ *   subject-access export. GDPR Art. 15 / Art. 20.
  */
-const EXPORT_SCHEMA_VERSION = 4;
+const EXPORT_SCHEMA_VERSION = 5;
 
 // Symptoms history helper takes a look-back in days. Use ~11 years so every
 // entry the user ever created is exported (RGPD Art. 15 / Art. 20 — full data).
@@ -171,6 +176,13 @@ export const generateExportData = async (user: any, profile: any) => {
                 // P0 GDPR FIX: Only include email if user is authenticated (not guest)
                 email: isGuest ? undefined : user?.email,
                 isGuest,
+                // Declared conditions — read from the auth profile, which is where
+                // they are persisted. PregnancyContext's `profile` is a whitelist
+                // that predates them.
+                hasGestationalDiabetes: user?.hasGestationalDiabetes,
+                hasHypertension: user?.hasHypertension,
+                isTwinPregnancy: user?.isTwinPregnancy,
+                medicalProfileAnsweredAt: user?.medicalProfileAnsweredAt,
             },
             appointments,
             tasks,

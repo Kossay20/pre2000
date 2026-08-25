@@ -72,7 +72,14 @@ export function sanitizeMedicalFlags(input: unknown): MedicalFlags {
     for (const key of MEDICAL_FLAG_KEYS) {
         if (typeof src[key] === 'boolean') out[key] = src[key] as boolean;
     }
-    if (typeof src.medicalProfileAnsweredAt === 'string' && src.medicalProfileAnsweredAt) {
+    // 40 is the cap firestore.rules enforces. Dropping an over-long value here
+    // rather than letting it reach setDoc keeps the failure visible in one place:
+    // a rejected write surfaces as a silent { ok: false } the UI never shows.
+    if (
+        typeof src.medicalProfileAnsweredAt === 'string' &&
+        src.medicalProfileAnsweredAt.length > 0 &&
+        src.medicalProfileAnsweredAt.length <= 40
+    ) {
         out.medicalProfileAnsweredAt = src.medicalProfileAnsweredAt;
     }
     return out;

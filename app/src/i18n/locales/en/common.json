@@ -797,15 +797,16 @@
   "addToFavorites": "Add to favorites",
   "supplementsDisclaimer": "⚠️ This information is for guidance only and does not replace medical advice.\nNever start or stop a supplement without talking to your doctor or midwife.",
   "medicalProfile": {
-    "title": "Anything your doctor has flagged?",
-    "intro": "If your doctor or midwife has mentioned one of these, tell us — some reminders adapt to it. Otherwise skip; nothing here is required.",
+    "title": "Has your doctor flagged anything?",
+    "intro": "If your doctor or midwife has mentioned one of these, tick it — some reminders adapt to it. Otherwise leave everything unticked and continue; nothing here is required.",
     "gestationalDiabetes": "Gestational diabetes",
     "hypertension": "Pregnancy hypertension",
     "twins": "Twin pregnancy",
-    "none": "None, or I'd rather not answer",
-    "privacyNote": "This stays on your phone and in your account. It is used only to adjust your reminders, and replaces no medical advice.",
+    "none": "None of these apply, or I'd rather not answer: leave everything unticked.",
+    "privacyNote": "This is saved to your account on our secure servers. It is never shared or sold, is used only to adjust your reminders, and replaces no medical advice.",
     "settingsTitle": "Medical follow-up",
     "settingsSubtitle": "Editable at any time",
-    "notAnswered": "Not provided"
+    "notAnswered": "Not provided",
+    "syncWarning": "Saved on this device, but not yet synced to your account. It will sync on the next connection."
   }
 }

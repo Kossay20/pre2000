@@ -124,15 +124,27 @@ export function getRemindersForTasksTab(): ReminderDefinition[] {
  * Filter reminders based on user's context profile
  * (e.g., hide fetal movement counter before week 24)
  */
+/**
+ * Reminders the catalogue offers for this profile.
+ *
+ * `keepEnabledIds` grandfathers anything the user has explicitly switched on. A
+ * context rule decides what to OFFER; it must not take away a choice already
+ * made. Without this, tightening a rule strands the user: remindersScheduler
+ * honours the stored `enabled` flag and never consults the context rules, so the
+ * notification keeps firing while the card that would switch it off has vanished
+ * from the list. That is strictly worse than showing one row too many.
+ */
 export function getAvailableReminders(
     profile: ContextProfile,
-    sourceUI?: SourceUI | SourceUI[]
+    sourceUI?: SourceUI | SourceUI[],
+    keepEnabledIds?: ReadonlySet<string>
 ): ReminderDefinition[] {
     let reminders = sourceUI
         ? getRemindersBySourceUI(sourceUI)
         : getRemindersForRemindersTab();
 
     return reminders.filter(reminder => {
+        if (keepEnabledIds?.has(reminder.id)) return true;
         const ruleResult = applyContextRules(reminder, profile);
         return ruleResult !== null; // null means disabled
     });

@@ -222,6 +222,28 @@ describe('generateExportData — authenticated user', () => {
         expect(data.profile.isGuest).toBe(false);
     });
 
+    test('exports the declared conditions — GDPR art. 15 needs the health data too', async () => {
+        // These live on the AUTH profile. The export spreads PregnancyContext's
+        // `profile`, a hand-written whitelist that predates them, so a gestational
+        // diabetes declaration was absent from a subject-access export while being
+        // stored in Firestore. Nothing guarded it: the envelope test asserts the
+        // generic spread and passed throughout.
+        const data = await generateExportData(
+            {
+                ...authUser,
+                hasGestationalDiabetes: true,
+                hasHypertension: false,
+                isTwinPregnancy: false,
+                medicalProfileAnsweredAt: '2026-08-25T10:00:00.000Z',
+            },
+            profile,
+        );
+        expect(data.profile.hasGestationalDiabetes).toBe(true);
+        expect(data.profile.hasHypertension).toBe(false);
+        expect(data.profile.isTwinPregnancy).toBe(false);
+        expect(data.profile.medicalProfileAnsweredAt).toBe('2026-08-25T10:00:00.000Z');
+    });
+
     test('spreads the profile and stamps a fresh metadata envelope', async () => {
         const data = await generateExportData(authUser, profile);
 
@@ -229,7 +251,7 @@ describe('generateExportData — authenticated user', () => {
         expect(data.profile.dueDate).toBe('2026-09-01');
         expect(data.metadata.appVersion).toBe('1.0.0');
         expect(data.metadata.platform).toBe('ios');
-        expect(data.metadata.schemaVersion).toBe(4);
+        expect(data.metadata.schemaVersion).toBe(5);
         expect(typeof data.metadata.exportedAt).toBe('string');
         expect(new Date(data.metadata.exportedAt).toISOString()).toBe(data.metadata.exportedAt);
     });
@@ -380,7 +402,7 @@ describe('generateExportData — resilience via Promise.allSettled / unwrap', ()
         // W8: tool histories fall back cleanly (objects → {}, bookmarks → []).
         expect(data.tools).toEqual({ kickCounter: {}, contractionTimer: {}, hospitalBag: {}, bookmarks: [] });
         // Envelope metadata still present.
-        expect(data.metadata.schemaVersion).toBe(4);
+        expect(data.metadata.schemaVersion).toBe(5);
     });
 });
 
@@ -412,7 +434,7 @@ describe('exportUserData', () => {
 
         // Contents are valid pretty-printed JSON of the export.
         const parsed = JSON.parse(contents);
-        expect(parsed.metadata.schemaVersion).toBe(4);
+        expect(parsed.metadata.schemaVersion).toBe(5);
         expect(parsed.profile.name).toBe('Lina');
         // pretty-printed (indent of 2) → contains newlines.
         expect(contents).toContain('\n');

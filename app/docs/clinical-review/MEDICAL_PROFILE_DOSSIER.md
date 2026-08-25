@@ -35,9 +35,9 @@ recueillir ce qu'un professionnel lui a déjà dit.
 
 ### 1. `title`
 
-- **fr** — Un suivi médical particulier ?
-- **en** — Anything your doctor has flagged?
-- **ar** — هل نبّهك طبيبك إلى شيء معيّن؟
+- **fr** — Votre médecin vous a-t-il signalé quelque chose ?
+- **en** — Has your doctor flagged anything?
+- **ar** — هل ذكر لكِ طبيبكِ أمرًا معيّنًا؟
 - **tn** — الطبيب قالّك على حاجة خاصة؟
 
 | Verdict | |
@@ -49,10 +49,10 @@ recueillir ce qu'un professionnel lui a déjà dit.
 
 ### 2. `intro`
 
-- **fr** — Si votre médecin ou votre sage-femme vous a signalé l'un de ces points, dites-le-nous : certains rappels s'y adaptent. Sinon, passez — rien n'est obligatoire ici.
-- **en** — If your doctor or midwife has mentioned one of these, tell us — some reminders adapt to it. Otherwise skip; nothing here is required.
-- **ar** — إذا ذكر لك طبيبك أو قابلتك إحدى هذه النقاط، فأخبرينا: بعض التذكيرات تتكيّف معها. وإلّا فتجاوزي هذه الخطوة — لا شيء هنا إجباري.
-- **tn** — كان الطبيب ولا القابلة قالّك على حاجة من هاذي، قولّنا: فمّا تذكيرات تتبدّل على حسبها. وإلّا تنجّم تتخطّى — ما فمّا حتى حاجة إجبارية.
+- **fr** — Si votre médecin ou votre sage-femme vous a signalé l'un de ces points, cochez-le : certains rappels s'y adaptent. Sinon, laissez tout décoché et continuez — rien n'est obligatoire ici.
+- **en** — If your doctor or midwife has mentioned one of these, tick it — some reminders adapt to it. Otherwise leave everything unticked and continue; nothing here is required.
+- **ar** — إذا ذكر لكِ طبيبكِ أو قابلتكِ إحدى هذه النقاط، فاختاريها: بعض التذكيرات تتكيّف معها. وإلّا فاتركي هذه الأسئلة فارغة وواصلي — لا شيء هنا إجباري.
+- **tn** — كان الطبيب ولا القابلة قالّك على حاجة من هاذي، إختاريها: فمّا تذكيرات تتبدّل على حسبها. وإلّا تنجّمي تخلّي الكل فارغ وتكمّلي — ما فمّا حتى حاجة إجبارية.
 
 | Verdict | |
 |---|---|
@@ -79,8 +79,8 @@ recueillir ce qu'un professionnel lui a déjà dit.
 
 - **fr** — Hypertension de la grossesse
 - **en** — Pregnancy hypertension
-- **ar** — ارتفاع ضغط الدم في الحمل
-- **tn** — الضغط في الحمل
+- **ar** — ارتفاع ضغط الدم أثناء الحمل
+- **tn** — الضغط العالي في الحمل
 
 | Verdict | |
 |---|---|
@@ -94,7 +94,7 @@ recueillir ce qu'un professionnel lui a déjà dit.
 - **fr** — Grossesse gémellaire
 - **en** — Twin pregnancy
 - **ar** — حمل بتوأم
-- **tn** — حمل توأم
+- **tn** — حامل بتوأم
 
 | Verdict | |
 |---|---|
@@ -105,10 +105,10 @@ recueillir ce qu'un professionnel lui a déjà dit.
 
 ### 6. `privacyNote`
 
-- **fr** — Ces informations restent sur votre téléphone et dans votre compte. Elles servent uniquement à ajuster vos rappels, et ne remplacent aucun avis médical.
-- **en** — This stays on your phone and in your account. It is used only to adjust your reminders, and replaces no medical advice.
-- **ar** — تبقى هذه المعلومات على هاتفك وفي حسابك. تُستعمل فقط لضبط تذكيراتك، وهي لا تغني عن أيّ رأي طبّي.
-- **tn** — المعلومات هاذي تبقى في تليفونك وفي حسابك. تتستعمل برك باش نعدّلو التذكيرات متاعك، وما تعوّضش رأي الطبيب.
+- **fr** — Ces informations sont enregistrées dans votre compte, sur nos serveurs sécurisés. Elles ne sont ni partagées ni vendues, servent uniquement à ajuster vos rappels, et ne remplacent aucun avis médical.
+- **en** — This is saved to your account on our secure servers. It is never shared or sold, is used only to adjust your reminders, and replaces no medical advice.
+- **ar** — تُحفظ هذه المعلومات في حسابكِ على خوادمنا الآمنة. لا تُشارَك ولا تُباع، وتُستعمل فقط لضبط تذكيراتكِ، وهي لا تغني عن أيّ رأي طبّي.
+- **tn** — المعلومات هاذي تتسجّل في حسابك على السيرفرات متاعنا. ما تتشاركش وما تتباعش، تتستعمل برك باش نعدّلو التذكيرات متاعك، وما تعوّضش رأي الطبيب.
 
 | Verdict | |
 |---|---|
