@@ -35,7 +35,23 @@ export interface ResolvedLoginProfile {
  */
 export const resolveLoginProfile = (
     docSnap: { exists: () => boolean; data: () => any },
-    firebaseUser: { uid: string; email: string | null | undefined }
+    firebaseUser: { uid: string; email: string | null | undefined },
+    /**
+     * The locally cached profile, when there is one.
+     *
+     * This is load-bearing the moment Anonymous Auth is switched on, which guest
+     * mode requires. `loginAsGuest` writes to Firestore only for a PERMANENT
+     * account, so an anonymous guest finishes onboarding with no
+     * `userProfiles/{uid}` document at all. On the next launch her anonymous
+     * session restores, the lookup misses, and the minimal placeholder below
+     * would be installed over the real cached profile — blank name, no LMP, and
+     * `isGuest: false`. She would lose her pregnancy on the first restart.
+     *
+     * The whole audit campaign ran with Anonymous Auth OFF, where an anonymous
+     * session never exists and this branch is unreachable for guests. Turning it
+     * on is an operator action on the deployment checklist.
+     */
+    cachedProfile?: UserProfile | null
 ): ResolvedLoginProfile => {
     if (docSnap.exists()) {
         const data = docSnap.data();
@@ -45,6 +61,15 @@ export const resolveLoginProfile = (
             pregnancyStartDate: data.pregnancyStartDate || data.lmp,
         } as UserProfile;
         return { profile, isMinimal: false };
+    }
+    // Same uid only. A cached profile from a different account must never be
+    // adopted — that would hand one user another's pregnancy data.
+    if (
+        cachedProfile &&
+        cachedProfile.uid === firebaseUser.uid &&
+        (cachedProfile.pregnancyStartDate || cachedProfile.lmp)
+    ) {
+        return { profile: cachedProfile, isMinimal: false };
     }
     const minimal = {
         uid: firebaseUser.uid,

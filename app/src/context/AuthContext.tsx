@@ -185,7 +185,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         // profil minimal via resolveLoginProfile pour que MainTabs
                         // puisse se monter. Sans ça, l'utilisateur reste coincé sur
                         // AuthStack au cold start malgré une session valide.
-                        const { profile, isMinimal } = resolveLoginProfile(docSnap, fbUser);
+                        // Hand the cached profile in. An anonymous guest has no
+                        // Firestore document at all — loginAsGuest writes one only
+                        // for a permanent account — so without this the placeholder
+                        // overwrites her real profile on the first restart after
+                        // Anonymous Auth is enabled.
+                        let cached: UserProfile | null = null;
+                        try {
+                            const raw = await AsyncStorage.getItem('user_profile');
+                            cached = raw ? (JSON.parse(raw) as UserProfile) : null;
+                        } catch {
+                            cached = null;
+                        }
+                        const { profile, isMinimal } = resolveLoginProfile(docSnap, fbUser, cached);
                         setUser(profile);
                         await AsyncStorage.setItem('user_profile', JSON.stringify(profile));
                         if (isMinimal) {
