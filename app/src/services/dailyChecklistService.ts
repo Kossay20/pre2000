@@ -19,6 +19,7 @@ import {
 } from './remindersV2Service';
 import { ReminderDefinition, ReminderUserSetting } from '../types/remindersV2';
 import { getLocalizedTrilang } from '../utils/i18nHelpers';
+import { MedicalFlags, toContextUserFlags } from '../utils/medicalFlags';
 // F-HS-02-REGR: Statistics hydration must reflect the REAL water tracker
 // (HydrationCard → hydrationService, 'hydration_data_v1'), not the herbal-tea
 // checklist item (rem_hyd_herbal_tea, category 'hyd').
@@ -39,7 +40,8 @@ export const generateDailyChecklist = async (
     userEvents: UserEvent[],
     pregnancyWeek: number,
     userId?: string,
-    locale: string = 'fr'
+    locale: string = 'fr',
+    medicalFlags?: MedicalFlags | null
 ): Promise<DailyChecklistItem[]> => {
     log.info('Generating daily checklist', { pregnancyWeek, userId: userId || 'guest' });
 
@@ -70,11 +72,10 @@ export const generateDailyChecklist = async (
     try {
         const { buildContextProfile } = require('../utils/contextMatcher');
 
-        // Build context profile for filtering
-        const profile = buildContextProfile(pregnancyWeek, {
-            // TODO: Load user flags (diabetes, etc) from user profile if available
-            // For now, we assume standard profile or what's in settings
-        });
+        // Build context profile for filtering. The flags come from the caller's
+        // user profile — passing `{}` here, as this did for the life of the
+        // feature, made every condition-keyed rule in the catalogue inert.
+        const profile = buildContextProfile(pregnancyWeek, toContextUserFlags(medicalFlags));
 
         const availableReminders: ReminderDefinition[] = getAvailableReminders(profile);
         const userSettings = await loadUserSettings(userId);

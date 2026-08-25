@@ -38,6 +38,7 @@ import {
     initializeDefaultReminders,
 } from '../../services/remindersV2Service';
 import { buildContextProfile } from '../../utils/contextMatcher';
+import { toContextUserFlags } from '../../utils/medicalFlags';
 import {
     ReminderDefinition,
     ReminderUserSetting,
@@ -283,9 +284,15 @@ export const RemindersTab = () => {
 
     useEffect(() => {
         const week = pregnancyInfo?.week ?? 1;
-        const ctx = buildContextProfile(week);
-        setProfile(ctx);
-    }, [pregnancyInfo?.week]);
+        // The declared-condition flags ride along: without them every context rule
+        // keyed on a diagnosis was evaluated against `undefined` and never matched.
+        setProfile(buildContextProfile(week, toContextUserFlags(user)));
+    }, [
+        pregnancyInfo?.week,
+        user?.hasGestationalDiabetes,
+        user?.hasHypertension,
+        user?.isTwinPregnancy,
+    ]);
 
     const loadData = useCallback(async () => {
         if (!profile) return;

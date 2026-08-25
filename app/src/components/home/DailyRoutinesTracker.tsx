@@ -37,7 +37,7 @@ export const DailyRoutinesTracker: React.FC<UnifiedDaySummaryProps> = ({
             // 1. Load Routines
             // P3.4 FIX: Pass appointments through so today's RDV appear in the routine.
             // Was hardcoded [] → checklist never knew about RDV (only the summary line did).
-            const generatedItems = await generateDailyChecklist(appointments, currentWeek, user?.uid);
+            const generatedItems = await generateDailyChecklist(appointments, currentWeek, user?.uid, undefined, user);
             const routineItems = generatedItems.filter(item => item.type !== 'appointment');
             const itemsWithProgress = await loadDailyProgress(routineItems);
 

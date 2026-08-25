@@ -20,6 +20,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { usePregnancy } from '../context/PregnancyContext';
 import { useAuth } from '../context/AuthContext';
+import { MEDICAL_FLAG_KEYS, MedicalFlagKey } from '../utils/medicalFlags';
 import { auth } from '../config/firebase';
 import {
     loadBabyMessageEnabled,
@@ -53,7 +54,7 @@ export const SettingsScreen = () => {
     // P3.6 FIX: also pull `profile` (firstName, lmp, country) — was missing,
     // causing exports to receive `pregnancyInfo` (week+day) where a Profile was expected.
     const { pregnancyInfo, profile } = usePregnancy();
-    const { user } = useAuth();
+    const { user, updateProfile } = useAuth();
     const navigation = useNavigation();
     const [babyMessageEnabled, setBabyMessageEnabled] = useState(true);
     const [babyMessageHour, setBabyMessageHour] = useState(10);
@@ -209,6 +210,54 @@ export const SettingsScreen = () => {
                         </View>
                     </View>
                 )}
+            </View>
+
+            {/* Declared conditions — the reminders catalogue keys context rules on
+                these, so an answer given once at onboarding has to stay editable:
+                a gestational-diabetes diagnosis usually arrives around week 24,
+                long after the question was asked. */}
+            <View style={styles.section}>
+                <View style={[styles.sectionHeader, styles.sectionHeaderRow]}>
+                    <Ionicons name="medkit-outline" size={20} color={theme.colors.accent} style={styles.sectionIcon} />
+                    <Text style={styles.sectionTitle}>{t('common.medicalProfile.settingsTitle')}</Text>
+                </View>
+
+                {MEDICAL_FLAG_KEYS.map((key) => {
+                    const labelKey: Record<MedicalFlagKey, string> = {
+                        hasGestationalDiabetes: 'gestationalDiabetes',
+                        hasHypertension: 'hypertension',
+                        isTwinPregnancy: 'twins',
+                    };
+                    const value = user?.[key] === true;
+                    return (
+                        <View style={styles.settingRow} key={key}>
+                            <View style={styles.settingInfo}>
+                                <Text style={styles.settingLabel}>
+                                    {t(`common.medicalProfile.${labelKey[key]}`)}
+                                </Text>
+                            </View>
+                            <Switch
+                                value={value}
+                                onValueChange={(next) => {
+                                    void updateProfile({
+                                        [key]: next,
+                                        medicalProfileAnsweredAt: new Date().toISOString(),
+                                    });
+                                }}
+                                trackColor={{ false: theme.colors.neutral300, true: theme.colors.accent }}
+                                thumbColor={value ? theme.colors.white : theme.colors.iosGroupedBackground}
+                                accessibilityRole="switch"
+                                accessibilityLabel={t(`common.medicalProfile.${labelKey[key]}`)}
+                                accessibilityState={{ checked: value }}
+                                {...(Platform.OS === 'web' ? { 'aria-checked': value } : {})}
+                            />
+                        </View>
+                    );
+                })}
+
+                <Text style={styles.settingDescription}>
+                    {t('common.medicalProfile.privacyNote')}
+                </Text>
             </View>
 
             {/* Permissions Debug Section */}

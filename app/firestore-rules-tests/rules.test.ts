@@ -106,6 +106,40 @@ describe('user profiles', () => {
     );
   });
 
+  it('types the declared-condition flags — these drive the reminders catalogue', async () => {
+    // The context rules compare with strict equality. A string "true" here would be
+    // compared against a boolean and match nothing, reproducing the inert-rule
+    // defect from the server side, past the client that was just fixed.
+    await assertSucceeds(
+      setDoc(doc(asAlice(), `userProfiles/${ALICE}`), {
+        hasGestationalDiabetes: true,
+        hasHypertension: false,
+        isTwinPregnancy: false,
+        medicalProfileAnsweredAt: new Date().toISOString(),
+      }),
+    );
+    await assertFails(
+      setDoc(doc(asAlice(), `userProfiles/${ALICE}`), { hasGestationalDiabetes: 'true' }),
+    );
+    await assertFails(
+      setDoc(doc(asAlice(), `userProfiles/${ALICE}`), { hasHypertension: 1 }),
+    );
+    await assertFails(
+      setDoc(doc(asAlice(), `userProfiles/${ALICE}`), { isTwinPregnancy: { yes: true } }),
+    );
+    await assertFails(
+      setDoc(doc(asAlice(), `userProfiles/${ALICE}`), {
+        medicalProfileAnsweredAt: 'x'.repeat(200),
+      }),
+    );
+  });
+
+  it("keeps a diagnosis owner-scoped — it is health data", async () => {
+    await assertFails(
+      setDoc(doc(asMallory(), `userProfiles/${ALICE}`), { hasGestationalDiabetes: true }),
+    );
+  });
+
   it('covers subcollections so account deletion can actually erase them', async () => {
     // gdprPurge walks legacy subcollections; before the nested match existed every
     // read there was permission-denied, swallowed, and "delete my account"

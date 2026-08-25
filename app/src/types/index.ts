@@ -268,6 +268,16 @@ export interface UserProfile {
     // AsyncStorage 'guestProfile' for guests). Firestore supports arrays natively;
     // no sub-collection is needed.
     emergencyContacts?: EmergencyContact[];
+    // Declared conditions, asked once during onboarding and editable in Settings.
+    // REMINDERS_V2.json has always keyed context rules on these — the glucose-check
+    // reminder is authored for users with gestational diabetes only — but nothing
+    // collected the answers, so the rules were inert and the reminder was listed for
+    // everyone. `undefined` means never asked or skipped; see utils/medicalFlags.ts
+    // for why that is deliberately distinct from an answered `false`.
+    hasGestationalDiabetes?: boolean;
+    hasHypertension?: boolean;
+    isTwinPregnancy?: boolean;
+    medicalProfileAnsweredAt?: string;   // ISO — set even when every answer was skipped
     // TTC-FIX: Trying-To-Conceive mode flag + cycle data.
     // When isTTC === true, currentWeek is forced to 0 and the user is NOT pregnant —
     // downstream UI must check isTTC and avoid rendering pregnancy-week content.

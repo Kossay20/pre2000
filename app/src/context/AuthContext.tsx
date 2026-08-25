@@ -34,6 +34,7 @@ import { cancelAllNotifications } from '../services/notificationService';
 // W8 #1: the canonical key lists live in ./storageKeys (pure module) so they can be unit-tested
 // without loading this Provider — see storageKeys.test.ts.
 import { PRIVATE_STORAGE_KEYS, PRIVATE_STORAGE_KEY_PREFIXES } from './storageKeys';
+import { MedicalFlags, sanitizeMedicalFlags } from '../utils/medicalFlags';
 
 const purgeDynamicPrivateKeys = async () => {
     try {
@@ -84,6 +85,9 @@ interface AuthContextType {
         // Cycle 3 F201 : opt-in Curious mode (mode découverte). Différencie
         // l'utilisatrice qui explore d'une vraie grossesse.
         curiousOptions?: { isCurious: true; exploreWeek: number },
+        // Declared conditions collected at onboarding step 3. Sanitised before
+        // persistence — see utils/medicalFlags.ts.
+        medicalFlags?: MedicalFlags,
     ) => Promise<void>;
     logout: () => Promise<void>;
     // MA6-FIX: updateProfile now reports success/failure explicitly so callers
@@ -311,6 +315,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // qui explore d'une vraie grossesse. Setting `isCurious: true` permet aux
         // screens de garder `if (user?.isCurious)` au lieu de croire l'utilisatrice enceinte.
         curiousOptions?: { isCurious: true; exploreWeek: number },
+        medicalFlags?: MedicalFlags,
     ) => {
         // Cycle 3 F100 : tenter signInAnonymously si pas d'utilisateur fourni.
         // Avant : `uid = 'guest_'+Date.now()` ne satisfait PAS `isAuthenticatedReader()`
@@ -393,6 +398,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             ? { isCurious: true as const, exploreWeek: curiousOptions.exploreWeek }
             : {};
 
+        // Declared conditions. Sanitised rather than spread verbatim: these land in
+        // userProfiles/{uid}, and a non-boolean slipping through would be compared
+        // by strict equality against a rule's boolean and quietly match nothing —
+        // the same failure that made the glucose rule inert, by a different door.
+        const medicalFields = sanitizeMedicalFlags(medicalFlags);
+
         const newUser: UserProfile = {
             uid,
             email: effectiveUser?.email || undefined,
@@ -408,6 +419,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             isGuest: deriveIsGuest(effectiveUser),
             ...ttcFields,
             ...curiousFields,
+            ...medicalFields,
         };
 
         try {

@@ -57,6 +57,24 @@ service cloud.firestore {
                   && request.resource.data.lastName.size() <= 50));
     }
 
+    // Declared conditions (gestational diabetes / hypertension / twin pregnancy).
+    // These are health data and they drive the reminders catalogue's context rules,
+    // which compare with strict equality: a string "true" persisted here would be
+    // compared against a boolean and quietly match nothing — reproducing, from the
+    // server side, exactly the inert-rule defect the client fix closed. Typed here
+    // so no direct SDK call can plant one.
+    function validMedicalFlags() {
+      return (!('hasGestationalDiabetes' in request.resource.data)
+              || request.resource.data.hasGestationalDiabetes is bool)
+          && (!('hasHypertension' in request.resource.data)
+              || request.resource.data.hasHypertension is bool)
+          && (!('isTwinPregnancy' in request.resource.data)
+              || request.resource.data.isTwinPregnancy is bool)
+          && (!('medicalProfileAnsweredAt' in request.resource.data)
+              || (request.resource.data.medicalProfileAnsweredAt is string
+                  && request.resource.data.medicalProfileAnsweredAt.size() <= 40));
+    }
+
     // user_id présent et = auth.uid (string).
     function userIdMatches() {
       return isAuthenticated()
@@ -157,7 +175,7 @@ service cloud.firestore {
       // not bind a direct SDK call, and the profile edit screen never ran
       // validateProfile, so an arbitrarily large string could be persisted and then
       // re-read on every cold start — a per-user storage/bandwidth amplifier.
-      allow write: if isOwner(userId) && validProfileNames();
+      allow write: if isOwner(userId) && validProfileNames() && validMedicalFlags();
       match /{sub}/{doc=**} {
         allow read, write: if isOwner(userId);
       }

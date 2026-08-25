@@ -71,7 +71,8 @@ export const MyDaySection: React.FC<Props> = React.memo(({
                 userEvents,
                 week,
                 user?.uid,
-                i18n.language
+                i18n.language,
+                user
             );
 
             // 2. Load saved progress for reminders

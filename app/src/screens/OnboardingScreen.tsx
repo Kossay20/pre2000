@@ -83,6 +83,14 @@ export const OnboardingScreen = () => {
     });
     const [firstName, setFirstName] = useState('');
     const [isFirstPregnancy, setIsFirstPregnancy] = useState<boolean | null>(null);
+    // Declared conditions. REMINDERS_V2.json has always carried context rules keyed
+    // on these — the glucose-check reminder is authored for gestational diabetes
+    // only — but nothing collected the answers, so the rules never fired and the
+    // reminder was listed for everyone. Optional: leaving all three off records an
+    // answered "no", which is what the rules read as "not declared".
+    const [hasGestationalDiabetes, setHasGestationalDiabetes] = useState(false);
+    const [hasHypertension, setHasHypertension] = useState(false);
+    const [isTwinPregnancy, setIsTwinPregnancy] = useState(false);
 
     // TTC-specific state
     const [cycleLength, setCycleLength] = useState(28);
@@ -277,7 +285,15 @@ export const OnboardingScreen = () => {
                     undefined, // city
                     ageRange || undefined,
                     isFirstPregnancy ?? undefined,
-                    authenticatedUser ?? undefined
+                    authenticatedUser ?? undefined,
+                    undefined, // ttcOptions
+                    undefined, // curiousOptions
+                    {
+                        hasGestationalDiabetes,
+                        hasHypertension,
+                        isTwinPregnancy,
+                        medicalProfileAnsweredAt: new Date().toISOString(),
+                    }
                 ));
 
                 log.debug('[Onboarding] ✅ Profile created successfully!');
@@ -587,6 +603,32 @@ export const OnboardingScreen = () => {
                         <Text style={[styles.radioText, rtlText]}>{t('onboarding.step3.firstPregnancySkip')}</Text>
                     </TouchableOpacity>
                 </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+                <Text style={[styles.inputLabel, rtlText]}>{t('common.medicalProfile.title')}</Text>
+                <Text style={[styles.inputHint, rtlText]}>{t('common.medicalProfile.intro')}</Text>
+                <View style={styles.radioGroup}>
+                    {([
+                        ['gestationalDiabetes', hasGestationalDiabetes, setHasGestationalDiabetes],
+                        ['hypertension', hasHypertension, setHasHypertension],
+                        ['twins', isTwinPregnancy, setIsTwinPregnancy],
+                    ] as const).map(([key, value, setValue]) => (
+                        <TouchableOpacity
+                            key={key}
+                            style={[styles.radioOption, value && styles.radioOptionSelected]}
+                            onPress={() => setValue(!value)}
+                            accessibilityRole="checkbox"
+                            accessibilityLabel={t(`common.medicalProfile.${key}`)}
+                            accessibilityState={{ checked: value }}
+                        >
+                            <Text style={[styles.radioText, rtlText]}>
+                                {value ? '\u2713 ' : ''}{t(`common.medicalProfile.${key}`)}
+                            </Text>
+                        </TouchableOpacity>
+                    ))}
+                </View>
+                <Text style={[styles.privacyNote, rtlText]}>{t('common.medicalProfile.privacyNote')}</Text>
             </View>
 
             <View style={styles.navButtons}>

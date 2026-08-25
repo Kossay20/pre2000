@@ -195,6 +195,18 @@ export const styles = StyleSheet.create({
         fontSize: 16,
         color: theme.colors.neutral900,
     },
+    inputHint: {
+        fontSize: 14,
+        color: theme.colors.textSecondary,
+        marginBottom: 12,
+        lineHeight: 20,
+    },
+    privacyNote: {
+        fontSize: 13,
+        color: theme.colors.textSecondary,
+        marginTop: 10,
+        lineHeight: 18,
+    },
     navButtons: {
         flexDirection: 'row',
         alignItems: 'center',
