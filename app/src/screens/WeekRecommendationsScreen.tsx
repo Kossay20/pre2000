@@ -14,6 +14,8 @@ import { Card } from '../components/common/Card';
 import { SectionHeader } from '../components/common/SectionHeader';
 import { EmptyState } from '../components/common/EmptyState';
 import { Button } from '../components/common/Button';
+import { MedicalDisclaimer } from '../components/common/MedicalDisclaimer';
+import { SourcesFooter } from '../components/common/SourcesFooter';
 import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
@@ -205,6 +207,10 @@ export const WeekRecommendationsScreen = () => {
                     ))}
                 </View>
             )}
+
+            <SourcesFooter sources={weekData.sources} />
+
+            <MedicalDisclaimer />
         </ScrollView>
     );
 };

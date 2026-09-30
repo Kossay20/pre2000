@@ -3,11 +3,15 @@
  *
  * Extracted from AuthContext.deleteAccount so the purge can be BEHAVIORALLY tested
  * (the prior coverage was a static source-regex guard that never executed the code).
- * Behavior is identical to the previous inline block: delete the profile doc, then every
- * top-level collection queried by user_id, then legacy subcollections — batched at 400
- * (Firestore writeBatch limit), per-collection failures logged and skipped.
+ * Sweeps every top-level collection queried by user_id, then legacy subcollections —
+ * batched at 400 (Firestore writeBatch limit) — and only then the profile documents.
+ *
+ * A failed collection no longer disappears into a log line. The sweep carries on so a
+ * retry has less left to do, but the purge then rejects with PURGE_INCOMPLETE: the caller
+ * deletes the Auth user only after a clean purge, because once the uid is gone nobody can
+ * pass the owner rules to delete what was left behind.
  */
-import { doc, deleteDoc, collection, getDocs, writeBatch, query, where } from 'firebase/firestore';
+import { doc, deleteDoc, collection, getDocsFromServer, writeBatch, query, where } from 'firebase/firestore';
 import { createLogger } from '../utils/logger';
 
 const log = createLogger('gdprPurge');
@@ -50,48 +54,68 @@ async function deleteDocsInBatches(db: any, docs: Array<{ ref: any }>): Promise<
     if (counter > 0) await batch.commit();
 }
 
+export class PurgeIncompleteError extends Error {
+    readonly code = 'PURGE_INCOMPLETE';
+    constructor(readonly failed: string[]) {
+        super(`PURGE_INCOMPLETE: ${failed.join(', ')}`);
+        this.name = 'PurgeIncompleteError';
+    }
+}
+
 /**
  * Purge every user-owned Firestore document for `uid`.
  * Order matters: this runs BEFORE the Firebase Auth user is deleted so Firestore rules
  * (owner check) still authorize the deletes.
+ *
+ * Listings come from the server, not getDocs(): the app runs Firestore with a persistent
+ * local cache, and offline getDocs() answers from it — the purge would then "succeed"
+ * over whatever this device happened to hold and orphan the rest.
+ *
+ * @throws PurgeIncompleteError naming every collection that could not be swept.
  */
 export const purgeUserFirestoreData = async (db: any, uid: string): Promise<void> => {
-    // 1. User profile document
-    await deleteDoc(doc(db, 'userProfiles', uid));
-    log.debug('Firestore profile deleted');
+    const failed: string[] = [];
 
-    // 2. Top-level collections (queried by user_id for data isolation)
+    // 1. Top-level collections (queried by user_id for data isolation)
     for (const colName of topLevelCollectionsToDelete) {
         try {
             const q = query(collection(db, colName), where('user_id', '==', uid));
-            const snap = await getDocs(q);
+            const snap = await getDocsFromServer(q);
             log.debug(`Deleting ${snap.size} docs from ${colName}`);
             await deleteDocsInBatches(db, snap.docs);
         } catch (err) {
             log.warn(`Failed to cleanup collection ${colName}`, err);
+            failed.push(colName);
         }
     }
 
-    // 3. Legacy subcollections under userProfiles/{uid} AND users/{uid}.
+    // 2. Legacy subcollections under userProfiles/{uid} AND users/{uid}.
     // `users/{uid}` was missing: DemoDataService writes users/{uid}/{weights,events},
     // so those documents were never in the purge set at all. Both parents are now
-    // covered by an owner-scoped nested wildcard in firestore.rules — before that,
-    // every read here was permission-denied and silently skipped.
+    // covered by an owner-scoped nested wildcard in firestore.rules.
     for (const parentCol of legacyParentCollections) {
         for (const subColName of legacySubCollections) {
             try {
-                const subSnap = await getDocs(collection(db, parentCol, uid, subColName));
+                const subSnap = await getDocsFromServer(collection(db, parentCol, uid, subColName));
                 if (subSnap.size > 0) await deleteDocsInBatches(db, subSnap.docs);
             } catch (err) {
                 log.warn(`Failed to cleanup subcollection ${parentCol}/${subColName}`, err);
+                failed.push(`${parentCol}/${subColName}`);
             }
         }
     }
 
-    // 4. The legacy `users/{uid}` document itself (pre-userProfiles schema).
+    // The profile is what keeps a half-purged account usable and the deletion retryable,
+    // so it stays until everything it owns is gone.
+    if (failed.length > 0) throw new PurgeIncompleteError(failed);
+
+    // 3. The legacy `users/{uid}` document (pre-userProfiles schema), then the profile.
     try {
         await deleteDoc(doc(db, 'users', uid));
+        await deleteDoc(doc(db, 'userProfiles', uid));
+        log.debug('Firestore profile deleted');
     } catch (err) {
-        log.warn('Failed to delete legacy users/ document', err);
+        log.warn('Failed to delete profile documents', err);
+        throw new PurgeIncompleteError(['userProfiles']);
     }
 };

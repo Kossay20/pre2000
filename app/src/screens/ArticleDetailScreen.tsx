@@ -5,6 +5,8 @@ import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity
 import { Ionicons } from '@expo/vector-icons';
 import { doc, getDoc } from 'firebase/firestore';
 import Markdown from 'react-native-markdown-display';
+import { MedicalDisclaimer } from '../components/common/MedicalDisclaimer';
+import { SourcesFooter } from '../components/common/SourcesFooter';
 import { db } from '../config/firebase';
 import { Article, Supplement, ArticleAntigravity } from '../types';
 import { getAntigravityArticle } from '../services/contentService'; // ANTIGRAVITY
@@ -450,6 +452,12 @@ export const ArticleDetailScreen = () => {
                     </View>
                 )}
             </View>
+
+            <SourcesFooter sources={article.sources} />
+
+            {/* The article library is medical content: say under every article that it
+                does not replace a consultation (review notes promise a permanent disclaimer). */}
+            <MedicalDisclaimer />
 
             {relatedSupplements.length > 0 && (
                 <View style={styles.section}>

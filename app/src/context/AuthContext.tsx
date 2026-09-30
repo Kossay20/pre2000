@@ -15,7 +15,7 @@ import {
     User as FirebaseUser
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, deleteDoc } from 'firebase/firestore';
-import { purgeUserFirestoreData } from './gdprPurge';
+import { deleteUserAccount, finishDeletionAfterReauth } from './accountDeletion';
 import { db, auth } from '../config/firebase';
 import { UserProfile } from '../types';
 import { calculateCurrentWeek } from '../utils/pregnancyCalculator';
@@ -99,11 +99,12 @@ interface AuthContextType {
     ) => Promise<{ ok: true } | { ok: false, error: string }>;
     setLocale: (locale: string) => Promise<void>;
     resetProfile: () => Promise<void>;
+    // Throws REAUTH_REQUIRED (session too old — nothing erased yet) or PURGE_INCOMPLETE
+    // (some Firestore data could not be erased — the account is kept so it can be retried).
     deleteAccount: () => Promise<void>;
     // F4: when deleteAccount throws REAUTH_REQUIRED, the UI re-prompts for the
-    // password and calls this method to finish the deletion (Firestore data is
-    // already purged by the prior deleteAccount call — only Auth + local state
-    // and notifications remain).
+    // password and calls this method, which reauthenticates and only then purges
+    // and deletes — a wrong or cancelled password leaves the account untouched.
     reauthenticateAndDelete: (password: string) => Promise<void>;
 }
 
@@ -686,55 +687,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     };
 
+    // Everything the device holds for the deleted account: scheduled notifications,
+    // every private AsyncStorage key, the in-memory content cache, then the session.
+    const clearLocalStateAfterDeletion = async () => {
+        try {
+            await cancelAllNotifications();
+        } catch (err) {
+            log.warn('[AuthContext] ⚠️ Failed to cancel notifications:', err);
+        }
+        await AsyncStorage.multiRemove([...PRIVATE_STORAGE_KEYS]);
+        // U-FIX-11: also purge dynamic-suffix keys
+        await purgeDynamicPrivateKeys();
+        // U-FIX-8: also clear in-memory content cache (consistency with logout/reset)
+        clearContentCache();
+        // Setting user to null swaps the navigator to AuthStack; no screen needs to navigate.
+        setUser(null);
+        setFirebaseUser(null);
+        logger.setUser(null);
+    };
+
     const deleteAccount = async () => {
         try {
             if (firebaseUser) {
-                const uid = firebaseUser.uid;
-                log.debug('[AuthContext] Starting account deletion for:', uid);
-
-                // GDPR purge (RGPD Art. 17) — extracted to gdprPurge.ts so the delete path is
-                // behaviorally tested (gdprPurge.test.ts), not just statically grepped. Profile doc
-                // + every top-level collection (by user_id) + legacy subcollections, batched at 400.
-                // Runs BEFORE the Auth user delete so Firestore owner rules still authorize it.
-                await purgeUserFirestoreData(db, uid);
-
-                // 2. Delete Firebase Auth User (Must happen LAST so Firestore rules still apply)
-                // F4: Firebase requires a recent login for `auth.delete()`. If the session
-                // is too old we surface a typed error so the UI can prompt for the password
-                // and call `reauthenticateAndDelete()`. We DO NOT roll back the Firestore
-                // purge above — that is the documented design (data is gone, only the auth
-                // user remains to be removed after fresh credentials).
-                try {
-                    await firebaseUser.delete();
-                } catch (authErr: any) {
-                    if (authErr?.code === 'auth/requires-recent-login') {
-                        const e = new Error('REAUTH_REQUIRED');
-                        (e as any).code = 'REAUTH_REQUIRED';
-                        throw e;
-                    }
-                    throw authErr;
-                }
+                log.debug('[AuthContext] Starting account deletion for:', firebaseUser.uid);
+                // GDPR purge (RGPD Art. 17) then the Auth user — see accountDeletion.ts for
+                // the ordering. The Auth user is deleted only after every collection was
+                // erased, and a stale session is sent to reauthentication before any purge.
+                await deleteUserAccount(db, firebaseUser);
                 log.debug('[AuthContext] Firebase Auth user deleted');
-
-                // NEW: Cancel native ghost notifications
-                try {
-                    await cancelAllNotifications();
-                } catch (err) {
-                    log.warn('[AuthContext] ⚠️ Failed to cancel notifications:', err);
-                }
-
-                // 3. Clear Local Storage (use shared constant — no key is missed)
-                await AsyncStorage.multiRemove([...PRIVATE_STORAGE_KEYS]);
-                // U-FIX-11: also purge dynamic-suffix keys
-                await purgeDynamicPrivateKeys();
-
-                // U-FIX-8: also clear in-memory content cache (consistency with logout/reset)
-                clearContentCache();
-
-                // 4. Reset State
-                setUser(null);
-                setFirebaseUser(null);
-                logger.setUser(null);
+                await clearLocalStateAfterDeletion();
             }
         } catch (error) {
             log.error('Failed to delete account:', error);
@@ -742,32 +723,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     };
 
-    // F4: Finish account deletion after a `auth/requires-recent-login` rejection.
-    // Firestore data was already purged by `deleteAccount()`; here we only need to
-    // re-authenticate, delete the Firebase Auth user, then clean up local state.
+    // F4: Finish account deletion after REAUTH_REQUIRED. Nothing has been purged yet
+    // (deleteAccount checks the sign-in age first), so reauthenticate, then purge and delete.
     const reauthenticateAndDelete = async (password: string) => {
         if (!firebaseUser || !firebaseUser.email) {
             throw new Error('No authenticated user with email to reauthenticate');
         }
         const credential = EmailAuthProvider.credential(firebaseUser.email, password);
-        await reauthenticateWithCredential(firebaseUser, credential);
-
-        await firebaseUser.delete();
+        await finishDeletionAfterReauth(db, firebaseUser, () =>
+            reauthenticateWithCredential(firebaseUser, credential),
+        );
         log.debug('[AuthContext] Firebase Auth user deleted (after reauth)');
-
-        try {
-            await cancelAllNotifications();
-        } catch (err) {
-            log.warn('[AuthContext] Failed to cancel notifications:', err);
-        }
-
-        await AsyncStorage.multiRemove([...PRIVATE_STORAGE_KEYS]);
-        await purgeDynamicPrivateKeys();
-        clearContentCache();
-
-        setUser(null);
-        setFirebaseUser(null);
-        logger.setUser(null);
+        await clearLocalStateAfterDeletion();
     };
 
     return (

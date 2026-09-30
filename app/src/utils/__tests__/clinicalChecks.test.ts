@@ -12,6 +12,10 @@ import {
     checkBloodPressure,
     checkGlucose,
     checkWeightChange,
+    COUNTRY_OPTIONS,
+    EMERGENCY_NUMBERS,
+    INTERNATIONAL_EMERGENCY_NUMBER,
+    countryFromRegion,
     getEmergencyNumber,
     resolveEmergencyNumber,
 } from '../clinicalChecks';
@@ -242,21 +246,77 @@ describe('SAFETY: medical emergency numbers (verified 2026-05-04)', () => {
         expect(getEmergencyNumber('')).toBeNull();
     });
 
-    it('locale fallback ar/tn returns 190 (Tunisia SAMU)', () => {
-        expect(resolveEmergencyNumber(null, 'ar')).toBe('190');
-        expect(resolveEmergencyNumber(null, 'tn')).toBe('190');
+    it('country wins over the device region', () => {
+        expect(resolveEmergencyNumber('FR', 'TN')).toBe('15');
+        expect(resolveEmergencyNumber('tunisia', 'FR')).toBe('190');
+        expect(resolveEmergencyNumber('usa', 'GB')).toBe('911');
+    });
+});
+
+// F-002: the call button used to dial a national number guessed from the UI
+// language (Arabic → Tunisia's 190, French → France's 15) for anyone whose
+// country was unset or 'other', and onboarding preselected Tunisia for every
+// device region it did not know.
+describe('SAFETY: emergency number never comes from another country', () => {
+    it('with neither a country nor a known device region, the number is 112 — not 190 or 15', () => {
+        // The second argument used to be the UI language, so an Arabic-speaking user
+        // in Egypt with no country saw Tunisia's 190. It is now the device region.
+        expect(resolveEmergencyNumber(null, null)).toBe('112');
+        expect(resolveEmergencyNumber('', 'EG')).toBe('112');
+        expect(resolveEmergencyNumber(undefined, 'LB')).toBe('112');
     });
 
-    it('locale fallback fr returns 15', () => {
-        expect(resolveEmergencyNumber(null, 'fr')).toBe('15');
+    it("an explicit 'other' gets 112, even when the device region is a listed country", () => {
+        expect(resolveEmergencyNumber('other', null)).toBe(INTERNATIONAL_EMERGENCY_NUMBER);
+        expect(resolveEmergencyNumber('other', 'TN')).toBe('112');
+        expect(resolveEmergencyNumber('Other', 'FR')).toBe('112');
     });
 
-    it('locale fallback en returns null', () => {
-        expect(resolveEmergencyNumber(null, 'en')).toBeNull();
+    it('an unset country falls back to the device region, then 112', () => {
+        expect(resolveEmergencyNumber('', 'US')).toBe('911');
+        expect(resolveEmergencyNumber(undefined, 'GB')).toBe('999');
+        expect(resolveEmergencyNumber(null, 'CH')).toBe('144');
+        expect(resolveEmergencyNumber(null, 'EG')).toBe('112');
+        expect(resolveEmergencyNumber(null, 'SA')).toBe('112');
+        expect(resolveEmergencyNumber(null, null)).toBe('112');
     });
 
-    it('country wins over locale', () => {
-        expect(resolveEmergencyNumber('FR', 'ar')).toBe('15');
-        expect(resolveEmergencyNumber('TN', 'fr')).toBe('190');
+    it('every selectable country except other resolves to its own number', () => {
+        const expected: Record<string, string> = {
+            tunisia: '190',
+            france: '15',
+            belgium: '112',
+            switzerland: '144',
+            morocco: '141',
+            algeria: '16',
+            canada: '911',
+            usa: '911',
+            uk: '999',
+        };
+        for (const c of COUNTRY_OPTIONS) {
+            if (c === 'other') continue;
+            expect({ c, n: getEmergencyNumber(c) }).toEqual({ c, n: expected[c] });
+        }
+        expect(COUNTRY_OPTIONS).toContain('other');
+    });
+
+    it('every ISO country with a number is selectable and detected from the device region', () => {
+        // UK is not an ISO 3166 code (GB is), and USA is an alias of US.
+        const isoKeys = Object.keys(EMERGENCY_NUMBERS).filter(k => k.length === 2 && k !== 'UK');
+        for (const iso of isoKeys) {
+            const country = countryFromRegion(iso);
+            expect({ iso, country: country !== null }).toEqual({ iso, country: true });
+            expect(COUNTRY_OPTIONS).toContain(country);
+            expect(getEmergencyNumber(country)).toBe(EMERGENCY_NUMBERS[iso]);
+        }
+    });
+
+    it('an unknown device region preselects nothing (no Tunisia default)', () => {
+        expect(countryFromRegion('US')).toBe('usa');
+        expect(countryFromRegion('us')).toBe('usa');
+        expect(countryFromRegion('EG')).toBeNull();
+        expect(countryFromRegion('JP')).toBeNull();
+        expect(countryFromRegion('')).toBeNull();
+        expect(countryFromRegion(null)).toBeNull();
     });
 });

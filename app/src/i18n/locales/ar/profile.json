@@ -79,6 +79,8 @@
   "reauthTitle": "تأكيد الهوية",
   "reauthMessage": "لحذف حسابك نهائياً، يُرجى إعادة إدخال كلمة المرور.",
   "reauthMissingPassword": "كلمة المرور مطلوبة.",
+  "deleteIncompleteTitle": "لم يكتمل الحذف",
+  "deleteIncompleteMsg": "تعذّر مسح جزء من بياناتك. تم الإبقاء على حسابك لتتمكّني من إعادة المحاولة. تحقّقي من اتصالك بالإنترنت ثم أعيدي المحاولة.",
   "height": "الطول (سم)",
   "prePregnancyWeight": "الوزن قبل الحمل (كغ)",
   "heightPlaceholder": "مثال: 165",

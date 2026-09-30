@@ -42,6 +42,7 @@ import {
     resolveEmergencyNumber,
     type ClinicalAlert,
 } from '../utils/clinicalChecks'; // SAFETY-CRITICAL: clinical alerts on dangerous values
+import { getDeviceRegionCode } from '../utils/deviceRegion';
 import { HealthWeightModal } from '../components/health/HealthWeightModal';
 import { HealthBPModal } from '../components/health/HealthBPModal';
 import { HealthGlucoseModal } from '../components/health/HealthGlucoseModal';
@@ -204,10 +205,10 @@ export const HealthDashboardScreen = () => {
             clinicalAlert.severity === 'critical' &&
             clinicalAlert.emergencyAction === 'call'
         ) {
-            // H2-FIX: use locale fallback (ar/tn→190, fr→15) so an AR/TN user whose profile
-            // country is empty (e.g. account created via login, not full onboarding) still gets
-            // the emergency-call button — matching ContractionTimerScreen / ChatbotScreen.
-            const number = resolveEmergencyNumber((user as any)?.country, i18n.language);
+            // H2-FIX: a user whose profile country is empty (e.g. account created via login,
+            // not full onboarding) still gets the emergency-call button: device region, then
+            // 112 — matching ContractionTimerScreen / ChatbotScreen.
+            const number = resolveEmergencyNumber((user as any)?.country, getDeviceRegionCode());
             if (number) {
                 buttons.push({
                     text: `${t('dashboard.alerts.callEmergency')} (${number})`,
@@ -635,7 +636,7 @@ export const HealthDashboardScreen = () => {
                 <View style={styles.sectionHeader}>
                     <Text style={styles.sectionTitle}>{t('dashboard.appointments')}</Text>
                     <TouchableOpacity
-                        onPress={() => showAlert(t('dashboard.soonAvailable'), t('dashboard.soonAvailableDesc'))}
+                        onPress={() => navigation.navigate('Calendrier', { screen: 'CalendarMain', params: {} })}
                         accessibilityRole="button"
                         accessibilityLabel={t('dashboard.seeAll')}
                     >

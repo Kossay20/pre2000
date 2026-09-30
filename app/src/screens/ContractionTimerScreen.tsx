@@ -18,6 +18,7 @@ import { EmptyState } from '../components/common/EmptyState';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
 import { useAuth } from '../context/AuthContext';
 import { resolveEmergencyNumber } from '../utils/clinicalChecks';
+import { getDeviceRegionCode } from '../utils/deviceRegion';
 import { confirmAction } from '../utils/uiUtils';
 import {
     ContractionTimerState,
@@ -32,9 +33,9 @@ import {
 
 export const ContractionTimerScreen: React.FC = () => {
     useScreenAnalytics('ContractionTimerScreen');
-    const { t, i18n } = useTranslation();
+    const { t } = useTranslation();
     const { user } = useAuth();
-    const emergencyNumber = resolveEmergencyNumber(user?.country, i18n.language);
+    const emergencyNumber = resolveEmergencyNumber(user?.country, getDeviceRegionCode());
     const [state, setState] = useState<ContractionTimerState>({ activeStartedAt: null, history: [] });
     const [now, setNow] = useState<number>(Date.now());
     const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -102,7 +103,7 @@ export const ContractionTimerScreen: React.FC = () => {
         }
     }, [state.history, stats, t]);
 
-    const onCallMaternity = useCallback(() => {
+    const onCallEmergency = useCallback(() => {
         if (!emergencyNumber) return;
         Linking.openURL(`tel:${emergencyNumber}`).catch(() => {});
     }, [emergencyNumber]);
@@ -202,12 +203,14 @@ export const ContractionTimerScreen: React.FC = () => {
                 {emergencyNumber && (
                     <TouchableOpacity
                         style={styles.callRow}
-                        onPress={onCallMaternity}
+                        onPress={onCallEmergency}
                         accessibilityRole="button"
-                        accessibilityLabel={`${t('cycle8.contractionTimer.callMaternity')} ${emergencyNumber}`}
+                        accessibilityLabel={`${t('a11y.emergencyCall')} ${emergencyNumber}`}
                     >
+                        {/* This dials the emergency number, not a maternity ward — the
+                            label says so, so nobody expects to reach her own maternity. */}
                         <Text style={styles.callText}>
-                            📞 {t('cycle8.contractionTimer.callMaternity')} ({emergencyNumber})
+                            📞 {t('a11y.emergencyCall')} ({emergencyNumber})
                         </Text>
                     </TouchableOpacity>
                 )}

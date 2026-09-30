@@ -96,6 +96,49 @@ describe('app.json store metadata', () => {
     expect(appJson.ios.privacyManifests.NSPrivacyCollectedDataTypes.length).toBeGreaterThan(0);
   });
 
+  describe('privacy manifest matches what the binary sends', () => {
+    type Entry = {
+      NSPrivacyCollectedDataType: string;
+      NSPrivacyCollectedDataTypeLinked: boolean;
+      NSPrivacyCollectedDataTypePurposes: string[];
+    };
+    const entries = (): Entry[] => appJson.ios.privacyManifests.NSPrivacyCollectedDataTypes;
+    const byType = (type: string) =>
+      entries().find((e) => e.NSPrivacyCollectedDataType === `NSPrivacyCollectedDataType${type}`);
+    const appSource = read('App.tsx');
+
+    it('claims no analytics purpose — analytics is a no-op on native', () => {
+      // firebase/analytics' isSupported() resolves false on React Native, so every
+      // analyticsService call does nothing (src/config/firebase.ts).
+      const analytics = entries().filter((e) =>
+        e.NSPrivacyCollectedDataTypePurposes.includes('NSPrivacyCollectedDataTypePurposeAnalytics'),
+      );
+      expect(analytics).toEqual([]);
+    });
+
+    it('declares what Sentry collects in production', () => {
+      expect(appSource).toMatch(/Sentry\.init\(/);
+      expect(byType('CrashData')).toBeDefined();
+      expect(byType('OtherDiagnosticData')).toBeDefined(); // device/OS context on every event
+      const tracesSampleRate = Number(appSource.match(/tracesSampleRate:\s*([\d.]+)/)?.[1] ?? 0);
+      if (tracesSampleRate > 0) expect(byType('PerformanceData')).toBeDefined();
+      // Sentry.wrap adds a TouchEventBoundary: taps become breadcrumbs.
+      if (/Sentry\.wrap\(/.test(appSource)) expect(byType('ProductInteraction')).toBeDefined();
+    });
+
+    it('marks Sentry data as linked, because every event carries the user id hash', () => {
+      // logger.setUser sends SHA-256(uid) — a stable identifier, which Apple
+      // counts as linking the data to the user.
+      expect(read('src/utils/logger.ts')).toMatch(/setUser/);
+      for (const type of ['CrashData', 'PerformanceData', 'OtherDiagnosticData', 'ProductInteraction']) {
+        expect({ type, linked: byType(type)?.NSPrivacyCollectedDataTypeLinked }).toEqual({
+          type,
+          linked: true,
+        });
+      }
+    });
+  });
+
   it('declares no data type as used for tracking', () => {
     // The listing (store/listing.json) and App Privacy answers both say the app
     // does not track. The manifest has to agree, or the submission contradicts
@@ -107,9 +150,37 @@ describe('app.json store metadata', () => {
     expect(tracking).toEqual([]);
   });
 
-  it('asks for notification permission with a reason the user can read', () => {
-    expect(typeof appJson.ios.infoPlist.NSUserNotificationsUsageDescription).toBe('string');
-    expect(appJson.ios.infoPlist.NSUserNotificationsUsageDescription.length).toBeGreaterThan(20);
+  it('carries no fake notification usage string', () => {
+    // iOS has no usage-description key for notifications — the system dialog
+    // text is fixed — so NSUserNotificationsUsageDescription was a French-only
+    // string nobody ever saw. The context is given in-app, before the request
+    // (Reminders tab banner).
+    expect(appJson.ios.infoPlist.NSUserNotificationsUsageDescription).toBeUndefined();
+  });
+
+  it('declares the App Attest environment App Check needs on iOS', () => {
+    // src/config/appCheck.native.ts uses appAttestWithDeviceCheckFallback in
+    // release. Without this entitlement attestation fails on every iOS 14+
+    // device, and enforcing App Check would lock out every iPhone user.
+    expect(appJson.ios.entitlements['com.apple.developer.devicecheck.appattest-environment']).toBe(
+      'production',
+    );
+  });
+
+  it('declares its iOS localizations, so the store and the system UI list them', () => {
+    // expo-localization writes these to CFBundleLocalizations. Without it the App
+    // Store shows "English" only and system chrome (alerts, share sheet, pickers)
+    // stays English for fr and ar users. Tunisian (tn) is deliberately absent:
+    // iOS ships no Tunisian Arabic localization, so declaring it would change
+    // nothing — a tn user's device is in Arabic or French, both declared.
+    const entry = appJson.plugins.find(
+      (p: unknown) => Array.isArray(p) && p[0] === 'expo-localization',
+    ) as [string, { supportedLocales: { ios: string[] }; allowDynamicLocaleChangesAndroid: boolean }];
+    expect(entry).toBeDefined();
+    expect([...entry[1].supportedLocales.ios].sort()).toEqual(['ar', 'en', 'fr']);
+    // Passing options replaces the plugin's default of `true` here; losing it would
+    // make Android restart the activity on a locale change.
+    expect(entry[1].allowDynamicLocaleChangesAndroid).toBe(true);
   });
 
   it('requests only the Android permissions it uses, and blocks the rest', () => {

@@ -2,6 +2,7 @@
   "expo": {
     "name": "Mama & Bébé",
     "slug": "mama-bebe",
+    "scheme": "mama-bebe",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -18,11 +19,11 @@
       "bundleIdentifier": "com.mamabebe.app",
       "buildNumber": "4",
       "entitlements": {
-        "aps-environment": "production"
+        "aps-environment": "production",
+        "com.apple.developer.devicecheck.appattest-environment": "production"
       },
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false,
-        "NSUserNotificationsUsageDescription": "Mama & Bébé vous envoie des rappels bienveillants pour votre bien-être et celui de votre bébé."
+        "ITSAppUsesNonExemptEncryption": false
       },
       "privacyManifests": {
         "NSPrivacyCollectedDataTypes": [
@@ -92,7 +93,23 @@
           },
           {
             "NSPrivacyCollectedDataType": "NSPrivacyCollectedDataTypeCrashData",
-            "NSPrivacyCollectedDataTypeLinked": false,
+            "NSPrivacyCollectedDataTypeLinked": true,
+            "NSPrivacyCollectedDataTypeTracking": false,
+            "NSPrivacyCollectedDataTypePurposes": [
+              "NSPrivacyCollectedDataTypePurposeAppFunctionality"
+            ]
+          },
+          {
+            "NSPrivacyCollectedDataType": "NSPrivacyCollectedDataTypePerformanceData",
+            "NSPrivacyCollectedDataTypeLinked": true,
+            "NSPrivacyCollectedDataTypeTracking": false,
+            "NSPrivacyCollectedDataTypePurposes": [
+              "NSPrivacyCollectedDataTypePurposeAppFunctionality"
+            ]
+          },
+          {
+            "NSPrivacyCollectedDataType": "NSPrivacyCollectedDataTypeOtherDiagnosticData",
+            "NSPrivacyCollectedDataTypeLinked": true,
             "NSPrivacyCollectedDataTypeTracking": false,
             "NSPrivacyCollectedDataTypePurposes": [
               "NSPrivacyCollectedDataTypePurposeAppFunctionality"
@@ -100,10 +117,10 @@
           },
           {
             "NSPrivacyCollectedDataType": "NSPrivacyCollectedDataTypeProductInteraction",
-            "NSPrivacyCollectedDataTypeLinked": false,
+            "NSPrivacyCollectedDataTypeLinked": true,
             "NSPrivacyCollectedDataTypeTracking": false,
             "NSPrivacyCollectedDataTypePurposes": [
-              "NSPrivacyCollectedDataTypePurposeAnalytics"
+              "NSPrivacyCollectedDataTypePurposeAppFunctionality"
             ]
           }
         ],
@@ -182,7 +199,19 @@
       "@react-native-firebase/app",
       "@react-native-firebase/app-check",
       "expo-font",
-      "expo-localization"
+      [
+        "expo-localization",
+        {
+          "supportedLocales": {
+            "ios": [
+              "fr",
+              "en",
+              "ar"
+            ]
+          },
+          "allowDynamicLocaleChangesAndroid": true
+        }
+      ]
     ],
     "extra": {
       "privacyPolicyUrl": "https://www.mama-et-bebe.com/privacy.html",

@@ -64,6 +64,7 @@ Je me suis trompé de cadrage dans le rapport précédent en présentant le buil
 
 > **`eas build --profile preview --platform android` ne demande qu'un compte Expo gratuit.**
 > Ni compte Apple, ni compte Google Play, ni même les fichiers Firebase.
+> Seule condition : les 6 variables `EXPO_PUBLIC_FIREBASE_*` déclarées sur EAS pour l'environnement `preview` (§4, action 4) — sans elles `app.config.ts` refuse la build, car le binaire planterait au lancement.
 > Il produit un **APK installable** sur n'importe quel téléphone Android.
 
 Ce seul build ferme presque toute la colonne 🟡 ci-dessus : démarrage réel, notifications réellement reçues, RTL natif en arabe, reconnexion, suppression de compte. Trois commandes :
@@ -89,13 +90,14 @@ Aucune de ces lignes n'est du travail de développement. Elles sont dans cet ord
 | 1 | **Ouvrir le compte Google Play** — en type **Organisation** si vous avez une structure | play.google.com/console | Un compte *personnel* impose **12 testeurs pendant 14 jours consécutifs** avant l'accès à la production, et ce chrono ne démarre qu'après création du compte **et** publication d'un build en test fermé. C'est le seul vrai risque calendaire du projet. |
 | 2 | **Ouvrir le compte Apple Developer** | developer.apple.com | Sans lui : pas de certificat, pas de provisioning, donc **aucun binaire iOS signable** — et donc aucune des vérifications du §3. |
 | 3 | **Déposer les 2 fichiers Firebase** `google-services.json` + `GoogleService-Info.plist` | Firebase Console → Paramètres → Vos applications, puis racine de `app/` | Le build de production **refuse de démarrer** sans eux et vous dit lequel manque. Sans eux, App Check serait inerte dans le binaire publié. |
-| 4 | **Activer le backend** : Anonymous Auth, `firebase deploy --only firestore:rules,firestore:indexes`, puis `npm run import-data` | Firebase Console + CLI | Débloque le calendrier, la santé, le parcours invité complet — et rend enfin testable la configuration que le mode invité n'a jamais connue. |
-| 5 | **Revue clinique** : articles, dosages de compléments, seuils de triage de l'assistant, et le contenu Ramadan | sage-femme / gynécologue | Pour une app de santé, c'est un prérequis légal et éthique, pas une option. L'écran Ramadan restera masqué tant que ce n'est pas signé. |
-| 6 | **Compte de démo pour les relecteurs** | après l'étape 4 | Les notes de review le référencent déjà (`store/listing.json`). |
+| 4 | **Déclarer la config Firebase web sur EAS** — les 6 variables `EXPO_PUBLIC_FIREBASE_*` de votre `.env`, pour **chaque** environnement buildé (`production` et `preview`) : `eas env:create --environment production --name EXPO_PUBLIC_FIREBASE_API_KEY --value <valeur> --visibility plaintext --type string`, idem pour `…_AUTH_DOMAIN`, `…_PROJECT_ID`, `…_STORAGE_BUCKET`, `…_MESSAGING_SENDER_ID`, `…_APP_ID`, puis la même chose avec `--environment preview`. Vérifier : `eas env:list --environment production`. Recommandé aussi : `EXPO_PUBLIC_SENTRY_DSN` (sans lui, aucun rapport de crash) | CLI EAS | Le `.env` est gitignoré, EAS ne l'envoie jamais au serveur de build. Sans ces variables, Firebase Auth lève `auth/invalid-api-key` au chargement : **le binaire plante au lancement** (rejet 2.1 certain). `app.config.ts` refuse désormais une build `production`/`preview` qui ne les a pas et les nomme. Visibilité `plaintext` ou `sensitive`, **pas `secret`** : EAS CLI ne voit pas une variable `secret` quand il évalue `app.config.ts`, la build serait refusée. Ces valeurs finissent de toute façon dans le bundle JS — la protection réelle est App Check + les restrictions de clé GCP. |
+| 5 | **Activer le backend** : Anonymous Auth, `firebase deploy --only firestore:rules,firestore:indexes`, puis `npm run import-data` | Firebase Console + CLI | Débloque le calendrier, la santé, le parcours invité complet — et rend enfin testable la configuration que le mode invité n'a jamais connue. `import-data` pousse désormais compléments et articles depuis `src/data/` (4 langues), la même source que le repli embarqué. |
+| 6 | **Revue clinique** : articles, dosages de compléments, seuils de triage de l'assistant, et le contenu Ramadan | sage-femme / gynécologue | Pour une app de santé, c'est un prérequis légal et éthique, pas une option. L'écran Ramadan restera masqué tant que ce n'est pas signé. |
+| 7 | **Compte de démo pour les relecteurs** | après l'étape 5 | Les notes de review le référencent déjà (`store/listing.json`). |
 
 ---
 
-## §5 — Ce que je fais dès que 1 à 4 sont faits
+## §5 — Ce que je fais dès que 1 à 5 sont faits
 
 1. Premier build EAS sur les deux plateformes, et correction de ce que le build natif révèle.
 2. Smoke device : notifications reçues, reconnexion, RTL natif `ar`, suppression de compte sur backend live.

@@ -26,7 +26,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { usePregnancy } from '../../context/PregnancyContext';
 import { useAuth } from '../../context/AuthContext';
-import { requestNotificationPermissions } from '../../services/notificationService';
+import { requestNotificationPermissions, hasNotificationPermission } from '../../services/notificationService';
 import { showAlert } from '../../utils/alert';
 import {
     getEssentialReminders,
@@ -61,43 +61,19 @@ import { styles } from './RemindersTab.styles';
 // PERMISSION BANNER
 // ============================================
 
-const PermissionBanner = () => {
+// Shown while notifications are not allowed. Its tap is where the OS permission
+// dialog appears — on this tab, next to the reminders it is for, never on mount:
+// asking before the user has done anything is what the HIG warns against, and a
+// refusal given out of context is hard to undo (iOS never asks twice).
+const PermissionBanner: React.FC<{ visible: boolean; onPress: () => void }> = ({ visible, onPress }) => {
     const { t } = useTranslation();
-    const [permissionsGranted, setPermissionsGranted] = useState(true);
 
-    useEffect(() => {
-        checkPermissions();
-    }, []);
-
-    const checkPermissions = async () => {
-        const granted = await requestNotificationPermissions();
-        setPermissionsGranted(granted);
-    };
-
-    // Actionable: reuse the same flow as the Settings "Demander les permissions" handler.
-    // Request OS permission; on grant, hide the banner; on denial, offer to open Settings.
-    const handlePress = async () => {
-        const granted = await requestNotificationPermissions();
-        if (granted) {
-            setPermissionsGranted(true);
-            return;
-        }
-        showAlert(
-            t('common.permissionsDenied'),
-            t('common.permissionsDeniedMsg'),
-            [
-                { text: t('common.cancel'), style: 'cancel' },
-                { text: t('common.openSettings'), onPress: () => Linking.openSettings() },
-            ]
-        );
-    };
-
-    if (permissionsGranted) return null;
+    if (!visible) return null;
 
     return (
         <TouchableOpacity
             style={styles.permissionBanner}
-            onPress={handlePress}
+            onPress={onPress}
             accessibilityRole="button"
             accessibilityLabel={t('common.enableNotifications')}
             accessibilityHint={t('common.requestPermissions')}
@@ -276,6 +252,38 @@ export const RemindersTab = () => {
     const [editModalVisible, setEditModalVisible] = useState(false);
     const [selectedReminder, setSelectedReminder] = useState<ReminderDefinition | null>(null);
 
+    // Optimistic so the banner does not flash in before the check answers.
+    const [notificationsAllowed, setNotificationsAllowed] = useState(true);
+
+    useEffect(() => {
+        // Read-only: the mount never shows the OS dialog.
+        hasNotificationPermission().then(setNotificationsAllowed);
+    }, []);
+
+    /** The OS dialog, from a tap. On a grant, schedule what the background sync skipped. */
+    const askForNotifications = async (): Promise<boolean> => {
+        const granted = await requestNotificationPermissions();
+        setNotificationsAllowed(granted);
+        return granted;
+    };
+
+    const handlePermissionBannerPress = async () => {
+        if (await askForNotifications()) {
+            const week = pregnancyInfo?.week ?? 1;
+            await syncRemindersToNotifications(week, i18n.language, user?.uid);
+            return;
+        }
+        // Already refused: only the system settings can change it now.
+        showAlert(
+            t('common.permissionsDenied'),
+            t('common.permissionsDeniedMsg'),
+            [
+                { text: t('common.cancel'), style: 'cancel' },
+                { text: t('common.openSettings'), onPress: () => Linking.openSettings() },
+            ]
+        );
+    };
+
     const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
         recommended: true,
         medical: false,
@@ -326,6 +334,10 @@ export const RemindersTab = () => {
     const handleToggle = async (reminder: ReminderDefinition, enabled: boolean) => {
         try {
             if (enabled) {
+                // Turning a reminder on is a request for notifications, so this tap is
+                // a legitimate place for the OS dialog. A refusal still saves the
+                // setting; the banner stays up to ask again later.
+                await askForNotifications();
                 const newSetting = await enableReminder(reminder.id, user?.uid);
                 if (newSetting) {
                     setSettings(prev => ({ ...prev, [reminder.id]: newSetting }));
@@ -492,7 +504,7 @@ export const RemindersTab = () => {
 
     return (
         <View style={styles.container}>
-            <PermissionBanner />
+            <PermissionBanner visible={!notificationsAllowed} onPress={handlePermissionBannerPress} />
             <ScrollView
                 style={styles.scrollContainer}
                 contentContainerStyle={styles.scrollContent}

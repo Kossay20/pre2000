@@ -27,15 +27,19 @@ if (!firebaseConfig.projectId) {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
+// The list of collections and their source files is shared with the emulator
+// seeder (e2e/helpers/seed-emulator.mjs) — see scripts/seedCollections.json for
+// why supplements and articles come from src/data.
+type SeedCollection = { file: string; collection: string; idField: string };
+const { collections: SEED_COLLECTIONS } = JSON.parse(
+    fs.readFileSync(path.join(__dirname, 'seedCollections.json'), 'utf-8'),
+) as { collections: SeedCollection[] };
+
 async function importData() {
     try {
-        await importCollection('articles_db.json', 'articles', 'article_id');
-        await importCollection('red_flags_db.json', 'redFlags', 'red_flag_id');
-        await importCollection('chatbot_suggestions.json', 'chatbotSuggestionsAG', 'suggestion_id');
-        await importCollection('app/DATA_PACK_MVP_V3_FINAL/baby_messages_db_v1_2_FULL.json', 'babyMessages', 'message_id');
-        // R2-FIX: supplements were never seeded — SupplementsListScreen / ArticleDetail read
-        // collection('supplements') and DiagnosticScreen expects 15, so the tab was empty in prod.
-        await importCollection('supplements_pregnancy.json', 'supplements', 'supplement_id');
+        for (const { file, collection, idField } of SEED_COLLECTIONS) {
+            await importCollection(file, collection, idField);
+        }
 
         console.log('\n🎉 All imports completed successfully!');
         process.exit(0);
@@ -46,12 +50,14 @@ async function importData() {
 }
 
 async function importCollection(filename: string, collectionName: string, idField: string) {
-    const filePath = path.join(__dirname, '../../', filename);
+    // Relative to app/, like every entry in seedCollections.json.
+    const filePath = path.join(__dirname, '..', filename);
     console.log(`\n📖 Loading ${filename}...`);
 
     if (!fs.existsSync(filePath)) {
-        console.error(`   ❌ File not found: ${filePath}`);
-        return;
+        // A missing source used to be skipped with a log line and the run still
+        // reported success, leaving a collection silently empty in production.
+        throw new Error(`File not found: ${filePath}`);
     }
 
     const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));

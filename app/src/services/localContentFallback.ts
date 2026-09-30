@@ -80,6 +80,6 @@ export const getLocalAntigravityArticle = (id: string): ArticleAntigravity | nul
         week_min: 1,
         week_max: 40,
         tags: [],
-        sources: [],
+        sources: a.sources ?? [],
     };
 };

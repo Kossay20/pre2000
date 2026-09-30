@@ -23,8 +23,6 @@
     "addBP": "إضافة ضغط الدم",
     "systolic": "الانقباضي (مثال: 120)",
     "diastolic": "الانبساطي (مثال: 80)",
-    "soonAvailable": "قريباً",
-    "soonAvailableDesc": "تتبع مفصل قادم قريباً!",
     "errorLoading": "خطأ في تحميل البيانات",
     "errorSaving": "خطأ في الحفظ",
     "guestNotice": "سجّل الدخول لمتابعة صحتك",

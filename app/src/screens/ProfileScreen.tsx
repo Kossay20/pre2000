@@ -1,7 +1,7 @@
 import { createLogger } from '../utils/logger';
 const log = createLogger('ProfileScreen');
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator, KeyboardAvoidingView, Platform, Modal } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { showAlert } from '../utils/alert';
 import { confirmAction } from '../utils/uiUtils';
@@ -19,6 +19,7 @@ import { RtlAwareChevron } from '../components/common/RtlAwareChevron';
 import { Button } from '../components/common/Button';
 import { useRtl } from '../hooks/useRtl';
 import { useTranslation } from 'react-i18next';
+import { COUNTRY_OPTIONS } from '../utils/clinicalChecks';
 import { EmergencyContactsSection } from '../components/profile/EmergencyContactsSection';
 import { openSupportEmail } from '../services/supportService';
 import { getPickerLocale } from '../utils/pickerLocale';
@@ -27,6 +28,7 @@ import { calculatePregnancyWeek, calculateCurrentWeek } from '../utils/pregnancy
 import { LineChart } from 'react-native-chart-kit';
 import { Ionicons } from '@expo/vector-icons';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
+import { useAccountDeletion } from '../hooks/useAccountDeletion';
 import { validateProfile } from '../utils/validation';
 
 // Same physical bounds WeightTrackerScreen enforces (see its handleSetup), so the
@@ -38,7 +40,8 @@ const MAX_WEIGHT_KG = 200;
 
 export const ProfileScreen = () => {
     useScreenAnalytics('ProfileScreen');
-    const { user, firebaseUser, logout, resetProfile, updateProfile, deleteAccount, reauthenticateAndDelete } = useAuth();
+    const { user, firebaseUser, logout, updateProfile } = useAuth();
+    const { requestDeleteAccount, requestResetProfile, busy: deletionBusy, reauthModal } = useAccountDeletion();
     const { profile, setProfile } = usePregnancy();
     const { currentWeekNumber } = useCurrentWeek();
     const navigation = useNavigation();
@@ -51,14 +54,13 @@ export const ProfileScreen = () => {
 
     const [firstName, setFirstName] = useState(profile?.firstName || '');
     const [lastName, setLastName] = useState(profile?.lastName || '');
-    const [country, setCountry] = useState(profile?.country || 'tunisia');
+    // Never default to a country: it picks the emergency number the app dials, and
+    // a default here would be written back on the next save.
+    const [country, setCountry] = useState(profile?.country || '');
     const [lmp, setLmp] = useState(
         profile?.lmp ? new Date(profile.lmp) : new Date()
     );
     const [showDatePicker, setShowDatePicker] = useState(false);
-    const [reauthModalVisible, setReauthModalVisible] = useState(false);
-    const [reauthPassword, setReauthPassword] = useState('');
-    const [reauthLoading, setReauthLoading] = useState(false);
     // PROFILE-FIX: Physical data for BMI + weight gain tracking
     const [height, setHeight] = useState(
         profile?.height ? String(profile.height) : ''
@@ -72,7 +74,7 @@ export const ProfileScreen = () => {
         if (profile) {
             setFirstName(profile.firstName || '');
             setLastName(profile.lastName || '');
-            setCountry(profile.country || 'tunisia');
+            setCountry(profile.country || '');
             if (profile.lmp) {
                 setLmp(new Date(profile.lmp));
             }
@@ -194,78 +196,7 @@ export const ProfileScreen = () => {
         );
     };
 
-    const handleResetProfile = async () => {
-        confirmAction(
-            t('profile.resetConfirmTitle'),
-            t('profile.resetConfirmMsg'),
-            async () => {
-                try {
-                    setLoading(true);
-                    await resetProfile();
-                    showAlert(
-                        t('profile.resetDoneTitle'),
-                        t('profile.resetDoneMsg'),
-                        [
-                            {
-                                text: t('common.ok'),
-                                onPress: () => {
-                                    // Navigate to AuthChoice
-                                    navigation.reset({
-                                        index: 0,
-                                        routes: [{ name: 'AuthChoice' } as any],
-                                    });
-                                },
-                            },
-                        ]
-                    );
-                } catch (error) {
-                    log.error('Reset profile error:', error);
-                    showAlert(t('common.error'), t('profile.errorReset'));
-                } finally {
-                    setLoading(false);
-                }
-            },
-            undefined,
-            t('common.cancel'),
-            t('profile.reset')
-        );
-    };
-
-    // F4: Re-authenticate then retry the auth-side delete. Firestore data has
-    // already been purged by the prior `deleteAccount()` call; this finalizes
-    // the flow and navigates back to AuthChoice.
-    const runReauthAndDelete = async (password: string) => {
-        if (!password) {
-            showAlert(t('common.error'), t('profile.reauthMissingPassword'));
-            return;
-        }
-        try {
-            setReauthLoading(true);
-            setLoading(true);
-            await reauthenticateAndDelete(password);
-            setReauthModalVisible(false);
-            setReauthPassword('');
-            navigation.reset({
-                index: 0,
-                routes: [{ name: 'AuthChoice' } as any],
-            });
-        } catch (reauthErr: any) {
-            log.error('Reauthenticate-and-delete error:', reauthErr);
-            showAlert(t('common.error'), t('profile.deleteAccountError'));
-        } finally {
-            setReauthLoading(false);
-            setLoading(false);
-        }
-    };
-
-    const COUNTRIES = [
-        { key: 'tunisia', label: t('common.countries.tunisia') },
-        { key: 'morocco', label: t('common.countries.morocco') },
-        { key: 'algeria', label: t('common.countries.algeria') },
-        { key: 'france', label: t('common.countries.france') },
-        { key: 'belgium', label: t('common.countries.belgium') },
-        { key: 'other', label: t('common.countries.other') },
-    ];
+    const COUNTRIES = COUNTRY_OPTIONS.map((key) => ({ key, label: t(`common.countries.${key}`) }));
 
     const renderCountrySelector = () => {
         return (
@@ -559,7 +490,7 @@ export const ProfileScreen = () => {
 
                         <TouchableOpacity
                             style={styles.menuRow}
-                            onPress={handleResetProfile}
+                            onPress={requestResetProfile}
                             accessibilityRole="button"
                             accessibilityLabel={t('profile.reset')}
                         >
@@ -575,56 +506,9 @@ export const ProfileScreen = () => {
                                 accessibilityRole="button"
                                 accessibilityLabel={t('a11y.deleteAccount')}
                                 accessibilityHint={t('a11y.deleteAccountHint')}
-                                onPress={async () => {
-                                    confirmAction(
-                                        t('profile.deleteAccountTitle'),
-                                        t('profile.deleteAccountMsg'),
-                                        async () => {
-                                            try {
-                                                setLoading(true);
-                                                await deleteAccount();
-                                                navigation.reset({
-                                                    index: 0,
-                                                    routes: [{ name: 'AuthChoice' } as any],
-                                                });
-                                            } catch (error: any) {
-                                                if (error?.code === 'REAUTH_REQUIRED' || error?.message === 'REAUTH_REQUIRED') {
-                                                    // F4: Firestore data was purged but auth.delete() needs fresh
-                                                    // credentials — re-prompt for the password and retry.
-                                                    // Alert.prompt is iOS-only; Android/web fall back to the modal below.
-                                                    if (Platform.OS === 'ios') {
-                                                        Alert.prompt(
-                                                            t('profile.reauthTitle'),
-                                                            t('profile.reauthMessage'),
-                                                            [
-                                                                { text: t('common.cancel'), style: 'cancel' },
-                                                                {
-                                                                    text: t('common.confirm'),
-                                                                    style: 'destructive',
-                                                                    onPress: (password?: string) => {
-                                                                        runReauthAndDelete(password ?? '');
-                                                                    },
-                                                                },
-                                                            ],
-                                                            'secure-text',
-                                                        );
-                                                    } else {
-                                                        setReauthPassword('');
-                                                        setReauthModalVisible(true);
-                                                    }
-                                                } else {
-                                                    log.error('Delete account error:', error);
-                                                    showAlert(t('common.error'), t('profile.deleteAccountError'));
-                                                }
-                                            } finally {
-                                                setLoading(false);
-                                            }
-                                        },
-                                        undefined,
-                                        t('common.cancel'),
-                                        t('common.delete')
-                                    );
-                                }}
+                                accessibilityState={{ disabled: deletionBusy, busy: deletionBusy }}
+                                disabled={deletionBusy}
+                                onPress={requestDeleteAccount}
                             >
                                 <View style={styles.menuRowLeft}>
                                     <Ionicons name="trash-outline" size={24} color={theme.colors.materialRedDark} style={styles.menuIcon} />
@@ -652,63 +536,8 @@ export const ProfileScreen = () => {
                 </View>
             </ScrollView>
 
-            {/* F4: Android-only reauth prompt (Alert.prompt is iOS-only) */}
-            <Modal
-                visible={reauthModalVisible}
-                transparent
-                animationType="fade"
-                onRequestClose={() => {
-                    if (!reauthLoading) {
-                        setReauthModalVisible(false);
-                        setReauthPassword('');
-                    }
-                }}
-            >
-                <View style={styles.reauthOverlay}>
-                    <View style={styles.reauthCard}>
-                        <Text style={styles.reauthTitle}>{t('profile.reauthTitle')}</Text>
-                        <Text style={styles.reauthMessage}>{t('profile.reauthMessage')}</Text>
-                        <TextInput
-                            style={styles.input}
-                            value={reauthPassword}
-                            onChangeText={setReauthPassword}
-                            secureTextEntry
-                            autoFocus
-                            editable={!reauthLoading}
-                            placeholder="••••••••"
-                            accessibilityLabel={t('profile.reauthMessage')}
-                        />
-                        <View style={styles.reauthActions}>
-                            <TouchableOpacity
-                                style={styles.reauthCancelButton}
-                                onPress={() => {
-                                    if (reauthLoading) return;
-                                    setReauthModalVisible(false);
-                                    setReauthPassword('');
-                                }}
-                                disabled={reauthLoading}
-                                accessibilityRole="button"
-                                accessibilityLabel={t('common.cancel')}
-                            >
-                                <Text style={styles.reauthCancelText}>{t('common.cancel')}</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={[styles.reauthConfirmButton, reauthLoading && styles.saveButtonDisabled]}
-                                onPress={() => runReauthAndDelete(reauthPassword)}
-                                disabled={reauthLoading}
-                                accessibilityRole="button"
-                                accessibilityLabel={t('common.confirm')}
-                            >
-                                {reauthLoading ? (
-                                    <ActivityIndicator color="white" />
-                                ) : (
-                                    <Text style={styles.reauthConfirmText}>{t('common.confirm')}</Text>
-                                )}
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                </View>
-            </Modal>
+            {/* F4: reauth prompt for Android/web (Alert.prompt is iOS-only) */}
+            {reauthModal}
         </KeyboardAvoidingView>
     );
 };

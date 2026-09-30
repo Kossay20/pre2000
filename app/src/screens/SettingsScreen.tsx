@@ -41,6 +41,7 @@ import { generateAndSharePDF } from '../services/pdfExportService';
 import { getWeightHistory } from '../services/weightService';
 import { getAppointments } from '../services/appointmentService';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
+import { useAccountDeletion } from '../hooks/useAccountDeletion';
 
 /**
  * SettingsScreen - V1.2 Feature
@@ -55,6 +56,7 @@ export const SettingsScreen = () => {
     // causing exports to receive `pregnancyInfo` (week+day) where a Profile was expected.
     const { pregnancyInfo, profile } = usePregnancy();
     const { user, updateProfile } = useAuth();
+    const { requestDeleteAccount, requestResetProfile, busy: deletionBusy, reauthModal } = useAccountDeletion();
     const navigation = useNavigation();
     const [babyMessageEnabled, setBabyMessageEnabled] = useState(true);
     const [babyMessageHour, setBabyMessageHour] = useState(10);
@@ -280,14 +282,14 @@ export const SettingsScreen = () => {
             </View>
             )}
 
-            {/* Permissions Debug Section */}
+            {/* Notification permission */}
             <View style={styles.section}>
                 <View style={[styles.sectionHeader, styles.sectionHeaderRow]}>
                     <Ionicons name="notifications-outline" size={20} color={theme.colors.text} style={styles.sectionIcon} />
                     <Text style={styles.sectionTitle}>{t('common.permissions')}</Text>
                 </View>
                 <TouchableOpacity
-                    style={styles.settingRow}
+                    style={[styles.settingRow, !__DEV__ && { borderBottomWidth: 0 }]}
                     accessibilityRole="button"
                     accessibilityLabel={t('common.requestPermissions')}
                     accessibilityHint={t('common.requestPermissionsDesc')}
@@ -325,7 +327,10 @@ export const SettingsScreen = () => {
                     <RtlAwareChevron direction="forward" size={20} color={theme.colors.neutral300} />
                 </TouchableOpacity>
 
-                {/* Test Notification Button */}
+                {/* Test notifications is a developer tool: it schedules three fake
+                    reminders (a made-up appointment among them) a few seconds out. It
+                    has no place in a release build. */}
+                {__DEV__ && (
                 <TouchableOpacity
                     style={[styles.settingRow, { borderBottomWidth: 0 }]}
                     accessibilityRole="button"
@@ -354,6 +359,7 @@ export const SettingsScreen = () => {
                         </View>
                     </View>
                 </TouchableOpacity>
+                )}
             </View>
 
             {/* Info Section */}
@@ -421,7 +427,7 @@ export const SettingsScreen = () => {
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                    style={[styles.settingRow, { borderBottomWidth: 0 }]}
+                    style={styles.settingRow}
                     accessibilityRole="button"
                     accessibilityLabel={t('common.privacyData.export')}
                     accessibilityHint={t('common.privacyData.exportDesc')}
@@ -446,6 +452,31 @@ export const SettingsScreen = () => {
                             <Text style={styles.settingLabel}>{t('common.privacyData.export')}</Text>
                             <Text style={styles.settingDescription}>
                                 {t('common.privacyData.exportDesc')}
+                            </Text>
+                        </View>
+                    </View>
+                </TouchableOpacity>
+
+                {/* The privacy policy and the store listings send people here to delete their
+                    data, so this is the same flow as Profile → danger zone (useAccountDeletion).
+                    A guest has no account: her data lives on this device, and the reset erases it. */}
+                <TouchableOpacity
+                    style={[styles.settingRow, { borderBottomWidth: 0 }]}
+                    accessibilityRole="button"
+                    accessibilityLabel={user?.isGuest ? t('common.privacyData.eraseGuestData') : t('common.privacyData.deleteAccount')}
+                    accessibilityHint={user?.isGuest ? t('common.privacyData.eraseGuestDataDesc') : t('common.privacyData.deleteAccountDesc')}
+                    accessibilityState={{ disabled: deletionBusy, busy: deletionBusy }}
+                    disabled={deletionBusy}
+                    onPress={user?.isGuest ? requestResetProfile : requestDeleteAccount}
+                >
+                    <View style={styles.settingRowLeft}>
+                        <Ionicons name="trash-outline" size={24} color={theme.colors.materialRedDark} style={styles.menuIcon} />
+                        <View style={styles.settingInfo}>
+                            <Text style={[styles.settingLabel, { color: theme.colors.error }]}>
+                                {user?.isGuest ? t('common.privacyData.eraseGuestData') : t('common.privacyData.deleteAccount')}
+                            </Text>
+                            <Text style={styles.settingDescription}>
+                                {user?.isGuest ? t('common.privacyData.eraseGuestDataDesc') : t('common.privacyData.deleteAccountDesc')}
                             </Text>
                         </View>
                     </View>
@@ -497,6 +528,7 @@ export const SettingsScreen = () => {
                     </TouchableOpacity>
                 </View >
             )}
+            {reauthModal}
         </ScrollView >
     );
 };

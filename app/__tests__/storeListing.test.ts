@@ -81,9 +81,14 @@ describe('store listing', () => {
       expect(description).toMatch(disclaimerMarkers[locale]);
     });
 
-    it('labels the assistant as beta, matching the in-app badge', () => {
-      const description: string = entry().description;
-      expect(description).toMatch(/BÊTA|BETA|تجريبية/);
+    it('never calls the app or the assistant a beta', () => {
+      // Guideline 2.2: betas belong on TestFlight, not the App Store, and "beta" in
+      // store metadata is a routine rejection. The in-app badge is gone too; the
+      // assistant is framed by its permanent "does not replace medical advice" notice.
+      for (const field of ['description', 'whatsNew', 'promotionalText', 'shortDescription']) {
+        const value: string = entry()[field];
+        expect({ field, beta: /b[eê]ta|تجريبي/i.test(value) }).toEqual({ field, beta: false });
+      }
     });
 
     it('makes no diagnostic or curative claim', () => {
@@ -98,6 +103,32 @@ describe('store listing', () => {
       ];
       const hits = forbidden.filter((re) => re.test(description)).map(String);
       expect(hits).toEqual([]);
+    });
+
+    it('does not announce an update on what is the first public release', () => {
+      // Promotional text sits above the description on the product page. Opening
+      // with "New:" on version 1.0 tells a first-time visitor about a previous
+      // version that never existed.
+      const promo: string = entry().promotionalText;
+      // No \b: JS word boundaries are ASCII-only and never fire after Arabic letters.
+      expect(promo).not.toMatch(/^\s*(nouveau|nouvelle|new|جديد)(?![A-Za-z])/i);
+      expect(promo).not.toMatch(/nouvelle version|new version|what'?s new|إصدار جديد/i);
+    });
+
+    it('spends no keyword on a word already indexed from the name or subtitle', () => {
+      // The App Store indexes the name and subtitle on their own; repeating one of
+      // their words in the 100-character keyword field buys nothing. Accents are
+      // folded because the field is written without them ("bebe" vs "Bébé").
+      const fold = (s: string) =>
+        s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+      const indexed = new Set(
+        fold(`${entry().name} ${entry().subtitle}`).split(/[^\p{L}]+/u).filter(Boolean),
+      );
+      const repeated = (entry().keywords as string)
+        .split(',')
+        .map((k) => fold(k.trim()))
+        .filter((k) => indexed.has(k));
+      expect(repeated).toEqual([]);
     });
 
     it('uses no astral-plane characters, which both consoles count as two', () => {
@@ -147,6 +178,42 @@ describe('store listing', () => {
       expect(fr).toMatch(/contact@mama-et-bebe\.com/);
     });
 
+    it('gives rating guidance for the current Apple tiers without pre-claiming one', () => {
+      // Apple replaced 12+/17+ with 4+/9+/13+/16+/18+ in 2025, and the tier is
+      // computed from the questionnaire. Guidance that names a retired tier sends
+      // the owner looking for an answer that no longer exists.
+      const rating = JSON.stringify(listing.shared.contentRating);
+      expect(rating).not.toMatch(/"appleTarget"/);
+      expect(listing.shared.contentRating.apple).toMatch(/4\+, 9\+, 13\+, 16\+ and 18\+/);
+    });
+
+    it('uses the same Arabic brand name in the app as on the store', () => {
+      // Users search the store for the listing name and then see the in-app name
+      // on every screen header and exported PDF; two different names read as two
+      // different apps. ar and tn share the one Arabic listing.
+      const arName: string = listing.locales.ar.name.split('—')[0].trim();
+      for (const lang of ['ar', 'tn']) {
+        const common = JSON.parse(
+          fs.readFileSync(
+            path.resolve(__dirname, '..', 'src', 'i18n', 'locales', lang, 'common.json'),
+            'utf8',
+          ),
+        );
+        expect({ lang, appName: common.common.appName }).toEqual({ lang, appName: arName });
+        expect({ lang, pdfFooter: common.pdf.footer.includes(arName) }).toEqual({
+          lang,
+          pdfFooter: true,
+        });
+        // The in-app privacy policy names the publisher's app too.
+        expect({
+          lang,
+          privacyIntro: common.privacy.intro.text.includes(arName),
+          privacyFooter: common.privacy.footer.includes(arName),
+          retiredName: JSON.stringify(common.privacy).includes('ماما وطفلي'),
+        }).toEqual({ lang, privacyIntro: true, privacyFooter: true, retiredName: false });
+      }
+    });
+
     it('uses the shipped bundle identifier', () => {
       const appJson = JSON.parse(
         fs.readFileSync(path.resolve(__dirname, '..', 'app.json'), 'utf8'),
@@ -160,6 +227,10 @@ describe('store listing', () => {
       // guest path; the notes must say so explicitly.
       expect(listing.reviewNotes.en).toMatch(/Continue as guest/i);
       expect(listing.reviewNotes.en).toMatch(/DEMO ACCOUNT/i);
+    });
+
+    it('does not describe the app to the reviewer as a beta', () => {
+      expect(listing.reviewNotes.en).not.toMatch(/\bbeta\b/i);
     });
   });
 });

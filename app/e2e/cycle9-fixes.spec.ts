@@ -125,7 +125,8 @@ test.describe('Cycle 9 — fix regression net (cold-boot Language)', () => {
         expect(text).toContain('Français');
         expect(text).toContain('English');
         expect(text).toContain('العربية');
-        expect(text).toContain('العربية + الدارجة (Beta)');
+        expect(text).toContain('العربية + الدارجة');
+        expect(text).not.toMatch(/\bbeta\b/i);
         // Active language has ✓ checkmark.
         expect(text).toContain('✓');
         // No raw i18n keys leaked.

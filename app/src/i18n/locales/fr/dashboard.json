@@ -23,8 +23,6 @@
     "addBP": "Ajouter Tension",
     "systolic": "Systolique (ex: 120)",
     "diastolic": "Diastolique (ex: 80)",
-    "soonAvailable": "Bientôt disponible",
-    "soonAvailableDesc": "Le suivi détaillé arrive bientôt !",
     "errorLoading": "Erreur lors du chargement des données",
     "errorSaving": "Erreur lors de l'enregistrement",
     "guestNotice": "Connectez-vous pour suivre votre santé",

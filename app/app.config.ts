@@ -19,10 +19,12 @@ import type { ConfigContext, ExpoConfig } from 'expo/config';
  *
  * So: reference them when they exist, stay silent when they don't — EXCEPT in a
  * production build, where shipping without them would silently disable
- * `@react-native-firebase` and with it App Check (see `src/config/firebase.ts`,
- * whose init is deliberately wrapped in try/catch). A store binary with a dead
- * anti-abuse layer is worse than a build that refuses to start, so production
- * fails loudly instead.
+ * `@react-native-firebase` and with it App Check (see `src/config/appCheck.native.ts`,
+ * whose init deliberately fails open). A store binary with a dead anti-abuse layer
+ * is worse than a build that refuses to start, so production fails loudly instead.
+ *
+ * It also refuses a production or preview build whose Firebase web config
+ * (`EXPO_PUBLIC_FIREBASE_*`) is not in the environment — see REQUIRED_FIREBASE_ENV.
  */
 
 const ANDROID_FIREBASE_FILE = './google-services.json';
@@ -91,8 +93,54 @@ const withFirebasePlugins = (plugins: Plugins, filesPresent: boolean): Plugins =
     ? plugins
     : plugins.filter((p) => !FIREBASE_PLUGINS.includes(Array.isArray(p) ? String(p[0]) : String(p)));
 
+/**
+ * The Firebase web config the JS SDK is initialised with (`src/config/firebase.ts`).
+ *
+ * Metro inlines `EXPO_PUBLIC_*` values into the bundle at build time, and locally
+ * they come from `.env` — which is gitignored, so it never reaches an EAS worker.
+ * A build made without them has `apiKey: undefined`, and Firebase Auth throws
+ * `auth/invalid-api-key` while the module is evaluated: the binary dies on launch,
+ * before any screen. That is a guaranteed store rejection, and on a preview APK it
+ * is a tester's first impression.
+ *
+ * They must be set as EAS environment variables (plaintext or sensitive — a
+ * `secret` one is not visible to EAS CLI when it resolves this file). See the owner
+ * actions in docs/RELEASE_READINESS_2026-08-19.md §4.
+ */
+export const REQUIRED_FIREBASE_ENV = [
+  'EXPO_PUBLIC_FIREBASE_API_KEY',
+  'EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN',
+  'EXPO_PUBLIC_FIREBASE_PROJECT_ID',
+  'EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET',
+  'EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID',
+  'EXPO_PUBLIC_FIREBASE_APP_ID',
+] as const;
+
+/**
+ * The EAS profiles whose binary goes to someone else's phone. `development` is a
+ * dev client pointed at a local Metro that reads `.env` itself; local
+ * `expo start` / `expo export`, Jest and the e2e harness leave APP_ENV unset. None
+ * of those are guarded.
+ */
+const DISTRIBUTED_PROFILES = ['production', 'preview'];
+
 export default ({ config }: ConfigContext): ExpoConfig => {
-  const isProductionBuild = process.env.APP_ENV === 'production';
+  const appEnv = process.env.APP_ENV ?? '';
+  const isProductionBuild = appEnv === 'production';
+
+  if (DISTRIBUTED_PROFILES.includes(appEnv)) {
+    const missingEnv = REQUIRED_FIREBASE_ENV.filter((name) => !process.env[name]?.trim());
+    if (missingEnv.length > 0) {
+      throw new Error(
+        `[app.config] ${appEnv} build is missing ${missingEnv.join(', ')}.\n` +
+          'These live only in the gitignored .env, which EAS never uploads. Without ' +
+          'them the app crashes on launch (Firebase auth/invalid-api-key). Create each ' +
+          `one on EAS: eas env:create --environment ${appEnv} --name <NAME> --value <value> ` +
+          '--visibility plaintext (see docs/RELEASE_READINESS_2026-08-19.md §4).',
+      );
+    }
+  }
+
   const hasAndroidFirebaseFile = existsInProject(ANDROID_FIREBASE_FILE);
   const hasIosFirebaseFile = existsInProject(IOS_FIREBASE_FILE);
 

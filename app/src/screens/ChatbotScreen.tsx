@@ -15,6 +15,7 @@ import { getLocalizedContent } from '../utils/i18nHelpers';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
 import { useAuth } from '../context/AuthContext';
 import { resolveEmergencyNumber } from '../utils/clinicalChecks';
+import { getDeviceRegionCode } from '../utils/deviceRegion';
 
 interface Message {
     id: string;
@@ -29,9 +30,9 @@ export const ChatbotScreen = () => {
     const { user } = useAuth();
     // BUG-05+06 FIX: RTL detection for Arabic and Tunisian
     const isRTL = ['ar', 'tn'].includes(i18n.language);
-    // CB4-FIX (SAFETY): pick emergency number from country first, then locale.
-    // null → no confident match; the call button is hidden rather than dial wrong.
-    const emergencyNumber = resolveEmergencyNumber(user?.country, i18n.language);
+    // CB4-FIX (SAFETY): the emergency number comes from the profile country, then the
+    // device region, then 112 — never from the UI language (Arabic is not Tunisia).
+    const emergencyNumber = resolveEmergencyNumber(user?.country, getDeviceRegionCode());
     const [messages, setMessages] = useState<Message[]>([
         { id: '1', text: t('common.chatWelcome'), sender: 'bot' }
     ]);
@@ -166,9 +167,9 @@ export const ChatbotScreen = () => {
                         {/*
                             CB4-FIX (SAFETY):
                             - emergency AND urgent_consult both expose a call action.
-                            - Number resolved by country → locale fallback. If null
-                              (unknown country / non-mapped locale), we do NOT render
-                              a tel: button — never dial a wrong country's number.
+                            - Number resolved by country → device region → 112, so a
+                              user outside the listed countries gets 112 rather than
+                              another country's national number.
                         */}
                         {emergencyNumber ? (
                             <TouchableOpacity
@@ -260,9 +261,6 @@ export const ChatbotScreen = () => {
                 <View style={styles.botHeaderTextContainer}>
                     <Text style={styles.botHeaderTitle}>{t('common.chatbotTitle')}</Text>
                     <Text style={styles.botHeaderSubtitle}>{t('common.chatbotSubtitle')}</Text>
-                </View>
-                <View style={styles.botBetaBadge}>
-                    <Text style={styles.botBetaBadgeText}>BETA</Text>
                 </View>
             </View>
             <View style={styles.headerContainer}>
@@ -497,7 +495,8 @@ const styles = StyleSheet.create({
         borderBottomWidth: 1,
         borderBottomColor: theme.colors.borderLight,
     },
-    // Cycle 5 F704D — Bot header avec avatar + identité + BETA badge.
+    // Cycle 5 F704D — Bot header avec avatar + identité. No "beta" badge: a beta has no
+    // place on the App Store (2.2); the disclaimer below frames what the assistant is.
     botHeader: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -523,18 +522,6 @@ const styles = StyleSheet.create({
         fontSize: 12,
         color: theme.colors.textSecondary,
         marginTop: 2,
-    },
-    botBetaBadge: {
-        backgroundColor: theme.colors.accent,
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 6,
-    },
-    botBetaBadgeText: {
-        color: theme.colors.white,
-        fontSize: 10,
-        fontWeight: '700',
-        letterSpacing: 0.5,
     },
     // Cycle 2 F302 : medical disclaimer doit être lisible (sujet sanitaire critique +
     // risque légal). gray500 = ratio ~2.85:1 (FAIL WCAG AA). textSecondary ≈ 5.4:1.

@@ -1,0 +1,10 @@
+{
+  "_comment": "Static Firestore collections seeded by scripts/importData.ts (production) and e2e/helpers/seed-emulator.mjs (emulator). One list so the two cannot drift. Paths are relative to app/. Supplements and articles come from src/data — the same files the app bundles as its offline fallback (src/services/localContentFallback.ts) — because the repo-root copies lacked the en/ar/tn dose and precaution text and carried older pregnancy_safety values. Guarded by __tests__/seedData.test.ts.",
+  "collections": [
+    { "file": "src/data/articles_db.json", "collection": "articles", "idField": "article_id" },
+    { "file": "../red_flags_db.json", "collection": "redFlags", "idField": "red_flag_id" },
+    { "file": "../chatbot_suggestions.json", "collection": "chatbotSuggestionsAG", "idField": "suggestion_id" },
+    { "file": "DATA_PACK_MVP_V3_FINAL/baby_messages_db_v1_2_FULL.json", "collection": "babyMessages", "idField": "message_id" },
+    { "file": "src/data/supplements_db.json", "collection": "supplements", "idField": "supplement_id" }
+  ]
+}

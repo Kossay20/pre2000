@@ -13,7 +13,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const repoRoot = path.resolve(here, '../../..');
+const appDir = path.resolve(here, '../..');
 const projectId = process.argv[2];
 const host = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080';
 if (!projectId) {
@@ -21,13 +21,10 @@ if (!projectId) {
   process.exit(1);
 }
 
-const COLLECTIONS = [
-  ['articles_db.json', 'articles', 'article_id'],
-  ['red_flags_db.json', 'redFlags', 'red_flag_id'],
-  ['chatbot_suggestions.json', 'chatbotSuggestionsAG', 'suggestion_id'],
-  ['app/DATA_PACK_MVP_V3_FINAL/baby_messages_db_v1_2_FULL.json', 'babyMessages', 'message_id'],
-  ['supplements_pregnancy.json', 'supplements', 'supplement_id'],
-];
+// Same list, same source files as scripts/importData.ts — see that JSON for why.
+const COLLECTIONS = JSON.parse(
+  fs.readFileSync(path.join(appDir, 'scripts/seedCollections.json'), 'utf8'),
+).collections.map(({ file, collection, idField }) => [file, collection, idField]);
 
 function toValue(v) {
   if (v === null || v === undefined) return { nullValue: null };
@@ -41,7 +38,7 @@ function toValue(v) {
 const base = `http://${host}/v1/projects/${projectId}/databases/(default)/documents`;
 
 for (const [file, name, idField] of COLLECTIONS) {
-  const items = JSON.parse(fs.readFileSync(path.join(repoRoot, file), 'utf8'));
+  const items = JSON.parse(fs.readFileSync(path.join(appDir, file), 'utf8'));
   let n = 0;
   for (let i = 0; i < items.length; i += 400) {
     const writes = items

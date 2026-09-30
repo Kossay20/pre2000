@@ -4,6 +4,7 @@ import * as Notifications from 'expo-notifications';
 import { isSameDay } from 'date-fns';
 import { Platform } from 'react-native';
 import i18n from '../i18n';
+import { REMINDERS_CHANNEL_ID } from './notificationChannels';
 
 const log = createLogger('HydrationService');
 const STORAGE_KEY = 'hydration_data_v1';
@@ -129,6 +130,9 @@ export const scheduleHydrationReminders = async (data: HydrationData) => {
                 hour: triggerHour,
                 minute: triggerMinute,
                 repeats: true,
+                // Without a channel these landed on the generic fallback channel at
+                // default importance, unlike every other reminder.
+                ...(Platform.OS === 'android' ? { channelId: REMINDERS_CHANNEL_ID } : {}),
             },
         });
     }

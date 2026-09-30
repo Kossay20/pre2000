@@ -6,7 +6,9 @@ import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
 
 // Brand contact email — same value across locales, kept in a single constant
 // so the address shown in the UI and the mailto: target can never drift.
-const CONTACT_EMAIL = 'contact@mamabebe.app';
+// The published policy (website/privacy.html) names this address; mamabebe.app
+// has no mail server, so the previous value bounced every request.
+const CONTACT_EMAIL = 'contact@mama-et-bebe.com';
 
 /**
  * PrivacyPolicyScreen - Legal compliance for App Store
@@ -17,6 +19,21 @@ export const PrivacyPolicyScreen = () => {
     useScreenAnalytics('PrivacyPolicyScreen');
     const { t } = useTranslation();
     const [activeTab, setActiveTab] = useState<'privacy' | 'terms' | 'cookies'>('privacy');
+
+    // The policy names in-app paths ("Settings → Data & Privacy → …"). They are built
+    // from the very labels those screens render, so a renamed row cannot leave the
+    // policy pointing at something that no longer exists.
+    const paths = {
+        profile: t('common.screen.myProfile'),
+        dangerZone: t('common.dangerZone'),
+        deleteFromProfile: t('profile.deleteAccount'),
+        settings: t('common.screen.settings'),
+        dataSection: t('common.privacyData.title'),
+        deleteFromSettings: t('common.privacyData.deleteAccount'),
+        eraseGuest: t('common.privacyData.eraseGuestData'),
+        export: t('common.privacyData.export'),
+        medical: t('common.medicalProfile.settingsTitle'),
+    };
 
     const handleContactPress = () => {
         Linking.openURL(`mailto:${CONTACT_EMAIL}`);
@@ -61,10 +78,13 @@ export const PrivacyPolicyScreen = () => {
                                 <Text style={styles.paragraph}>{t('privacy.collection.text')}</Text>
                                 <View style={styles.bulletList}>
                                     <Text style={styles.bulletItem}>• <Text style={styles.bold}>{t('privacy.collection.account')}</Text> {t('privacy.collection.accountDesc')}</Text>
-                                    <Text style={styles.bulletItem}>• <Text style={styles.bold}>{t('privacy.collection.pregnancy')}</Text> {t('privacy.collection.pregnancyDesc')}</Text>
+                                    <Text style={styles.bulletItem}>• <Text style={styles.bold}>{t('privacy.collection.profile')}</Text> {t('privacy.collection.profileDesc')}</Text>
                                     <Text style={styles.bulletItem}>• <Text style={styles.bold}>{t('privacy.collection.health')}</Text> {t('privacy.collection.healthDesc')}</Text>
-                                    <Text style={styles.bulletItem}>• <Text style={styles.bold}>{t('privacy.collection.appointments')}</Text> {t('privacy.collection.appointmentsDesc')}</Text>
-                                    <Text style={styles.bulletItem}>• <Text style={styles.bold}>{t('privacy.collection.preferences')}</Text> {t('privacy.collection.preferencesDesc')}</Text>
+                                    <Text style={styles.bulletItem}>• <Text style={styles.bold}>{t('privacy.collection.medical')}</Text> {t('privacy.collection.medicalDesc')}</Text>
+                                    <Text style={styles.bulletItem}>• <Text style={styles.bold}>{t('privacy.collection.emergency')}</Text> {t('privacy.collection.emergencyDesc')}</Text>
+                                    <Text style={styles.bulletItem}>• <Text style={styles.bold}>{t('privacy.collection.device')}</Text> {t('privacy.collection.deviceDesc')}</Text>
+                                    <Text style={styles.bulletItem}>• <Text style={styles.bold}>{t('privacy.collection.assistant')}</Text> {t('privacy.collection.assistantDesc')}</Text>
+                                    <Text style={styles.bulletItem}>• <Text style={styles.bold}>{t('privacy.collection.technical')}</Text> {t('privacy.collection.technicalDesc')}</Text>
                                 </View>
                             </View>
 
@@ -82,12 +102,28 @@ export const PrivacyPolicyScreen = () => {
                                 </Text>
                             </View>
 
-                            {/* Data Storage */}
+                            {/* Processors */}
+                            <View style={styles.section}>
+                                <Text style={styles.sectionTitle}>{t('privacy.processors.title')}</Text>
+                                <Text style={styles.paragraph}>{t('privacy.processors.text')}</Text>
+                                <View style={styles.bulletList}>
+                                    <Text style={styles.bulletItem}>• <Text style={styles.bold}>{t('privacy.processors.firebase')}</Text> {t('privacy.processors.firebaseDesc')}</Text>
+                                    <Text style={styles.bulletItem}>• <Text style={styles.bold}>{t('privacy.processors.sentry')}</Text> {t('privacy.processors.sentryDesc')}</Text>
+                                    <Text style={styles.bulletItem}>• <Text style={styles.bold}>{t('privacy.processors.expo')}</Text> {t('privacy.processors.expoDesc')}</Text>
+                                    <Text style={styles.bulletItem}>• <Text style={styles.bold}>{t('privacy.processors.fonts')}</Text> {t('privacy.processors.fontsDesc')}</Text>
+                                </View>
+                            </View>
+
+                            {/* Storage, security, transfers */}
                             <View style={styles.section}>
                                 <Text style={styles.sectionTitle}>{t('privacy.storage.title')}</Text>
-                                <Text style={styles.paragraph}>
-                                    {t('privacy.storage.text')}
-                                </Text>
+                                <Text style={styles.paragraph}>{t('privacy.storage.text')}</Text>
+                            </View>
+
+                            {/* Retention */}
+                            <View style={styles.section}>
+                                <Text style={styles.sectionTitle}>{t('privacy.retention.title')}</Text>
+                                <Text style={styles.paragraph}>{t('privacy.retention.text')}</Text>
                             </View>
 
                             {/* User Rights */}
@@ -95,10 +131,10 @@ export const PrivacyPolicyScreen = () => {
                                 <Text style={styles.sectionTitle}>{t('privacy.rights.title')}</Text>
                                 <Text style={styles.paragraph}>{t('privacy.rights.text')}</Text>
                                 <View style={styles.bulletList}>
-                                    <Text style={styles.bulletItem}>• <Text style={styles.bold}>{t('privacy.rights.access')}</Text> {t('privacy.rights.accessDesc')}</Text>
-                                    <Text style={styles.bulletItem}>• <Text style={styles.bold}>{t('privacy.rights.rectification')}</Text> {t('privacy.rights.rectificationDesc')}</Text>
-                                    <Text style={styles.bulletItem}>• <Text style={styles.bold}>{t('privacy.rights.deletion')}</Text> {t('privacy.rights.deletionDesc')}</Text>
-                                    <Text style={styles.bulletItem}>• <Text style={styles.bold}>{t('privacy.rights.portability')}</Text> {t('privacy.rights.portabilityDesc')}</Text>
+                                    <Text style={styles.bulletItem}>• <Text style={styles.bold}>{t('privacy.rights.access')}</Text> {t('privacy.rights.accessDesc', paths)}</Text>
+                                    <Text style={styles.bulletItem}>• <Text style={styles.bold}>{t('privacy.rights.rectification')}</Text> {t('privacy.rights.rectificationDesc', paths)}</Text>
+                                    <Text style={styles.bulletItem}>• <Text style={styles.bold}>{t('privacy.rights.deletion')}</Text> {t('privacy.rights.deletionDesc', paths)}</Text>
+                                    <Text style={styles.bulletItem}>• <Text style={styles.bold}>{t('privacy.rights.consent')}</Text> {t('privacy.rights.consentDesc', paths)}</Text>
                                 </View>
                             </View>
 
@@ -117,7 +153,7 @@ export const PrivacyPolicyScreen = () => {
                             <View style={styles.section}>
                                 <Text style={styles.sectionTitle}>{t('privacy.guestMode.title')}</Text>
                                 <Text style={styles.paragraph}>
-                                    {t('privacy.guestMode.text')}
+                                    {t('privacy.guestMode.text', paths)}
                                 </Text>
                             </View>
                         </>
@@ -173,7 +209,7 @@ export const PrivacyPolicyScreen = () => {
                     )}
                 </View>
                 <View style={styles.footer}>
-                    <Text style={styles.footerText}>{t('privacy.footer')}</Text>
+                    <Text style={styles.footerText}>{t('privacy.footer', { year: new Date().getFullYear() })}</Text>
                 </View>
             </ScrollView>
         </View>

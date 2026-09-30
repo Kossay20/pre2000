@@ -57,14 +57,15 @@ function flattenValues(obj: Dict, prefix = ''): Record<string, string> {
 
 // Keys whose values are INTENTIONALLY Latin-script across all locales:
 const VALUE_ALLOWLIST = new Set([
-  // Arabizi/Darija (Tunisian dialect intentionally mixes Latin):
-  'common.legal', 'common.dangerZone', 'common.preferences',
   // Email input placeholder — always shows a canonical email format (Latin, all locales):
   'emailPlaceholder', 'common.emailPlaceholder',
   // Language-picker subtitle shows ALL 4 languages side by side (multilingual by design):
   'chooseLanguageSubtitle', 'common.chooseLanguageSubtitle',
   // Brand names are always English regardless of locale:
   'legalTerms.cookies.firebase_title', 'common.legalTerms.cookies.firebase_title',
+  // Privacy-policy processor labels are the providers' own names:
+  'privacy.processors.firebase', 'common.privacy.processors.firebase',
+  'privacy.processors.fonts', 'common.privacy.processors.fonts',
 ]);
 
 describe('i18n 4-language key parity (FR/EN/AR/TN)', () => {
@@ -131,5 +132,33 @@ describe('i18n VALUE-level parity — no empty strings, no obvious FR/EN text in
       .map(([k]) => k);
     expect({ empty: empty.slice(0, 10), emptyCount: empty.length })
       .toEqual({ empty: [], emptyCount: 0 });
+  });
+
+  it('tn: written in Arabic script like the rest of the locale, not Latin Arabizi or French', () => {
+    // tn renders right-to-left in Arabic script. A Latin value in the middle of it
+    // ('Support w 9anoun', 'Zonèt danger' once headed Settings sections) reads as an
+    // untranslated leftover, and a Latin word inside an Arabic sentence breaks the
+    // RTL run. Only names, units and multilingual-by-design strings may be Latin.
+    const TN_LATIN_OK = new Set([
+      ...VALUE_ALLOWLIST,
+      // Units printed after a number, kept in the form Tunisian lab reports use:
+      'dashboard.mmolL', 'dashboard.mmHg',
+      // Section header deliberately bilingual so a lost user can find the language switch:
+      'profile.languageSection',
+    ]);
+    // Product and file-format names that have no Arabic form:
+    // The privacy policy must name its processors, their services and the publisher as they
+    // are registered (Firebase Authentication, App Check, Apple App Attest, KSA MEDIA LLC…).
+    const LATIN_NAMES = /\b(Firebase|Google|Cloud|Sentry|PDF|JSON|IOM|mmol|Authentication|Expo|Fonts|App Check|Apple App Attest|Play Integrity|HTTPS|TLS|IP|KSA MEDIA LLC)\b|Mama & Bébé/g;
+    const stripped = (v: string) => v
+      .replace(/\{\{[^}]+\}\}/g, '')
+      .replace(/https?:\/\/\S+|\S+@\S+/g, '')
+      .replace(LATIN_NAMES, '');
+    const latin = Object.entries(TN_VALUES)
+      .filter(([k]) => !TN_LATIN_OK.has(k))
+      .filter(([, v]) => /[A-Za-zÀ-ÿ]{3,}/.test(stripped(v)))
+      .map(([k, v]) => `${k}: "${v.slice(0, 60)}"`);
+    expect({ latin: latin.slice(0, 10), latinCount: latin.length })
+      .toEqual({ latin: [], latinCount: 0 });
   });
 });

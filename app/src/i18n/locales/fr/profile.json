@@ -79,6 +79,8 @@
   "reauthTitle": "Confirmer l'identité",
   "reauthMessage": "Pour supprimer définitivement ton compte, retape ton mot de passe.",
   "reauthMissingPassword": "Mot de passe requis.",
+  "deleteIncompleteTitle": "Suppression inachevée",
+  "deleteIncompleteMsg": "Une partie de vos données n'a pas pu être effacée. Votre compte a été conservé pour que vous puissiez réessayer. Vérifiez votre connexion internet, puis réessayez.",
   "height": "Taille (cm)",
   "prePregnancyWeight": "Poids avant grossesse (kg)",
   "heightPlaceholder": "ex: 165",

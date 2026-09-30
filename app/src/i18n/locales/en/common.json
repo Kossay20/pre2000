@@ -48,6 +48,8 @@
   "precautions": "Precautions",
   "typicalDose": "Typical Dose",
   "source": "Source",
+  "sourcesTitle": "Sources and references",
+  "sourcesOpenHint": "Opens the official page in your browser",
   "heroTitle": "Baby This Week",
   "trimester_1": "1st Trimester",
   "trimester_2": "2nd Trimester",
@@ -180,6 +182,10 @@
     "belgium": "Belgium",
     "morocco": "Morocco",
     "algeria": "Algeria",
+    "switzerland": "Switzerland",
+    "canada": "Canada",
+    "usa": "United States",
+    "uk": "United Kingdom",
     "other": "Other"
   },
   "babyEvolution": {
@@ -296,58 +302,80 @@
   },
   "privacy": {
     "title": "Privacy Policy",
-    "lastUpdated": "Last update: December 2024",
+    "lastUpdated": "Last updated: September 30, 2026",
     "intro": {
       "title": "1. Introduction",
-      "text": "Welcome to Mama & Bébé. We respect your privacy and are committed to protecting your personal data. This policy explains how we collect, use, and protect your information."
+      "text": "Mama & Bébé is published by KSA MEDIA LLC. This policy explains what data the app collects, where it is kept, who processes it for us, how long it is kept and how to erase it."
     },
     "collection": {
-      "title": "2. Data Collected",
-      "text": "We collect the following information:",
-      "account": "Account Information:",
-      "accountDesc": "Email, first name (optional)",
-      "pregnancy": "Pregnancy Data:",
-      "pregnancyDesc": "Last period date, due date",
-      "health": "Health Data:",
-      "healthDesc": "Weight, blood pressure (if entered)",
-      "appointments": "Appointments:",
-      "appointmentsDesc": "Personalized medical calendar",
-      "preferences": "Preferences:",
-      "preferencesDesc": "Notification settings"
+      "title": "2. Data collected",
+      "text": "Depending on what you use, the app processes:",
+      "account": "Account:",
+      "accountDesc": "your email address and password, handled by Firebase Authentication to sign you in.",
+      "profile": "Pregnancy profile:",
+      "profileDesc": "first name, last name (optional), country, city, age range, whether this is your first pregnancy, last period date, due date, height and pre-pregnancy weight, cycle length if you track fertility, and your chosen language.",
+      "health": "Health data you record:",
+      "healthDesc": "weight, blood pressure, blood glucose, symptoms, medical appointments, reminders and tasks, with any notes you add. The app draws no diagnosis from them.",
+      "medical": "Declared medical follow-up (optional):",
+      "medicalDesc": "if you choose to tell us, whether a healthcare professional has flagged gestational diabetes, pregnancy hypertension or a twin pregnancy. It is used only to adjust the reminders offered to you.",
+      "emergency": "Emergency contacts:",
+      "emergencyDesc": "the names and numbers of the people you add yourself.",
+      "device": "Kept only on your phone:",
+      "deviceDesc": "baby movements, contractions, hospital bag, hydration, Ramadan tracking, daily checklist and saved articles. They are not sent to our servers.",
+      "assistant": "Assistant:",
+      "assistantDesc": "it runs entirely on your phone. Your messages are neither sent to a server nor saved.",
+      "technical": "Technical data:",
+      "technicalDesc": "when an error occurs, a technical report (error description, screen, device model and operating system, app version) with a pseudonymous identifier derived from your account, never your email address."
     },
     "usage": {
-      "title": "3. Data Usage",
-      "text": "Your data is used to:",
-      "item1": "Personalize your pregnancy tracking",
-      "item2": "Send you reminders and notifications",
-      "item3": "Improve the application",
-      "disclaimer": "We NEVER sell your data to third parties."
+      "title": "3. Use of data",
+      "text": "Your data is used only to:",
+      "item1": "provide pregnancy tracking and schedule your reminders on your phone;",
+      "item2": "sync your data across your devices when you are signed in;",
+      "item3": "fix app errors using technical reports.",
+      "disclaimer": "We do not sell or rent your data, and we do not use it for advertising or profiling."
+    },
+    "processors": {
+      "title": "4. Service providers",
+      "text": "These services process data on our behalf, only to run the app:",
+      "firebase": "Google Firebase (Google Cloud):",
+      "firebaseDesc": "sign-in, database, and checking that requests come from the genuine app (App Check, using Apple App Attest or Google Play Integrity).",
+      "sentry": "Sentry:",
+      "sentryDesc": "receives error reports.",
+      "expo": "Expo:",
+      "expoDesc": "delivers app updates; it receives technical device information (IP address, app version) when the app checks for an update.",
+      "fonts": "Google Fonts:",
+      "fontsDesc": "loads fonts when you generate your PDF journal; Google then receives your device's IP address."
     },
     "storage": {
-      "title": "4. Storage and Security",
-      "text": "Your data is securely stored on Firebase (Google Cloud) with encryption. Only you can access your personal data via your account."
+      "title": "5. Storage, security and transfers",
+      "text": "Your account data is stored on Google Firebase servers. Traffic with those servers is encrypted (HTTPS/TLS), and access rules restrict each record to its owner. The publisher is based in the United States, and Google and our providers may process your data outside your country, including in the United States."
+    },
+    "retention": {
+      "title": "6. Retention",
+      "text": "Your account data is kept as long as your account exists and erased as soon as you delete it; we keep no copy. Data kept on your phone stays there until you erase it, delete your account or uninstall the app. Error reports are deleted automatically by Sentry at the end of its retention period."
     },
     "rights": {
-      "title": "5. Your Rights (GDPR)",
-      "text": "In accordance with GDPR, you have the right to:",
-      "access": "Access:",
-      "accessDesc": "Request a copy of your data",
+      "title": "7. Your rights (GDPR)",
+      "text": "You exercise your rights directly in the app:",
+      "access": "Access and portability:",
+      "accessDesc": "“{{settings}}” → “{{dataSection}}” → “{{export}}” gives you a copy of your profile and health data, including your declared medical follow-up.",
       "rectification": "Rectification:",
-      "rectificationDesc": "Modify your information",
-      "deletion": "Deletion:",
-      "deletionDesc": "Request deletion of your account",
-      "portability": "Portability:",
-      "portabilityDesc": "Export your data"
+      "rectificationDesc": "anything you entered can be edited in the app.",
+      "deletion": "Erasure:",
+      "deletionDesc": "“{{profile}}” → “{{dangerZone}}” → “{{deleteFromProfile}}”, or “{{settings}}” → “{{dataSection}}” → “{{deleteFromSettings}}”. Deletion is immediate and permanent: your account, the data stored on our servers and the local copy on your phone.",
+      "consent": "Withdrawing consent:",
+      "consentDesc": "turn off the declared medical follow-up at any time in “{{settings}}” → “{{medical}}”, without deleting the rest of your account."
     },
     "contact": {
-      "title": "6. Contact",
-      "text": "For any questions regarding your data or to exercise your rights:"
+      "title": "8. Contact",
+      "text": "For any question about your data or your rights:"
     },
     "guestMode": {
-      "title": "7. Guest Mode",
-      "text": "If you use the app in guest mode, your data is stored only on your device and is not sent to our servers."
+      "title": "9. Guest mode",
+      "text": "Without an account, your data stays on your phone and is not sent to our servers; only technical error reports (section 2) leave it. To erase it: “{{settings}}” → “{{dataSection}}” → “{{eraseGuest}}”, or uninstall the app."
     },
-    "footer": "Mama & Bébé © 2024 - All rights reserved"
+    "footer": "Mama & Bébé © {{year}} KSA MEDIA LLC - All rights reserved"
   },
   "legalTerms": {
     "title": "Legal & Terms",
@@ -694,7 +722,10 @@
     "guestDisclaimer": "Your data won't be saved without an account",
     "export": "Export",
     "exportDesc": "Export your data as JSON",
-    "deleteAccount": "Delete my account"
+    "deleteAccount": "Delete my account",
+    "deleteAccountDesc": "Permanently deletes your account and all your data",
+    "eraseGuestData": "Erase my data",
+    "eraseGuestDataDesc": "Permanently erases all data stored on this device"
   },
   "emergency": {
     "title": "Emergency Contacts",

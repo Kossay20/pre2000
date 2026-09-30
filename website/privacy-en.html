@@ -27,69 +27,96 @@
 
     <main class="content-container">
         <h2>Privacy Policy</h2>
-        <p><em>Last updated: February 16, 2026</em></p>
+        <p><em>Last updated: September 30, 2026</em></p>
 
         <h3>1. Introduction</h3>
-        <p>Your privacy is our priority. This policy describes how the "Mama & Bébé" app, published by KSA MEDIA LLC,
-            collects, uses and protects your personal data.</p>
+        <p>The "Mama & Bébé" app is published by KSA MEDIA LLC. This policy explains what data the app collects,
+            where it is kept, who processes it for us, how long it is kept and how to erase it.</p>
 
         <h3>2. Data Collected</h3>
+        <p>Depending on what you use, the app processes:</p>
         <ul>
-            <li><strong>Account Information:</strong> Email address (only for authentication via Firebase Auth).</li>
-            <li><strong>Pregnancy Data:</strong> last period date, due date, current week, first name, country,
-                age range, height and pre-pregnancy weight. You enter these yourself.</li>
-            <li><strong>Health Data You Record:</strong> weight, blood pressure, glucose, symptoms, baby movements,
-                contractions, medical appointments, reminders and hospital-bag checklist. You decide what to record;
-                the app infers no diagnosis from it.</li>
-            <li><strong>Declared Medical Follow-up:</strong> if you choose to tell us, whether a healthcare
+            <li><strong>Account:</strong> your email address and password, handled by Firebase Authentication to
+                sign you in.</li>
+            <li><strong>Pregnancy profile:</strong> first name, last name (optional), country, city, age range,
+                whether this is your first pregnancy, last period date, due date, height and pre-pregnancy weight,
+                cycle length if you track fertility, and your chosen language. You enter these yourself.</li>
+            <li><strong>Health data you record:</strong> weight, blood pressure, blood glucose, symptoms, medical
+                appointments, reminders and tasks, with any notes you add. You decide what to record; the app infers
+                no diagnosis from it.</li>
+            <li><strong>Declared medical follow-up:</strong> if you choose to tell us, whether a healthcare
                 professional has flagged gestational diabetes, pregnancy hypertension or a twin pregnancy for you.
-                <strong>The question is optional</strong> and you can change or clear your answer at any time in
+                <strong>The question is optional</strong> and you can change or turn it off at any time in
                 Settings. It is used only to adjust which reminders are offered to you.</li>
-            <li><strong>Emergency Contacts:</strong> the people you add yourself.</li>
-            <li><strong>Assistant Conversations:</strong> your exchanges with the multilingual assistant.</li>
-            <li>This data is stored securely on Google Firebase, encrypted in transit, and accessible only to you.</li>
-            <li><strong>Technical Data:</strong> Anonymous technical identifiers to ensure proper app functioning and
-                detect errors (via Sentry).</li>
+            <li><strong>Emergency contacts:</strong> the names and numbers of the people you add yourself.</li>
+            <li>If you have an account, this data is stored on Google Firebase, encrypted in transit, and access rules
+                restrict it to you alone.</li>
+            <li><strong>Kept only on your phone:</strong> baby movements, contractions, hospital bag, hydration,
+                Ramadan tracking, daily checklist and saved articles. They are not sent to our servers.</li>
+            <li><strong>Assistant:</strong> it runs entirely on your phone. Your messages are neither sent to a
+                server nor saved.</li>
+            <li><strong>Technical data:</strong> when an error occurs, a technical report (error description,
+                screen, device model and operating system, app version) with a pseudonymous identifier derived from
+                your account, never your email address (via Sentry).</li>
         </ul>
 
         <h3>3. Use of Data</h3>
         <p>Your data is used <strong>exclusively</strong> to:</p>
         <ul>
-            <li>Provide you with pregnancy tracking features.</li>
-            <li>Sync your data across your devices (if you are logged in).</li>
-            <li>Improve app stability (anonymous crash detection via Sentry).</li>
+            <li>Provide pregnancy tracking and schedule your reminders on your phone.</li>
+            <li>Sync your data across your devices (if you are signed in).</li>
+            <li>Fix app errors using technical reports (Sentry).</li>
         </ul>
         <p><strong>We do not sell, rent or share any personal data with third parties for commercial or advertising
-                purposes.</strong></p>
+                purposes, and we do no profiling.</strong></p>
 
-        <h3>4. Third-Party Services</h3>
-        <p>We use the following secure services:</p>
+        <h3>4. Service Providers</h3>
+        <p>These services process data on our behalf, only to run the app:</p>
         <ul>
-            <li><strong>Google Firebase:</strong> Secure data hosting and authentication. <a
+            <li><strong>Google Firebase (Google Cloud):</strong> sign-in, database, and checking that requests come
+                from the genuine app (App Check, using Apple App Attest or Google Play Integrity). <a
                     href="https://firebase.google.com/support/privacy" target="_blank">Firebase Policy</a>.</li>
-            <li><strong>Sentry:</strong> Anonymous technical error detection. No personal data is transmitted. <a
+            <li><strong>Sentry:</strong> receives the error reports described in section 2. <a
                     href="https://sentry.io/privacy/" target="_blank">Sentry Policy</a>.</li>
+            <li><strong>Expo:</strong> delivers app updates; it receives technical device information (IP address,
+                app version) when the app checks for an update. <a href="https://expo.dev/privacy"
+                    target="_blank">Expo Policy</a>.</li>
+            <li><strong>Google Fonts:</strong> loads fonts when you generate your PDF journal; Google then receives
+                your device's IP address.</li>
         </ul>
 
-        <h3>5. Security</h3>
-        <p>All communications between the app and our servers are encrypted via HTTPS/TLS. Your data is stored on Google
-            Cloud Platform's secure infrastructure (Firebase).</p>
+        <h3>5. Storage, Security and Transfers</h3>
+        <p>All communications between the app and our servers are encrypted via HTTPS/TLS. Your account data is
+            stored on Google Cloud Platform's infrastructure (Firebase). The publisher is based in the United States,
+            and Google and our providers may process your data outside your country, including in the United
+            States.</p>
 
-        <h3>6. Your Rights</h3>
+        <h3>6. Retention</h3>
+        <p>Your account data is kept as long as your account exists and erased as soon as you delete it; we keep no
+            copy. Data kept on your phone stays there until you erase it, delete your account or uninstall the app.
+            Error reports are deleted automatically by Sentry at the end of its retention period.</p>
+
+        <h3>7. Your Rights</h3>
         <p>The GDPR grants you these rights, and the app implements them without going through us:</p>
         <ul>
-            <li><strong>Access and portability (art. 15 and 20):</strong> export all of your data as JSON from
-                <em>Settings &rarr; Data &amp; Privacy &rarr; Export my data</em>. The export contains everything
-                listed in section 2, including your declared medical follow-up.</li>
-            <li><strong>Erasure (art. 17):</strong> <em>Settings &rarr; Data &amp; Privacy &rarr; Delete my
-                account</em>. Immediate and permanent: profile, health data, appointments, reminders,
-                conversations, and the local copy on your device. Nothing is kept.</li>
+            <li><strong>Access and portability (art. 15 and 20):</strong> export your data as JSON from
+                <em>Settings &rarr; My Data &rarr; Export</em>. The export contains your profile and health data,
+                including your declared medical follow-up.</li>
+            <li><strong>Erasure (art. 17):</strong> <em>My Profile &rarr; Security Zone &rarr; Delete my
+                account</em>, or <em>Settings &rarr; My Data &rarr; Delete my account</em>. Immediate and permanent:
+                account, profile, health data, appointments, reminders, emergency contacts, and the local copy on
+                your device. See <a href="delete-account-en.html">Delete my account</a>.</li>
             <li><strong>Rectification (art. 16):</strong> anything you entered can be edited in the app.</li>
-            <li><strong>Withdrawing consent:</strong> the declared medical follow-up can be cleared at any time
-                without deleting the rest of your account.</li>
+            <li><strong>Withdrawing consent:</strong> the declared medical follow-up can be turned off at any time
+                in <em>Settings &rarr; Medical follow-up</em> without deleting the rest of your account.</li>
             <li>By email: <a href="mailto:contact@mama-et-bebe.com">contact@mama-et-bebe.com</a> for any request
                 regarding your data.</li>
         </ul>
+
+        <h3>8. Guest Mode</h3>
+        <p>Without an account, your data stays on your phone and is not sent to our servers; only technical error
+            reports (section 2) leave it. To erase it: <em>Settings &rarr; My Data &rarr; Erase my data</em>, or
+            uninstall the app.</p>
 
         <div class="legal-info">
             <strong>Publisher:</strong> KSA MEDIA LLC — Kossay El Benna, Sole Member<br>

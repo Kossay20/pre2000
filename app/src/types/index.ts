@@ -54,6 +54,8 @@ export interface Week {
     weekly_summary_en?: string;
     baby_image_static_url?: string;
     baby_3d_model_url?: string;
+    /** Ids from CONTENT_SOURCES (data/contentSources.ts), set once a clinician has checked the text. */
+    sources?: string[];
 }
 
 export interface ChatbotMessage {
@@ -116,6 +118,8 @@ export interface Article {
     related_articles_ids: string[];
     note_localisation?: string;
     language?: string;
+    /** Ids from CONTENT_SOURCES (data/contentSources.ts), set once a clinician has checked the text. */
+    sources?: string[];
 }
 
 export interface Supplement {

@@ -228,9 +228,9 @@ export const checkWeightChange = (
  *   (consistent with FR=15 SAMU, TN=190 SAMU, MA=141 SAMU pattern).
  *
  * Intentionally conservative: only countries we know with a high-confidence
- * dispatch number for medical emergencies are included. For unknown countries
- * the UI omits the call button and shows the message only — never guess a
- * wrong number.
+ * dispatch number for medical emergencies are included. For any other country
+ * resolveEmergencyNumber falls back to 112 — never to another country's
+ * national number.
  */
 export const EMERGENCY_NUMBERS: Readonly<Record<string, string>> = Object.freeze({
     FR: '15',
@@ -275,38 +275,78 @@ export const getEmergencyNumber = (country?: string | null): string | null => {
 };
 
 /**
- * CB4-FIX (SAFETY): Locale-based fallback when no country is set on the profile.
- * Conservative default: only locales whose dominant population maps to a single,
- * well-known number are mapped. For 'en' we deliberately do NOT pick FR/UK/US —
- * EN is global; without a country we return null and the UI hides the call button
- * rather than dial a wrong number.
- *
- * Mapping:
- *   ar | tn → 190 (Tunisia SAMU — current default for the AR/TN UI;
- *                   note: app's AR locale is Tunisian Arabic, not pan-Arabic)
- *   fr      → 15  (France SAMU)
- *   en      → null (caller should disclose unknown country)
+ * The countries a user can pick for her profile (onboarding + profile edit),
+ * stored as these lowercase values. Every one except 'other' resolves through
+ * EMERGENCY_NUMBERS, so whatever she picks, the call button dials that
+ * country's number. Keep this list and EMERGENCY_NUMBERS in step: a country
+ * that has a number but cannot be picked is a user who gets the wrong one.
  */
-const LOCALE_FALLBACK: Readonly<Record<string, string>> = Object.freeze({
-    ar: '190',
-    tn: '190',
-    fr: '15',
+export const COUNTRY_OPTIONS = [
+    'tunisia',
+    'france',
+    'belgium',
+    'switzerland',
+    'morocco',
+    'algeria',
+    'canada',
+    'usa',
+    'uk',
+    'other',
+] as const;
+
+/** Device region (ISO 3166-1 alpha-2) → profile country value. */
+const REGION_TO_COUNTRY: Readonly<Record<string, string>> = Object.freeze({
+    TN: 'tunisia',
+    FR: 'france',
+    BE: 'belgium',
+    CH: 'switzerland',
+    MA: 'morocco',
+    DZ: 'algeria',
+    CA: 'canada',
+    US: 'usa',
+    GB: 'uk',
 });
 
 /**
- * Resolve an emergency number from country first, then locale fallback.
- * Returns null when neither yields a confident match — the UI must hide the
- * call button in that case (never guess).
+ * Map the device region to a profile country, or null when the region is not
+ * one we have a number for. Used to preselect the country in onboarding —
+ * an unmapped region leaves the choice empty rather than defaulting to a
+ * country the user is not in.
+ */
+export const countryFromRegion = (region?: string | null): string | null => {
+    if (!region || typeof region !== 'string') return null;
+    return REGION_TO_COUNTRY[region.trim().toUpperCase()] ?? null;
+};
+
+/**
+ * Used when we do not know the user's country. 112 is the emergency number
+ * every GSM/3G/4G handset must recognise (3GPP TS 22.101) — the handset places
+ * an emergency call and the network routes it to the local emergency service,
+ * whatever the national number is. A national number guessed from the UI
+ * language (the previous fallback: Arabic → Tunisia's 190, French → France's
+ * 15) reaches nobody in Egypt, Lebanon or Canada.
+ */
+export const INTERNATIONAL_EMERGENCY_NUMBER = '112';
+
+/**
+ * Resolve the emergency number to show and dial:
+ *   1. the profile country, when we have its number;
+ *   2. otherwise — profile country empty (accounts created via login, older
+ *      profiles) — the device region, when we have its number;
+ *   3. otherwise 112.
+ * An explicit 'other' skips step 2: the user told us she is not in any of the
+ * listed countries, and the device region is a settings choice, not a location.
  */
 export const resolveEmergencyNumber = (
     country?: string | null,
-    locale?: string | null,
-): string | null => {
+    deviceRegion?: string | null,
+): string => {
     const fromCountry = getEmergencyNumber(country);
     if (fromCountry) return fromCountry;
-    if (locale && typeof locale === 'string') {
-        const key = locale.trim().toLowerCase();
-        return LOCALE_FALLBACK[key] ?? null;
+    const saidOther = typeof country === 'string' && country.trim().toLowerCase() === 'other';
+    if (!saidOther) {
+        const fromRegion = getEmergencyNumber(countryFromRegion(deviceRegion));
+        if (fromRegion) return fromRegion;
     }
-    return null;
+    return INTERNATIONAL_EMERGENCY_NUMBER;
 };

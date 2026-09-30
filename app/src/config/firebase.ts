@@ -3,6 +3,7 @@ import { connectAuthEmulator } from 'firebase/auth';
 import { connectFirestoreEmulator, initializeFirestore, persistentLocalCache } from 'firebase/firestore';
 import { getAnalytics, isSupported } from 'firebase/analytics';
 import { createFirebaseAuth } from './createFirebaseAuth';
+import { bridgeAppCheck } from './appCheck';
 import { emulatorTarget } from './firebaseEmulator';
 
 const firebaseConfig = {
@@ -15,6 +16,10 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
+
+// 0. App Check — before Auth and Firestore exist, so their very first request
+// already carries a token. Native only; fails open. See ./appCheck.native.ts.
+bridgeAppCheck(app);
 
 // 1. Auth — platform-specific module (`.web` / `.native`) so web never loads RN persistence.
 const auth = createFirebaseAuth(app);
@@ -33,65 +38,6 @@ if (emulator) {
 }
 
 export { auth };
-
-// =========================================================
-// 4. App Check (anti-abuse / quota protection)
-// =========================================================
-//
-// Initialisation NATIVE via @react-native-firebase/app-check.
-// - DEV : DebugAppCheckProviderFactory (token enregistré dans Firebase Console)
-// - PROD iOS : AppAttestProviderFactory (Apple App Attest)
-// - PROD Android : PlayIntegrityProviderFactory (Google Play Integrity)
-//
-// PRÉ-REQUIS HUMAINS (voir docs/APPCHECK_DEPLOYMENT.md) :
-//   1. Firebase Console > App Check > enregistrer iOS+Android avec App Attest / Play Integrity
-//   2. Télécharger GoogleService-Info.plist (iOS) → app/ios/<projectName>/
-//   3. Télécharger google-services.json (Android) → app/android/app/
-//   4. expo prebuild --clean
-//   5. EAS build (App Check ne fonctionne PAS en Expo Go)
-//
-// L'init est wrapped dans try/catch : si la lib native n'est pas chargée
-// (ex: dev sans prebuild, Expo Go), l'app continue à fonctionner sans App Check.
-const initAppCheck = async () => {
-  try {
-    const rnfbApp = require('@react-native-firebase/app').default;
-    const rnfbAppCheck = require('@react-native-firebase/app-check').default;
-
-    if (!rnfbApp.apps.length) {
-      // Native init n'est pas encore disponible — sortie silencieuse
-      return;
-    }
-
-    const provider = rnfbAppCheck().newReactNativeFirebaseAppCheckProvider();
-    provider.configure({
-      android: {
-        provider: __DEV__ ? 'debug' : 'playIntegrity',
-        debugToken: process.env.EXPO_PUBLIC_APP_CHECK_DEBUG_TOKEN || undefined,
-      },
-      apple: {
-        provider: __DEV__ ? 'debug' : 'appAttestWithDeviceCheckFallback',
-        debugToken: process.env.EXPO_PUBLIC_APP_CHECK_DEBUG_TOKEN || undefined,
-      },
-      isTokenAutoRefreshEnabled: true,
-    });
-
-    await rnfbAppCheck().initializeAppCheck({
-      provider,
-      isTokenAutoRefreshEnabled: true,
-    });
-
-    console.log('[Firebase] App Check initialized');
-  } catch (err) {
-    if (__DEV__) {
-      console.log('[Firebase] App Check skipped (dev or native module not loaded):', (err as Error)?.message);
-    } else {
-      console.warn('[Firebase] App Check init failed in production:', (err as Error)?.message);
-    }
-  }
-};
-
-// Fire-and-forget — n'attend pas l'init pour démarrer l'app
-initAppCheck();
 
 // 3. Analytics
 // NOTE: firebase/analytics is the Web SDK and is NOT supported on React Native /

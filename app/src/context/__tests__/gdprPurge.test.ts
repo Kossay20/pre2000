@@ -7,7 +7,9 @@
  *  - every one of the 9 top-level collections is queried by user_id and its docs deleted,
  *  - legacy subcollections are cleaned,
  *  - deletes are committed in fresh 400-doc batches (Firestore writeBatch limit),
- *  - a single collection failure does not abort the rest of the purge.
+ *  - a failed collection does not stop the others from being swept, but the purge then
+ *    REJECTS with PURGE_INCOMPLETE and leaves the profile doc in place, so the caller never
+ *    goes on to delete the Auth user over data it could not erase.
  */
 jest.mock('../../utils/logger', () => ({
   createLogger: () => ({ info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn(), success: jest.fn() }),
@@ -25,7 +27,7 @@ jest.mock('firebase/firestore', () => ({
   collection: jest.fn((_db: any, ...p: string[]) => ({ path: p.join('/') })),
   where: jest.fn((field: string, op: string, val: any) => ({ field, op, val })),
   query: jest.fn((coll: any, clause: any) => ({ coll, clause })),
-  getDocs: jest.fn((q: any) => {
+  getDocsFromServer: jest.fn((q: any) => {
     if (q.coll) {
       // top-level: query(collection, where('user_id','==',uid))
       const name = q.coll.path;
@@ -33,7 +35,7 @@ jest.mock('firebase/firestore', () => ({
       const n = DOC_COUNTS[name] ?? 0;
       return { size: n, docs: Array.from({ length: n }, (_, i) => ({ ref: { path: `${name}/${i}` } })) };
     }
-    // subcollection: getDocs(collection(db,'userProfiles',uid,sub))
+    // subcollection: getDocsFromServer(collection(db,'userProfiles',uid,sub))
     const n = SUB_COUNTS[q.path] ?? 0;
     return { size: n, docs: Array.from({ length: n }, (_, i) => ({ ref: { path: `${q.path}/${i}` } })) };
   }),
@@ -44,12 +46,14 @@ jest.mock('firebase/firestore', () => ({
 }));
 
 import { purgeUserFirestoreData, topLevelCollectionsToDelete, legacySubCollections, legacyParentCollections } from '../gdprPurge';
-import { deleteDoc } from 'firebase/firestore';
+import { deleteDoc, getDocsFromServer } from 'firebase/firestore';
 
 const UID = 'user-xyz';
+const defaultGetDocs = (getDocsFromServer as jest.Mock).getMockImplementation()!;
 
 beforeEach(() => {
   jest.clearAllMocks();
+  (getDocsFromServer as jest.Mock).mockImplementation(defaultGetDocs);
   DOC_COUNTS = {}; SUB_COUNTS = {};
   for (const k of Object.keys(queriedByUserId)) delete queriedByUserId[k];
   totalDeletes = 0; batchCommits = 0;
@@ -115,15 +119,41 @@ describe('purgeUserFirestoreData (GDPR Art. 17)', () => {
     expect(deleteDoc).toHaveBeenCalledWith({ path: `users/${UID}` });
   });
 
-  it('does not abort the whole purge if one collection query throws', async () => {
-    const { getDocs } = require('firebase/firestore');
-    let firstCall = true;
-    (getDocs as jest.Mock).mockImplementation((q: any) => {
-      if (firstCall && q.coll) { firstCall = false; throw new Error('permission denied'); }
+  it('keeps sweeping after one collection fails, then rejects with PURGE_INCOMPLETE', async () => {
+    DOC_COUNTS = { userTasks: 2 };
+    (getDocsFromServer as jest.Mock).mockImplementationOnce(() => { throw new Error('unavailable'); });
+    const err: any = await purgeUserFirestoreData({}, UID).then(() => null, (e) => e);
+    expect(err?.code).toBe('PURGE_INCOMPLETE');
+    // The first collection in the list failed; the rest were still queried and swept.
+    expect(err.failed).toEqual([topLevelCollectionsToDelete[0]]);
+    expect(queriedByUserId[topLevelCollectionsToDelete[1]]).toBe(UID);
+  });
+
+  // F-018. A partial purge must not look like a finished one: the profile is what keeps the
+  // account usable and the deletion retryable, so it is only removed once everything else is.
+  it('leaves the profile and legacy users/ docs in place when any sweep failed', async () => {
+    (getDocsFromServer as jest.Mock).mockImplementation((q: any) => {
+      if (!q.coll && q.path === `users/${UID}/events`) throw new Error('permission-denied');
       return { size: 0, docs: [] };
     });
-    // Should resolve (the profile deleteDoc + remaining collections still processed)
-    await expect(purgeUserFirestoreData({}, UID)).resolves.toBeUndefined();
-    expect(deleteDoc).toHaveBeenCalledWith({ path: `userProfiles/${UID}` });
+    await expect(purgeUserFirestoreData({}, UID)).rejects.toMatchObject({
+      code: 'PURGE_INCOMPLETE',
+      failed: [`users/events`],
+    });
+    expect(deleteDoc).not.toHaveBeenCalled();
+  });
+
+  it('reports a failed profile delete as PURGE_INCOMPLETE too', async () => {
+    (deleteDoc as jest.Mock).mockImplementationOnce(() => { throw new Error('unavailable'); });
+    await expect(purgeUserFirestoreData({}, UID)).rejects.toMatchObject({ code: 'PURGE_INCOMPLETE' });
+  });
+
+  // With the persistent local cache, a plain getDocs() offline answers from the cache and
+  // would list only what this device happens to hold — the purge would "succeed" over
+  // documents it never saw. Reading from the server fails loudly instead.
+  it('lists documents from the server, never from the local cache', async () => {
+    await purgeUserFirestoreData({}, UID);
+    expect(getDocsFromServer).toHaveBeenCalled();
+    expect(jest.requireMock('firebase/firestore').getDocs).toBeUndefined();
   });
 });

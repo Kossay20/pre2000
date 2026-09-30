@@ -30,6 +30,7 @@ import { SectionHeader } from '../components/common/SectionHeader';
 import { Skeleton } from '../components/common/Skeleton'; // D4
 import { EmptyState } from '../components/common/EmptyState'; // D5
 import { RtlAwareChevron } from '../components/common/RtlAwareChevron';
+import { MedicalDisclaimer } from '../components/common/MedicalDisclaimer';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { getArticlesByIds, getSupplementsByIds } from '../services/contentService';
 import { getUpcomingAppointments } from '../services/calendarService';
@@ -815,6 +816,8 @@ export const HomeScreen = () => {
                                 })}
                             </View>
                         </View>
+                        {/* The week's "to monitor" list is medical content. */}
+                        <MedicalDisclaimer style={{ marginTop: 12 }} />
                     </View>
                 )}
 

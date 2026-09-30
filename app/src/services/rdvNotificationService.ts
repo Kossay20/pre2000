@@ -9,6 +9,7 @@ import { getRDVMessage, getHydrationMessage, getTaskMessage } from '../utils/not
 import i18n from '../i18n'; // F3: pass current locale to notif messages so AR/EN/TN users don't get FR fallback
 // P2 FIX: Import shared permission helper from notificationService (single source of truth)
 import { requestNotificationPermissions } from './notificationService';
+import { REMINDERS_CHANNEL_ID } from './notificationChannels';
 
 // RDV-FIX-01: Keys prefixed with '@' to match PRIVATE_STORAGE_KEYS purge list in AuthContext.
 // Without the @ prefix, logout/deleteAccount did NOT purge RDV data → data leak between users.
@@ -38,7 +39,7 @@ export interface RDVPreference {
 /**
  * @deprecated RDV-FIX-02: This function is a no-op and kept only for backward compatibility.
  * The global notification handler is centralized in notificationService.ts.
- * Android channels are set up by requestNotificationPermissions() in notificationService.
+ * Android channels are set up at startup by ensureNotificationChannels() in notificationService.
  * Safe to remove in a future cleanup pass.
  */
 export const configureNotifications = () => {
@@ -106,10 +107,10 @@ export const scheduleRDVReminders = async (
                         body: msg.body,
                         data: { eventId, type: 'rdv', reminderType: 'J-1' },
                         sound: 'default',
-                        // RDV-FIX-03: channelId required on Android 8+ or notification is dropped silently
-                        ...(Platform.OS === 'android' ? { android: { channelId: 'pregnancy-reminders' } } : {}),
                     },
-                    trigger: { type: 'date', date: j1Date } as any,
+                    // RDV-FIX-03: the channel belongs on the trigger. It used to sit in `content.android`,
+                    // which expo-notifications ignores, so appointments landed on the fallback channel.
+                    trigger: { type: 'date', date: j1Date, ...(Platform.OS === 'android' ? { channelId: REMINDERS_CHANNEL_ID } : {}) } as any,
                 });
 
                 scheduledReminders.push({
@@ -145,9 +146,8 @@ export const scheduleRDVReminders = async (
                         body: msg.body,
                         data: { eventId, type: 'rdv', reminderType: 'J' },
                         sound: 'default',
-                        ...(Platform.OS === 'android' ? { android: { channelId: 'pregnancy-reminders' } } : {}),
                     },
-                    trigger: { type: 'date', date: jDate } as any,
+                    trigger: { type: 'date', date: jDate, ...(Platform.OS === 'android' ? { channelId: REMINDERS_CHANNEL_ID } : {}) } as any,
                 });
 
                 scheduledReminders.push({
@@ -192,9 +192,8 @@ export const scheduleRDVReminders = async (
                         body: msg.body,
                         data: { eventId, type: 'rdv', reminderType: 'H-2' },
                         sound: 'default',
-                        ...(Platform.OS === 'android' ? { android: { channelId: 'pregnancy-reminders' } } : {}),
                     },
-                    trigger: { type: 'date', date: h2Date } as any,
+                    trigger: { type: 'date', date: h2Date, ...(Platform.OS === 'android' ? { channelId: REMINDERS_CHANNEL_ID } : {}) } as any,
                 });
 
                 scheduledReminders.push({

@@ -11,7 +11,10 @@ jest.mock('../../utils/logger', () => ({
 }));
 jest.mock('../../i18n', () => ({ __esModule: true, default: { language: 'fr' } }));
 jest.mock('../remindersV2Service', () => ({ loadUserSettings: jest.fn(), getAllReminders: jest.fn() }));
-jest.mock('../notificationService', () => ({ scheduleReminderNotification: jest.fn().mockResolvedValue('notif-id') }));
+jest.mock('../notificationService', () => ({
+  scheduleReminderNotification: jest.fn().mockResolvedValue('notif-id'),
+  hasNotificationPermission: jest.fn().mockResolvedValue(true),
+}));
 jest.mock('../babyMessageService', () => ({ scheduleTodaysBabyMessage: jest.fn().mockResolvedValue(undefined) }));
 jest.mock('../../utils/notificationMessages', () => ({ getReminderMessage: jest.fn(() => ({ title: 'T', body: 'B' })) }));
 jest.mock('expo-notifications', () => ({
@@ -21,7 +24,7 @@ jest.mock('expo-notifications', () => ({
 
 import { syncRemindersToNotifications } from '../remindersScheduler';
 import { loadUserSettings, getAllReminders } from '../remindersV2Service';
-import { scheduleReminderNotification } from '../notificationService';
+import { scheduleReminderNotification, hasNotificationPermission } from '../notificationService';
 import { scheduleTodaysBabyMessage } from '../babyMessageService';
 import * as Notifications from 'expo-notifications';
 
@@ -30,6 +33,23 @@ describe('syncRemindersToNotifications', () => {
     jest.clearAllMocks();
     Platform.OS = 'ios';
     (Notifications.getAllScheduledNotificationsAsync as jest.Mock).mockResolvedValue([]);
+    (hasNotificationPermission as jest.Mock).mockResolvedValue(true);
+  });
+
+  it('schedules nothing — and asks nothing — before the user has allowed notifications', async () => {
+    // App.tsx runs this sync on the first Home render after onboarding. It used to
+    // reach requestPermissionsAsync through every reminder it scheduled, so the OS
+    // dialog appeared before the user had done anything.
+    (hasNotificationPermission as jest.Mock).mockResolvedValue(false);
+    (getAllReminders as jest.Mock).mockReturnValue([
+      { id: 'rem_hyd', default_enabled: true, preset_times: { '1': ['09:00'] } },
+    ]);
+    (loadUserSettings as jest.Mock).mockResolvedValue({});
+
+    await syncRemindersToNotifications(20, 'fr', 'user-1');
+
+    expect(scheduleReminderNotification).not.toHaveBeenCalled();
+    expect(scheduleTodaysBabyMessage).not.toHaveBeenCalled();
   });
 
   it('schedules every enabled reminder time + the daily baby message on native', async () => {

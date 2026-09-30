@@ -79,6 +79,8 @@
   "reauthTitle": "تأكيد الهوية",
   "reauthMessage": "باش تمسح حسابك بصفة نهائية، عاود اكتب الباسوورد.",
   "reauthMissingPassword": "الباسوورد مطلوب.",
+  "deleteIncompleteTitle": "الحذف ما كملش",
+  "deleteIncompleteMsg": "جزء من المعلومات متاعك ما تنجمش يتمسح. خلّينا الحساب متاعك باش تنجم تعاود. ثبّت في الكونكسيون متاع الإنترنت و عاود.",
   "height": "الطول (سم)",
   "prePregnancyWeight": "الوزن قبل الحمل (كغ)",
   "heightPlaceholder": "مثال: 165",

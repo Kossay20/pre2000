@@ -63,4 +63,32 @@ describe('deep linking', () => {
     expect(linkingConfigBlock).toContain('getStateFromPath');
     expect(linkingConfigBlock).toMatch(/name:\s*'Home'/);
   });
+
+  describe('prefixes the native build actually registers', () => {
+    const appJson = JSON.parse(
+      fs.readFileSync(path.resolve(__dirname, '..', 'app.json'), 'utf8'),
+    ).expo;
+    const prefixes = [...(linkingConfigBlock.match(/prefixes:\s*\[([^\]]*)\]/)?.[1] ?? '').matchAll(/'([^']+)'/g)].map(
+      (m) => m[1],
+    );
+
+    it('finds the prefixes', () => {
+      expect(prefixes.length).toBeGreaterThan(0);
+    });
+
+    it('declares the custom scheme in app.json, or mama-bebe:// links open nothing', () => {
+      // Without `scheme`, the store binary registered only the bundle id and the
+      // dev-client scheme, so the first prefix was dead.
+      const custom = prefixes
+        .filter((p) => !/^https?:/.test(p) && !p.startsWith('exp+'))
+        .map((p) => p.replace('://', ''));
+      expect(custom).toEqual([appJson.scheme]);
+    });
+
+    it('lists an https prefix only when universal / app links are set up', () => {
+      const https = prefixes.filter((p) => p.startsWith('https://'));
+      const hasAssociatedDomains = (appJson.ios?.associatedDomains ?? []).length > 0;
+      if (!hasAssociatedDomains) expect(https).toEqual([]);
+    });
+  });
 });

@@ -15,7 +15,8 @@ import {
 import { showAlert } from '../utils/alert';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { LinearGradient } from 'expo-linear-gradient';
-import * as Localization from 'expo-localization';
+import { getDeviceRegionCode } from '../utils/deviceRegion';
+import { COUNTRY_OPTIONS, countryFromRegion } from '../utils/clinicalChecks';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { usePregnancy } from '../context/PregnancyContext';
@@ -110,7 +111,9 @@ export const OnboardingScreen = () => {
     const [exploreWeek, setExploreWeek] = useState(20);
 
     // Personal info
-    const [country, setCountry] = useState('tunisia');
+    // No preselected country: it decides which emergency number the app dials.
+    // The region effect below fills it in when the device region is one we know.
+    const [country, setCountry] = useState('');
     const [ageRange, setAgeRange] = useState<string>('');
 
     // Account creation (required at the end)
@@ -128,26 +131,13 @@ export const OnboardingScreen = () => {
 
         // F7: detect country from device locale instead of remote IP lookup
         // (avoids leaking the user's IP to a third party — see C2 audit).
-        try {
-            const region = Localization.getLocales?.()[0]?.regionCode || null;
-            if (region) {
-                const regionMap: { [key: string]: string } = {
-                    TN: 'tunisia',
-                    FR: 'france',
-                    BE: 'belgium',
-                    MA: 'morocco',
-                    DZ: 'algeria',
-                };
-                const detected = regionMap[region.toUpperCase()];
-                if (detected) {
-                    log.debug(`[Onboarding] 🌍 Detected region: ${region} → ${detected}`);
-                    setCountry(detected);
-                } else {
-                    log.debug(`[Onboarding] 🌍 Region ${region} not in map, keeping default country`);
-                }
-            }
-        } catch (e) {
-            log.debug('[Onboarding] ⚠️ Could not read locale, using default country');
+        const region = getDeviceRegionCode();
+        const detected = countryFromRegion(region);
+        if (detected) {
+            log.debug(`[Onboarding] 🌍 Detected region: ${region} → ${detected}`);
+            setCountry(detected);
+        } else {
+            log.debug(`[Onboarding] 🌍 Region ${region} not in map, leaving country unselected`);
         }
     }, []);
 
@@ -379,6 +369,15 @@ export const OnboardingScreen = () => {
                     <Text style={styles.optionText}>{t('onboarding.step1.curious')}</Text>
                 </TouchableOpacity>
             </View>
+
+            {/* Step 1 is the one screen both the guest and the account path go through,
+                so the medical disclaimer is stated here, once, before any content. */}
+            <Text
+                style={[styles.privacyNote, rtlText, { marginTop: 24, textAlign: 'center' }]}
+                accessibilityRole="text"
+            >
+                {t('legalTerms.terms.medical')}
+            </Text>
         </View>
     );
 
@@ -552,14 +551,7 @@ export const OnboardingScreen = () => {
             <View style={styles.inputGroup}>
                 <Text style={[styles.inputLabel, rtlText]}>{t('onboarding.step3.countryLabel')}</Text>
                 <View style={styles.radioGroup}>
-                    {[
-                        { value: 'tunisia', key: 'common.countries.tunisia' },
-                        { value: 'france', key: 'common.countries.france' },
-                        { value: 'belgium', key: 'common.countries.belgium' },
-                        { value: 'morocco', key: 'common.countries.morocco' },
-                        { value: 'algeria', key: 'common.countries.algeria' },
-                        { value: 'other', key: 'common.countries.other' },
-                    ].map((item) => (
+                    {COUNTRY_OPTIONS.map((value) => ({ value, key: `common.countries.${value}` })).map((item) => (
                         <TouchableOpacity
                             key={item.value}
                             style={[styles.radioOption, country === item.value && styles.radioOptionSelected]}

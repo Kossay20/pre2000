@@ -22,6 +22,7 @@ describe('Private storage purge coverage (GDPR Art. 17)', () => {
         hospitalBagService: 'hospital_bag_v1',
         userProfile: 'user_profile',
         pregnancyContext: '@pregnancy_context',
+        pendingAppointmentDraft: '@pending_appointment_draft',
     };
 
     for (const [service, key] of Object.entries(SERVICE_KEYS)) {

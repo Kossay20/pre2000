@@ -39,6 +39,8 @@ import { TabletFrame } from './src/components/common/TabletFrame';
 import { RAMADAN_GUIDANCE_CLINICALLY_REVIEWED } from './src/config/featureFlags';
 import { configureNotifications } from './src/services/rdvNotificationService';
 import { cleanupPastReminders } from './src/services/rdvNotificationService';
+import { ensureNotificationChannels } from './src/services/notificationService';
+import appI18n from './src/i18n';
 import { setupRTL } from './src/i18n/rtl';
 import { LocaleDirectionProvider } from './src/i18n/LocaleDirectionProvider';
 import { isRtlLang } from './src/hooks/useRtl';
@@ -275,7 +277,10 @@ const AppContent = () => {
   // mis-spelled `Resources` instead of `Ressources` — both made every deep link
   // silently no-op.
   const linking = {
-    prefixes: ['mama-bebe://', 'exp+mama-bebe://', 'https://mama-bebe.com'],
+    // `mama-bebe://` is registered by `scheme` in app.json; `exp+mama-bebe://` by
+    // the dev client. No https prefix: without associated domains / verified app
+    // links a web URL never opens the app, so listing one only suggests it does.
+    prefixes: ['mama-bebe://', 'exp+mama-bebe://'],
     // R3-ROUTE-01: catch-all for unknown / mistyped / wrong-case deep links.
     // React Navigation's default getStateFromPath returns `undefined` for a path
     // that matches no screen (e.g. /Profile with a capital P, or /totally-unknown).
@@ -449,6 +454,14 @@ function App() {
     // Prevents unbounded growth of the '@rdv_reminders' key over time.
     cleanupPastReminders().catch(err => console.warn('cleanupPastReminders failed:', err));
 
+    // Android notification channels exist from the first launch, whether or not
+    // permission has been asked yet, and carry the app's language in system
+    // settings — so they are re-named whenever the language changes (including
+    // the first detection from storage, which lands after this effect runs).
+    ensureNotificationChannels();
+    const renameChannels = () => { ensureNotificationChannels(); };
+    appI18n.on('languageChanged', renameChannels);
+
     // STARTUP-FIX-02: Refresh Firebase auth token on app foreground resume.
     // On Android, tokens can silently expire after 1h+ in background without re-triggering
     // onAuthStateChanged. Reloading the current user forces a token refresh.
@@ -461,6 +474,7 @@ function App() {
 
     return () => {
       appStateSubscription.remove();
+      appI18n.off('languageChanged', renameChannels);
     };
   }, []);
 

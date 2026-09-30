@@ -27,7 +27,9 @@ const LANGUAGES = [
     // #12b: MSA Arabic is pan-regional, not one country — a globe avoids arbitrarily picking a
     // single Arab nation's flag (Derja below keeps 🇹🇳, which IS Tunisia-specific).
     { code: 'ar', name: 'العربية', flag: '🌍', descKey: 'common.langDescAr' },
-    { code: 'tn', name: 'العربية + الدارجة (Beta)', flag: '🇹🇳', descKey: 'common.langDescTn' },
+    // No beta suffix on the name: the first screen a reviewer sees must not present any
+    // part of the app as unfinished (App Store 2.2).
+    { code: 'tn', name: 'العربية + الدارجة', flag: '🇹🇳', descKey: 'common.langDescTn' },
     { code: 'en', name: 'English', flag: '🇬🇧', descKey: 'common.langDescEn' },
 ];
 

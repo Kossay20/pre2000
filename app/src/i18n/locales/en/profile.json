@@ -79,6 +79,8 @@
   "reauthTitle": "Confirm your identity",
   "reauthMessage": "To permanently delete your account, please re-enter your password.",
   "reauthMissingPassword": "Password is required.",
+  "deleteIncompleteTitle": "Deletion not finished",
+  "deleteIncompleteMsg": "Some of your data could not be erased. Your account has been kept so you can try again. Check your internet connection, then retry.",
   "height": "Height (cm)",
   "prePregnancyWeight": "Pre-pregnancy weight (kg)",
   "heightPlaceholder": "e.g. 165",

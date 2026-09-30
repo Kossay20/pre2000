@@ -3,6 +3,9 @@ import * as Device from 'expo-device';
 import { Platform } from 'react-native';
 import {
     requestNotificationPermissions,
+    hasNotificationPermission,
+    ensureNotificationChannels,
+    scheduleOneTimeNotification,
     scheduleReminderNotification,
     cancelReminderNotifications,
     scheduleMultipleReminders,
@@ -22,6 +25,11 @@ jest.mock('../../utils/logger', () => ({
         debug: jest.fn(),
         success: jest.fn(),
     }),
+}));
+// Echo the key back, so a test can tell a translated name from a hard-coded one.
+jest.mock('../../i18n', () => ({
+    __esModule: true,
+    default: { t: (key: string) => `t(${key})`, language: 'fr' },
 }));
 jest.mock('../../utils/notificationMessages', () => ({
     getReminderMessage: jest.fn(() => ({
@@ -58,12 +66,54 @@ describe('NotificationService', () => {
             expect(Notifications.requestPermissionsAsync).toHaveBeenCalled();
         });
 
-        it('should set notification channel on Android', async () => {
-            Platform.OS = 'android';
-            (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({ status: 'granted' });
-            await requestNotificationPermissions();
-            expect(Notifications.setNotificationChannelAsync).toHaveBeenCalledWith('default', expect.any(Object));
-            Platform.OS = 'ios'; // Reset
+    });
+
+    describe('hasNotificationPermission — what scheduling code calls', () => {
+        // The first Home render after onboarding used to put the OS dialog up with
+        // no explanation, because the background reminder sync asked for permission
+        // itself. Checking must never ask.
+        it.each([['granted', true], ['undetermined', false], ['denied', false]])(
+            'reads %s without ever showing the OS dialog',
+            async (status, expected) => {
+                (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({ status });
+                await expect(hasNotificationPermission()).resolves.toBe(expected);
+                expect(Notifications.requestPermissionsAsync).not.toHaveBeenCalled();
+            },
+        );
+
+        it('is false off-device and on error', async () => {
+            (Device as any).isDevice = false;
+            await expect(hasNotificationPermission()).resolves.toBe(false);
+            (Device as any).isDevice = true;
+            (Notifications.getPermissionsAsync as jest.Mock).mockRejectedValueOnce(new Error('boom'));
+            await expect(hasNotificationPermission()).resolves.toBe(false);
+        });
+    });
+
+    describe('ensureNotificationChannels', () => {
+        it('creates both Android channels with translated names', async () => {
+            await ensureNotificationChannels('android');
+
+            expect(Notifications.setNotificationChannelAsync).toHaveBeenCalledWith(
+                'pregnancy-reminders',
+                expect.objectContaining({ name: 't(notifications.channelName)' }),
+            );
+            // Was hard-coded 'General' in every language.
+            expect(Notifications.setNotificationChannelAsync).toHaveBeenCalledWith(
+                'default',
+                expect.objectContaining({ name: 't(notifications.channelNameGeneral)' }),
+            );
+        });
+
+        it('does not depend on permission having been asked', async () => {
+            await ensureNotificationChannels('android');
+            expect(Notifications.getPermissionsAsync).not.toHaveBeenCalled();
+            expect(Notifications.requestPermissionsAsync).not.toHaveBeenCalled();
+        });
+
+        it.each([['ios'], ['web']])('is a no-op on %s', async (os) => {
+            await ensureNotificationChannels(os);
+            expect(Notifications.setNotificationChannelAsync).not.toHaveBeenCalled();
         });
     });
 
@@ -120,6 +170,17 @@ describe('NotificationService', () => {
             Platform.OS = 'ios';
         });
 
+        it('never asks for permission itself — it runs from background syncs', async () => {
+            (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({ status: 'undetermined' });
+            (Notifications.requestPermissionsAsync as jest.Mock).mockResolvedValue({ status: 'granted' });
+
+            const result = await scheduleReminderNotification('rem-4', 'T', 'B', 8, 30);
+
+            expect(result).toBeNull();
+            expect(Notifications.requestPermissionsAsync).not.toHaveBeenCalled();
+            expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled();
+        });
+
         it('should return null if notification permission is denied', async () => {
             // N2-FIX: explicit proof of the deny path (was implicitly the only behavior in isolation).
             (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({ status: 'denied' });
@@ -132,6 +193,19 @@ describe('NotificationService', () => {
             (Notifications.scheduleNotificationAsync as jest.Mock).mockRejectedValue(new Error('Scheduling failed'));
             const result = await scheduleReminderNotification('rem-1', 'Title', 'Body', 8, 30);
             expect(result).toBeNull();
+        });
+    });
+
+    describe('scheduleOneTimeNotification', () => {
+        it('posts on the reminders channel on Android, not the generic fallback', async () => {
+            Platform.OS = 'android';
+            (Notifications.scheduleNotificationAsync as jest.Mock).mockResolvedValue('once-1');
+
+            await scheduleOneTimeNotification('task-1', 'T', 'B', new Date(Date.now() + 60_000));
+
+            const arg = (Notifications.scheduleNotificationAsync as jest.Mock).mock.calls[0][0];
+            expect(arg.trigger.channelId).toBe('pregnancy-reminders');
+            Platform.OS = 'ios';
         });
     });
 

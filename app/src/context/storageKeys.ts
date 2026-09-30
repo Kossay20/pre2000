@@ -34,6 +34,8 @@ export const PRIVATE_STORAGE_KEYS = [
     '@bookmarks_v1',                     // W8 #1: saved articles/supplements — personal data (reveals
                                          // health interests). Was a GLOBAL key absent from BOTH lists →
                                          // survived logout + delete + leaked across users (GDPR Art. 17).
+    '@pending_appointment_draft',        // guest's unsaved appointment (title, place, notes) kept
+                                         // across sign-up — an erase must not leave it behind
 ] as const;
 
 /**
