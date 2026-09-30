@@ -45,6 +45,48 @@ export function attachConsole(page: Page): string[] {
   return errors;
 }
 
+/**
+ * Firebase / rules signals. The lenient `IGNORE_CONSOLE` drops these because the
+ * old offline harness had no session; on the emulator stack (real rules) every one
+ * of them is a real defect candidate, so the strict variant keeps them.
+ */
+export const FIREBASE_SIGNAL =
+  /FirebaseError|permission-denied|Missing or insufficient permissions|Unsupported field value/i;
+
+/** `IGNORE_CONSOLE` minus anything that could hide a Firebase / rules failure. */
+export const IGNORE_CONSOLE_STRICT = IGNORE_CONSOLE.filter(
+  (re) =>
+    !/FirebaseError|permission-denied|Missing or insufficient permissions|Unsupported field value/i.test(
+      re.source,
+    ),
+);
+
+/**
+ * Strict console guard for every signed-in context (AUDIT_PLAN §0.2 item 1).
+ * Same shape as `attachConsole`, but a Firebase / rules error is never ignored —
+ * even when it also matches a lenient noise pattern (e.g. "Failed to fetch") — and
+ * Firebase SDK *warnings* are captured too (prefixed `warning: `): the app's own
+ * `log.warn` is silenced in production builds, so a console.warn carrying a
+ * FirebaseError can only come from the SDK itself (e.g. a denied snapshot listener).
+ */
+export function attachConsoleStrict(page: Page): string[] {
+  const errors: string[] = [];
+  page.on('console', (msg) => {
+    const type = msg.type();
+    const text = msg.text();
+    const firebase = FIREBASE_SIGNAL.test(text);
+    if (type === 'warning') {
+      if (firebase) errors.push(`warning: ${text}`);
+      return;
+    }
+    if (type !== 'error') return;
+    if (!firebase && IGNORE_CONSOLE_STRICT.some((re) => re.test(text))) return;
+    errors.push(text);
+  });
+  page.on('pageerror', (err) => errors.push(`pageerror: ${err.message}`));
+  return errors;
+}
+
 export async function waitBodyPopulated(page: Page, minChars = 40) {
   await page.waitForFunction(
     (n) => ((document.body && document.body.innerText) || '').trim().length > n,

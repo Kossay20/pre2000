@@ -7,7 +7,16 @@ type ConsoleEntry = {
   text: string;
   location?: { url?: string; lineNumber?: number; columnNumber?: number };
   stack?: string;
+  /** Dialog entries only (see `recordEvent` / dialog-recorder.ts). */
+  type?: string;
+  message?: string;
+  action?: string;
   ts: number;
+};
+
+/** What `attachDialogRecorder` (and any other side channel) needs to write into the quartet. */
+export type QuartetEventSink = {
+  recordEvent: (entry: Omit<ConsoleEntry, 'ts'> & { ts?: number }) => void;
 };
 
 type NetworkEntry = {
@@ -96,5 +105,17 @@ export function attachMegaAuditRecorder(page: Page, screenshotDirs: string | str
     page.off('response', onResponse);
   }
 
-  return { snap, dispose };
+  /**
+   * Append an out-of-band entry (e.g. a window.confirm/alert/prompt message) to the
+   * buffer, so it lands in the NEXT snap's console.json.
+   */
+  const recordEvent: QuartetEventSink['recordEvent'] = (entry) => {
+    consoleBuffer.push({
+      ...entry,
+      text: String(entry.text || '').substring(0, 2000),
+      ts: entry.ts ?? Date.now(),
+    });
+  };
+
+  return { snap, dispose, recordEvent };
 }
