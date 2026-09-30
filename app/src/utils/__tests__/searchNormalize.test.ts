@@ -1,4 +1,4 @@
-import { normalizeForSearch } from '../searchNormalize';
+import { normalizeForSearch, matchesSearch } from '../searchNormalize';
 
 describe('normalizeForSearch (W5 — diacritic/case/script-insensitive food search)', () => {
     it('lowercases', () => {
@@ -28,5 +28,30 @@ describe('normalizeForSearch (W5 — diacritic/case/script-insensitive food sear
         expect(normalizeForSearch(null)).toBe('');
         expect(normalizeForSearch(undefined)).toBe('');
         expect(normalizeForSearch('   ')).toBe('');
+    });
+});
+
+describe('matchesSearch (article search)', () => {
+    const nausea = ['Nausées matinales', 'Comment soulager les nausées du 1er trimestre'];
+
+    it('finds "Nausées" from an unaccented, lowercase query', () => {
+        expect(matchesSearch('nausees', nausea)).toBe(true);
+        expect(matchesSearch('NAUSÉES', nausea)).toBe(true);
+    });
+
+    it('matches any of the fields', () => {
+        expect(matchesSearch('trimestre', nausea)).toBe(true);
+        expect(matchesSearch('allaitement', nausea)).toBe(false);
+    });
+
+    it('matches Arabic text regardless of harakat and alef forms', () => {
+        expect(matchesSearch('غثيان', ['غَثَيَان الصباح'])).toBe(true);
+        expect(matchesSearch('اعراض', ['أعراض الحمل'])).toBe(true);
+    });
+
+    it('treats an empty or blank query as matching everything, and tolerates missing fields', () => {
+        expect(matchesSearch('  ', nausea)).toBe(true);
+        expect(matchesSearch(undefined, [])).toBe(true);
+        expect(matchesSearch('x', [null, undefined])).toBe(false);
     });
 });

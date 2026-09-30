@@ -340,13 +340,27 @@ export const INTERNATIONAL_EMERGENCY_NUMBER = '112';
 export const resolveEmergencyNumber = (
     country?: string | null,
     deviceRegion?: string | null,
-): string => {
+): string => resolveEmergencyContact(country, deviceRegion).number;
+
+/**
+ * Where the number came from. Anything but 'profile' is a guess the screen must
+ * own up to: the call button used to show "(112)" with nothing saying it was a
+ * fallback, and the user never learned that the country question mattered — on a
+ * labour/emergency CTA, in a market (Tunisia, SAMU 190) where 112 is the fallback
+ * for every phone without a mapped region.
+ */
+export type EmergencyNumberSource = 'profile' | 'region' | 'fallback';
+
+export const resolveEmergencyContact = (
+    country?: string | null,
+    deviceRegion?: string | null,
+): { number: string; source: EmergencyNumberSource } => {
     const fromCountry = getEmergencyNumber(country);
-    if (fromCountry) return fromCountry;
+    if (fromCountry) return { number: fromCountry, source: 'profile' };
     const saidOther = typeof country === 'string' && country.trim().toLowerCase() === 'other';
     if (!saidOther) {
         const fromRegion = getEmergencyNumber(countryFromRegion(deviceRegion));
-        if (fromRegion) return fromRegion;
+        if (fromRegion) return { number: fromRegion, source: 'region' };
     }
-    return INTERNATIONAL_EMERGENCY_NUMBER;
+    return { number: INTERNATIONAL_EMERGENCY_NUMBER, source: 'fallback' };
 };

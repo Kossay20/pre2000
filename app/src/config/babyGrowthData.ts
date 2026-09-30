@@ -1,8 +1,11 @@
 /**
  * Baby Growth Data Configuration
  * 
- * Données mensuelles pour l'affichage de la croissance du bébé
- * avec comparaisons visuelles (fruits/légumes) et faits
+ * Données mensuelles pour l'affichage de la croissance du bébé (image, faits).
+ *
+ * The fruit comparison and the size are deliberately not stored per month: they come
+ * from the weekly table in utils/fetalGrowth.ts, so a month card can never state a size
+ * that Home contradicts for the same week.
  */
 
 export interface BabyGrowthMonth {
@@ -10,12 +13,6 @@ export interface BabyGrowthMonth {
     weekStart: number;
     weekEnd: number;
     image: any; // require() image path
-    comparison: {
-        emoji: string;
-        item: string;
-        size: string;
-        sizeInCm: number;
-    };
     facts: string[];
     developmentHighlights: string[];
 }
@@ -26,12 +23,6 @@ export const BABY_GROWTH_MONTHS: BabyGrowthMonth[] = [
         weekStart: 1,
         weekEnd: 4,
         image: require('../../assets/images/baby-3d/month-1.png'),
-        comparison: {
-            emoji: '🌱',
-            item: 'common.babyEvolution.month1.comparison',
-            size: '2mm',
-            sizeInCm: 0.2,
-        },
         facts: [
             'common.babyEvolution.month1.facts.0',
             'common.babyEvolution.month1.facts.1',
@@ -47,12 +38,6 @@ export const BABY_GROWTH_MONTHS: BabyGrowthMonth[] = [
         weekStart: 5,
         weekEnd: 8,
         image: require('../../assets/images/baby-3d/month-2.png'),
-        comparison: {
-            emoji: '🫐',
-            item: 'common.babyEvolution.month2.comparison',
-            size: '1.5cm',
-            sizeInCm: 1.5,
-        },
         facts: [
             'common.babyEvolution.month2.facts.0',
             'common.babyEvolution.month2.facts.1',
@@ -68,12 +53,6 @@ export const BABY_GROWTH_MONTHS: BabyGrowthMonth[] = [
         weekStart: 9,
         weekEnd: 13,
         image: require('../../assets/images/baby-3d/month-3.png'),
-        comparison: {
-            emoji: '🍑',
-            item: 'common.babyEvolution.month3.comparison',
-            size: '3cm',
-            sizeInCm: 3,
-        },
         facts: [
             'common.babyEvolution.month3.facts.0',
             'common.babyEvolution.month3.facts.1',
@@ -89,12 +68,6 @@ export const BABY_GROWTH_MONTHS: BabyGrowthMonth[] = [
         weekStart: 14,
         weekEnd: 17,
         image: require('../../assets/images/baby-3d/month-4.png'),
-        comparison: {
-            emoji: '🥑',
-            item: 'common.babyEvolution.month4.comparison',
-            size: '9cm',
-            sizeInCm: 9,
-        },
         facts: [
             'common.babyEvolution.month4.facts.0',
             'common.babyEvolution.month4.facts.1',
@@ -110,12 +83,6 @@ export const BABY_GROWTH_MONTHS: BabyGrowthMonth[] = [
         weekStart: 18,
         weekEnd: 22,
         image: require('../../assets/images/baby-3d/month-5.png'),
-        comparison: {
-            emoji: '🥭',
-            item: 'common.babyEvolution.month5.comparison',
-            size: '14cm',
-            sizeInCm: 14,
-        },
         facts: [
             'common.babyEvolution.month5.facts.0',
             'common.babyEvolution.month5.facts.1',
@@ -131,12 +98,6 @@ export const BABY_GROWTH_MONTHS: BabyGrowthMonth[] = [
         weekStart: 23,
         weekEnd: 27,
         image: require('../../assets/images/baby-3d/month-6.png'),
-        comparison: {
-            emoji: '🌽',
-            item: 'common.babyEvolution.month6.comparison',
-            size: '20cm',
-            sizeInCm: 20,
-        },
         facts: [
             'common.babyEvolution.month6.facts.0',
             'common.babyEvolution.month6.facts.1',
@@ -152,12 +113,6 @@ export const BABY_GROWTH_MONTHS: BabyGrowthMonth[] = [
         weekStart: 28,
         weekEnd: 31,
         image: require('../../assets/images/baby-3d/month-7.png'),
-        comparison: {
-            emoji: '🥬',
-            item: 'common.babyEvolution.month7.comparison',
-            size: '26cm',
-            sizeInCm: 26,
-        },
         facts: [
             'common.babyEvolution.month7.facts.0',
             'common.babyEvolution.month7.facts.1',
@@ -173,12 +128,6 @@ export const BABY_GROWTH_MONTHS: BabyGrowthMonth[] = [
         weekStart: 32,
         weekEnd: 35,
         image: require('../../assets/images/baby-3d/month-8.png'),
-        comparison: {
-            emoji: '🍍',
-            item: 'common.babyEvolution.month8.comparison',
-            size: '32cm',
-            sizeInCm: 32,
-        },
         facts: [
             'common.babyEvolution.month8.facts.0',
             'common.babyEvolution.month8.facts.1',
@@ -194,12 +143,6 @@ export const BABY_GROWTH_MONTHS: BabyGrowthMonth[] = [
         weekStart: 36,
         weekEnd: 40,
         image: require('../../assets/images/baby-3d/month-9.png'),
-        comparison: {
-            emoji: '🍉',
-            item: 'common.babyEvolution.month9.comparison',
-            size: '48cm',
-            sizeInCm: 48,
-        },
         facts: [
             'common.babyEvolution.month9.facts.0',
             'common.babyEvolution.month9.facts.1',

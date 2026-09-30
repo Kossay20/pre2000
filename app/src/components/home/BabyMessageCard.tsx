@@ -83,7 +83,7 @@ const styles = StyleSheet.create({
     footer: {
         fontSize: 12,
         fontStyle: 'italic',
-        color: theme.colors.gray600,
+        color: theme.colors.textSecondary,
         // Cycle 4 F820 RTL : `auto` = follow direction → en RTL = visuel gauche.
         textAlign: 'auto',
     },

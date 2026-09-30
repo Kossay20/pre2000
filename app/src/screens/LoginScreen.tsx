@@ -123,6 +123,14 @@ export const LoginScreen = () => {
             await sendPasswordResetEmail(auth, email.trim());
             setSuccess(t('resetEmailSent'));
         } catch (error: any) {
+            // No account for this email: answer exactly as for a real one. Mapping it to
+            // "Email ou mot de passe incorrect" was confusing in a reset form (there is no
+            // password here) and told anyone which emails have an account when the
+            // project's email-enumeration protection is off.
+            if (error?.code === 'auth/user-not-found') {
+                setSuccess(t('resetEmailSent'));
+                return;
+            }
             (isExpectedAuthError(error) ? log.warn : log.error)('[LoginScreen] Password reset error:', error);
             const errorMessage = error.code
                 ? t(getFirebaseErrorMessage(error.code))
@@ -175,6 +183,7 @@ export const LoginScreen = () => {
                             (the label above still mirrors). Keeps the caret + typed address sane. */}
                         <TextInput
                             style={styles.input}
+                            placeholderTextColor={theme.colors.neutral400}
                             placeholder={t('emailPlaceholder')}
                             value={email}
                             onChangeText={(text) => { setEmail(text); setError(''); setSuccess(''); }}
@@ -198,6 +207,7 @@ export const LoginScreen = () => {
                             <TextInput
                                 ref={passwordRef}
                                 style={styles.passwordInput}
+                                placeholderTextColor={theme.colors.neutral400}
                                 placeholder={t('passwordPlaceholder')}
                                 value={password}
                                 onChangeText={(text) => { setPassword(text); setError(''); setSuccess(''); }}

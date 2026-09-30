@@ -18,7 +18,7 @@
   "toAvoid": "To avoid",
   "upcomingAppointments": "Your upcoming appointments",
   "babyEvolution": "Baby Evolution",
-  "swipeToSee": "Swipe to see 9 months of development",
+  "tapDotToSee": "Tap a dot to see each of the 9 months of development",
   "youAreHere": "📍 You are here",
   "development": "🌟 Development",
   "trimester1": "1st",
@@ -57,5 +57,6 @@
     "body": "Allow notifications to get a heads-up before your appointments, your daily reminders and today's message from baby. You choose which ones in the Reminders tab.",
     "enable": "Turn on notifications",
     "later": "Not now"
-  }
+  },
+  "postTermNote": "You are at {{ga}}: your due date has passed. Stay in touch with your maternity team or midwife."
 }

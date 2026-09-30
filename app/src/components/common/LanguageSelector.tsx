@@ -29,7 +29,8 @@ export const LanguageSelector = ({ isCompact }: { isCompact?: boolean }) => {
         // #12b: MSA Arabic = pan-regional, not one country (matches LanguageSelectScreen's 🌍).
         { code: 'ar', label: 'العربية', flag: '🌍' },
         { code: 'tn', label: 'العربية + الدارجة', flag: '🇹🇳' },
-        { code: 'en', label: 'English', flag: '🇺🇸' },
+        // Same flag as the language card on LanguageSelectScreen — the two disagreed (🇺🇸 here, 🇬🇧 there).
+        { code: 'en', label: 'English', flag: '🇬🇧' },
     ];
 
     const currentLang = languages.find(l => l.code === i18n.language) || languages[0];

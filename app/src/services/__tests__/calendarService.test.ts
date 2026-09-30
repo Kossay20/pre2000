@@ -70,6 +70,7 @@ import {
     calculateWeekFromDate,
     loadUserEvents,
     saveUserEvent,
+    newUserEventId,
     deleteUserEvent,
     updateUserEvent,
     getCombinedEventsForWeek,
@@ -587,6 +588,36 @@ describe('saveUserEvent', () => {
         expect(a.event_id).not.toBe(b.event_id);
     });
 
+    test('a caller-supplied event_id makes a re-submit overwrite the same doc, never duplicate', async () => {
+        const id = newUserEventId();
+        const a = await saveUserEvent(baseInput(), { eventId: id });
+        const b = await saveUserEvent(baseInput(), { eventId: id });
+        expect(a.event_id).toBe(id);
+        expect(b.event_id).toBe(id);
+        const ids = (doc as jest.Mock).mock.calls.map((c) => c[2]);
+        expect(ids).toEqual([id, id]);
+    });
+
+    test('an acknowledged write is not pending', async () => {
+        const result = await saveUserEvent(baseInput());
+        expect(result.pendingSync).toBe(false);
+    });
+
+    test('offline: when the server never acknowledges, resolves as queued instead of hanging', async () => {
+        // Firestore applies the write locally at once but only settles setDoc on the
+        // server ack — offline that is "never", which left Save on "Enregistrement…".
+        mockedSetDoc.mockReturnValueOnce(new Promise<void>(() => {}));
+        const result = await saveUserEvent(baseInput(), { ackTimeoutMs: 10 });
+        expect(result.pendingSync).toBe(true);
+        expect(result.event_id).toMatch(/^user_event_/);
+        expect(mockedSetDoc).toHaveBeenCalledTimes(1);
+    });
+
+    test('a rejection that arrives before the ack timeout still throws', async () => {
+        mockedSetDoc.mockRejectedValueOnce(new Error('denied fast'));
+        await expect(saveUserEvent(baseInput(), { ackTimeoutMs: 1000 })).rejects.toThrow('denied fast');
+    });
+
     test('rethrows when setDoc fails', async () => {
         mockedSetDoc.mockRejectedValueOnce(new Error('write failed'));
         await expect(saveUserEvent(baseInput())).rejects.toThrow('write failed');
@@ -650,11 +681,16 @@ describe('updateUserEvent', () => {
     test('writes a merge update with undefined fields stripped', async () => {
         await expect(
             updateUserEvent('evt_1', { title: 'Updated', notes: undefined })
-        ).resolves.toBeUndefined();
+        ).resolves.toEqual({ pendingSync: false });
         expect(mockedSetDoc).toHaveBeenCalledTimes(1);
         const [, payload, options] = mockedSetDoc.mock.calls[0];
         expect(payload).toEqual({ title: 'Updated' });
         expect(options).toEqual({ merge: true });
+    });
+
+    test('offline: an unacknowledged update resolves as queued', async () => {
+        mockedSetDoc.mockReturnValueOnce(new Promise<void>(() => {}));
+        await expect(updateUserEvent('evt_1', { title: 'x' }, { ackTimeoutMs: 10 })).resolves.toEqual({ pendingSync: true });
     });
 
     test('rethrows when setDoc fails', async () => {

@@ -601,7 +601,7 @@ export const CalendarScreen = () => {
                 accessibilityHint={t('a11y.addAppointmentHint')}
             >
                 <LinearGradient
-                    colors={[theme.colors.primary, theme.colors.accent]}
+                    colors={[theme.colors.primaryStrong, theme.colors.accent]}
                     style={styles.fabGradient}
                 >
                     <Text style={styles.fabIcon}>+</Text>

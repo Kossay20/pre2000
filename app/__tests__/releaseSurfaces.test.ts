@@ -20,7 +20,8 @@ describe('F-002: the emergency number follows the country, not the language', ()
 
     it.each(screens)('%s resolves the number from the device region, never i18n.language', (name) => {
         const src = read(`src/screens/${name}.tsx`);
-        const calls = src.match(/resolveEmergencyNumber\([^;]*\)/g) ?? [];
+        // resolveEmergencyContact is the same resolution plus the number's source (A-008).
+        const calls = src.match(/resolveEmergency(?:Number|Contact)\([^;]*\)/g) ?? [];
         expect(calls.length).toBeGreaterThan(0);
         for (const call of calls) {
             expect(call).toContain('getDeviceRegionCode()');

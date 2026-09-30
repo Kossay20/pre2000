@@ -1,5 +1,6 @@
 import { StyleSheet } from 'react-native';
 import { theme } from '../theme';
+import { MODAL_MAX_WIDTH } from '../utils/layout';
 
 export const styles = StyleSheet.create({
     container: {
@@ -48,7 +49,7 @@ export const styles = StyleSheet.create({
     },
     headerSubtitle: {
         fontSize: 16,
-        color: theme.colors.whiteAlpha90,
+        color: theme.colors.white,
         marginTop: 4,
     },
     section: {
@@ -84,6 +85,13 @@ export const styles = StyleSheet.create({
         fontSize: 14,
         fontWeight: '600',
     },
+    // "See all" text links: 44pt tall pressable, negative margin keeps the header height.
+    linkTouch: {
+        minHeight: 44,
+        justifyContent: 'center',
+        marginVertical: -12,
+        paddingHorizontal: 4,
+    },
     linkText: {
         color: theme.colors.accent,
         fontSize: 14,
@@ -99,7 +107,7 @@ export const styles = StyleSheet.create({
     },
     statLabel: {
         fontSize: 14,
-        color: theme.colors.neutral400,
+        color: theme.colors.textMuted,
         marginBottom: 4,
     },
     statValue: {
@@ -113,7 +121,7 @@ export const styles = StyleSheet.create({
     },
     emptyText: {
         textAlign: 'center',
-        color: theme.colors.neutral400,
+        color: theme.colors.textMuted,
         fontSize: 14,
         fontStyle: 'italic',
         paddingVertical: 20,
@@ -137,7 +145,7 @@ export const styles = StyleSheet.create({
     },
     bpDate: {
         fontSize: 12,
-        color: theme.colors.neutral400,
+        color: theme.colors.textMuted,
         marginTop: 4,
     },
     bpHistoryItem: {
@@ -154,7 +162,7 @@ export const styles = StyleSheet.create({
     },
     bpHistoryDate: {
         fontSize: 14,
-        color: theme.colors.neutral400,
+        color: theme.colors.textMuted,
     },
     appointmentsRow: {
         flexDirection: 'row',
@@ -211,6 +219,7 @@ export const styles = StyleSheet.create({
     },
     modal: {
         width: '85%',
+        maxWidth: MODAL_MAX_WIDTH,
         backgroundColor: theme.colors.white,
         borderRadius: theme.borderRadius.xl,
         padding: 24,
@@ -250,7 +259,7 @@ export const styles = StyleSheet.create({
         backgroundColor: theme.colors.borderLight,
     },
     modalButtonSave: {
-        backgroundColor: theme.colors.primary,
+        backgroundColor: theme.colors.primaryStrong,
     },
     modalButtonText: {
         fontSize: 16,

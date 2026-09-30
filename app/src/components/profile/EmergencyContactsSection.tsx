@@ -280,9 +280,9 @@ const styles = StyleSheet.create({
     },
     addButton: {
         backgroundColor: theme.colors.surfaceRose,
-        width: 32,
-        height: 32,
-        borderRadius: 16,
+        width: 44,
+        height: 44,
+        borderRadius: 22,
         alignItems: 'center',
         justifyContent: 'center',
     },
@@ -293,7 +293,7 @@ const styles = StyleSheet.create({
         marginTop: -2,
     },
     emptyText: {
-        color: theme.colors.neutral400,
+        color: theme.colors.textMuted,
         fontStyle: 'italic',
         textAlign: 'center',
         marginBottom: 8,

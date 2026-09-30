@@ -6,7 +6,18 @@ import { hexToRgba } from '../utils/hexToRgba';
  * pour éviter les hex dupliqués.
  */
 const paletteColors = {
+    /**
+     * Brand pink — decorative only (borders, spinners, dots, indicators). White text
+     * on it is 2.68:1, so anything that carries text uses `primaryStrong` instead.
+     */
     primary: '#FF6B9D',
+    /** Text-bearing pink: header gradient start, pink buttons/pills (white text 4.6:1). */
+    primaryStrong: '#D6336C',
+    /**
+     * Wash for chips sitting on the pink header. It darkens rather than whitens:
+     * a white wash lifts the pink toward pastel and white labels on it drop to ~3:1.
+     */
+    headerChipBg: 'rgba(0, 0, 0, 0.15)',
     secondary: '#FF8FA3',
     accent: '#C2185B',
     background: '#FFF5F8',
@@ -14,12 +25,17 @@ const paletteColors = {
     onSurface: '#FFFFFF',
     text: '#4E342E',
     textSecondary: '#666666',
-    textLight: '#8D6E63',
+    /** Brown caption text. AA (≥4.5:1) on every pink/amber/grey tint the app uses. */
+    textLight: '#795548',
+    /** Quiet hint/meta text (was #999 / #888 / #9E9E9E as text colours, all under 4.5:1). */
+    textMuted: '#6B6B6B',
     white: '#FFFFFF',
-    error: '#E57373',
-    success: '#81C784',
+    /** Red text & danger fills: AA on white, surface and feedbackErrorBg, and under white text. */
+    error: '#C62828',
+    /** Green text & success fills (toast, buttons): AA both ways against white. */
+    success: '#2E7D32',
     warning: '#FFB74D',
-    info: '#1976D2',
+    info: '#1565C0',
     cardBackground: '#FFFFFF',
     border: '#FFC1E3',
     borderLight: '#F0F0F0',
@@ -62,13 +78,19 @@ const paletteColors = {
     accentOrangeDeep: '#F57C00',
     surfaceTip: '#FFF9E6',
     surfaceRose: '#FFEBEE',
-    coral: '#FF7F50',
+    /** Baby-size display figures (≥22px bold, AA-large 3.7:1 on white) — not for body text. */
+    coral: '#E4572E',
     critical: '#F44336',
     /** Ombres & neutres UI (migration hex dispersés) */
     black: '#000000',
     neutral900: '#333333',
     neutral700: '#555555',
-    neutral400: '#999999',
+    /**
+     * Was #999 (2.85:1 on white). Every remaining use is text — input placeholders,
+     * the Reminders top-tab inactive label, auth footnotes — so it takes the AA grey
+     * (same value as `textMuted`; the scale stays monotonic: 350 #888 < 400 < 700 #555).
+     */
+    neutral400: '#6B6B6B',
     neutral300: '#CCCCCC',
     neutral200: '#DDDDDD',
     neutral150: '#EEEEEE',

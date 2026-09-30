@@ -22,7 +22,7 @@ import path from 'path';
 import { test, expect, type Browser, type Page, type TestInfo } from '@playwright/test';
 import { attachConsoleStrict, RAW_KEY } from './helpers/audit-guards';
 import { attachMegaAuditRecorder } from './helpers/mega-audit-snap';
-import { attachDialogRecorder } from './helpers/dialog-recorder';
+import { attachDialogRecorder, type DialogRecorder } from './helpers/dialog-recorder';
 import {
   AUTH_EMULATOR,
   E2E_BASE_URL,
@@ -39,7 +39,9 @@ import {
 } from './helpers/emulator-account';
 import { lmpIsoForWeek } from './helpers/guest-profile';
 
-test.setTimeout(300_000);
+// A-021a: the file-level test.setTimeout(300_000) did not apply in round 1 (test 1 hit
+// the 120 s default); every describe below configures its own timeout instead.
+const WAVE_TIMEOUT = 300_000;
 
 // ── Copy (resolved from src/i18n/locales/<L> with the index.ts merge layout) ──
 
@@ -76,6 +78,15 @@ type Copy = {
   step4Start: string;
   step4Finalize: string;
   step4Skip: string;
+  /** Step-2 preview for LMP = today − 31 w exactly (A-009: completed days, pluralised). */
+  sa31plus0: string;
+  weekLabel32: string;
+  invalidDate: string;
+  postTermNote: RegExp;
+  countryHint: RegExp;
+  headerBack: string;
+  emergencyFallbackNote: string;
+  existingProfileTitle: string;
   week: string;
   trimester3: string;
   completeProfileCta: string;
@@ -104,7 +115,7 @@ const COPY: Record<'fr' | 'ar' | 'en', Copy> = {
     tooMany: /Trop de tentatives/,
     forgot: 'Mot de passe oublié ?',
     forgotEmpty: /Veuillez (entrer|saisir) votre email/,
-    resetSent: /Email de réinitialisation envoyé/,
+    resetSent: /Si un compte existe pour cet email, un lien de réinitialisation vient d'être envoyé/,
     pregnant: 'Je suis enceinte',
     stepper: (n) => `Étape ${n} sur 4`,
     methodDdr: '📆 Dernières règles',
@@ -114,10 +125,18 @@ const COPY: Record<'fr' | 'ar' | 'en', Copy> = {
     firstPregYes: "Oui, c'est tout nouveau ! 🌟",
     medicalTitle: 'Votre médecin vous a-t-il signalé quelque chose ?',
     hypertension: 'Hypertension de la grossesse',
-    countries: { tunisia: 'Tunisie', france: 'France', belgium: 'Belgique', morocco: 'Maroc', algeria: 'Algérie', switzerland: 'Suisse', canada: 'Canada', usa: 'États-Unis', uk: 'Royaume-Uni', other: 'Autre' },
+    countries: { tunisia: 'Tunisie', france: 'France', belgium: 'Belgique', morocco: 'Maroc', algeria: 'Algérie', switzerland: 'Suisse', canada: 'Canada', usa: 'États-Unis', uk: 'Royaume-Uni', other: 'Autre pays (112, international)' },
     step4Start: 'Créer mon compte & Démarrer',
     step4Finalize: 'Finaliser mon profil',
     step4Skip: 'Continuer sans compte',
+    sa31plus0: 'Soit 31 SA + 0 jour',
+    weekLabel32: 'Semaine 32',
+    invalidDate: 'Plus de 42 semaines depuis cette date : vérifiez la date saisie.',
+    postTermNote: /la date prévue d'accouchement est passée/,
+    countryHint: /Obligatoire : sert à afficher le bon numéro d'urgence/,
+    headerBack: 'Retour',
+    emergencyFallbackNote: "112 est le numéro d'urgence international.",
+    existingProfileTitle: 'Ce compte a déjà un profil',
     week: 'Semaine',
     trimester3: '3ème Trimestre',
     completeProfileCta: 'Compléter mon profil',
@@ -150,7 +169,7 @@ const COPY: Record<'fr' | 'ar' | 'en', Copy> = {
     tooMany: /محاولات كثيرة جداً/,
     forgot: 'هل نسيت كلمة المرور؟',
     forgotEmpty: /يرجى إدخال بريدك الإلكتروني/,
-    resetSent: /تم إرسال بريد إلكتروني لإعادة التعيين/,
+    resetSent: /فقد أُرسل رابط لإعادة التعيين/,
     pregnant: 'أنا حامل',
     stepper: (n) => `الخطوة ${n} من 4`,
     methodDdr: '📆 آخر دورة',
@@ -160,10 +179,18 @@ const COPY: Record<'fr' | 'ar' | 'en', Copy> = {
     firstPregYes: 'نعم، تجربة جديدة! 🌟',
     medicalTitle: 'هل ذكر لكِ طبيبكِ أمرًا معيّنًا؟',
     hypertension: 'ارتفاع ضغط الدم أثناء الحمل',
-    countries: { tunisia: 'تونس', france: 'فرنسا', belgium: 'بلجيكا', morocco: 'المغرب', algeria: 'الجزائر', switzerland: 'سويسرا', canada: 'كندا', usa: 'الولايات المتحدة', uk: 'المملكة المتحدة', other: 'آخر' },
+    countries: { tunisia: 'تونس', france: 'فرنسا', belgium: 'بلجيكا', morocco: 'المغرب', algeria: 'الجزائر', switzerland: 'سويسرا', canada: 'كندا', usa: 'الولايات المتحدة', uk: 'المملكة المتحدة', other: 'بلد آخر (112، دولي)' },
     step4Start: 'إنشاء حسابي والبدء',
     step4Finalize: 'إكمال الملف الشخصي',
     step4Skip: 'المتابعة كضيف',
+    sa31plus0: 'أي 31 أسبوعًا + 0 يوم',
+    weekLabel32: 'الأسبوع 32',
+    invalidDate: 'مرّ أكثر من 42 أسبوعًا على هذا التاريخ. يرجى التحقق منه.',
+    postTermNote: /لقد تجاوزتِ موعد الولادة المتوقع/,
+    countryHint: /إجباري: يُستخدم لعرض رقم الطوارئ الصحيح/,
+    headerBack: 'رجوع',
+    emergencyFallbackNote: '112 هو رقم الطوارئ الدولي.',
+    existingProfileTitle: 'هذا الحساب لديه ملف بالفعل',
     week: 'الأسبوع',
     trimester3: 'الثلث الثالث',
     completeProfileCta: 'أكملي ملفي الشخصي',
@@ -196,20 +223,28 @@ const COPY: Record<'fr' | 'ar' | 'en', Copy> = {
     tooMany: /Too many attempts/,
     forgot: 'Forgot password?',
     forgotEmpty: /Please enter your email/,
-    resetSent: /Reset email sent/,
+    resetSent: /If an account exists for this email, a reset link has been sent/,
     pregnant: 'I am pregnant',
     stepper: (n) => `Step ${n} of 4`,
     methodDdr: '',
     onbContinue: 'Continue',
     onbBackA11y: 'Previous step',
-    firstNameLabel: 'Your First Name (Optional)',
+    firstNameLabel: 'Your first name (optional)',
     firstPregYes: "Yes, it's all new! 🌟",
     medicalTitle: '',
     hypertension: '',
-    countries: { tunisia: 'Tunisia', france: 'France', belgium: 'Belgium', morocco: 'Morocco', algeria: 'Algeria', switzerland: 'Switzerland', canada: 'Canada', usa: 'United States', uk: 'United Kingdom', other: 'Other' },
+    countries: { tunisia: 'Tunisia', france: 'France', belgium: 'Belgium', morocco: 'Morocco', algeria: 'Algeria', switzerland: 'Switzerland', canada: 'Canada', usa: 'United States', uk: 'United Kingdom', other: 'Other country (112, international)' },
     step4Start: '',
     step4Finalize: '',
     step4Skip: '',
+    sa31plus0: 'That is 31 weeks + 0 days',
+    weekLabel32: 'Week 32',
+    invalidDate: 'More than 42 weeks since this date. Please check it.',
+    postTermNote: /your due date has passed/,
+    countryHint: /Required: used to show the right emergency number/,
+    headerBack: 'Back',
+    emergencyFallbackNote: '112 is the international emergency number.',
+    existingProfileTitle: 'This account already has a profile',
     week: 'Week',
     trimester3: '',
     completeProfileCta: '',
@@ -231,8 +266,8 @@ function quartetDirs(testInfo: TestInfo): string[] {
 const AUTH_400 = /Failed to load resource: the server responded with a status of 400/;
 /**
  * The app's own `log.error` for a deliberate, user-caused auth failure (wrong password,
- * unknown user, email in use). Tolerated in every state EXCEPT 16, where the plan's
- * "no console error" is asserted once (these lines also go to Sentry — logger.ts).
+ * unknown user, email in use). These are now logged at warn (silent in production) —
+ * A-006 — so the tolerance is OFF by default in every state; a snap may still opt in.
  */
 const APP_AUTH_FAILURE_LOG =
   /\[(AuthContext|LoginScreen|RegisterScreen)\].*(Login|Registration) error: FirebaseError: Firebase: Error \(auth\/(wrong-password|user-not-found|invalid-credential|email-already-in-use)\)/;
@@ -240,6 +275,7 @@ const APP_AUTH_FAILURE_LOG =
 type Rig = {
   page: Page;
   strict: string[];
+  dialogs: DialogRecorder;
   snap: (name: string, opts?: { allowAuth400?: boolean; allowAppAuthLog?: boolean; checkConsole?: boolean }) => Promise<void>;
   note: (name: string, data: unknown) => void;
   dispose: () => void;
@@ -256,6 +292,7 @@ function rig(page: Page, testInfo: TestInfo): Rig {
   return {
     page,
     strict,
+    dialogs,
     note: (name, data) => {
       NOTES[name] = data;
       for (const d of dirs) {
@@ -265,12 +302,14 @@ function rig(page: Page, testInfo: TestInfo): Rig {
       testInfo.annotations.push({ type: name, description: JSON.stringify(data).slice(0, 900) });
     },
     snap: async (name, opts = {}) => {
-      const { allowAuth400 = false, allowAppAuthLog = allowAuth400, checkConsole = true } = opts;
+      const { allowAuth400 = false, allowAppAuthLog = false, checkConsole = true } = opts;
       // Raw-key / blank check (soft: app behaviour).
       const body = (await page.locator('body').innerText().catch(() => '')) || '';
       expect.soft(body.trim().length, `${name}: screen must not be blank`).toBeGreaterThan(0);
       const leak = body.split('\n').find((l) => RAW_KEY.test(l));
       expect.soft(leak, `${name}: raw i18n key leaked → "${leak}"`).toBeFalsy();
+      // A-012: capture after fade-ins have finished, not at 10-30 % opacity.
+      await settleVisuals(page);
       await mega.snap(name);
       const fresh = strict.slice(cursor);
       cursor = strict.length;
@@ -286,6 +325,43 @@ function rig(page: Page, testInfo: TestInfo): Rig {
       dialogs.dispose();
     },
   };
+}
+
+/**
+ * A-012: Playwright "visible" ignores opacity, so Home was captured at the start of
+ * its fade-in (ancestor opacity ≈ 0.1). Wait until the opacity of every element that
+ * carries one inline (RN-web Animated writes it there) is stable across two samples
+ * 250 ms apart, up to 4 s. Stable-not-1 on purpose: a disabled button's 0.5 is design.
+ */
+async function settleVisuals(page: Page, timeoutMs = 4_000) {
+  const sample = () =>
+    page
+      .evaluate(() =>
+        Array.from(document.querySelectorAll<HTMLElement>('[style*="opacity"]'))
+          .map((el) => getComputedStyle(el).opacity)
+          .join(','),
+      )
+      .catch(() => '');
+  const t0 = Date.now();
+  let prev = await sample();
+  while (Date.now() - t0 < timeoutMs) {
+    await page.waitForTimeout(250);
+    const next = await sample();
+    if (next === prev) return;
+    prev = next;
+  }
+}
+
+/**
+ * A-013: the "language updated" toast (3 s, global overlay) followed the user across
+ * the next 2-4 screens and hid the top band in half of the captures. It hides on tap.
+ */
+async function dismissLanguageToast(page: Page) {
+  const toast = page.getByText(/Langue mise à jour|تم تحديث اللغة|Language updated/).first();
+  if (await toast.isVisible().catch(() => false)) {
+    await toast.click().catch(() => {});
+    await toast.waitFor({ state: 'hidden', timeout: 5_000 }).catch(() => {});
+  }
 }
 
 // ── Small server helpers (spec-local, pure REST like the harness) ─────────────
@@ -323,13 +399,16 @@ async function localProfile(page: Page): Promise<any> {
 
 const ymd = (iso: string) => iso.slice(0, 10);
 const lmpWeek = (w: number) => ymd(lmpIsoForWeek(w));
-/** today − 41 weeks: 42nd week of pregnancy → must be rejected (> 40 w). */
-const lmp41wAgo = () => {
+const lmpDaysAgo = (days: number) => {
   const now = new Date();
   const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-  d.setUTCDate(d.getUTCDate() - 41 * 7);
+  d.setUTCDate(d.getUTCDate() - days);
   return ymd(d.toISOString());
 };
+/** A-010: 43+0 SA — beyond 42+0, the one range onboarding must refuse. */
+const lmp43wAgo = () => lmpDaysAgo(43 * 7);
+/** A-010: 40+3 SA — past the due date, still a pregnancy: accepted, with a post-term note. */
+const lmp40w3dAgo = () => lmpDaysAgo(40 * 7 + 3);
 
 // ── UI helpers ────────────────────────────────────────────────────────────────
 
@@ -344,6 +423,7 @@ async function pickLanguage(page: Page, code: AppLocale) {
   await expect(card).toBeVisible({ timeout: 60_000 });
   await card.click();
   await expect(card.getByText('✓')).toBeVisible({ timeout: 10_000 });
+  await dismissLanguageToast(page);
 }
 
 function langContinue(page: Page, c: Copy) {
@@ -418,11 +498,42 @@ async function headerBackTransform(page: Page) {
  */
 async function contractionEmergencyNumber(page: Page): Promise<string | null> {
   await page.goto('/contraction-timer', { waitUntil: 'load' });
-  const row = page.getByText(/📞.*\(\d+\)/).first();
+  // "(15)" for a known country, "(112, international)" for the fallback (A-008).
+  const row = page.getByText(/📞.*\(\d+/).first();
   const ok = await row.waitFor({ state: 'visible', timeout: 20_000 }).then(() => true, () => false);
   if (!ok) return null;
   const txt = (await row.innerText()).trim();
-  return txt.match(/\((\d+)\)/)?.[1] ?? null;
+  return txt.match(/\((\d+)/)?.[1] ?? null;
+}
+
+/**
+ * A-011: the contraction timer's compact EmptyState collapsed to its padding on web and
+ * its text ran under the emergency call row. Returns how far (px) any text that comes
+ * BEFORE the call row in the document reaches below the row's top edge (≤ 1 is clean).
+ */
+async function callRowOverlap(page: Page): Promise<{ overlapPx: number; culprit: string | null }> {
+  return page.evaluate(() => {
+    const leaves = Array.from(document.querySelectorAll<HTMLElement>('div[dir], span')).filter(
+      (el) => el.children.length === 0 && (el.innerText || '').trim().length > 0,
+    );
+    const call = leaves.find((el) => (el.innerText || '').includes('📞'));
+    if (!call) return { overlapPx: 0, culprit: null };
+    const top = call.getBoundingClientRect().top;
+    let worst = 0;
+    let culprit: string | null = null;
+    for (const el of leaves) {
+      if (el === call) continue;
+      if (!(el.compareDocumentPosition(call) & Node.DOCUMENT_POSITION_FOLLOWING)) continue;
+      const r = el.getBoundingClientRect();
+      if (r.height === 0) continue;
+      const over = r.bottom - top;
+      if (over > worst) {
+        worst = over;
+        culprit = (el.innerText || '').trim().slice(0, 60);
+      }
+    }
+    return { overlapPx: Math.round(worst), culprit };
+  });
 }
 
 async function registerViaUi(page: Page, email: string, pw: string, confirm = pw) {
@@ -437,7 +548,16 @@ async function onboardingSteps1to3(
   r: Rig,
   c: Copy,
   prefix: string,
-  opts: { firstName: string; age: string; tickHypertension: boolean; tryInvalidDate: boolean },
+  opts: {
+    firstName: string;
+    age: string;
+    tickHypertension: boolean;
+    tryInvalidDate: boolean;
+    /** Country to tap when none is pre-selected (A-008: the question is required). Default 'other'. */
+    country?: string;
+    /** A signed-in account finishing its profile: step 4 has no account fields and no "without account" link. */
+    signedIn?: boolean;
+  },
 ) {
   const page = r.page;
   // Step 1
@@ -453,13 +573,22 @@ async function onboardingSteps1to3(
   await expect.soft(page.getByText(c.stepper(2), { exact: true }), `${prefix} step2: stepper`).toBeVisible();
   const cont = page.getByRole('button', { name: c.onbContinue, exact: true });
   if (opts.tryInvalidDate) {
-    await dateInput.fill(lmp41wAgo());
-    await expect.soft(cont, `${prefix} step2: Continue must be disabled for LMP today−41w (> 40 w)`).toBeDisabled();
-    await r.snap(`${prefix}-step2-invalid-41w`);
+    // A-010: beyond 42+0 is refused with a specific message …
+    await dateInput.fill(lmp43wAgo());
+    await expect.soft(cont, `${prefix} step2: Continue must be disabled for LMP today−43w (> 42+0)`).toBeDisabled();
+    await expect.soft(page.getByText(c.invalidDate, { exact: true }), `${prefix} step2: > 42 w message`).toBeVisible();
+    await r.snap(`${prefix}-step2-invalid-43w`);
+    // … while 40+3 (past the due date) is a pregnancy: accepted, with a gentle note.
+    await dateInput.fill(lmp40w3dAgo());
+    await expect.soft(cont, `${prefix} step2: Continue enabled for LMP today−40w3d (post-term)`).toBeEnabled();
+    await expect.soft(page.getByTestId('onboarding_postterm_note'), `${prefix} step2: post-term note`).toContainText(c.postTermNote);
+    await r.snap(`${prefix}-step2-postterm-40w3d`);
   }
   await dateInput.fill(lmpWeek(32));
   await expect.soft(dateInput).toHaveValue(lmpWeek(32));
-  await expect.soft(page.getByText(`32`, { exact: false }).first(), `${prefix} step2: preview shows week 32`).toBeVisible();
+  // A-021d / A-009: exact texts, not a "32" substring. LMP = today − 31 w exactly.
+  await expect.soft(page.getByText(c.weekLabel32, { exact: true }).first(), `${prefix} step2: preview "${c.weekLabel32}"`).toBeVisible();
+  await expect.soft(page.getByText(c.sa31plus0, { exact: true }), `${prefix} step2: "${c.sa31plus0}" (completed days, pluralised)`).toBeVisible();
   await expect.soft(cont, `${prefix} step2: Continue enabled for today−31w`).toBeEnabled();
   await r.snap(`${prefix}-step2`);
   await cont.click();
@@ -498,7 +627,21 @@ async function onboardingSteps1to3(
     })),
   );
   const navLang = await page.evaluate(() => ({ language: navigator.language, languages: navigator.languages }));
-  r.note(`${prefix}-step3-country-derivation`, { navLang, countrySel, allSelectable: allCountryButtons });
+  const pressed = await page.evaluate(() =>
+    Array.from(document.querySelectorAll('[role="button"][aria-pressed="true"]')).map((e) => e.getAttribute('aria-label')),
+  );
+  r.note(`${prefix}-step3-country-derivation`, { navLang, countrySel, allSelectable: allCountryButtons, pressed });
+  // A-008: the hint says why the country matters, and Continue waits for an answer.
+  await expect.soft(page.getByTestId('onboarding_country_hint'), `${prefix} step3: country hint`).toContainText(c.countryHint);
+  const step3Continue = page.getByTestId('onboarding_step3_continue');
+  if (countrySel.selected.length === 0) {
+    await expect.soft(step3Continue, `${prefix} step3: Continue disabled until a country is chosen`).toBeDisabled();
+    await r.snap(`${prefix}-step3-country-required`);
+    const pick = opts.country ?? 'other';
+    await page.getByRole('button', { name: c.countries[pick], exact: true }).click();
+    await expect.soft(page.getByRole('button', { name: c.countries[pick], exact: true }), `${prefix} step3: chosen country is aria-pressed`).toHaveAttribute('aria-pressed', 'true');
+  }
+  await expect.soft(step3Continue, `${prefix} step3: Continue enabled once a country is set`).toBeEnabled();
   await firstName.fill(opts.firstName);
   await page.getByRole('button', { name: opts.age, exact: true }).click();
   await page.getByRole('button', { name: c.firstPregYes, exact: true }).click();
@@ -513,7 +656,14 @@ async function onboardingSteps1to3(
   await page.getByRole('button', { name: c.onbContinue, exact: true }).last().click();
 
   // Step 4
-  await expect(page.getByTestId('onboarding_step4_skip')).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByTestId('onboarding_step4_submit')).toBeVisible({ timeout: 15_000 });
+  if (opts.signedIn) {
+    // "Continuer sans compte" was offered to a user who already has an account.
+    await expect.soft(page.getByTestId('onboarding_step4_skip'), `${prefix} step4: no "without account" link when signed in`).toHaveCount(0);
+    await expect.soft(page.getByTestId('onboarding_step4_submit'), `${prefix} step4: finalize label`).toContainText(c.step4Finalize);
+  } else {
+    await expect(page.getByTestId('onboarding_step4_skip')).toBeVisible({ timeout: 15_000 });
+  }
   await expect
     .soft(page.getByText(/(Étape|Step|الخطوة) \d/), `${prefix} step4: stepper must be hidden on the last step`)
     .toHaveCount(0);
@@ -537,6 +687,7 @@ async function waitForLanding(page: Page, c: Copy) {
 
 test.describe('Wave A — fr', () => {
   test.use(waveUse('fr'));
+  test.describe.configure({ timeout: WAVE_TIMEOUT });
 
   test('A-fr cold funnel: language, fold, AuthChoice, privacy/terms', async ({ page }, testInfo) => {
     const r = rig(page, testInfo);
@@ -555,6 +706,7 @@ test.describe('Wave A — fr', () => {
     // 02 — GJ-006: Continue visible without scrolling at 390×844.
     await page.getByTestId('lang_card_fr').click();
     await expect(page.getByTestId('lang_card_fr').getByText('✓')).toBeVisible({ timeout: 10_000 });
+    await dismissLanguageToast(page);
     await page.evaluate(() => window.scrollTo(0, 0));
     const box = await langContinue(page, c).boundingBox();
     const scrollInfo = await page.evaluate(() => ({ scrollY: window.scrollY, docH: document.documentElement.scrollHeight }));
@@ -593,8 +745,9 @@ test.describe('Wave A — fr', () => {
     await page.getByText(c.termsTab, { exact: true }).click();
     await expect.soft(page.getByText(c.medicalDisclaimer).first(), '04: Terms tab shows AVERTISSEMENT MÉDICAL').toBeVisible();
     await r.snap('04b-privacy-terms-tab');
-    await page.goBack();
-    await expect.soft(page.getByTestId('auth_guest_button'), '04: back returns to AuthChoice').toBeVisible({ timeout: 15_000 });
+    // A-021c: the in-app header back, not the browser's history back.
+    await page.getByRole('button', { name: c.headerBack, exact: true }).first().click();
+    await expect.soft(page.getByTestId('auth_guest_button'), '04: header back returns to AuthChoice').toBeVisible({ timeout: 15_000 });
     await r.snap('04c-privacy-back-to-authchoice');
     r.dispose();
   });
@@ -692,7 +845,7 @@ test.describe('Wave A — fr', () => {
 
       if (landing.onOnboarding) {
         // 12 via Register — finish onboarding as the signed-in user.
-        await onboardingSteps1to3(r, c, `12r-fr-run${run}-onboarding`, { firstName: 'Registrante', age: '25-29', tickHypertension: false, tryInvalidDate: false });
+        await onboardingSteps1to3(r, c, `12r-fr-run${run}-onboarding`, { firstName: 'Registrante', age: '25-29', tickHypertension: false, tryInvalidDate: false, signedIn: true });
         await r.snap(`12r-fr-run${run}-onboarding-step4`);
         await page.getByTestId('onboarding_step4_submit').click();
         await expect(page.getByRole('tablist').first()).toBeVisible({ timeout: 45_000 });
@@ -709,17 +862,25 @@ test.describe('Wave A — fr', () => {
       // Fresh context: what does a returning device see?
       const fresh = await freshLogin(browser, email, 'fr');
       const fr = rig(fresh, testInfo);
-      const freshWeek = await fresh.getByText(`${c.week} 32`, { exact: true }).first().isVisible({ timeout: 10_000 }).catch(() => false);
+      // isVisible() does not wait (its timeout is ignored) — it raced Home's first render.
+      const freshWeek = await fresh
+        .getByText(`${c.week} 32`, { exact: true })
+        .first()
+        .waitFor({ state: 'visible', timeout: 30_000 })
+        .then(() => true, () => false);
       const freshEmpty = await fresh.getByText(c.completeProfileCta).first().isVisible().catch(() => false);
       r.note(`11-register-fresh-context-fr-run${run}`, { freshWeek, freshEmpty, localProfile: await localProfile(fresh) });
       if (landing.onOnboarding) expect.soft(freshWeek, '11: fresh context shows Semaine 32').toBe(true);
       else expect.soft(freshEmpty, '11: a returning device must not be stranded on "Compléter mon profil" (no LMP on server)').toBe(false);
       await fr.snap(`11-register-fresh-context-fr-run${run}`);
       if (run === 1) {
-        // Register path leaves country empty → device region (fr-FR → FR) → 15.
+        // The register path now runs onboarding: fr-FR device → France pre-selected → 15.
         const num = await contractionEmergencyNumber(fresh);
-        r.note('11-register-contraction-emergency-number-fr', { profileCountry: (await localProfile(fresh))?.country ?? null, number: num });
-        expect.soft(num, '11: empty country on an fr-FR device → 15 (region), never 190').toBe('15');
+        const overlap = await callRowOverlap(fresh);
+        r.note('11-register-contraction-emergency-number-fr', { profileCountry: (await localProfile(fresh))?.country ?? null, number: num, overlap });
+        expect.soft(num, '11: France → 15, never 190').toBe('15');
+        await expect.soft(fresh.getByTestId('emergency_number_note'), '11: a profile country needs no fallback disclosure').toHaveCount(0);
+        expect.soft(overlap.overlapPx, `11 A-011: nothing above the call row may run under it (${overlap.culprit})`).toBeLessThanOrEqual(1);
         await fr.snap('11-register-contraction-emergency-number-fr');
       }
       fr.dispose();
@@ -742,6 +903,15 @@ test.describe('Wave A — fr', () => {
     });
     expect.soft(await page.title(), '22: Onboarding document.title').toBe(c.titles.onboarding);
     expect.soft(countrySel.selected, '12 step3: fr-FR device → "France" pre-selected (derived country)').toEqual(['france']);
+
+    // A-015: the stack header back goes to the previous step and keeps the answers.
+    await page.getByRole('button', { name: c.headerBack, exact: true }).first().click();
+    const firstNameBox = page.getByRole('textbox', { name: c.firstNameLabel });
+    await expect.soft(firstNameBox, '12 A-015: header back from step 4 → step 3').toBeVisible({ timeout: 10_000 });
+    await expect.soft(firstNameBox, '12 A-015: answers survive the header back').toHaveValue('Amina');
+    await r.snap('12-fr-onboarding-header-back-step3');
+    await page.getByTestId('onboarding_step3_continue').click();
+    await expect(page.getByTestId('onboarding_step4_submit')).toBeVisible({ timeout: 15_000 });
 
     // Step 4 — submit disabled until the password is valid.
     const email = newAccountEmail('A', 'fr-onboarding-create');
@@ -782,6 +952,36 @@ test.describe('Wave A — fr', () => {
     await fr.snap('13-fresh-context-week32');
     fr.dispose();
     await fresh.context().close();
+    r.dispose();
+  });
+
+  // ─── A-023: step-4 email of an EXISTING account — asked, never silently merged ──
+  test('A-fr onboarding with an existing account email → asked; "keep" leaves the server profile (A-023)', async ({ page }, testInfo) => {
+    const r = rig(page, testInfo);
+    const c = COPY.fr;
+    const email = newAccountEmail('A', 'fr-existing');
+    const acct = await createAccount(email, E2E_PASSWORD);
+    const seeded = await seedProfile(acct.uid, acct.idToken, { week: 20, firstName: 'Existante' });
+
+    await toAuthChoice(page, 'fr');
+    await page.getByTestId('auth_guest_button').click();
+    await onboardingSteps1to3(r, c, '12x-fr-existing', { firstName: 'Nouvelle', age: '25-29', tickHypertension: false, tryInvalidDate: false });
+    await page.getByTestId('onboarding_step4_email').fill(email);
+    await page.getByTestId('onboarding_step4_password').fill(E2E_PASSWORD);
+    // On web the question is a window.confirm: OK = replace, Cancel = keep. Keep.
+    r.dialogs.next('dismiss');
+    const asked = r.dialogs.waitForNext(45_000);
+    await page.getByTestId('onboarding_step4_submit').click();
+    const dialog = await asked.catch(() => null);
+    r.note('12x-fr-existing-dialog', dialog);
+    expect.soft(dialog?.message ?? '', 'A-023: the user is asked before her existing profile is touched').toContain(c.existingProfileTitle);
+    await expect(page.getByRole('tablist').first()).toBeVisible({ timeout: 45_000 });
+    await expect.soft(page.getByText(`${c.week} 20`, { exact: true }).first(), 'A-023: "keep" shows the existing week 20').toBeVisible({ timeout: 30_000 });
+    await r.snap('12x-fr-existing-kept-home', { allowAuth400: true });
+    const after = await serverDoc(`userProfiles/${acct.uid}`);
+    r.note('12x-fr-existing-server-truth', { seededLmp: seeded.lmp, serverLmp: after?.lmp, firstName: after?.firstName });
+    expect.soft(after?.lmp, 'A-023: "keep" must not change the server lmp').toBe(seeded.lmp);
+    expect.soft(after?.firstName, 'A-023: "keep" must not change the server name').toBe('Existante');
     r.dispose();
   });
 
@@ -884,6 +1084,14 @@ test.describe('Wave A — fr', () => {
     await r.snap('20b-forgot-password-sent');
     await page.unroute('**/accounts:sendOobCode**');
 
+    // 20c — A-021e: an unknown email gets the SAME neutral answer (no "incorrect
+    // password" in a reset form, no account-existence oracle).
+    await page.getByTestId('login_email_input').fill(newAccountEmail('A', 'fr-reset-nobody'));
+    await page.getByTestId('forgot_password_button').click();
+    await expect.soft(page.getByRole('alert').first(), '20c: unknown email → neutral reset message').toContainText(c.resetSent, { timeout: 20_000 });
+    await expect.soft(page.getByRole('alert').first(), '20c: never "incorrect" in a reset form').not.toContainText(c.badCredentials);
+    await r.snap('20c-forgot-password-unknown-email', { allowAuth400: true });
+
     // 21 — login success in a fresh context (the limiter above is per-page memory).
     const fresh = await freshLogin(browser, email, 'fr');
     const fr = rig(fresh, testInfo);
@@ -913,6 +1121,7 @@ async function freshLogin(browser: Browser, email: string, locale: AppLocale): P
 
 test.describe('Wave A — ar (RTL)', () => {
   test.use(waveUse('ar'));
+  test.describe.configure({ timeout: WAVE_TIMEOUT });
 
   test('A-ar cold funnel + register display/validation (23-26)', async ({ page }, testInfo) => {
     const r = rig(page, testInfo);
@@ -954,9 +1163,10 @@ test.describe('Wave A — ar (RTL)', () => {
     expect.soft(await page.title(), '22-ar: Register title').toBe(c.titles.register);
     await r.snap('25-ar-register-display');
 
-    // 26 — empty submit in Arabic.
+    // 26 — empty submit in Arabic (A-021b: captured before the next fill overwrites it).
     await page.getByTestId('register_submit_button').click();
     await expect.soft(page.getByRole('alert').first()).toContainText(c.emailRequired);
+    await r.snap('26a-ar-register-empty-submit');
     await page.getByTestId('register_email_input').fill('not-an-email');
     await page.getByTestId('register_submit_button').click();
     await expect.soft(page.getByRole('alert').first()).toContainText(c.invalidEmail);
@@ -991,7 +1201,7 @@ test.describe('Wave A — ar (RTL)', () => {
     expect.soft(landing.onOnboarding, `27 HYP-A1 (ar): a new registrant must land on Onboarding (landed: ${JSON.stringify(landing)})`).toBe(true);
     await r.snap('27-ar-register-success-landing');
     if (landing.onOnboarding) {
-      await onboardingSteps1to3(r, c, '27r-ar-onboarding', { firstName: 'مريم', age: '25-29', tickHypertension: false, tryInvalidDate: false });
+      await onboardingSteps1to3(r, c, '27r-ar-onboarding', { firstName: 'مريم', age: '25-29', tickHypertension: false, tryInvalidDate: false, signedIn: true });
       await page.getByTestId('onboarding_step4_submit').click();
       await expect(page.getByRole('tablist').first()).toBeVisible({ timeout: 45_000 });
     }
@@ -1038,7 +1248,14 @@ test.describe('Wave A — ar (RTL)', () => {
     await r.snap('28-ar-contraction-emergency-number');
     if (!doc?.country || doc.country === 'other') {
       expect.soft(num, '28: unknown country + unknown region → 112').toBe('112');
+      // A-008: the fallback owns up to being one, and offers the fix.
+      await expect.soft(page.getByText(/📞.*\(112، دولي\)/).first(), '28: call row labels 112 as international').toBeVisible();
+      await expect.soft(page.getByTestId('emergency_number_note'), '28: fallback disclosure').toContainText(c.emergencyFallbackNote);
+      await expect.soft(page.getByTestId('emergency_number_choose_country'), '28: link to set the country').toBeVisible();
     }
+    const overlap = await callRowOverlap(page);
+    r.note('28-ar-contraction-layout', overlap);
+    expect.soft(overlap.overlapPx, `28 A-011: nothing above the call row may run under it (${overlap.culprit})`).toBeLessThanOrEqual(1);
     expect.soft(num, '28: never 190 for a user who did not choose Tunisia').not.toBe('190');
     void browser;
     r.dispose();
@@ -1086,6 +1303,7 @@ test.describe('Wave A — ar (RTL)', () => {
 
 test.describe('Wave A — en smoke', () => {
   test.use(waveUse('en'));
+  test.describe.configure({ timeout: WAVE_TIMEOUT });
 
   test('A-en language → AuthChoice selectors (31)', async ({ page }, testInfo) => {
     const r = rig(page, testInfo);

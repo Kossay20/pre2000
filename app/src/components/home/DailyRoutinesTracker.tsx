@@ -166,6 +166,8 @@ export const DailyRoutinesTracker: React.FC<UnifiedDaySummaryProps> = ({
                 activeOpacity={0.6}
                 onPress={() => navigation.navigate('Calendrier')}
                 style={[styles.contentRow, isSharedContext && styles.sharedContentRow]}
+                accessibilityRole="button"
+                accessibilityLabel={appointmentMessage}
             >
                 <View style={styles.leftContent}>
                     <Text style={styles.emoji}>{icon}</Text>
@@ -187,6 +189,8 @@ export const DailyRoutinesTracker: React.FC<UnifiedDaySummaryProps> = ({
                 activeOpacity={0.6}
                 onPress={() => navigation.navigate('Rappels', { screen: 'RemindersMain', params: { screen: 'TasksTab' } })}
                 style={[styles.contentRow, isSharedContext && styles.sharedContentRow]}
+                accessibilityRole="button"
+                accessibilityLabel={`${t('reminders.myDay.title')} ${completedItems}/${totalItems}`}
             >
                 <View style={[isSharedContext && { flex: 1 }, !isSharedContext && { width: '100%', alignItems: 'center' }]}>
                     <View style={styles.topTaskRow}>
@@ -239,7 +243,7 @@ const styles = StyleSheet.create({
         paddingVertical: 4,
     },
     cardContainer: {
-        backgroundColor: theme.colors.whiteAlpha15, // Subtle translucent glass effect
+        backgroundColor: theme.colors.headerChipBg, // Darkening glass: a white wash drops the white labels below AA
         borderRadius: 20, // Modern card shape
         paddingVertical: 12,
         paddingHorizontal: 10,

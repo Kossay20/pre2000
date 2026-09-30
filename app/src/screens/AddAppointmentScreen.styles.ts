@@ -161,7 +161,7 @@ export const styles = StyleSheet.create({
     remindersSectionTitle: {
         fontSize: 15,
         fontWeight: '600' as const,
-        color: theme.colors.accentOrangeDeep,
+        color: theme.colors.deepOrange900,
         marginBottom: theme.spacing.m,
     },
     reminderRow: {

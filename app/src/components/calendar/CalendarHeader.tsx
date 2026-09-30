@@ -7,6 +7,10 @@ import { styles } from '../../screens/CalendarScreen.styles';
 
 type CalendarView = 'week' | 'month';
 
+// The header chips stay visually compact (~28pt); the slop brings their touch
+// area to the 44pt minimum without making the pink header taller.
+const HEADER_CHIP_HIT_SLOP = { top: 8, bottom: 8, left: 4, right: 4 };
+
 interface CalendarHeaderProps {
     monthLabel: string;
     weekLabel: string;
@@ -52,7 +56,7 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
 
     return (
         <LinearGradient
-            colors={[theme.colors.primary, theme.colors.accent, theme.colors.deepPink]}
+            colors={[theme.colors.primaryStrong, theme.colors.accent, theme.colors.deepPink]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.header}
@@ -88,6 +92,7 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                 <View style={styles.selectorGroup}>
                     <TouchableOpacity
                         style={[styles.selectorButton, calendarView === 'week' && styles.selectorButtonActive]}
+                        hitSlop={HEADER_CHIP_HIT_SLOP}
                         onPress={onSelectWeekView}
                         accessibilityRole="button"
                         accessibilityLabel={t('calendar.week')}
@@ -101,6 +106,7 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                     </TouchableOpacity>
                     <TouchableOpacity
                         style={[styles.selectorButton, calendarView === 'month' && styles.selectorButtonActive]}
+                        hitSlop={HEADER_CHIP_HIT_SLOP}
                         onPress={onSelectMonthView}
                         accessibilityRole="button"
                         accessibilityLabel={t('calendar.month')}
@@ -116,6 +122,7 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
 
                 <TouchableOpacity
                     style={styles.suggestionBadge}
+                    hitSlop={HEADER_CHIP_HIT_SLOP}
                     onPress={onToggleSuggestions}
                     accessibilityRole="button"
                     accessibilityLabel={t('calendar.suggestions')}
@@ -123,7 +130,7 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                     // CAL-R2-03: RN-web 0.21.2 drops accessibilityState.expanded → expose aria explicitly.
                     {...(Platform.OS === 'web' ? { 'aria-expanded': showSuggestions } : {})}
                 >
-                    <Ionicons name="bulb" size={16} color={theme.colors.white} style={{ marginEnd: 4 }} />
+                    <Ionicons name="bulb" size={16} color={theme.colors.text} style={{ marginEnd: 4 }} />
                     <Text style={styles.suggestionText}>
                         {calendarView === 'month'
                             ? (suggestionsThisMonthCount > 0 ? t('calendar.suggestionsCount', { count: suggestionsThisMonthCount }) : t('calendar.suggestions'))
@@ -135,6 +142,7 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
 
             <TouchableOpacity
                 style={styles.todayButton}
+                hitSlop={HEADER_CHIP_HIT_SLOP}
                 onPress={onPressToday}
                 accessibilityRole="button"
                 accessibilityLabel={t('calendar.today')}

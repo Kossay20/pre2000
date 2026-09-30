@@ -21,6 +21,10 @@
   "baby": "Bébé",
   "size": "Taille",
   "weight": "Poids",
+  "sizeCrownRump": "Taille (tête-fesses)",
+  "sizeCrownHeel": "Taille (tête-talons)",
+  "fetalLengthMicroscopic": "< 1 mm",
+  "fetalWeightUnderOneGram": "< 1 g",
   "categories": {
     "all": "Tout",
     "pregnancy": "Grossesse",
@@ -150,8 +154,6 @@
   "languageChangeError": "Impossible de changer la langue",
   "infoTitle": "ℹ Information",
   "infoLanguageApplied": "La langue sera appliquée à tout le contenu de l'application",
-  "infoTranslationsWIP": "Certaines traductions sont en cours de développement",
-  "infoFrenchComplete": "Le français est actuellement la langue la plus complète",
   "settings": "Paramètres",
   "notifications": "Notifications",
   "babyMessage": "Message du Bébé",
@@ -237,7 +239,7 @@
     "canada": "Canada",
     "usa": "États-Unis",
     "uk": "Royaume-Uni",
-    "other": "Autre"
+    "other": "Autre pays (112, international)"
   },
   "babyEvolution": {
     "development": "Développement",
@@ -560,7 +562,10 @@
     "removeSymptom": "Retirer le symptôme",
     "addSymptom": "Ajouter le symptôme {{name}}",
     "addHealthEntry": "Ajouter une entrée de santé",
-    "statusPill": "Statut : {{status}}"
+    "statusPill": "Statut : {{status}}",
+    "deleteItem": "Supprimer : {{name}}",
+    "editItem": "Modifier : {{name}}",
+    "hideItemToday": "Masquer pour aujourd'hui : {{name}}"
   },
   "errorBoundary": {
     "title": "Oups !",
@@ -789,7 +794,7 @@
     "save": "Enregistrer",
     "successUpdate": "Profil mis à jour avec succès!",
     "errorFirstName": "Veuillez entrer votre prénom.",
-    "errorInvalidDate": "La date de grossesse est invalide (plus de 40 semaines ou dans le futur).",
+    "errorInvalidDate": "La date de grossesse est invalide (plus de 42 semaines ou dans le futur).",
     "errorUpdate": "Impossible de mettre à jour le profil.",
     "errorReset": "Impossible de réinitialiser le profil.",
     "health": "Tableau de santé",
@@ -838,6 +843,20 @@
     "settingsTitle": "Suivi médical",
     "settingsSubtitle": "Modifiable à tout moment",
     "notAnswered": "Non renseigné",
-    "syncWarning": "Modification enregistrée sur cet appareil, mais pas encore synchronisée avec votre compte. Elle repartira à la prochaine connexion."
+    "syncWarning": "Modification enregistrée sur cet appareil, mais pas encore synchronisée avec votre compte. Elle repartira à la prochaine connexion.",
+    "privacyNoteGuest": "Sans compte, ces informations restent sur votre téléphone. Elles ne sont ni partagées ni vendues, servent uniquement à ajuster vos rappels, et ne remplacent aucun avis médical."
+  },
+  "gestationalAge": {
+    "format": "{{weeks}} + {{days}}",
+    "weeks_one": "{{count}} SA",
+    "weeks_other": "{{count}} SA",
+    "days_one": "{{count}} jour",
+    "days_other": "{{count}} jours"
+  },
+  "emergencyNumber": {
+    "international": "{{number}}, international",
+    "fallbackNote": "112 est le numéro d'urgence international.",
+    "regionNote": "Numéro choisi d'après les réglages de votre téléphone.",
+    "chooseCountry": "Indiquer mon pays"
   }
 }

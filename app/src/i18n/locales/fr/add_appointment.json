@@ -34,6 +34,7 @@
   "notConnectedMsg": "Vous devez être connecté pour ajouter un rendez-vous.",
   "successAdd": "Rendez-vous ajouté !",
   "successEdit": "Rendez-vous modifié !",
+  "savedOffline": "Rendez-vous enregistré sur l'appareil. Il sera synchronisé dès le retour de la connexion.",
   "errorSaveTitle": "Erreur",
   "errorSaveMsg": "Impossible d'enregistrer le rendez-vous: {{error}}",
   "reminderInfoTitle": "Info",

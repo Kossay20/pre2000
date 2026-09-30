@@ -39,10 +39,11 @@ import {
     checkGlucose,
     checkBloodPressure,
     checkWeightChange,
-    resolveEmergencyNumber,
+    resolveEmergencyContact,
     type ClinicalAlert,
 } from '../utils/clinicalChecks'; // SAFETY-CRITICAL: clinical alerts on dangerous values
 import { getDeviceRegionCode } from '../utils/deviceRegion';
+import { emergencyNumberLabel } from '../utils/emergencyNumberLabel';
 import { HealthWeightModal } from '../components/health/HealthWeightModal';
 import { HealthBPModal } from '../components/health/HealthBPModal';
 import { HealthGlucoseModal } from '../components/health/HealthGlucoseModal';
@@ -52,6 +53,10 @@ import { styles } from './HealthDashboardScreen.styles';
 import { getContentWidth } from '../utils/layout';
 
 const screenWidth = getContentWidth();
+
+// The "+ Add" pills in the section headers stay compact (29pt); the slop brings
+// their touch area to 44pt without making every section header taller.
+const ADD_PILL_HIT_SLOP = { top: 8, bottom: 8, left: 4, right: 4 };
 
 export const HealthDashboardScreen = () => {
     useScreenAnalytics('HealthDashboardScreen');
@@ -208,10 +213,14 @@ export const HealthDashboardScreen = () => {
             // H2-FIX: a user whose profile country is empty (e.g. account created via login,
             // not full onboarding) still gets the emergency-call button: device region, then
             // 112 — matching ContractionTimerScreen / ChatbotScreen.
-            const number = resolveEmergencyNumber((user as any)?.country, getDeviceRegionCode());
+            // A 112 fallback is labelled as the international number (see
+            // emergencyNumberLabel) — a dialog has no room for the Profile link the
+            // other call buttons carry.
+            const contact = resolveEmergencyContact((user as any)?.country, getDeviceRegionCode());
+            const number = contact.number;
             if (number) {
                 buttons.push({
-                    text: `${t('dashboard.alerts.callEmergency')} (${number})`,
+                    text: `${t('dashboard.alerts.callEmergency')} (${emergencyNumberLabel(t, contact)})`,
                     onPress: () => {
                         Linking.openURL(`tel:${number}`).catch(err =>
                             log.error('[HealthDashboard] Failed to open dialer:', err),
@@ -433,7 +442,7 @@ export const HealthDashboardScreen = () => {
     return (
         <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
             {/* Header */}
-            <LinearGradient colors={[theme.colors.primary, theme.colors.accent]} style={styles.header}>
+            <LinearGradient colors={[theme.colors.primaryStrong, theme.colors.accent]} style={styles.header}>
                 <Text style={styles.headerTitle}>{t('dashboard.title')}</Text>
                 <Text style={styles.headerSubtitle}>{t('dashboard.week')} {pregnancyInfo?.week || '—'}</Text>
             </LinearGradient>
@@ -444,6 +453,7 @@ export const HealthDashboardScreen = () => {
                     <Text style={styles.sectionTitle}>{t('dashboard.weightTracking')}</Text>
                     <TouchableOpacity
                         style={styles.addButton}
+                        hitSlop={ADD_PILL_HIT_SLOP}
                         onPress={() => setShowWeightModal(true)}
                         accessibilityRole="button"
                         accessibilityLabel={t('a11y.addWeight')}
@@ -512,6 +522,7 @@ export const HealthDashboardScreen = () => {
                     <Text style={styles.sectionTitle}>{t('dashboard.bloodPressure')}</Text>
                     <TouchableOpacity
                         style={styles.addButton}
+                        hitSlop={ADD_PILL_HIT_SLOP}
                         onPress={() => setShowBPModal(true)}
                         accessibilityRole="button"
                         accessibilityLabel={`${t('dashboard.bloodPressure')}, ${t('a11y.addNew')}`}
@@ -559,6 +570,7 @@ export const HealthDashboardScreen = () => {
                     <Text style={styles.sectionTitle}>🩸 {t('dashboard.glucose')}</Text>
                     <TouchableOpacity
                         style={styles.addButton}
+                        hitSlop={ADD_PILL_HIT_SLOP}
                         onPress={() => setShowGlucoseModal(true)}
                         accessibilityRole="button"
                         accessibilityLabel={`${t('dashboard.glucose')}, ${t('a11y.addNew')}`}
@@ -571,13 +583,13 @@ export const HealthDashboardScreen = () => {
                         <View style={styles.statsRow}>
                             <View style={styles.statBox}>
                                 <Text style={styles.statLabel}>{t('dashboard.glucose')}</Text>
-                                <Text style={[styles.statValue, { color: theme.colors.accentOrangeDeep }]}>
+                                <Text style={[styles.statValue, { color: theme.colors.deepOrange900 }]}>
                                     {glucoseHistory[0].value} {t('dashboard.mmolL')}
                                 </Text>
                             </View>
                             <View style={styles.statBox}>
                                 <Text style={styles.statLabel}>{t('dashboard.glucoseNormal')}</Text>
-                                <Text style={{ fontSize: 11, color: theme.colors.neutral400, textAlign: 'center', maxWidth: 120 }}>
+                                <Text style={{ fontSize: 11, color: theme.colors.textMuted, textAlign: 'center', maxWidth: 120 }}>
                                     {t('dashboard.glucoseTarget')}
                                 </Text>
                             </View>
@@ -594,7 +606,7 @@ export const HealthDashboardScreen = () => {
                 ) : (
                     <>
                         <Text style={styles.emptyText}>{t('dashboard.glucoseNormal')}</Text>
-                        <Text style={[styles.emptyText, { color: theme.colors.neutral400, fontSize: 12, marginTop: 4 }]}>
+                        <Text style={[styles.emptyText, { color: theme.colors.textMuted, fontSize: 12, marginTop: 4 }]}>
                             {t('dashboard.glucoseTarget')}
                         </Text>
                     </>
@@ -636,6 +648,7 @@ export const HealthDashboardScreen = () => {
                 <View style={styles.sectionHeader}>
                     <Text style={styles.sectionTitle}>{t('dashboard.appointments')}</Text>
                     <TouchableOpacity
+                        style={styles.linkTouch}
                         onPress={() => navigation.navigate('Calendrier', { screen: 'CalendarMain', params: {} })}
                         accessibilityRole="button"
                         accessibilityLabel={t('dashboard.seeAll')}
@@ -661,6 +674,7 @@ export const HealthDashboardScreen = () => {
                 <View style={styles.sectionHeader}>
                     <Text style={styles.sectionTitle}>{t('dashboard.remindersThisWeek')}</Text>
                     <TouchableOpacity
+                        style={styles.linkTouch}
                         onPress={() => navigation.navigate('Rappels')}
                         accessibilityRole="button"
                         accessibilityLabel={t('dashboard.seeAll')}

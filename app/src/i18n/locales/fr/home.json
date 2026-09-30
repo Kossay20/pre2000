@@ -18,7 +18,7 @@
   "toAvoid": "À éviter",
   "upcomingAppointments": "Vos prochains rendez-vous",
   "babyEvolution": "Voir l'évolution mois par mois",
-  "swipeToSee": "Balayez pour voir les 9 mois de développement",
+  "tapDotToSee": "Touchez un point pour voir chacun des 9 mois de développement",
   "youAreHere": "📍 Vous êtes ici",
   "development": "🌟 Développement",
   "trimester1": "1er",
@@ -57,5 +57,6 @@
     "body": "Autorisez les notifications pour recevoir un rappel avant vos rendez-vous, vos rappels du quotidien et le message de bébé du jour. Vous choisissez lesquels dans l'onglet Rappels.",
     "enable": "Activer les notifications",
     "later": "Plus tard"
-  }
+  },
+  "postTermNote": "Vous êtes à {{ga}} : la date prévue d'accouchement est passée. Restez en lien avec votre maternité ou votre sage-femme."
 }

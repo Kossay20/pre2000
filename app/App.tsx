@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Platform, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Platform, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as Sentry from '@sentry/react-native';
 import { logger } from './src/utils/logger';
@@ -238,6 +238,12 @@ const RemindersStack = () => {
 
 const MainTabs = () => {
   const { t } = useTranslation();
+  // Five tabs share the width. Below ~64pt of unscaled room per tab the longest labels
+  // ("Calendrier", "Ressources") truncate to "Calend…"; step the label down a point
+  // there rather than cutting the word. fontScale covers Android's larger text setting.
+  const { width, fontScale } = useWindowDimensions();
+  const narrowTabs = width / 5 / fontScale < 64;
+  const tabLabelFontSize = narrowTabs ? 9 : 10;
   return (
     <Tab.Navigator
       detachInactiveScreens
@@ -256,6 +262,17 @@ const MainTabs = () => {
         tabBarStyle: {
           backgroundColor: theme.colors.white,
           borderTopColor: theme.colors.border,
+        },
+        // In the 48-49pt bar the 28pt icon box and the tab's 5pt padding left the one-line
+        // label 10pt for a ~13pt line, so it clipped its own descenders ("Rappels" read
+        // "Raooels" in the store screenshots). A 24pt icon box (the glyph is 25pt and
+        // overflows it harmlessly) gives the label its full line box. On narrow bars the
+        // label also borrows the tab's side padding so "Ressources" is not cut.
+        tabBarIconStyle: { height: 24 },
+        tabBarLabelStyle: {
+          fontSize: tabLabelFontSize,
+          lineHeight: Math.ceil(tabLabelFontSize * 1.4),
+          ...(narrowTabs ? { marginHorizontal: -4 } : {}),
         },
         // PHASE 2.3 FIX (E2E audit 2026-05-08): replace emoji <Text> with vector
         // icons. RNWeb was rendering the emoji twice in the a11y tree (`tab "🏠 🏠

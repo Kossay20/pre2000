@@ -36,8 +36,8 @@ export const styles = StyleSheet.create({
         marginBottom: 16,
     },
     navButton: {
-        width: 40,
-        height: 40,
+        width: 44,
+        height: 44,
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -53,13 +53,13 @@ export const styles = StyleSheet.create({
     },
     weekText: {
         fontSize: 13,
-        color: theme.colors.whiteAlpha90,
+        color: theme.colors.white,
         fontWeight: '600',
         marginTop: 4,
     },
     rdvInfoText: {
         fontSize: 14,
-        color: theme.colors.whiteAlpha95,
+        color: theme.colors.white,
         fontWeight: '500',
         textAlign: 'center',
         marginBottom: 4,
@@ -82,7 +82,7 @@ export const styles = StyleSheet.create({
         paddingBottom: 12,
     },
     rdvCountBadge: {
-        backgroundColor: theme.colors.whiteAlpha30,
+        backgroundColor: theme.colors.headerChipBg,
         paddingHorizontal: 10,
         paddingVertical: 4,
         borderRadius: theme.borderRadius.m,
@@ -97,11 +97,11 @@ export const styles = StyleSheet.create({
     },
     rdvCountLabel: {
         fontSize: 11,
-        color: theme.colors.whiteAlpha90,
+        color: theme.colors.white,
         fontWeight: '500',
     },
     weekBadge: {
-        backgroundColor: theme.colors.whiteAlpha25,
+        backgroundColor: theme.colors.headerChipBg,
         paddingHorizontal: 12,
         paddingVertical: 6,
         borderRadius: theme.borderRadius.xl,
@@ -126,7 +126,7 @@ export const styles = StyleSheet.create({
     },
     suggestionsSection: {
         backgroundColor: theme.colors.surfaceAmberTint,
-        marginHorizontal: 16,
+        marginHorizontal: 0, // listContent supplies the gutter (see monthGrid)
         marginVertical: 8,
         borderRadius: theme.borderRadius.m,
         padding: 12,
@@ -142,7 +142,7 @@ export const styles = StyleSheet.create({
     suggestionsSectionTitle: {
         fontSize: 14,
         fontWeight: '600',
-        color: theme.colors.accentOrangeDeep,
+        color: theme.colors.deepOrange900,
     },
     suggestionsSectionClose: {
         fontSize: 18,
@@ -173,7 +173,7 @@ export const styles = StyleSheet.create({
     scrollIndicatorText: {
         fontSize: 9,
         fontWeight: '600',
-        color: theme.colors.accentOrangeDeep,
+        color: theme.colors.deepOrange900,
         textAlign: 'center',
     },
     suggestionItem: {
@@ -196,12 +196,12 @@ export const styles = StyleSheet.create({
     },
     suggestionItemDate: {
         fontSize: 10,
-        color: theme.colors.neutral400,
+        color: theme.colors.textMuted,
         marginTop: 4,
         fontStyle: 'italic',
     },
     todayButton: {
-        backgroundColor: theme.colors.whiteAlpha30,
+        backgroundColor: theme.colors.headerChipBg,
         paddingHorizontal: 12,
         paddingVertical: 6,
         borderRadius: theme.borderRadius.xl,
@@ -215,7 +215,7 @@ export const styles = StyleSheet.create({
     },
     viewToggleContainer: {
         flexDirection: 'row',
-        backgroundColor: theme.colors.whiteAlpha20,
+        backgroundColor: theme.colors.headerChipBg,
         borderRadius: theme.borderRadius.xl,
         padding: 2,
     },
@@ -230,14 +230,14 @@ export const styles = StyleSheet.create({
     viewToggleText: {
         fontSize: 12,
         fontWeight: '600',
-        color: theme.colors.whiteAlpha90,
+        color: theme.colors.white,
     },
     viewToggleTextActive: {
         color: theme.colors.accent,
     },
     statsCard: {
         backgroundColor: theme.colors.white,
-        marginHorizontal: 16,
+        marginHorizontal: 0, // listContent supplies the gutter (see monthGrid)
         marginTop: 16,
         marginBottom: 12,
         padding: 16,
@@ -273,7 +273,9 @@ export const styles = StyleSheet.create({
     },
     monthGrid: {
         backgroundColor: theme.colors.white,
-        marginHorizontal: 16,
+        // The FlatList content already has a 16pt gutter (listContent). A second 16pt
+        // margin here shrank each day cell to 41pt on a 375pt phone — under the 44pt target.
+        marginHorizontal: 0,
         marginVertical: 12,
         borderRadius: theme.borderRadius.l,
         padding: 12,
@@ -409,10 +411,13 @@ export const styles = StyleSheet.create({
         paddingHorizontal: 16,
         paddingBottom: 120,
     },
+    // Centred copy kept out of the FAB's column (56pt button + 20pt inset − the 16pt
+    // list gutter = 60): at 375pt the "+" sat on the end of "Aucun événement…".
     emptyState: {
         alignItems: 'center',
         marginTop: 40,
-        padding: 24,
+        paddingVertical: 24,
+        paddingHorizontal: 60,
     },
     emptyEmoji: {
         fontSize: 48,
@@ -466,7 +471,7 @@ export const styles = StyleSheet.create({
     },
     headerSubtitle: {
         fontSize: 12,
-        color: theme.colors.whiteAlpha90,
+        color: theme.colors.white,
         marginTop: 2,
     },
     viewSelector: {
@@ -477,7 +482,7 @@ export const styles = StyleSheet.create({
     },
     selectorGroup: {
         flexDirection: 'row',
-        backgroundColor: theme.colors.whiteAlpha20,
+        backgroundColor: theme.colors.headerChipBg,
         borderRadius: theme.borderRadius.xl,
         padding: 2,
     },
@@ -492,7 +497,7 @@ export const styles = StyleSheet.create({
     selectorText: {
         fontSize: 12,
         fontWeight: '600',
-        color: theme.colors.whiteAlpha90,
+        color: theme.colors.white,
     },
     selectorTextActive: {
         color: theme.colors.accent,
@@ -508,6 +513,6 @@ export const styles = StyleSheet.create({
     suggestionText: {
         fontSize: 11,
         fontWeight: 'bold',
-        color: theme.colors.white,
+        color: theme.colors.text,
     },
 });

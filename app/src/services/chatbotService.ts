@@ -304,6 +304,48 @@ const ensureEngineInitialized = async () => {
     }
 };
 
+// Suggestion chips whose label REPORTS the very symptom of their linked red flag (bleeding →
+// antepartum haemorrhage, baby not moving, strong abdominal pain, violent headache, fever, vision
+// problems). Other chips keep a linked flag only as a related warning — "How to handle
+// postpartum?" links to suicidal ideation, "I feel bloated" to facial swelling — and must not
+// raise an alert block on a tap. Which chip escalates is a clinical call: change it with review.
+const CHIPS_REPORTING_LINKED_RED_FLAG = new Set(['cs06', 'cs07', 'cs08', 'cs09', 'cs13', 'cs14']);
+
+/** The suggestion whose label (in any language) is exactly the message, i.e. a tapped chip. */
+const findExactChip = (text: string, suggestions: ChatbotSuggestion[]): ChatbotSuggestion | undefined => {
+    const typed = text.toLowerCase().trim();
+    return suggestions.find(s =>
+        [s.label_fr, s.label_ar, s.label_tn, s.label_en].some(l => !!l && l.toLowerCase() === typed));
+};
+
+const buildRedFlagResponse = async (topFlag: RedFlag, matchScore: number): Promise<ChatResponse> => {
+    // Fetch linked articles — use cache
+    const allArticles = await getArticlesCached();
+    const linkedArticles = allArticles
+        .filter(a => topFlag.linked_articles_ids.includes(a.article_id))
+        .slice(0, 3);
+
+    // Build a more helpful red flag response
+    let redFlagMessage = getLocalizedContent(topFlag, 'standard_message', i18n.language) || i18n.t('common.chatResponse.redFlagDefault');
+
+    // Add reassuring context based on severity
+    if (topFlag.severity?.toLowerCase() === 'emergency' || topFlag.severity?.toLowerCase() === 'critique') {
+        redFlagMessage = `🚨 ${redFlagMessage}\n\n${i18n.t('common.chatResponse.redFlagCritical')}`;
+    } else if (topFlag.severity?.toLowerCase() === 'urgent_consult' || topFlag.severity?.toLowerCase() === 'élevé') {
+        redFlagMessage = `⚠️ ${redFlagMessage}\n\n${i18n.t('common.chatResponse.redFlagHigh')}`;
+    } else {
+        redFlagMessage = `⚠️ ${redFlagMessage}\n\n${i18n.t('common.chatResponse.redFlagModerate')}`;
+    }
+
+    return {
+        type: 'red_flag',
+        message: redFlagMessage,
+        redFlag: topFlag,
+        articles: linkedArticles,
+        matchScore,
+    };
+};
+
 /**
  * Enhanced Chatbot Service (Phase 1)
  * Uses KeywordEngine for fuzzy matching and negation handling.
@@ -644,6 +686,17 @@ export const _analyzeMessage = async (text: string): Promise<ChatResponse> => {
 
     // 2. Check Red Flags (Critical) — use cache
     const redFlags = await getRedFlagsCached();
+    const suggestions = await getSuggestionsCached();
+
+    // A tapped chip (or its exact label typed) whose symptom IS its linked red flag gets that
+    // flag's full triage response — the same alert block + call button a typed report gets — in
+    // every language, because the chip's intent does not depend on the locale it is shown in.
+    const exactChip = findExactChip(text, suggestions);
+    if (exactChip && CHIPS_REPORTING_LINKED_RED_FLAG.has(exactChip.suggestion_id)) {
+        const chipFlagId = (exactChip.linked_red_flag_ids || '').split(',')[0].trim();
+        const chipFlag = redFlags.find(f => f.red_flag_id === chipFlagId);
+        if (chipFlag) return buildRedFlagResponse(chipFlag, 100);
+    }
     const matchedFlags: { flag: RedFlag; severityScore: number; matchCount: number }[] = [];
 
     for (const flag of redFlags) {
@@ -871,7 +924,12 @@ export const _analyzeMessage = async (text: string): Promise<ChatResponse> => {
         }
     }
 
-    if (matchedFlags.length > 0) {
+    // A chip label is triaged by the chip itself (above), never by how its wording happens to
+    // tokenize in the active language — otherwise the same tapped chip escalates in one locale and
+    // not in another (EN "I'm bleeding a little" was gated as a lone generic "bleeding" while FR
+    // "Je saigne un peu" fired on the specific "saigne"; AR "tired"/"leg cramps" chips escalated to
+    // unrelated headache/eclampsia flags). Non-reporting chips fall through to their suggestion.
+    if (matchedFlags.length > 0 && !exactChip) {
         // CB4-FIX (SAFETY): severity FIRST, match strength only as tiebreaker. The old additive
         // score (matchCount*10 + severity*5) made severity worth just half a keyword, so a
         // multi-symptom URGENT flag could outrank a higher-severity EMERGENCY — e.g.
@@ -879,39 +937,12 @@ export const _analyzeMessage = async (text: string): Promise<ChatResponse> => {
         // breathing EMERGENCY. A described emergency must always win over a non-emergency,
         // regardless of how many keywords the lesser flag matched.
         matchedFlags.sort((a, b) => (b.severityScore - a.severityScore) || (b.matchCount - a.matchCount));
-        const topFlag = matchedFlags[0].flag;
-
-        // Fetch linked articles — use cache
-        const allArticles = await getArticlesCached();
-        const linkedArticles = allArticles
-            .filter(a => topFlag.linked_articles_ids.includes(a.article_id))
-            .slice(0, 3);
-
-        // Build a more helpful red flag response
-        let redFlagMessage = getLocalizedContent(topFlag, 'standard_message', i18n.language) || i18n.t('common.chatResponse.redFlagDefault');
-
-        // Add reassuring context based on severity
-        if (topFlag.severity?.toLowerCase() === 'emergency' || topFlag.severity?.toLowerCase() === 'critique') {
-            redFlagMessage = `🚨 ${redFlagMessage}\n\n${i18n.t('common.chatResponse.redFlagCritical')}`;
-        } else if (topFlag.severity?.toLowerCase() === 'urgent_consult' || topFlag.severity?.toLowerCase() === 'élevé') {
-            redFlagMessage = `⚠️ ${redFlagMessage}\n\n${i18n.t('common.chatResponse.redFlagHigh')}`;
-        } else {
-            redFlagMessage = `⚠️ ${redFlagMessage}\n\n${i18n.t('common.chatResponse.redFlagModerate')}`;
-        }
-
-        return {
-            type: 'red_flag',
-            message: redFlagMessage,
-            redFlag: topFlag,
-            articles: linkedArticles,
-            matchScore: matchedFlags[0].matchCount,
-        };
+        return buildRedFlagResponse(matchedFlags[0].flag, matchedFlags[0].matchCount);
     }
 
     // 3. Check Suggestions (Topic-based)
     // BUG-03 FIX: removed !textIsArabic guard — Arabic users deserve suggestions too.
     // For Arabic-script input, we match directly on label_ar words instead of via positive[]
-    const suggestions = await getSuggestionsCached();
     const matchedSuggestions: { suggestion: ChatbotSuggestion; score: number; exact: boolean }[] = [];
 
     // Extract raw Arabic tokens from input for direct AR label matching

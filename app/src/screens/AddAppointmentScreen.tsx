@@ -15,7 +15,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { usePregnancy } from '../context/PregnancyContext';
-import { saveUserEvent, calculateWeekFromDate, updateUserEvent } from '../services/calendarService';
+import { saveUserEvent, calculateWeekFromDate, updateUserEvent, newUserEventId } from '../services/calendarService';
 import { scheduleRDVReminders, cancelRDVReminders, getRDVReminders, getRDVPreference } from '../services/rdvNotificationService';
 import { requestNotificationsAndResync } from '../services/notificationPermissionFlow';
 import { analyticsService } from '../services/analyticsService';
@@ -119,6 +119,10 @@ export const AddAppointmentScreen = () => {
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [showTimePicker, setShowTimePicker] = useState(false);
     const [saving, setSaving] = useState(false);
+    // One document id per form: a second Save (after an error, or a retry while the
+    // first write is still queued offline) overwrites that document instead of
+    // creating a duplicate appointment.
+    const newEventIdRef = React.useRef<string>(newUserEventId());
 
     // Reminder settings - 3 independent options
     const [reminderJ1, setReminderJ1] = useState(true);   // Veille à 8h
@@ -434,7 +438,7 @@ export const AddAppointmentScreen = () => {
             if (editingEvent?.id) {
                 // UPDATE existing event
                 eventId = editingEvent.id;
-                await updateUserEvent(editingEvent.id, {
+                const { pendingSync } = await updateUserEvent(editingEvent.id, {
                     title: title.trim(),
                     date: date.toISOString(),
                     week,
@@ -443,7 +447,7 @@ export const AddAppointmentScreen = () => {
                     location: location.trim() || undefined,
                     notes: notes.trim() || undefined,
                 });
-                showToast(t('addAppointment.successEdit'), 'success');
+                showToast(pendingSync ? t('addAppointment.savedOffline') : t('addAppointment.successEdit'), pendingSync ? 'info' : 'success');
             } else {
                 // CREATE new event
                 const result = await saveUserEvent({
@@ -455,12 +459,17 @@ export const AddAppointmentScreen = () => {
                     category: type, // CAL-04: persist the real Medical/Personal selection
                     location: location.trim() || undefined,
                     notes: notes.trim() || undefined,
-                });
+                }, { eventId: newEventIdRef.current });
                 // U-FIX-3: was `(result as any)?.id` but saveUserEvent returns `event_id`,
                 // so eventId always fell back to `temp_*` — notifications were orphaned from
                 // the real Firestore doc. Now reads the correct field.
                 eventId = result?.event_id || `temp_${Date.now()}`;
-                showToast(t('addAppointment.successAdd'), 'success');
+                // Offline the write is queued, not lost: say so instead of claiming it
+                // reached the server (and instead of spinning on "Enregistrement…").
+                showToast(
+                    result.pendingSync ? t('addAppointment.savedOffline') : t('addAppointment.successAdd'),
+                    result.pendingSync ? 'info' : 'success'
+                );
                 // Engagement: Track positive action
                 trackPositiveAction('add_rdv');
                 await analyticsService.logEvent('appointment_created', { type: type });

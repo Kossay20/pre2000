@@ -347,6 +347,8 @@ const styles = StyleSheet.create({
     },
     addTaskButton: {
         backgroundColor: theme.colors.accent,
+        minHeight: 44,
+        justifyContent: 'center',
         paddingVertical: 8,
         paddingHorizontal: 16,
         borderRadius: theme.borderRadius.m,
@@ -370,7 +372,7 @@ const styles = StyleSheet.create({
     },
     emptyText: {
         fontSize: 16,
-        color: theme.colors.neutral400,
+        color: theme.colors.textMuted,
         textAlign: 'center',
     },
     completedTasksLink: {
@@ -400,7 +402,7 @@ const styles = StyleSheet.create({
     sectionLabel: {
         fontSize: 12,
         fontWeight: '700',
-        color: theme.colors.neutral400,
+        color: theme.colors.textMuted,
         letterSpacing: 0.5,
         marginBottom: 12,
     },
@@ -452,7 +454,7 @@ const styles = StyleSheet.create({
     },
     taskTitleCompleted: {
         textDecorationLine: 'line-through',
-        color: theme.colors.gray500,
+        color: theme.colors.textMuted,
     },
     taskMeta: {
         fontSize: 13,

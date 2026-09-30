@@ -240,7 +240,7 @@ const styles = StyleSheet.create({
     },
     sizeText: {
         fontSize: 11,
-        color: theme.colors.gray600,
+        color: theme.colors.textSecondary,
     },
     timeline: {
         flexDirection: 'row',

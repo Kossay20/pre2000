@@ -11,6 +11,7 @@ import { Tag } from '../components/common/Tag';
 import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { getLocalizedContent } from '../utils/i18nHelpers';
+import { normalizeSupplementSafety } from '../utils/supplementSafety';
 import { useRtlScrollFix } from '../hooks/useRtlScrollFix';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
 import { getAllLocalSupplements } from '../services/localContentFallback';
@@ -113,7 +114,7 @@ export const SupplementsListScreen = () => {
             }
 
             // task 10c: safety chip predicate (combined with the search predicate below).
-            if (selectedSafety && supplement.pregnancy_safety !== selectedSafety) {
+            if (selectedSafety && normalizeSupplementSafety(supplement.pregnancy_safety) !== selectedSafety) {
                 return false;
             }
 
@@ -128,13 +129,11 @@ export const SupplementsListScreen = () => {
     }, [supplements, searchQuery, selectedSafety, favoritesActive, bookmarkedIds, i18n.language]);
 
     const getSafetyConfig = (safety: string) => {
-        // W5 #1 (PATIENT-SAFETY): normalize accents so a data token like 'à_surveiller' resolves to
-        // 'a_surveiller', and FAIL SAFE to caution (⚠) for any unrecognized token — NEVER to 'ok'/green.
-        // The old `|| SAFETY_CONFIG.ok` silently rendered mislabeled supplements (incl. Vitamine A,
-        // teratogenic) as ✓ Safe. Defaulting an unknown safety to "à surveiller" is the conservative
-        // failure mode (over-caution, never under-caution).
-        const key = (safety || '').normalize('NFD').replace(/[̀-ͯ]/g, '') as keyof typeof SAFETY_CONFIG;
-        return SAFETY_CONFIG[key] || SAFETY_CONFIG.a_surveiller;
+        // W5 #1 (PATIENT-SAFETY): the shared normaliser maps 'à_surveiller' → 'a_surveiller' and
+        // FAILS SAFE to caution (⚠) for any unrecognized token — NEVER to 'ok'/green. The old
+        // `|| SAFETY_CONFIG.ok` silently rendered mislabeled supplements (incl. Vitamine A,
+        // teratogenic) as ✓ Safe.
+        return SAFETY_CONFIG[normalizeSupplementSafety(safety)];
     };
 
     const renderItem = ({ item }: { item: Supplement }) => {
@@ -213,7 +212,7 @@ export const SupplementsListScreen = () => {
                     <TextInput
                         style={styles.searchInput}
                         placeholder={t('common.searchSupplement')}
-                        placeholderTextColor={theme.colors.neutral400}
+                        placeholderTextColor={theme.colors.textMuted}
                         value={searchQuery}
                         onChangeText={setSearchQuery}
                         returnKeyType="search"
@@ -355,7 +354,7 @@ const styles = StyleSheet.create({
     },
     clearIcon: {
         fontSize: 16,
-        color: theme.colors.neutral400,
+        color: theme.colors.textMuted,
         padding: 4,
     },
     chipScroll: {

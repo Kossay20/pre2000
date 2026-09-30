@@ -16,7 +16,7 @@ export const styles = StyleSheet.create({
         width: 100,
         height: 100,
         borderRadius: 50,
-        backgroundColor: theme.colors.whiteAlpha30,
+        backgroundColor: theme.colors.headerChipBg,
         justifyContent: 'center',
         alignItems: 'center',
         borderWidth: 4,
@@ -36,7 +36,7 @@ export const styles = StyleSheet.create({
     },
     headerSubtitle: {
         fontSize: 14,
-        color: theme.colors.whiteAlpha90,
+        color: theme.colors.white,
     },
     content: {
         padding: 16,
@@ -127,6 +127,8 @@ export const styles = StyleSheet.create({
         gap: 8,
     },
     countryButton: {
+        minHeight: 44,
+        justifyContent: 'center',
         paddingHorizontal: 16,
         paddingVertical: 10,
         borderRadius: theme.borderRadius.xl,
@@ -164,6 +166,8 @@ export const styles = StyleSheet.create({
     },
     dateButton: {
         backgroundColor: theme.colors.surfaceBlueTint,
+        minHeight: 44,
+        justifyContent: 'center',
         paddingHorizontal: 16,
         paddingVertical: 10,
         borderRadius: theme.borderRadius.m,
@@ -191,7 +195,7 @@ export const styles = StyleSheet.create({
     dpaText: {
         fontSize: 20,
         fontWeight: 'bold',
-        color: theme.colors.accentOrangeDeep,
+        color: theme.colors.deepOrange900,
         marginTop: 8,
     },
     dpaSubtext: {
@@ -275,7 +279,7 @@ export const styles = StyleSheet.create({
     resetButtonText: {
         fontSize: 16,
         fontWeight: '600',
-        color: theme.colors.orange900,
+        color: theme.colors.deepOrange900,
     },
     userTypeBadge: {
         backgroundColor: theme.colors.surfaceBlueTint,

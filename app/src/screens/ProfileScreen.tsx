@@ -237,7 +237,7 @@ export const ProfileScreen = () => {
             <ScrollView style={styles.container}>
                 {/* Header with Gradient */}
                 <LinearGradient
-                    colors={[theme.colors.primary, theme.colors.accent]}
+                    colors={[theme.colors.primaryStrong, theme.colors.accent]}
                     style={styles.header}
                 >
                     <View style={styles.profileCircle}>
@@ -496,7 +496,7 @@ export const ProfileScreen = () => {
                         >
                             <View style={styles.menuRowLeft}>
                                 <Ionicons name="refresh-circle-outline" size={24} color={theme.colors.orange900} style={styles.menuIcon} />
-                                <Text style={[styles.menuLabel, { color: theme.colors.orange900 }]}>{t('profile.reset')}</Text>
+                                <Text style={[styles.menuLabel, { color: theme.colors.deepOrange900 }]}>{t('profile.reset')}</Text>
                             </View>
                         </TouchableOpacity>
 

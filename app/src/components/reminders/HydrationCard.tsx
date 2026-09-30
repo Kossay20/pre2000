@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Modal, TextInput, Switch, Ani
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../theme';
+import { MODAL_MAX_WIDTH } from '../../utils/layout';
 import { useTranslation } from 'react-i18next';
 import { HydrationData, loadHydrationData, addIntake, saveHydrationData } from '../../services/hydrationService';
 import { getShadowStyle } from '../../utils/styleUtils';
@@ -67,7 +68,7 @@ export const HydrationCard = () => {
     // Theme Colors (Pink/Peach)
     const cardGradient = [theme.colors.lavenderBlush, theme.colors.roseMisty] as const;
     const progressGradient = [theme.colors.pinkAccentA100, theme.colors.pinkAccentBright] as const;
-    const buttonGradient = [theme.colors.primary, theme.colors.pink400ui] as const;
+    const buttonGradient = [theme.colors.primaryStrong, theme.colors.accent] as const;
     const iconColor = theme.colors.accentDarkPink;
     const textColor = theme.colors.deepPink;
 
@@ -141,6 +142,8 @@ export const HydrationCard = () => {
                         style={styles.addButton}
                         onPress={handleAddWater}
                         activeOpacity={0.8}
+                        accessibilityRole="button"
+                        accessibilityLabel={t('reminders.hydration.addWater')}
                     >
                         <LinearGradient
                             colors={buttonGradient}
@@ -171,7 +174,7 @@ export const HydrationCard = () => {
                                 accessibilityRole="button"
                                 accessibilityLabel={t('a11y.closeModal')}
                             >
-                                <Ionicons name="close" size={24} color={theme.colors.neutral400} />
+                                <Ionicons name="close" size={24} color={theme.colors.textMuted} />
                             </TouchableOpacity>
                         </View>
 
@@ -201,6 +204,7 @@ export const HydrationCard = () => {
                         <View style={styles.switchRow}>
                             <Text style={styles.label}>{t('reminders.hydration.enableReminders')}</Text>
                             <Switch
+                                accessibilityLabel={t('reminders.hydration.enableReminders')}
                                 value={data.reminderEnabled}
                                 onValueChange={async (val) => {
                                     const newData = { ...data, reminderEnabled: val };
@@ -211,7 +215,7 @@ export const HydrationCard = () => {
                             />
                         </View>
 
-                        <TouchableOpacity style={styles.saveButton} onPress={handleSaveSettings}>
+                        <TouchableOpacity style={styles.saveButton} onPress={handleSaveSettings} accessibilityRole="button">
                             <Text style={styles.saveButtonText}>{t('reminders.hydration.save')}</Text>
                         </TouchableOpacity>
                     </View>
@@ -272,8 +276,13 @@ const styles = StyleSheet.create({
         color: theme.colors.pinkDark700,
         fontWeight: '500',
     },
+    // 44pt target around the 24pt gear without growing the card header.
     settingsButton: {
-        padding: 4,
+        minWidth: 44,
+        minHeight: 44,
+        alignItems: 'center',
+        justifyContent: 'center',
+        margin: -8,
     },
     content: {
         gap: 16,
@@ -293,7 +302,7 @@ const styles = StyleSheet.create({
     unit: {
         fontSize: 16,
         fontWeight: '600',
-        color: theme.colors.pinkAccent,
+        color: theme.colors.accent,
     },
     goalText: {
         fontSize: 13,
@@ -362,6 +371,9 @@ const styles = StyleSheet.create({
         padding: 24,
     },
     modalContent: {
+        width: '100%',
+        maxWidth: MODAL_MAX_WIDTH,
+        alignSelf: 'center',
         backgroundColor: theme.colors.white,
         borderRadius: 24,
         padding: 24,
@@ -398,7 +410,7 @@ const styles = StyleSheet.create({
     },
     hint: {
         fontSize: 12,
-        color: theme.colors.pink200,
+        color: theme.colors.textLight,
         marginTop: 6,
         marginStart: 4,
     },

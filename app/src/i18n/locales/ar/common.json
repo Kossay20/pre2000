@@ -21,6 +21,10 @@
   "baby": "الطفل",
   "size": "الحجم",
   "weight": "الوزن",
+  "sizeCrownRump": "الطول (من الرأس إلى المقعدة)",
+  "sizeCrownHeel": "الطول (من الرأس إلى الكعب)",
+  "fetalLengthMicroscopic": "أقل من 1 مم",
+  "fetalWeightUnderOneGram": "أقل من 1 غ",
   "yourBody": "جسمك",
   "toMonitor": "للمراقبة",
   "articles": "المقالات",
@@ -103,8 +107,6 @@
   "languageChangeError": "تعذر تغيير اللغة",
   "infoTitle": "ℹ معلومات",
   "infoLanguageApplied": "سيتم تطبيق اللغة على كل محتوى التطبيق",
-  "infoTranslationsWIP": "بعض الترجمات لا تزال قيد التطوير",
-  "infoFrenchComplete": "الفرنسية هي حالياً اللغة الأكثر اكتمالاً",
   "settings": "الإعدادات",
   "notifications": "الإشعارات",
   "babyMessage": "رسالة الطفل",
@@ -130,7 +132,7 @@
   "privacyPolicy": "سياسة الخصوصية",
   "enableNotifications": "فعّلي الإشعارات لتلقي التذكيرات",
   "myReminders": "تذكيراتي",
-  "trimesterLabel": "الفصل {{trimester}}",
+  "trimesterLabel": "الثلث {{trimester}}",
   "dailyHabits": "العادات اليومية",
   "byCategory": "حسب الفئة",
   "recommendedThisWeek": "موصى بها هذا الأسبوع",
@@ -194,7 +196,7 @@
     "canada": "كندا",
     "usa": "الولايات المتحدة",
     "uk": "المملكة المتحدة",
-    "other": "آخر"
+    "other": "بلد آخر (112، دولي)"
   },
   "babyEvolution": {
     "development": "تطور النمو",
@@ -481,7 +483,10 @@
     "removeSymptom": "إزالة العرض",
     "addSymptom": "إضافة العرض {{name}}",
     "addHealthEntry": "إضافة إدخال صحي",
-    "statusPill": "الحالة: {{status}}"
+    "statusPill": "الحالة: {{status}}",
+    "deleteItem": "حذف: {{name}}",
+    "editItem": "تعديل: {{name}}",
+    "hideItemToday": "إخفاء لليوم: {{name}}"
   },
   "relatedSupplements": "المكملات ذات الصلة",
   "relatedArticles": "مقالات ذات صلة",
@@ -797,7 +802,7 @@
     "save": "حفظ",
     "successUpdate": "تم تحديث الملف الشخصي بنجاح!",
     "errorFirstName": "يرجى إدخال اسمك الأول.",
-    "errorInvalidDate": "تاريخ الحمل غير صالح (أكثر من 40 أسبوعاً أو في المستقبل).",
+    "errorInvalidDate": "تاريخ الحمل غير صالح (أكثر من 42 أسبوعاً أو في المستقبل).",
     "errorUpdate": "تعذر تحديث الملف الشخصي.",
     "errorReset": "تعذر إعادة تعيين الملف الشخصي.",
     "health": "لوحة الصحة",
@@ -846,6 +851,28 @@
     "settingsTitle": "المتابعة الطبّية",
     "settingsSubtitle": "يمكن تعديلها في أيّ وقت",
     "notAnswered": "غير محدّد",
-    "syncWarning": "تمّ الحفظ على هذا الجهاز، لكن لم تتمّ المزامنة مع حسابكِ بعد. ستتمّ عند الاتّصال القادم."
+    "syncWarning": "تمّ الحفظ على هذا الجهاز، لكن لم تتمّ المزامنة مع حسابكِ بعد. ستتمّ عند الاتّصال القادم.",
+    "privacyNoteGuest": "بدون حساب، تبقى هذه المعلومات على هاتفكِ. لا تُشارَك ولا تُباع، وتُستعمل فقط لضبط تذكيراتكِ، وهي لا تغني عن أيّ رأي طبّي."
+  },
+  "gestationalAge": {
+    "format": "{{weeks}} + {{days}}",
+    "weeks_zero": "{{count}} أسبوع",
+    "weeks_one": "أسبوع واحد",
+    "weeks_two": "أسبوعان",
+    "weeks_few": "{{count}} أسابيع",
+    "weeks_many": "{{count}} أسبوعًا",
+    "weeks_other": "{{count}} أسبوع",
+    "days_zero": "{{count}} يوم",
+    "days_one": "يوم واحد",
+    "days_two": "يومان",
+    "days_few": "{{count}} أيام",
+    "days_many": "{{count}} يومًا",
+    "days_other": "{{count}} يوم"
+  },
+  "emergencyNumber": {
+    "international": "{{number}}، دولي",
+    "fallbackNote": "112 هو رقم الطوارئ الدولي.",
+    "regionNote": "تم اختيار الرقم حسب إعدادات هاتفك.",
+    "chooseCountry": "تحديد بلدي"
   }
 }

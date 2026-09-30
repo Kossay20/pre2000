@@ -34,6 +34,7 @@
   "notConnectedMsg": "You must be logged in to add an appointment.",
   "successAdd": "Appointment added!",
   "successEdit": "Appointment updated!",
+  "savedOffline": "Appointment saved on this device. It will sync as soon as you're back online.",
   "errorSaveTitle": "Error",
   "errorSaveMsg": "Could not save appointment: {{error}}",
   "reminderInfoTitle": "Info",

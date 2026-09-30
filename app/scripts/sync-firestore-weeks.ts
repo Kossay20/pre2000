@@ -38,8 +38,10 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 async function syncWeeksToFirestore() {
-    // Load weeks_db.json
-    const weeksPath = path.join(__dirname, '../../weeks_db.json');
+    // Load the bundled weeks_db.json — the same file the app falls back to offline and
+    // the fetal-growth figures are read from. The repo-root copy is a stale export
+    // (kilograms in baby_weight_g from week 28, week 16 at 16 cm) and must not be pushed.
+    const weeksPath = path.join(__dirname, '../src/data/weeks_db.json');
     console.log(`\n📖 Loading ${weeksPath}...`);
 
     const weeksData = JSON.parse(fs.readFileSync(weeksPath, 'utf-8'));

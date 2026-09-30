@@ -348,7 +348,7 @@ const styles = StyleSheet.create({
     },
     streakLabel: {
         fontSize: 14,
-        color: theme.colors.whiteAlpha90,
+        color: theme.colors.white,
         fontWeight: '600',
     },
     badgesContainer: {

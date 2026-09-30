@@ -34,6 +34,7 @@
   "notConnectedMsg": "يجب أن تكوني متصلة لإضافة موعد.",
   "successAdd": "تمت إضافة الموعد !",
   "successEdit": "تم تعديل الموعد !",
+  "savedOffline": "الموعد تسجّل في التليفون. يتزامن كيف ترجع الكونكسيون.",
   "errorSaveTitle": "خطأ",
   "errorSaveMsg": "تعذر حفظ الموعد: {{error}}",
   "reminderInfoTitle": "معلومة",

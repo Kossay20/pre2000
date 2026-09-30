@@ -17,3 +17,9 @@ export const normalizeForSearch = (s: string | null | undefined): string =>
         .replace(/[̀-ͯ]/g, '')        // Latin combining diacritics (é→e, â→a, ç→c)
         .replace(/[ً-ٰٕ]/g, '')  // Arabic harakat/tashkeel + combining hamza/madda + superscript alef
         .trim();
+
+/** True when the normalized query is a substring of any field (an empty query matches everything). */
+export const matchesSearch = (query: string | null | undefined, fields: (string | null | undefined)[]): boolean => {
+    const q = normalizeForSearch(query);
+    return !q || fields.some(f => normalizeForSearch(f).includes(q));
+};

@@ -22,7 +22,7 @@ import { theme } from '../theme';
 import { Tag } from '../components/common/Tag';
 import { SectionHeader } from '../components/common/SectionHeader';
 import { Card } from '../components/common/Card';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useNavigationState, useRoute } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { trackPositiveAction } from '../services/inAppReviewService';
 import { getLocalizedContent } from '../utils/i18nHelpers';
@@ -70,6 +70,11 @@ export const ArticleDetailScreen = () => {
     const route = useRoute<any>();
     const navigation = useNavigation();
     const { t, i18n } = useTranslation(); // Hoisted hook
+    // GJ-008: the stack header draws its own back button whenever this screen has a previous
+    // route in its stack, so the in-body arrow is only shown when the detail opened as the
+    // stack's first screen (deep link, chatbot jump) — there the header has none, and goBack()
+    // falls through to the previous tab.
+    const showInlineBack = useNavigationState(state => state.routes[0]?.key === route.key);
     const { articleId, anchor } = route.params || {};
 
     // State hooks
@@ -377,20 +382,22 @@ export const ArticleDetailScreen = () => {
                     LTR arrangement — back arrow on the left, bookmark on the right. The
                     same (correct) reasoning is already documented in ToastContext and
                     OnboardingScreen; these two detail screens had drifted from it. */}
-                <View style={styles.headerBar}>
-                    <TouchableOpacity
-                        onPress={() => navigation.goBack()}
-                        style={styles.backButton}
-                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                        accessibilityRole="button"
-                        accessibilityLabel={t('a11y.back')}
-                    >
-                        <Ionicons
-                            name={isRTL ? 'arrow-forward' : 'arrow-back'}
-                            size={24}
-                            color={theme.colors.text}
-                        />
-                    </TouchableOpacity>
+                <View style={[styles.headerBar, !showInlineBack && styles.headerBarEndOnly]}>
+                    {showInlineBack && (
+                        <TouchableOpacity
+                            onPress={() => navigation.goBack()}
+                            style={styles.backButton}
+                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                            accessibilityRole="button"
+                            accessibilityLabel={t('a11y.back')}
+                        >
+                            <Ionicons
+                                name={isRTL ? 'arrow-forward' : 'arrow-back'}
+                                size={24}
+                                color={theme.colors.text}
+                            />
+                        </TouchableOpacity>
+                    )}
                     <TouchableOpacity
                         onPress={handleToggleBookmark}
                         style={styles.bookmarkButton}
@@ -566,11 +573,26 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginBottom: theme.spacing.m,
     },
+    // Only the bookmark is left: keep it on the end side (right LTR / left RTL).
+    headerBarEndOnly: {
+        justifyContent: 'flex-end',
+    },
+    // Both header icons get a real 44pt box (hitSlop is ignored on web); the negative
+    // margin keeps the icons where they were drawn.
     backButton: {
         alignSelf: 'flex-start',
+        minWidth: 44,
+        minHeight: 44,
+        alignItems: 'center',
+        justifyContent: 'center',
+        margin: -10,
     },
     bookmarkButton: {
-        padding: theme.spacing.xs,
+        minWidth: 44,
+        minHeight: 44,
+        alignItems: 'center',
+        justifyContent: 'center',
+        margin: -6,
     },
     title: {
         marginTop: theme.spacing.s,

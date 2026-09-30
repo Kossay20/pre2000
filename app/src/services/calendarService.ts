@@ -261,11 +261,61 @@ export const loadUserEvents = async (userId: string): Promise<UserEvent[]> => {
 };
 
 /**
- * Save a new user event to Firestore
+ * How long Save waits for the server before treating a write as queued.
+ *
+ * Firestore applies a write to the local cache immediately but only settles the
+ * `setDoc` promise when the server acknowledges it. Offline that never happens, so
+ * awaiting it left the form on "Enregistrement…" for as long as the device had no
+ * signal — and a user who gave up and re-entered the appointment got a duplicate once
+ * both queued writes synced.
+ */
+export const EVENT_WRITE_ACK_TIMEOUT_MS = 4000;
+
+/**
+ * Client-side id for a new event. The form generates it once, so every Save of that
+ * form writes the same document: a retry overwrites instead of duplicating.
+ * NEW-10 FIX: the random suffix prevents collisions between forms opened in the same
+ * millisecond (Date.now alone can repeat).
+ */
+export const newUserEventId = (): string =>
+    `user_event_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+/**
+ * Resolve 'acked' when the write settles in time, 'queued' when it is still pending
+ * after `ms` (it stays in Firestore's queue and syncs on reconnect). A rejection that
+ * arrives in time is rethrown; a later one is only logged — the caller has moved on.
+ */
+async function awaitWriteAck(write: Promise<void>, ms: number, label: string): Promise<'acked' | 'queued'> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timedOut = new Promise<'queued'>((resolve) => {
+        timer = setTimeout(() => resolve('queued'), ms);
+    });
+    try {
+        const outcome = await Promise.race([write.then(() => 'acked' as const), timedOut]);
+        if (outcome === 'queued') {
+            log.warn(`[CalendarService] ${label}: no server ack after ${ms}ms — queued for sync`);
+            write.catch((err) => log.error(`[CalendarService] ${label}: queued write failed:`, err));
+        }
+        return outcome;
+    } finally {
+        clearTimeout(timer);
+    }
+}
+
+export interface SaveUserEventOptions {
+    /** Reuse the form's id (see newUserEventId) so a re-submit is idempotent. */
+    eventId?: string;
+    ackTimeoutMs?: number;
+}
+
+/**
+ * Save a new user event to Firestore. `pendingSync` is true when the write is queued
+ * (offline / no server ack yet) rather than confirmed.
  */
 export const saveUserEvent = async (
-    event: Omit<UserEvent, 'event_id' | 'created_at'>
-): Promise<UserEvent> => {
+    event: Omit<UserEvent, 'event_id' | 'created_at'>,
+    options: SaveUserEventOptions = {}
+): Promise<UserEvent & { pendingSync: boolean }> => {
     // NEW-08 FIX: Guard at service level — prevents PERMISSION_DENIED regardless of UI path
     if (!event.user_id || event.user_id.startsWith('guest_')) {
         log.warn('[CalendarService] Blocked guest from saving event to Firestore');
@@ -273,8 +323,7 @@ export const saveUserEvent = async (
     }
 
     log.info('Saving new user event:', event.title);
-    // NEW-10 FIX: Nano-id prevents ID collisions on rapid double-taps (Date.now alone can repeat)
-    const eventId = `user_event_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const eventId = options.eventId ?? newUserEventId();
 
 
     // Filter out undefined values (Firestore doesn't accept undefined)
@@ -291,9 +340,13 @@ export const saveUserEvent = async (
 
     try {
         log.debug('[CalendarService] Attempting to save document to Firestore:', eventId, JSON.stringify(cleanedEvent));
-        await setDoc(doc(db, 'userEvents', eventId), cleanedEvent);
-        log.success(`User event saved: ${eventId}`);
-        return cleanedEvent as UserEvent;
+        const outcome = await awaitWriteAck(
+            setDoc(doc(db, 'userEvents', eventId), cleanedEvent),
+            options.ackTimeoutMs ?? EVENT_WRITE_ACK_TIMEOUT_MS,
+            `save ${eventId}`,
+        );
+        if (outcome === 'acked') log.success(`User event saved: ${eventId}`);
+        return { ...(cleanedEvent as UserEvent), pendingSync: outcome === 'queued' };
     } catch (error: any) {
         log.error('[CalendarService] Error saving user event:', error);
         log.error('[CalendarService] Error details:', JSON.stringify(error));
@@ -343,8 +396,9 @@ export const deleteUserEvent = async (eventId: string): Promise<void> => {
  */
 export const updateUserEvent = async (
     eventId: string,
-    updates: Partial<Omit<UserEvent, 'event_id' | 'created_at'>>
-): Promise<void> => {
+    updates: Partial<Omit<UserEvent, 'event_id' | 'created_at'>>,
+    options: Pick<SaveUserEventOptions, 'ackTimeoutMs'> = {}
+): Promise<{ pendingSync: boolean }> => {
     log.info(`Updating user event: ${eventId}`);
     try {
         // Filter out undefined values (Firestore doesn't accept undefined)
@@ -358,8 +412,14 @@ export const updateUserEvent = async (
         log.debug('Cleaned updates:', cleanedUpdates);
 
         const eventRef = doc(db, 'userEvents', eventId);
-        await setDoc(eventRef, cleanedUpdates, { merge: true });
-        log.success(`User event updated: ${eventId}`);
+        // Same offline behaviour as saveUserEvent; a merge onto a fixed id is idempotent.
+        const outcome = await awaitWriteAck(
+            setDoc(eventRef, cleanedUpdates, { merge: true }),
+            options.ackTimeoutMs ?? EVENT_WRITE_ACK_TIMEOUT_MS,
+            `update ${eventId}`,
+        );
+        if (outcome === 'acked') log.success(`User event updated: ${eventId}`);
+        return { pendingSync: outcome === 'queued' };
     } catch (error) {
         log.error('Error updating user event:', error);
         throw error;

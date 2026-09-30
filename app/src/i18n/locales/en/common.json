@@ -21,6 +21,10 @@
   "baby": "Baby",
   "size": "Size",
   "weight": "Weight",
+  "sizeCrownRump": "Length (crown to rump)",
+  "sizeCrownHeel": "Length (crown to heel)",
+  "fetalLengthMicroscopic": "< 1 mm",
+  "fetalWeightUnderOneGram": "< 1 g",
   "yourBody": "Your Body",
   "toMonitor": "To Monitor",
   "articles": "Articles",
@@ -99,8 +103,6 @@
   "languageChangeError": "Could not change language",
   "infoTitle": "ℹ Information",
   "infoLanguageApplied": "The language will be applied to all app content",
-  "infoTranslationsWIP": "Some translations are still under development",
-  "infoFrenchComplete": "French is currently the most complete language",
   "settings": "Settings",
   "notifications": "Notifications",
   "babyMessage": "Baby Message",
@@ -186,7 +188,7 @@
     "canada": "Canada",
     "usa": "United States",
     "uk": "United Kingdom",
-    "other": "Other"
+    "other": "Other country (112, international)"
   },
   "babyEvolution": {
     "development": "Development",
@@ -473,7 +475,10 @@
     "removeSymptom": "Remove symptom",
     "addSymptom": "Add symptom {{name}}",
     "addHealthEntry": "Add a health entry",
-    "statusPill": "Status: {{status}}"
+    "statusPill": "Status: {{status}}",
+    "deleteItem": "Delete: {{name}}",
+    "editItem": "Edit: {{name}}",
+    "hideItemToday": "Hide for today: {{name}}"
   },
   "relatedSupplements": "Related Supplements",
   "relatedArticles": "Related articles",
@@ -789,7 +794,7 @@
     "save": "Save",
     "successUpdate": "Profile updated successfully!",
     "errorFirstName": "Please enter your first name.",
-    "errorInvalidDate": "The pregnancy date is invalid (more than 40 weeks or in the future).",
+    "errorInvalidDate": "The pregnancy date is invalid (more than 42 weeks or in the future).",
     "errorUpdate": "Unable to update profile.",
     "errorReset": "Unable to reset profile.",
     "health": "Health Dashboard",
@@ -838,6 +843,20 @@
     "settingsTitle": "Medical follow-up",
     "settingsSubtitle": "Editable at any time",
     "notAnswered": "Not provided",
-    "syncWarning": "Saved on this device, but not yet synced to your account. It will sync on the next connection."
+    "syncWarning": "Saved on this device, but not yet synced to your account. It will sync on the next connection.",
+    "privacyNoteGuest": "Without an account, this stays on your phone. It is never shared or sold, is used only to adjust your reminders, and replaces no medical advice."
+  },
+  "gestationalAge": {
+    "format": "{{weeks}} + {{days}}",
+    "weeks_one": "{{count}} week",
+    "weeks_other": "{{count}} weeks",
+    "days_one": "{{count}} day",
+    "days_other": "{{count}} days"
+  },
+  "emergencyNumber": {
+    "international": "{{number}}, international",
+    "fallbackNote": "112 is the international emergency number.",
+    "regionNote": "Number chosen from your phone's settings.",
+    "chooseCountry": "Set my country"
   }
 }

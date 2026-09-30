@@ -277,7 +277,7 @@ export const SettingsScreen = () => {
                 })}
 
                 <Text style={styles.sectionCopy}>
-                    {t('common.medicalProfile.privacyNote')}
+                    {t(user && !user.isGuest ? 'common.medicalProfile.privacyNote' : 'common.medicalProfile.privacyNoteGuest')}
                 </Text>
             </View>
             )}
@@ -662,6 +662,8 @@ const styles = StyleSheet.create({
     },
     hourButton: {
         flex: 1,
+        minHeight: 44,
+        justifyContent: 'center',
         paddingVertical: 10,
         borderRadius: theme.borderRadius.s,
         borderWidth: 1,
@@ -707,6 +709,6 @@ const styles = StyleSheet.create({
     },
     legalArrow: {
         fontSize: 20,
-        color: theme.colors.neutral400,
+        color: theme.colors.textMuted,
     },
 });

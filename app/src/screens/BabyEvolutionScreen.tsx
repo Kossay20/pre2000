@@ -22,19 +22,17 @@ import { usePregnancy } from '../context/PregnancyContext';
 import { theme } from '../theme';
 import { RtlAwareChevron } from '../components/common/RtlAwareChevron';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
-import { localizeUnit } from '../utils/localizedFormat';
 import { getContentWidth } from '../utils/layout';
+import {
+    fetalLengthLabelKey,
+    formatFetalLength,
+    getFetalComparisonName,
+    getFetalGrowth,
+    monthComparisonWeek,
+} from '../utils/fetalGrowth';
 
 const width = getContentWidth();
 const CARD_WIDTH = width - 48;
-
-// #12: localize the unit suffix of the fruit-comparison size (e.g. "14cm", "2mm")
-// for ar/tn so it reads in Arabic script (سم / مم) alongside the rest of the screen.
-// The numeric prefix keeps Western digits (per localizedFormat convention) and the
-// fr/en strings are returned byte-identical (localizeUnit is identity for Latin locales),
-// preserving their original spacing. Unknown/odd shapes pass through untouched.
-const localizeComparisonSize = (size: string, language: string): string =>
-    size.replace(/^([\d.,\s]+)(mm|cm)$/, (_, value, unit) => `${value}${localizeUnit(unit, language)}`);
 
 export const BabyEvolutionScreen = () => {
     useScreenAnalytics('BabyEvolutionScreen');
@@ -64,6 +62,10 @@ export const BabyEvolutionScreen = () => {
 
     const renderMonthCard = (monthData: BabyGrowthMonth, index: number) => {
         const isCurrentMonth = monthData.month === currentMonth;
+        // The card quotes one week of the weekly table (the user's own week on the
+        // current month), so its fruit and size are exactly what Home shows for it.
+        const comparisonWeek = monthComparisonWeek(monthData.weekStart, monthData.weekEnd, currentWeek);
+        const growth = getFetalGrowth(comparisonWeek);
 
         return (
             <View key={monthData.month} style={styles.cardWrapper}>
@@ -100,10 +102,13 @@ export const BabyEvolutionScreen = () => {
 
                     {/* Size Comparison */}
                     <View style={styles.comparisonContainer}>
-                        <Text style={styles.comparisonEmoji}>{monthData.comparison.emoji}</Text>
+                        <Text style={styles.comparisonEmoji}>{growth.emoji}</Text>
                         <View style={styles.comparisonInfo}>
-                            <Text style={styles.comparisonItem}>{t(monthData.comparison.item)}</Text>
-                            <Text style={styles.comparisonSize}>{localizeComparisonSize(monthData.comparison.size, i18n.language)}</Text>
+                            <Text style={styles.comparisonItem}>{getFetalComparisonName(comparisonWeek, i18n.language)}</Text>
+                            <Text style={styles.comparisonSize}>{formatFetalLength(growth, i18n.language, t)}</Text>
+                            <Text style={styles.comparisonCaption}>
+                                {t('common.weekLabel', { number: comparisonWeek })} · {t(fetalLengthLabelKey(growth))}
+                            </Text>
                         </View>
                     </View>
 
@@ -167,7 +172,8 @@ export const BabyEvolutionScreen = () => {
                         onPress={() => goToMonth(index + 1)}
                         accessibilityRole="button"
                         accessibilityLabel={t('common.monthLabel', { number: index + 1 })}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        accessibilityState={{ selected: activeMonth === index + 1 }}
+                        style={styles.progressDotTouch}
                     >
                         <View
                             style={[
@@ -182,7 +188,9 @@ export const BabyEvolutionScreen = () => {
 
             {/* Month Label */}
             <Text style={styles.monthLabel}>
-                {allMonths[activeMonth - 1]?.comparison.emoji} {t('common.monthLabel', { number: activeMonth })} / 9
+                {allMonths[activeMonth - 1]
+                    ? getFetalGrowth(monthComparisonWeek(allMonths[activeMonth - 1].weekStart, allMonths[activeMonth - 1].weekEnd, currentWeek)).emoji
+                    : ''} {t('common.monthLabel', { number: activeMonth })} / 9
             </Text>
 
             <View style={styles.singleCardWrap} accessibilityLabel={t('common.monthLabel', { number: activeMonth })}>
@@ -194,7 +202,7 @@ export const BabyEvolutionScreen = () => {
             {/* Bottom Info */}
             <View style={styles.bottomInfo}>
                 <Text style={styles.bottomText}>
-                    {t('home.swipeToSee')}
+                    {t('home.tapDotToSee')}
                 </Text>
             </View>
         </SafeAreaView>
@@ -215,6 +223,8 @@ const styles = StyleSheet.create({
     },
     backButton: {
         padding: 8,
+        minHeight: 44,
+        justifyContent: 'center',
     },
     backRow: {
         flexDirection: 'row',
@@ -237,8 +247,17 @@ const styles = StyleSheet.create({
     progressContainer: {
         flexDirection: 'row',
         justifyContent: 'center',
-        gap: 8,
-        paddingVertical: 12,
+        paddingVertical: 4,
+    },
+    // The dot stays 10pt; its pressable box is 44pt tall and shares the row's width
+    // (9 × 44pt does not fit a phone, so each box gets up to 44pt — ~37pt on a 375pt
+    // phone, the full 44pt on a tablet). hitSlop alone is ignored on web.
+    progressDotTouch: {
+        flex: 1,
+        maxWidth: 44,
+        height: 44,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     progressDot: {
         width: 10,
@@ -340,6 +359,11 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: theme.colors.textLight,
     },
+    comparisonCaption: {
+        fontSize: 12,
+        color: theme.colors.textMuted,
+        marginTop: 2,
+    },
     factsContainer: {
         marginBottom: 12,
     },
@@ -396,7 +420,7 @@ const styles = StyleSheet.create({
     },
     bottomText: {
         fontSize: 13,
-        color: theme.colors.neutral400,
+        color: theme.colors.textMuted,
         fontStyle: 'italic',
     },
 });

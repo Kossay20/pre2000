@@ -17,7 +17,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getDeviceRegionCode } from '../utils/deviceRegion';
 import { COUNTRY_OPTIONS, countryFromRegion } from '../utils/clinicalChecks';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, usePreventRemove } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { usePregnancy } from '../context/PregnancyContext';
 import { theme } from '../theme';
@@ -27,12 +27,15 @@ import { Button } from '../components/common/Button';
 import { ErrorMessage } from '../components/common/ErrorMessage';
 import { format, subDays } from 'date-fns';
 import { useTranslation } from 'react-i18next';
-import { analytics, auth } from '../config/firebase';
+import { analytics, auth, db } from '../config/firebase';
+import { doc, getDoc } from 'firebase/firestore';
+import { shouldPreserveExistingProfile } from '../context/loginHelpers';
 import { logEvent } from 'firebase/analytics';
 import { getFirebaseErrorMessage } from '../utils/firebaseErrors';
 import { useAuthLoading } from '../hooks/useAuthLoading';
 import { retryOperation } from '../utils/retry';
 import { calculatePregnancyWeek } from '../utils/pregnancyCalculator';
+import { formatGestationalAge } from '../utils/gestationalAge';
 import { useDateLocale } from '../hooks/useDateLocale';
 import { getPickerLocale } from '../utils/pickerLocale';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
@@ -172,6 +175,11 @@ export const OnboardingScreen = () => {
     }, [selectedDate, dateMethod]);
 
     const weekComparison = WEEK_COMPARISONS[pregnancyInfo.week] || WEEK_COMPARISONS[1];
+    // The week and day in progress for display, unclamped: a post-term pregnancy reads
+    // "Semaine 41" here, while pregnancyInfo.week stays on 40 for the week content.
+    const displayWeek = pregnancyInfo.completedWeeks + 1;
+    const displayDay = pregnancyInfo.completedDays + 1;
+    const gestationalAge = formatGestationalAge(t, pregnancyInfo.completedWeeks, pregnancyInfo.completedDays);
 
     // Animation for step transitions
     const stepRef = useRef(step);
@@ -212,9 +220,38 @@ export const OnboardingScreen = () => {
         return () => sub.remove();
     }, [prevStep]);
 
+    // A-015: the stack header's back arrow (and the browser's back button on web)
+    // popped the whole Onboarding route from any step, silently dropping the date,
+    // name, country and medical answers — while the in-body "Retour" and Android's
+    // back went one step back. Past step 1 every back now means "previous step".
+    usePreventRemove(step > 1, () => {
+        prevStep();
+    });
+
     const handleDateChange = (event: any, date?: Date) => {
         setShowDatePicker(Platform.OS === 'ios');
         if (date) setSelectedDate(date);
+    };
+
+    // A-023. The step-4 email already had an account and we signed into it. If that
+    // account already holds a pregnancy profile, the answers just given must not
+    // replace it silently — nor be thrown away silently. Ask. Resolves true only when
+    // she chooses to replace it. False means keep it (also when it cannot be read) —
+    // or that there is nothing to keep, where loginAsGuest's normal create runs.
+    const confirmReplaceExistingProfile = async (uid: string): Promise<boolean> => {
+        try {
+            const snap = await getDoc(doc(db, 'userProfiles', uid));
+            if (!shouldPreserveExistingProfile(snap)) return false;
+        } catch (readError) {
+            log.warn('[Onboarding] ⚠️ Could not read the existing profile — keeping it:', readError);
+            return false;
+        }
+        return new Promise<boolean>((resolve) => {
+            showAlert(t('onboarding.existingProfile.title'), t('onboarding.existingProfile.message'), [
+                { text: t('onboarding.existingProfile.keep'), style: 'cancel', onPress: () => resolve(false) },
+                { text: t('onboarding.existingProfile.replace'), style: 'destructive', onPress: () => resolve(true) },
+            ]);
+        });
     };
 
     const handleFinish = async (createAccount: boolean = false) => {
@@ -249,6 +286,7 @@ export const OnboardingScreen = () => {
         await withLoading(async () => {
             try {
                 let authenticatedUser = null;
+                let replaceExisting = false;
 
                 // Create account if requested
                 if (createAccount && email && password) {
@@ -270,6 +308,9 @@ export const OnboardingScreen = () => {
                             // The login function in AuthContext doesn't return the user, it sets state.
                             // But we can get the current user from auth.currentUser immediately after await.
                             authenticatedUser = auth.currentUser;
+                            if (authenticatedUser) {
+                                replaceExisting = await confirmReplaceExistingProfile(authenticatedUser.uid);
+                            }
                         } else {
                             throw regError;
                         }
@@ -295,7 +336,8 @@ export const OnboardingScreen = () => {
                     medicalFlagsFromAnswers(
                         { hasGestationalDiabetes, hasHypertension, isTwinPregnancy },
                         new Date().toISOString(),
-                    )
+                    ),
+                    { replaceExisting },
                 ));
 
                 log.debug('[Onboarding] ✅ Profile created successfully!');
@@ -440,7 +482,10 @@ export const OnboardingScreen = () => {
                             const newDate = new Date(e.target.value);
                             if (!isNaN(newDate.getTime())) setSelectedDate(newDate);
                         }}
-                        max={new Date().toISOString().split('T')[0]}
+                        // Local today, not UTC: between local and UTC midnight in UTC+1/+2
+                        // the ISO date was yesterday, so today could not be picked.
+                        max={format(new Date(), 'yyyy-MM-dd')}
+                        aria-label={dateMethod === 'ddr' ? t('onboarding.step2.labelDdr') : t('onboarding.step2.labelConception')}
                         style={{
                             width: '100%',
                             padding: 16,
@@ -482,15 +527,20 @@ export const OnboardingScreen = () => {
                 <View style={styles.previewBox}>
                     {pregnancyInfo.isInvalid ? (
                         <Text style={[styles.previewLabel, { color: theme.colors.red700, textAlign: 'center', fontWeight: 'bold' }]}>
-                            {t('onboarding.step2.invalidDate', 'Date invalide : votre grossesse dépasse 40 semaines.')}
+                            {t('onboarding.step2.invalidDate')}
                         </Text>
                     ) : (
                         <>
                             <Text style={styles.previewLabel}>{t('onboarding.step2.previewLabel')}</Text>
-                            <Text style={styles.previewWeek}>{t('onboarding.step2.week')} {pregnancyInfo.week}</Text>
+                            <Text style={styles.previewWeek}>{t('onboarding.step2.week')} {displayWeek}</Text>
                             <Text style={styles.previewSa}>
-                                {t('onboarding.step2.saDays', { week: pregnancyInfo.week - 1, day: pregnancyInfo.day })}
+                                {t('onboarding.step2.saDays', { ga: gestationalAge })}
                             </Text>
+                            {pregnancyInfo.isPostTerm && (
+                                <Text style={[styles.previewLabel, { textAlign: 'center', marginTop: 8 }]} testID="onboarding_postterm_note">
+                                    {t('home.postTermNote', { ga: gestationalAge })}
+                                </Text>
+                            )}
                         </>
                     )}
                 </View>
@@ -560,6 +610,11 @@ export const OnboardingScreen = () => {
 
             <View style={styles.inputGroup}>
                 <Text style={[styles.inputLabel, rtlText]}>{t('onboarding.step3.countryLabel')}</Text>
+                {/* The country picks the emergency number every call button dials, so it
+                    is the one required answer on this step, and the hint says why. It used
+                    to be an unexplained optional list: a phone with no mapped region saved
+                    no country and got an unexplained 112. "Other" is an explicit 112. */}
+                <Text style={[styles.inputHint, rtlText]} testID="onboarding_country_hint">{t('onboarding.step3.countryHint')}</Text>
                 <View style={styles.radioGroup}>
                     {COUNTRY_OPTIONS.map((value) => ({ value, key: `common.countries.${value}` })).map((item) => (
                         <TouchableOpacity
@@ -660,16 +715,31 @@ export const OnboardingScreen = () => {
                     ))}
                 </View>
                 <Text style={[styles.inputHint, rtlText]}>{t('common.medicalProfile.none')}</Text>
-                <Text style={[styles.privacyNote, rtlText]}>{t('common.medicalProfile.privacyNote')}</Text>
+                {/* Only an account's profile is written to our servers (loginAsGuest); a guest's
+                    stays on the phone — saying "saved to your account" to her was false. */}
+                <Text style={[styles.privacyNote, rtlText]}>
+                    {t(user && !user.isGuest ? 'common.medicalProfile.privacyNote' : 'common.medicalProfile.privacyNoteGuest')}
+                </Text>
                 </View>
                 )}
             </View>
 
             <View style={styles.navButtons}>
-                <TouchableOpacity onPress={prevStep} style={styles.backButton}>
+                <TouchableOpacity
+                    onPress={prevStep}
+                    style={styles.backButton}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('a11y.onboardingBack')}
+                >
                     <Text style={styles.backButtonText}>{t('common.back')}</Text>
                 </TouchableOpacity>
-                <Button title={t('common.continue')} onPress={nextStep} style={styles.continueButton} />
+                <Button
+                    title={t('common.continue')}
+                    onPress={nextStep}
+                    style={styles.continueButton}
+                    disabled={!country}
+                    testID="onboarding_step3_continue"
+                />
             </View>
         </ScrollView>
     );
@@ -698,14 +768,14 @@ export const OnboardingScreen = () => {
                         <Text style={styles.finalEmoji}>{weekComparison.emoji}</Text>
 
                         <Text style={styles.finalGreeting}>
-                            {firstName ? `${firstName},` : t('onboarding.step4.defaultName') + ','}
+                            {t('onboarding.step4.greeting', { name: firstName || t('onboarding.step4.defaultName') })}
                         </Text>
 
                         <Text style={styles.finalWeekLabel}>{t('onboarding.step4.youAreAt')}</Text>
 
                         <View style={styles.weekBadge}>
-                            <Text style={styles.weekNumber}>{t('onboarding.step4.weekCaps')} {pregnancyInfo.week}</Text>
-                            <Text style={styles.dayNumber}>{t('onboarding.step4.dayCaps')} {pregnancyInfo.day}</Text>
+                            <Text style={styles.weekNumber}>{t('onboarding.step4.weekCaps')} {displayWeek}</Text>
+                            <Text style={styles.dayNumber}>{t('onboarding.step4.dayCaps')} {displayDay}</Text>
                         </View>
 
                         <Text style={styles.comparisonText}>
@@ -796,17 +866,22 @@ export const OnboardingScreen = () => {
                             </LinearGradient>
                         </TouchableOpacity>
 
-                        <TouchableOpacity
-                            style={[styles.skipAccountButton, loading && styles.startButtonDisabled]}
-                            onPress={() => handleFinish(false)}
-                            disabled={loading}
-                            accessibilityRole="button"
-                            accessibilityLabel={t('onboarding.step4.skipAccount')}
-                            accessibilityState={{ disabled: loading }}
-                            testID="onboarding_step4_skip"
-                        >
-                            <Text style={styles.skipAccountText}>{t('onboarding.step4.skipAccount')}</Text>
-                        </TouchableOpacity>
+                        {/* "Continue without an account" is false for a signed-in user
+                            finishing her profile (needsProfileSetup) — the button above
+                            already finishes it under her account. */}
+                        {!user && (
+                            <TouchableOpacity
+                                style={[styles.skipAccountButton, loading && styles.startButtonDisabled]}
+                                onPress={() => handleFinish(false)}
+                                disabled={loading}
+                                accessibilityRole="button"
+                                accessibilityLabel={t('onboarding.step4.skipAccount')}
+                                accessibilityState={{ disabled: loading }}
+                                testID="onboarding_step4_skip"
+                            >
+                                <Text style={styles.skipAccountText}>{t('onboarding.step4.skipAccount')}</Text>
+                            </TouchableOpacity>
+                        )}
 
                         <TouchableOpacity
                             onPress={prevStep}
@@ -847,7 +922,8 @@ export const OnboardingScreen = () => {
                             const newDate = new Date(e.target.value);
                             if (!isNaN(newDate.getTime())) setLastPeriodDate(newDate);
                         }}
-                        max={new Date().toISOString().split('T')[0]}
+                        max={format(new Date(), 'yyyy-MM-dd')}
+                        aria-label={t('onboarding.step2Ttc.lastPeriodLabel')}
                         style={{
                             width: '100%',
                             padding: 16,
@@ -906,7 +982,12 @@ export const OnboardingScreen = () => {
             </View>
 
             <View style={styles.navButtons}>
-                <TouchableOpacity onPress={prevStep} style={styles.backButton}>
+                <TouchableOpacity
+                    onPress={prevStep}
+                    style={styles.backButton}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('a11y.onboardingBack')}
+                >
                     <Text style={styles.backButtonText}>{t('common.back')}</Text>
                 </TouchableOpacity>
                 <Button title={t('common.continue')} onPress={nextStep} style={styles.continueButton} />
@@ -934,7 +1015,7 @@ export const OnboardingScreen = () => {
                         <Text style={styles.finalEmoji}>💕</Text>
 
                         <Text style={styles.finalGreeting}>
-                            {firstName ? `${firstName},` : t('onboarding.step4.defaultName') + ','}
+                            {t('onboarding.step4.greeting', { name: firstName || t('onboarding.step4.defaultName') })}
                         </Text>
 
                         <Text style={styles.finalWeekLabel}>{t('onboarding.step3Ttc.welcome')}</Text>
@@ -995,6 +1076,8 @@ export const OnboardingScreen = () => {
                             style={styles.startButton}
                             onPress={() => handleFinishTTC(!user)}
                             disabled={loading || (!user && !(email.trim().length > 0 && password.length >= 10 && /\d/.test(password) && /[A-Z]/.test(password)))}
+                            accessibilityRole="button"
+                            accessibilityLabel={loading ? t('onboarding.step4.creatingAccount') : t('onboarding.step3Ttc.start')}
                         >
                             <LinearGradient
                                 colors={loading || (!user && !(email.trim().length > 0 && password.length >= 10 && /\d/.test(password) && /[A-Z]/.test(password)))
@@ -1010,14 +1093,24 @@ export const OnboardingScreen = () => {
                             </LinearGradient>
                         </TouchableOpacity>
 
-                        <TouchableOpacity
-                            style={styles.skipAccountButton}
-                            onPress={() => handleFinishTTC(false)}
-                        >
-                            <Text style={styles.skipAccountText}>{t('onboarding.step4.skipAccount')}</Text>
-                        </TouchableOpacity>
+                        {!user && (
+                            <TouchableOpacity
+                                style={styles.skipAccountButton}
+                                onPress={() => handleFinishTTC(false)}
+                                disabled={loading}
+                                accessibilityRole="button"
+                                accessibilityLabel={t('onboarding.step4.skipAccount')}
+                            >
+                                <Text style={styles.skipAccountText}>{t('onboarding.step4.skipAccount')}</Text>
+                            </TouchableOpacity>
+                        )}
 
-                        <TouchableOpacity onPress={prevStep} style={styles.backButtonFinal}>
+                        <TouchableOpacity
+                            onPress={prevStep}
+                            style={styles.backButtonFinal}
+                            accessibilityRole="button"
+                            accessibilityLabel={t('onboarding.step4.editInfos')}
+                        >
                             <Text style={styles.backButtonText}>{t('onboarding.step4.editInfos')}</Text>
                         </TouchableOpacity>
                     </View>
@@ -1074,7 +1167,12 @@ export const OnboardingScreen = () => {
             </View>
 
             <View style={styles.navButtons}>
-                <TouchableOpacity onPress={prevStep} style={styles.backButton}>
+                <TouchableOpacity
+                    onPress={prevStep}
+                    style={styles.backButton}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('a11y.onboardingBack')}
+                >
                     <Text style={styles.backButtonText}>{t('common.back')}</Text>
                 </TouchableOpacity>
                 <Button title={t('onboarding.discover')} onPress={nextStep} style={styles.continueButton} />
@@ -1127,6 +1225,8 @@ export const OnboardingScreen = () => {
                         style={styles.startButton}
                         onPress={() => handleFinishCurious()}
                         disabled={loading}
+                        accessibilityRole="button"
+                        accessibilityLabel={loading ? t('home.loadingData') : t('onboarding.discover')}
                     >
                         <LinearGradient
                             colors={loading ? [theme.colors.neutral300, theme.colors.gray500] : [theme.colors.primary, theme.colors.accent]}
@@ -1140,7 +1240,12 @@ export const OnboardingScreen = () => {
                         </LinearGradient>
                     </TouchableOpacity>
 
-                    <TouchableOpacity onPress={prevStep} style={styles.backButtonFinal}>
+                    <TouchableOpacity
+                        onPress={prevStep}
+                        style={styles.backButtonFinal}
+                        accessibilityRole="button"
+                        accessibilityLabel={t('onboarding.changeWeek')}
+                    >
                         <Text style={styles.backButtonText}>{t('onboarding.changeWeek')}</Text>
                     </TouchableOpacity>
                 </View>
@@ -1188,6 +1293,7 @@ export const OnboardingScreen = () => {
         await withLoading(async () => {
             try {
                 let authenticatedUser = null;
+                let replaceExisting = false;
 
                 if (createAccount && email && password) {
                     try {
@@ -1200,6 +1306,9 @@ export const OnboardingScreen = () => {
                             log.warn('[Onboarding] ⚠️ TTC Email already in use, recovering...');
                             await login(email.trim(), password, { profileFollows: true });
                             authenticatedUser = auth.currentUser;
+                            if (authenticatedUser) {
+                                replaceExisting = await confirmReplaceExistingProfile(authenticatedUser.uid);
+                            }
                         } else {
                             throw regError;
                         }
@@ -1247,6 +1356,9 @@ export const OnboardingScreen = () => {
                     undefined,
                     authenticatedUser ?? undefined,
                     { isTTC: true, cycleLength },
+                    undefined, // curiousOptions
+                    undefined, // medicalFlags
+                    { replaceExisting },
                 ));
 
                 analytics.then(a => a && logEvent(a, 'onboarding_ttc_complete', {

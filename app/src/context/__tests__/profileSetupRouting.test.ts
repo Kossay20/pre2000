@@ -124,10 +124,14 @@ describe('resolveSessionProfile — what the auth listener / login() install', (
         expect(needsProfileSetup(r!.profile)).toBe(false);
     });
 
-    it('an existing complete document always wins, pending or not', () => {
-        const r = resolveSessionProfile(fakeDocSnap(true, { lmp: LMP, firstName: 'Sara' }), fbUser, null, true);
+    it('an existing complete document is installed when nobody is writing the profile', () => {
+        const r = resolveSessionProfile(fakeDocSnap(true, { lmp: LMP, firstName: 'Sara' }), fbUser, null, false);
         expect(r?.isMinimal).toBe(false);
         expect(r?.profile.pregnancyStartDate).toBe(LMP);
+    });
+
+    it('A-023: even an existing document is left to the caller while pending — Onboarding must ask keep/replace before anything is installed', () => {
+        expect(resolveSessionProfile(fakeDocSnap(true, { lmp: LMP, firstName: 'Sara' }), fbUser, null, true)).toBeNull();
     });
 });
 
@@ -221,6 +225,22 @@ describe('wiring — register lands on Onboarding, profile written under the acc
         const onb = read('src/screens/OnboardingScreen.tsx');
         expect(onb.match(/register\(email\.trim\(\), password, \{ profileFollows: true \}\)/g)).toHaveLength(2);
         expect(onb.match(/login\(email\.trim\(\), password, \{ profileFollows: true \}\)/g)).toHaveLength(2);
+    });
+
+    it('the auth listener leaves the profile to a pending caller, whatever the document holds (A-023)', () => {
+        const listener = auth.slice(auth.indexOf('onAuthStateChanged(auth'), auth.indexOf('const register = async'));
+        expect(listener).toMatch(/await getDoc\(doc\(db, 'userProfiles', fbUser\.uid\)\);\s*if \(profileSetupPendingRef\.current\) \{[\s\S]*?return;/);
+    });
+
+    it('A-023: Onboarding asks before replacing an existing profile, and loginAsGuest only overwrites on replaceExisting', () => {
+        const onb = read('src/screens/OnboardingScreen.tsx');
+        expect(onb).toMatch(/const confirmReplaceExistingProfile = async/);
+        expect(onb.match(/replaceExisting = await confirmReplaceExistingProfile\(authenticatedUser\.uid\)/g)).toHaveLength(2);
+        expect(onb.match(/\{ replaceExisting \},/g)).toHaveLength(2);
+        const lag = block('const loginAsGuest = async', 'const logout = async');
+        expect(lag).toMatch(/if \(!opts\?\.replaceExisting && shouldPreserveExistingProfile\(existingSnap\)\)/);
+        // Replacing keeps createdAt and clears the mode fields a merge would leave behind.
+        expect(lag).toMatch(/if \(opts\?\.replaceExisting\) \{\s*[\s\S]*?delete profileData\.createdAt;/);
     });
 
     it('RegisterScreen no longer races the root navigator with navigate(\'Onboarding\')', () => {

@@ -35,6 +35,12 @@ export type PregnancyInfo = {
     week: number;
     dayInWeek: number;
     isInvalid?: boolean;
+    // 40+0..42+0 SA: past the due date, still a pregnancy. week/dayInWeek stay on
+    // 40/7 (the last day the weeks content covers); the real age is below.
+    isPostTerm?: boolean;
+    // Completed weeks + days ("31 SA + 2 j"), unclamped — see calculatePregnancyWeek.
+    completedWeeks?: number;
+    completedDays?: number;
     mode: PregnancyMode;
 };
 
@@ -252,7 +258,7 @@ export const PregnancyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             return;
         }
 
-        const { week, day, isInvalid } = calculatePregnancyWeek(lmpDate);
+        const { week, day, isInvalid, isPostTerm, completedWeeks, completedDays } = calculatePregnancyWeek(lmpDate);
         log.debug(`[PregnancyContext] 📊 Week ${week}, Day ${day}, isInvalid=${isInvalid}`);
         // Bail out when nothing actually changed. This runs on an hourly interval,
         // and it used to hand back a NEW object every time regardless — invalidating
@@ -263,9 +269,12 @@ export const PregnancyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                 && prev.mode === 'pregnant'
                 && prev.week === week
                 && prev.dayInWeek === day
-                && prev.isInvalid === (isInvalid ?? false)
+                && prev.isInvalid === isInvalid
+                && prev.isPostTerm === isPostTerm
+                && prev.completedWeeks === completedWeeks
+                && prev.completedDays === completedDays
                 ? prev
-                : { week, dayInWeek: day, isInvalid: isInvalid ?? false, mode: 'pregnant' }
+                : { week, dayInWeek: day, isInvalid, isPostTerm, completedWeeks, completedDays, mode: 'pregnant' }
         );
         setTtcInfo(null);
     };

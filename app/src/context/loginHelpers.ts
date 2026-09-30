@@ -78,10 +78,12 @@ export const resolveLoginProfile = (
  * What to install for a Firebase session — the auth listener and `login()` both
  * go through here. Same resolution as `resolveLoginProfile`, with one exception:
  * when a caller is about to write the profile itself (`profileSetupPending` —
- * Onboarding creating the account, a guest upgrading), a missing profile returns
+ * Onboarding creating or recovering the account, a guest upgrading) it returns
  * `null`, meaning "leave the current user alone". Installing the placeholder then
- * would route to Onboarding mid-flight: the working screen unmounts, and an
- * upgrading guest is sent back through onboarding despite having a profile.
+ * would route to Onboarding mid-flight — the working screen unmounts, and an
+ * upgrading guest is sent back through onboarding despite having a profile — and
+ * installing an existing profile would jump to Home before Onboarding has asked
+ * whether to keep it or replace it with the answers just given.
  */
 export const resolveSessionProfile = (
     docSnap: { exists: () => boolean; data: () => any },
@@ -89,8 +91,8 @@ export const resolveSessionProfile = (
     cachedProfile: UserProfile | null | undefined,
     profileSetupPending: boolean
 ): ResolvedLoginProfile | null => {
-    const resolved = resolveLoginProfile(docSnap, firebaseUser, cachedProfile);
-    return resolved.isMinimal && profileSetupPending ? null : resolved;
+    if (profileSetupPending) return null;
+    return resolveLoginProfile(docSnap, firebaseUser, cachedProfile);
 };
 
 /**

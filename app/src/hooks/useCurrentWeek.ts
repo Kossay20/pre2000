@@ -90,6 +90,9 @@ export const useCurrentWeek = (weekNumber?: number) => {
         currentWeekNumber: targetWeek,
         currentDay,
         isInvalid: pregnancyInfo?.isInvalid || false,
+        isPostTerm: pregnancyInfo?.isPostTerm || false,
+        completedWeeks: pregnancyInfo?.completedWeeks,
+        completedDays: pregnancyInfo?.completedDays,
         refetch,
     };
 };

@@ -14,7 +14,7 @@ import {
     linkWithCredential,
     User as FirebaseUser
 } from 'firebase/auth';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, deleteField } from 'firebase/firestore';
 import { deleteUserAccount, finishDeletionAfterReauth, eraseAccountData, resumePendingDeletion } from './accountDeletion';
 import { db, auth } from '../config/firebase';
 import { UserProfile } from '../types';
@@ -69,6 +69,10 @@ interface AuthContextType {
         // Declared conditions collected at onboarding step 3. Sanitised before
         // persistence — see utils/medicalFlags.ts.
         medicalFlags?: MedicalFlags,
+        // The user was asked and chose to replace the profile this account already
+        // has with the answers she just gave (Onboarding's email-already-in-use path).
+        // Without it an existing profile is kept — never overwritten silently.
+        opts?: { replaceExisting?: boolean },
     ) => Promise<void>;
     logout: () => Promise<void>;
     // MA6-FIX: updateProfile now reports success/failure explicitly so callers
@@ -101,8 +105,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // the new sign-in before that write lands and would install the minimal placeholder,
     // which the root navigator reads as "needs onboarding": the screen doing the work
     // would unmount mid-flight and the user would see step 1 flash, or — on an upgrade —
-    // lose the guest profile she already has. While this is set a missing profile is
-    // left alone; whoever set it clears it once the real profile is in place.
+    // lose the guest profile she already has. While this is set the listener and
+    // login() install nothing; whoever set it clears it once the real profile is in
+    // place (loginAsGuest, upgradeGuest).
     const profileSetupPendingRef = useRef(false);
 
     useEffect(() => {
@@ -143,6 +148,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 // Load profile from Firestore for authenticated users
                 try {
                     const docSnap = await getDoc(doc(db, 'userProfiles', fbUser.uid));
+                    if (profileSetupPendingRef.current) {
+                        // The caller owns the profile for this sign-in (see the ref):
+                        // Onboarding may still have to ask whether an existing profile
+                        // is kept or replaced, and installing either one here would swap
+                        // the navigator out from under that question.
+                        log.debug('[AuthContext] Session restored while a caller is writing the profile — left to the caller');
+                        setLoading(false);
+                        return;
+                    }
                     if (docSnap.exists()) {
                         const data = docSnap.data();
                         // FIX: Add uid from Firebase auth (it's not stored in Firestore document)
@@ -356,7 +370,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             if (resolved && !resolved.isMinimal) {
                 log.debug('[AuthContext] ✅ User profile loaded from Firestore');
-            } else {
+            } else if (resolved) {
                 log.warn('[AuthContext] ⚠️ User profile not found in Firestore — bootstrapping minimal profile');
             }
 
@@ -392,6 +406,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // screens de garder `if (user?.isCurious)` au lieu de croire l'utilisatrice enceinte.
         curiousOptions?: { isCurious: true; exploreWeek: number },
         medicalFlags?: MedicalFlags,
+        opts?: { replaceExisting?: boolean },
     ) => {
         // Cycle 3 F100 : tenter signInAnonymously si pas d'utilisateur fourni.
         // Avant : `uid = 'guest_'+Date.now()` ne satisfait PAS `isAuthenticatedReader()`
@@ -516,7 +531,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 // to the normal create path. See shouldPreserveExistingProfile + its unit tests.
                 try {
                     const existingSnap = await getDoc(doc(db, 'userProfiles', uid));
-                    if (shouldPreserveExistingProfile(existingSnap)) {
+                    if (!opts?.replaceExisting && shouldPreserveExistingProfile(existingSnap)) {
                         const stored = existingSnap.data() || {};
                         const adopted = {
                             ...newUser,
@@ -603,6 +618,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 if (medicalFields.medicalProfileAnsweredAt !== undefined)
                     profileData.medicalProfileAnsweredAt = medicalFields.medicalProfileAnsweredAt;
 
+                if (opts?.replaceExisting) {
+                    // She chose to replace an existing profile: keep its createdAt, and
+                    // clear the mode fields this write does not set, or a merge would
+                    // leave a replaced TTC profile flagged TTC (or a stale due date).
+                    delete profileData.createdAt;
+                    for (const key of ['dpa', 'isTTC', 'cycleLength', 'ovulationDate', 'fertileWindowStart', 'fertileWindowEnd', 'isCurious', 'exploreWeek']) {
+                        if (profileData[key] === undefined) profileData[key] = deleteField();
+                    }
+                }
                 await setDoc(doc(db, 'userProfiles', uid), profileData, { merge: true });
                 log.debug('[AuthContext] ✅ Profile saved to Firestore');
             }

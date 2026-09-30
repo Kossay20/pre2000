@@ -17,7 +17,9 @@ import { Card } from '../components/common/Card';
 import { EmptyState } from '../components/common/EmptyState';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
 import { useAuth } from '../context/AuthContext';
-import { resolveEmergencyNumber } from '../utils/clinicalChecks';
+import { resolveEmergencyContact } from '../utils/clinicalChecks';
+import { emergencyNumberLabel } from '../utils/emergencyNumberLabel';
+import { EmergencyNumberNote } from '../components/common/EmergencyNumberNote';
 import { getDeviceRegionCode } from '../utils/deviceRegion';
 import { confirmAction } from '../utils/uiUtils';
 import {
@@ -35,7 +37,8 @@ export const ContractionTimerScreen: React.FC = () => {
     useScreenAnalytics('ContractionTimerScreen');
     const { t } = useTranslation();
     const { user } = useAuth();
-    const emergencyNumber = resolveEmergencyNumber(user?.country, getDeviceRegionCode());
+    const emergencyContact = resolveEmergencyContact(user?.country, getDeviceRegionCode());
+    const emergencyNumber = emergencyContact.number;
     const [state, setState] = useState<ContractionTimerState>({ activeStartedAt: null, history: [] });
     const [now, setNow] = useState<number>(Date.now());
     const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -205,15 +208,16 @@ export const ContractionTimerScreen: React.FC = () => {
                         style={styles.callRow}
                         onPress={onCallEmergency}
                         accessibilityRole="button"
-                        accessibilityLabel={`${t('a11y.emergencyCall')} ${emergencyNumber}`}
+                        accessibilityLabel={`${t('a11y.emergencyCall')} ${emergencyNumberLabel(t, emergencyContact)}`}
                     >
                         {/* This dials the emergency number, not a maternity ward — the
                             label says so, so nobody expects to reach her own maternity. */}
                         <Text style={styles.callText}>
-                            📞 {t('a11y.emergencyCall')} ({emergencyNumber})
+                            📞 {t('a11y.emergencyCall')} ({emergencyNumberLabel(t, emergencyContact)})
                         </Text>
                     </TouchableOpacity>
                 )}
+                <EmergencyNumberNote source={emergencyContact.source} />
 
                 <Text style={styles.disclaimer}>{t('cycle8.contractionTimer.disclaimer')}</Text>
             </ScrollView>

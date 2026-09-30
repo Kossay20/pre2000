@@ -34,6 +34,7 @@
   "notConnectedMsg": "يجب أن تكوني متصلة لإضافة موعد.",
   "successAdd": "تمت إضافة الموعد !",
   "successEdit": "تم تعديل الموعد !",
+  "savedOffline": "تم حفظ الموعد على الجهاز. ستتم مزامنته فور عودة الاتصال.",
   "errorSaveTitle": "خطأ",
   "errorSaveMsg": "تعذر حفظ الموعد: {{error}}",
   "reminderInfoTitle": "معلومة",

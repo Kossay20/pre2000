@@ -100,9 +100,11 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     const getBackgroundColor = () => {
         switch (type) {
-            case 'success': return theme.colors.green500;
-            case 'error': return theme.colors.critical;
-            case 'info': return theme.colors.blue600;
+            // Semantic tokens, not the bright Material 500s: the toast text is white
+            // and #4CAF50 / #F44336 / #2196F3 all sit below 4.5:1 under it.
+            case 'success': return theme.colors.success;
+            case 'error': return theme.colors.error;
+            case 'info': return theme.colors.info;
             default: return theme.colors.neutral900;
         }
     };
@@ -162,7 +164,8 @@ const styles = StyleSheet.create({
         position: 'absolute',
         ...toastFixedPosition(),
         borderRadius: 12,
-        padding: 16,
+        paddingHorizontal: 16,
+        paddingVertical: 8,
         shadowColor: theme.colors.black,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
@@ -170,9 +173,13 @@ const styles = StyleSheet.create({
         elevation: 6,
         zIndex: 9999,
     },
+    // The whole toast is the dismiss button: 44pt tall pressable (the container's
+    // vertical padding moved in here, so the toast is the same height as before).
     content: {
         flexDirection: 'row',
         alignItems: 'center',
+        minHeight: 44,
+        paddingVertical: 8,
     },
     icon: {
         fontSize: 18,

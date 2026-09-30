@@ -150,6 +150,6 @@ const styles = StyleSheet.create({
     },
     taskTitleCompleted: {
         textDecorationLine: 'line-through',
-        color: theme.colors.gray500,
+        color: theme.colors.textMuted,
     },
 });

@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { theme } from '../theme';
+import { MODAL_MAX_WIDTH } from '../utils/layout';
 import { Button } from '../components/common/Button';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
 import {
@@ -205,7 +206,7 @@ export const HospitalBagChecklistScreen: React.FC = () => {
                         <TextInput
                             style={styles.input}
                             placeholder={t('cycle8.hospitalBag.addCustomPlaceholder')}
-                            placeholderTextColor={theme.colors.placeholder}
+                            placeholderTextColor={theme.colors.textMuted}
                             value={draft}
                             onChangeText={setDraft}
                             maxLength={80}
@@ -267,15 +268,18 @@ const styles = StyleSheet.create({
     row: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingVertical: theme.spacing.s,
         paddingHorizontal: theme.spacing.s,
         borderBottomWidth: StyleSheet.hairlineWidth,
         borderBottomColor: theme.colors.borderLight,
     },
+    // The row's vertical padding lives on the toggle so the whole 44pt row height
+    // is the checkbox's tap target, not just the 24pt box and its label line.
     rowToggle: {
         flex: 1,
         flexDirection: 'row',
         alignItems: 'center',
+        minHeight: 44,
+        paddingVertical: theme.spacing.xs,
     },
     removeBtnTouch: {
         paddingHorizontal: theme.spacing.s,
@@ -306,7 +310,7 @@ const styles = StyleSheet.create({
     rowLabel: { ...theme.typography.body, flex: 1, color: theme.colors.text },
     rowLabelChecked: { color: theme.colors.textLight, textDecorationLine: 'line-through' },
     removeText: { color: theme.colors.error, fontSize: 18, fontWeight: '700', paddingHorizontal: theme.spacing.s },
-    addRow: { paddingVertical: theme.spacing.s, paddingHorizontal: theme.spacing.s },
+    addRow: { minHeight: 44, justifyContent: 'center', paddingHorizontal: theme.spacing.s },
     addRowText: { ...theme.typography.caption, color: theme.colors.accent, fontWeight: '600' },
     modalBackdrop: {
         flex: 1,
@@ -315,6 +319,9 @@ const styles = StyleSheet.create({
         padding: theme.spacing.l,
     },
     modalCard: {
+        width: '100%',
+        maxWidth: MODAL_MAX_WIDTH,
+        alignSelf: 'center',
         backgroundColor: theme.colors.cardBackground,
         borderRadius: theme.borderRadius.l,
         padding: theme.spacing.l,

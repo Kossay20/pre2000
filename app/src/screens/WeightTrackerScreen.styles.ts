@@ -64,7 +64,7 @@ export const styles = StyleSheet.create({
     },
     noDataText: {
         fontSize: 16,
-        color: theme.colors.neutral400,
+        color: theme.colors.textMuted,
         fontStyle: 'italic',
     },
     infoCard: {
@@ -175,7 +175,7 @@ export const styles = StyleSheet.create({
     },
     chartYLabel: {
         fontSize: 10,
-        color: theme.colors.neutral400,
+        color: theme.colors.textMuted,
     },
     chartArea: {
         flexDirection: 'row',
@@ -242,7 +242,7 @@ export const styles = StyleSheet.create({
     },
     legendText: {
         fontSize: 11,
-        color: theme.colors.neutral400,
+        color: theme.colors.textMuted,
     },
     addButton: {
         backgroundColor: theme.colors.accent,
@@ -284,12 +284,12 @@ export const styles = StyleSheet.create({
     },
     weightGainText: {
         fontSize: 14,
-        color: theme.colors.neutral400,
+        color: theme.colors.textMuted,
         marginBottom: 4,
     },
     miniStatus: {
         fontSize: 13,
-        color: theme.colors.accentOrangeDeep,
+        color: theme.colors.deepOrange900,
         marginTop: 4,
     },
     gaugeContainer: {
@@ -298,7 +298,7 @@ export const styles = StyleSheet.create({
     },
     gaugeLabel: {
         fontSize: 12,
-        color: theme.colors.neutral400,
+        color: theme.colors.textMuted,
         marginBottom: 8,
         textAlign: 'center',
     },
@@ -419,7 +419,7 @@ export const styles = StyleSheet.create({
     },
     emptyHistory: {
         fontSize: 14,
-        color: theme.colors.neutral400,
+        color: theme.colors.textMuted,
         fontStyle: 'italic',
         textAlign: 'center',
         padding: 20,
@@ -475,7 +475,7 @@ export const styles = StyleSheet.create({
     },
     disclaimerText: {
         fontSize: 12,
-        color: theme.colors.accentOrangeDeep,
+        color: theme.colors.deepOrange900,
         lineHeight: 18,
     },
     // Education section styles
@@ -495,7 +495,7 @@ export const styles = StyleSheet.create({
     },
     educationToggle: {
         fontSize: 12,
-        color: theme.colors.neutral400,
+        color: theme.colors.textMuted,
     },
     educationContent: {
         marginBottom: 16,
@@ -524,7 +524,7 @@ export const styles = StyleSheet.create({
     },
     eduBold: {
         fontWeight: '700',
-        color: theme.colors.pinkAccent,
+        color: theme.colors.accent,
     },
     eduTable: {
         marginTop: 8,
@@ -634,7 +634,7 @@ export const styles = StyleSheet.create({
     },
     demoWarning: {
         fontSize: 12,
-        color: theme.colors.orange500,
+        color: theme.colors.deepOrange900,
         textAlign: 'center',
         marginTop: 8,
         fontStyle: 'italic',

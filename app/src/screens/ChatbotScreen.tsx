@@ -14,7 +14,9 @@ import { useTranslation } from 'react-i18next';
 import { getLocalizedContent } from '../utils/i18nHelpers';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
 import { useAuth } from '../context/AuthContext';
-import { resolveEmergencyNumber } from '../utils/clinicalChecks';
+import { resolveEmergencyContact } from '../utils/clinicalChecks';
+import { emergencyNumberLabel } from '../utils/emergencyNumberLabel';
+import { EmergencyNumberNote } from '../components/common/EmergencyNumberNote';
 import { getDeviceRegionCode } from '../utils/deviceRegion';
 
 interface Message {
@@ -32,7 +34,8 @@ export const ChatbotScreen = () => {
     const isRTL = ['ar', 'tn'].includes(i18n.language);
     // CB4-FIX (SAFETY): the emergency number comes from the profile country, then the
     // device region, then 112 — never from the UI language (Arabic is not Tunisia).
-    const emergencyNumber = resolveEmergencyNumber(user?.country, getDeviceRegionCode());
+    const emergencyContact = resolveEmergencyContact(user?.country, getDeviceRegionCode());
+    const emergencyNumber = emergencyContact.number;
     const [messages, setMessages] = useState<Message[]>([
         { id: '1', text: t('common.chatWelcome'), sender: 'bot' }
     ]);
@@ -125,12 +128,11 @@ export const ChatbotScreen = () => {
 
     const renderMessage = ({ item }: { item: Message }) => {
         const isUser = item.sender === 'user';
-        // FIX-C: RTL bubble alignment
-        const bubbleAlign = isRTL
-            ? (isUser ? { alignSelf: 'flex-start' as const } : { alignSelf: 'flex-end' as const })
-            : {};
+        // No per-language override: alignSelf flex-start/flex-end are logical and already mirror
+        // under I18nManager RTL (native) and the LocaleProvider/dir=rtl (web), so the user bubble
+        // sits on the end side (left in ar/tn). Swapping them for RTL flipped it back to the right.
         return (
-            <View style={[styles.messageContainer, isUser ? styles.userMessage : styles.botMessage, bubbleAlign]}>
+            <View style={[styles.messageContainer, isUser ? styles.userMessage : styles.botMessage]}>
                 <Text style={[styles.messageText, isUser ? styles.userMessageText : styles.botMessageText, { textAlign: 'auto' as const }]}>
                     {item.text}
                 </Text>
@@ -183,13 +185,14 @@ export const ChatbotScreen = () => {
                                 accessibilityLabel={t('a11y.emergencyCall')}
                                 accessibilityHint={t('a11y.emergencyCallHint')}
                             >
-                                <Text style={styles.callButtonText}>📞 {t('common.chatEmergencyAction')} ({emergencyNumber})</Text>
+                                <Text style={styles.callButtonText}>📞 {t('common.chatEmergencyAction')} ({emergencyNumberLabel(t, emergencyContact)})</Text>
                             </TouchableOpacity>
                         ) : (
                             <Text style={styles.alertText}>
                                 {t('common.chatEmergencyAction')}
                             </Text>
                         )}
+                        <EmergencyNumberNote source={emergencyContact.source} />
                     </View>
                 )}
 
@@ -289,6 +292,7 @@ export const ChatbotScreen = () => {
                     horizontal
                     data={suggestions}
                     keyExtractor={item => item.suggestion_id}
+                    contentContainerStyle={styles.suggestionsContent}
                     renderItem={({ item }) => (
                         <TouchableOpacity
                             style={styles.suggestionButton}
@@ -399,8 +403,15 @@ const styles = StyleSheet.create({
         paddingVertical: theme.spacing.s,
         backgroundColor: theme.colors.background,
     },
+    // Chips carry a 4px margin each side; without this the first/last chip sat 4px from the
+    // screen edge. Symmetric padding keeps the 8px+ inset on both ends in LTR and RTL.
+    suggestionsContent: {
+        paddingHorizontal: theme.spacing.s,
+    },
     suggestionButton: {
         backgroundColor: theme.colors.white,
+        minHeight: 44,
+        justifyContent: 'center',
         paddingHorizontal: theme.spacing.m,
         paddingVertical: theme.spacing.s,
         borderRadius: theme.borderRadius.round,
@@ -465,6 +476,8 @@ const styles = StyleSheet.create({
     },
     articleLink: {
         marginTop: 4,
+        minHeight: 44,
+        justifyContent: 'center',
     },
     articleLinkText: {
         color: theme.colors.accent,

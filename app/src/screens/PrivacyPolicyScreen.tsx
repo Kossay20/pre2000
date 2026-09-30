@@ -166,7 +166,7 @@ export const PrivacyPolicyScreen = () => {
                                 <Text style={styles.paragraph}>{t('legalTerms.terms.intro')}</Text>
 
                                 <View style={[styles.alertBox, { borderColor: theme.colors.warning }]}>
-                                    <Text style={[styles.alertText, { color: theme.colors.warning }]}>
+                                    <Text style={[styles.alertText, { color: theme.colors.deepOrange900 }]}>
                                         {t('legalTerms.terms.medical')}
                                     </Text>
                                 </View>
@@ -306,7 +306,7 @@ const styles = StyleSheet.create({
         padding: 12,
         borderRadius: 8,
         marginTop: 12,
-        color: theme.colors.orange900,
+        color: theme.colors.deepOrange900,
         fontWeight: '500',
     },
     alertBox: {
@@ -338,6 +338,6 @@ const styles = StyleSheet.create({
     },
     footerText: {
         fontSize: 12,
-        color: theme.colors.neutral400,
+        color: theme.colors.textMuted,
     },
 });

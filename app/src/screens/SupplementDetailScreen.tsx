@@ -12,9 +12,10 @@ import { theme } from '../theme';
 import { Tag } from '../components/common/Tag';
 import { Card } from '../components/common/Card';
 import { SectionHeader } from '../components/common/SectionHeader';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useNavigationState, useRoute } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { getLocalizedContent } from '../utils/i18nHelpers';
+import { normalizeSupplementSafety } from '../utils/supplementSafety';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
 import { isBookmarked, toggleBookmark, subscribeBookmarks } from '../services/bookmarkService';
 
@@ -49,6 +50,11 @@ export const SupplementDetailScreen = () => {
     const navigation = useNavigation();
     const route = useRoute<any>();
     const { supplementId } = route.params || {};
+    // GJ-008: the stack header draws its own back button whenever this screen has a previous
+    // route in its stack, so the in-body arrow is only shown when the detail opened as the
+    // stack's first screen (deep link, chatbot jump) — there the header has none, and goBack()
+    // falls through to the previous tab.
+    const showInlineBack = useNavigationState(state => state.routes[0]?.key === route.key);
     // AUDIT-FIX (page-by-page validation 2026-06-02): language-derived RTL — I18nManager.isRTL is
     // false on web (forceRTL skipped to avoid reload loop), breaking absolute-positioned mirroring.
     const isRTL = i18n.language === 'ar' || i18n.language === 'tn';
@@ -160,8 +166,10 @@ export const SupplementDetailScreen = () => {
         );
     }
 
+    // Every safety lookup goes through the shared normaliser, so an accented or unknown token
+    // reads the same (caution) here as in the supplements list and its filter.
     const getSafetyColor = (safety: string) => {
-        switch (safety) {
+        switch (normalizeSupplementSafety(safety)) {
             case 'ok': return theme.colors.success;
             case 'a_surveiller': return theme.colors.warning;
             case 'deconseille': return theme.colors.error;
@@ -170,7 +178,7 @@ export const SupplementDetailScreen = () => {
     };
 
     const getSafetyLabel = (safety: string) => {
-        switch (safety) {
+        switch (normalizeSupplementSafety(safety)) {
             case 'ok': return t('common.supplementSafety.safe');
             case 'a_surveiller': return t('common.supplementSafety.caution');
             case 'deconseille': return t('common.supplementSafety.avoid');
@@ -192,20 +200,22 @@ export const SupplementDetailScreen = () => {
                 extra reverse cancelled it and Arabic got the LTR arrangement.
                 (was: RTL-safe: row-reverse flips the
                 bookmark to the opposite side of the back arrow (task 10b). */}
-            <View style={styles.headerBar}>
-                <TouchableOpacity
-                    onPress={() => navigation.goBack()}
-                    style={styles.backButton}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                    accessibilityRole="button"
-                    accessibilityLabel={t('a11y.back')}
-                >
-                    <Ionicons
-                        name={isRTL ? 'arrow-forward' : 'arrow-back'}
-                        size={24}
-                        color={theme.colors.text}
-                    />
-                </TouchableOpacity>
+            <View style={[styles.headerBar, !showInlineBack && styles.headerBarEndOnly]}>
+                {showInlineBack && (
+                    <TouchableOpacity
+                        onPress={() => navigation.goBack()}
+                        style={styles.backButton}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        accessibilityRole="button"
+                        accessibilityLabel={t('a11y.back')}
+                    >
+                        <Ionicons
+                            name={isRTL ? 'arrow-forward' : 'arrow-back'}
+                            size={24}
+                            color={theme.colors.text}
+                        />
+                    </TouchableOpacity>
+                )}
                 <TouchableOpacity
                     onPress={handleToggleBookmark}
                     style={styles.bookmarkButton}
@@ -258,7 +268,7 @@ export const SupplementDetailScreen = () => {
 
             {getLocalizedContent(supplement, 'precautions', i18n.language) !== '' && (
                 <Card style={[styles.card, { borderColor: theme.colors.warning, borderWidth: 1 }]}>
-                    <Text style={[theme.typography.h3, styles.sectionTitle, { color: theme.colors.warning }] as any}>{t('common.precautions')}</Text>
+                    <Text style={[theme.typography.h3, styles.sectionTitle, { color: theme.colors.deepOrange900 }] as any}>{t('common.precautions')}</Text>
                     <Text style={theme.typography.body}>
                         {getLocalizedContent(supplement, 'precautions', i18n.language)}
                     </Text>
@@ -332,6 +342,10 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginBottom: theme.spacing.m,
     },
+    // Only the bookmark is left: keep it on the end side (right LTR / left RTL).
+    headerBarEndOnly: {
+        justifyContent: 'flex-end',
+    },
     backButton: {
         alignSelf: 'flex-start',
     },
@@ -396,7 +410,7 @@ const styles = StyleSheet.create({
     },
     disclaimerText: {
         fontSize: 12,
-        color: theme.colors.accentOrangeDeep,
+        color: theme.colors.deepOrange900,
         lineHeight: 18,
     },
 });

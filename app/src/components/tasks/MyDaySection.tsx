@@ -418,6 +418,8 @@ export const MyDaySection: React.FC<Props> = React.memo(({
                                     <TouchableOpacity
                                         style={styles.actionIcon}
                                         onPress={() => onEditTask && onEditTask(item.id)}
+                                        accessibilityRole="button"
+                                        accessibilityLabel={t('a11y.editItem', { name: item.title })}
                                     >
                                         <Text style={{ fontSize: 16 }}>✏️</Text>
                                     </TouchableOpacity>
@@ -425,6 +427,12 @@ export const MyDaySection: React.FC<Props> = React.memo(({
 
                                 <TouchableOpacity
                                     style={styles.actionIcon}
+                                    // Same 🗑️ glyph, two actions: custom tasks are deleted,
+                                    // reminders/appointments are only hidden for today.
+                                    accessibilityRole="button"
+                                    accessibilityLabel={item.type === 'custom'
+                                        ? t('a11y.deleteItem', { name: item.title })
+                                        : t('a11y.hideItemToday', { name: item.title })}
                                     onPress={() => {
                                         if (item.type === 'custom') {
                                             onDeleteTask && onDeleteTask(item.id);
@@ -450,6 +458,7 @@ export const MyDaySection: React.FC<Props> = React.memo(({
                                 <TouchableOpacity
                                     style={styles.actionButton}
                                     onPress={() => handleAddWater(item.id)}
+                                    accessibilityRole="button"
                                 >
                                     <Text style={styles.actionButtonText}>+ 250ml</Text>
                                 </TouchableOpacity>
@@ -519,13 +528,13 @@ const styles = StyleSheet.create({
     },
     loadingText: {
         fontSize: 14,
-        color: theme.colors.neutral400,
+        color: theme.colors.textMuted,
         textAlign: 'center',
         paddingVertical: 40,
     },
     emptyText: {
         fontSize: 15,
-        color: theme.colors.neutral350,
+        color: theme.colors.textMuted,
         textAlign: 'center',
         paddingVertical: 30,
         lineHeight: 24,
@@ -606,11 +615,11 @@ const styles = StyleSheet.create({
     },
     itemTitleCompleted: {
         textDecorationLine: 'line-through',
-        color: theme.colors.gray500,
+        color: theme.colors.textMuted,
     },
     itemSubtitle: {
         fontSize: 13,
-        color: theme.colors.neutral350,
+        color: theme.colors.textMuted,
         marginTop: 2,
     },
     actionButton: {
@@ -631,7 +640,7 @@ const styles = StyleSheet.create({
     },
     footerText: {
         fontSize: 13,
-        color: theme.colors.neutral400,
+        color: theme.colors.textMuted,
         fontWeight: '500',
         fontStyle: 'italic',
     },
@@ -658,7 +667,10 @@ const styles = StyleSheet.create({
         marginStart: 8,
     },
     actionIcon: {
-        padding: 8,
+        minWidth: 44,
+        minHeight: 44,
+        alignItems: 'center',
+        justifyContent: 'center',
         marginStart: 4,
     },
 });

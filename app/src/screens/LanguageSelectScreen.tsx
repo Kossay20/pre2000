@@ -166,14 +166,12 @@ export const LanguageSelectScreen = () => {
                     {/* Info Box */}
                     <View style={styles.infoBox}>
                         <Text style={styles.infoBoxTitle}>{t('common.infoTitle')}</Text>
+                        {/* The "some translations are in progress" / "French is the most
+                            complete" bullets are gone: the first screen of a store build told
+                            every user the product was unfinished, while ar, tn and en ship as
+                            first-class languages. */}
                         <Text style={styles.infoBoxText}>
-                            • {t('common.infoLanguageApplied')}
-                        </Text>
-                        <Text style={styles.infoBoxText}>
-                            • {t('common.infoTranslationsWIP')}
-                        </Text>
-                        <Text style={styles.infoBoxText}>
-                            • {t('common.infoFrenchComplete')}
+                            {t('common.infoLanguageApplied')}
                         </Text>
                     </View>
                 </View>
@@ -323,7 +321,6 @@ const styles = StyleSheet.create({
     infoBoxText: {
         fontSize: 14,
         color: theme.colors.blue800,
-        marginBottom: 8,
         lineHeight: 20,
     },
     backButton: {

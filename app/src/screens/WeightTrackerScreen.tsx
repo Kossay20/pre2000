@@ -421,10 +421,20 @@ export const WeightTrackerScreen = () => {
         >
             {/* Header with triple-tap */}
             <View style={styles.header}>
-                <TouchableOpacity onPress={handleTitlePress}>
-                    <Text style={styles.title}>{t('weight.title')}</Text>
-                    <Text style={styles.subtitle}>{t('common.weekLabel', { number: currentWeek || '?' })}</Text>
-                </TouchableOpacity>
+                {/* The triple-tap debug toggle only exists in dev builds. In a release build
+                    the title is plain text — a focusable, nameless control that does nothing
+                    would just be a dead stop for screen-reader and keyboard users. */}
+                {__DEV__ ? (
+                    <TouchableOpacity onPress={handleTitlePress}>
+                        <Text style={styles.title}>{t('weight.title')}</Text>
+                        <Text style={styles.subtitle}>{t('common.weekLabel', { number: currentWeek || '?' })}</Text>
+                    </TouchableOpacity>
+                ) : (
+                    <View>
+                        <Text style={styles.title} accessibilityRole="header">{t('weight.title')}</Text>
+                        <Text style={styles.subtitle}>{t('common.weekLabel', { number: currentWeek || '?' })}</Text>
+                    </View>
+                )}
 
                 {/* Debug controls */}
                 {showDebugMode && (

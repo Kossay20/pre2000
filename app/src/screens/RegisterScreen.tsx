@@ -80,14 +80,17 @@ export const RegisterScreen = () => {
         theme.colors.orange500,
         theme.colors.green500,
     ][passwordStrength];
-    // AUTH-03: meter uses SHORT hint keys (not the long validation sentences) so the
-    // fixed-width label can't collide with the bar — esp. in AR.
+    // AUTH-03: the meter carries a short word so the fixed-width label can't collide
+    // with the bar — esp. in AR. A strength word, not a rule: the rule is already on
+    // the helper line under the field and in the alert on submit, and the meter
+    // repeating it in different words ("Ajouter une majuscule" next to "Au moins
+    // 1 majuscule") read as two rules.
     const strengthLabel = [
         '',
-        t('errors.passwordLength', { defaultValue: 'Min. 10 caractères' }),
-        t('errors.passwordHintAddDigit', { defaultValue: 'Ajouter un chiffre' }),
-        t('errors.passwordHintAddUpper', { defaultValue: 'Ajouter une majuscule' }),
-        '✓',
+        t('passwordStrengthWeak'),
+        t('passwordStrengthMedium'),
+        t('passwordStrengthMedium'),
+        `${t('passwordStrengthStrong')} ✓`,
     ][passwordStrength];
 
     const handleRegister = async () => {
@@ -194,6 +197,7 @@ export const RegisterScreen = () => {
                         {/* W1 #14: email/password are LTR data — never force RTL caret/text in ar/tn. */}
                         <TextInput
                             style={[styles.input, focusedField === 'email' && styles.inputFocused, errorField === 'email' && styles.inputError]}
+                            placeholderTextColor={theme.colors.neutral400}
                             placeholder={t('emailPlaceholder')}
                             value={email}
                             onChangeText={(text) => { setEmail(text); setError(''); setErrorField(null); }}
@@ -220,6 +224,7 @@ export const RegisterScreen = () => {
                             <TextInput
                                 ref={passwordRef}
                                 style={styles.passwordInput}
+                                placeholderTextColor={theme.colors.neutral400}
                                 placeholder={t('passwordPlaceholder')}
                                 value={password}
                                 onChangeText={(text) => { setPassword(text); setError(''); setErrorField(null); }}
@@ -285,6 +290,7 @@ export const RegisterScreen = () => {
                             <TextInput
                                 ref={confirmRef}
                                 style={styles.passwordInput}
+                                placeholderTextColor={theme.colors.neutral400}
                                 placeholder={t('retypePassword')}
                                 value={confirmPassword}
                                 onChangeText={(text) => { setConfirmPassword(text); setError(''); setErrorField(null); }}

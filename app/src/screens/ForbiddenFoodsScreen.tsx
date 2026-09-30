@@ -155,7 +155,7 @@ export const ForbiddenFoodsScreen = () => {
                     placeholder={t('common.searchFoodPlaceholder')}
                     value={searchQuery}
                     onChangeText={setSearchQuery}
-                    placeholderTextColor={theme.colors.neutral400}
+                    placeholderTextColor={theme.colors.textMuted}
                     accessibilityLabel={t('common.searchFoodPlaceholder')}
                     returnKeyType="search"
                     clearButtonMode="while-editing"
@@ -415,7 +415,7 @@ const styles = StyleSheet.create({
     },
     expandIcon: {
         fontSize: 12,
-        color: theme.colors.neutral400,
+        color: theme.colors.textMuted,
         marginStart: 8,
     },
     foodDetails: {
@@ -463,7 +463,7 @@ const styles = StyleSheet.create({
     emptyStateEmoji: { fontSize: 48, marginBottom: 12 },
     emptyStateText: {
         fontSize: 16,
-        color: theme.colors.neutral400,
+        color: theme.colors.textMuted,
         textAlign: 'center',
     },
     disclaimer: {
@@ -476,7 +476,7 @@ const styles = StyleSheet.create({
     },
     disclaimerText: {
         fontSize: 12,
-        color: theme.colors.accentOrangeDeep,
+        color: theme.colors.deepOrange900,
         lineHeight: 18,
     },
 });

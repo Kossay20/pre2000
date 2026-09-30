@@ -220,7 +220,7 @@ const EssentialsList: React.FC<EssentialsListProps> = ({
                         </View>
                         {/* Reassuring text for vitamins */}
                         {reminder.id === 'rem_med_prenatal_vitamins' && (
-                            <TouchableOpacity onPress={() => onEdit(reminder)}>
+                            <TouchableOpacity onPress={() => onEdit(reminder)} accessibilityRole="button">
                                 <Text style={styles.reassuringText}>
                                     {t('common.vitaminAdjust')}
                                 </Text>
@@ -535,7 +535,7 @@ export const RemindersTab = () => {
                                     />
                                     {/* Reassuring text for vitamins */}
                                     {reminder.id === 'rem_med_prenatal_vitamins' && (
-                                        <TouchableOpacity onPress={() => openEditModal(reminder)}>
+                                        <TouchableOpacity onPress={() => openEditModal(reminder)} accessibilityRole="button">
                                             <Text style={styles.reassuringText}>
                                                 {t('common.vitaminAdjust')}
                                             </Text>

@@ -40,8 +40,9 @@ import { Article, Supplement, UserEvent, Tip, BabyMessage } from '../types';
 import { format, addDays, differenceInCalendarDays } from 'date-fns';
 import { useTranslation } from 'react-i18next';
 import { getLocalizedContent } from '../utils/i18nHelpers';
-import { formatMeasure } from '../utils/localizedFormat';
+import { fetalLengthLabelKey, formatFetalComparison, formatFetalLength, formatFetalWeight, getFetalGrowth } from '../utils/fetalGrowth';
 import { trimesterFromWeek } from '../utils/pregnancyCalculator';
+import { formatGestationalAge } from '../utils/gestationalAge';
 import { getReducedMotionSync } from '../hooks/usePrefersReducedMotion';
 import { useRtl } from '../hooks/useRtl';
 import { useDateLocale } from '../hooks/useDateLocale';
@@ -70,7 +71,7 @@ export const HomeScreen = () => {
     useScreenAnalytics('HomeScreen');
     const [overrideWeek, setOverrideWeek] = useState<number | null>(null);
     const [overrideDay, setOverrideDay] = useState<number | null>(null);
-    const { weekData, loading, error, currentWeekNumber, currentDay, isInvalid, refetch } = useCurrentWeek(overrideWeek ?? undefined);
+    const { weekData, loading, error, currentWeekNumber, currentDay, isInvalid, isPostTerm, completedWeeks, completedDays, refetch } = useCurrentWeek(overrideWeek ?? undefined);
     // Reads here are one-shot getDocs, so nothing re-delivers when the network
     // returns: without this, coming out of a tunnel leaves the error card up while
     // the offline banner disappears and implies everything is fine again.
@@ -353,6 +354,9 @@ export const HomeScreen = () => {
     }
 
     const cleanTitle = getLocalizedContent(weekData, 'title', i18n.language).replace(/#{1,4}\s*/g, '').trim();
+    // Size, weight, fruit and emoji come from the bundled weekly table, not the fetched
+    // week document, so they match the evolution screen and onboarding (see fetalGrowth.ts).
+    const growth = getFetalGrowth(currentWeekNumber);
     const babyFacts = getLocalizedContent(weekData, 'baby_facts', i18n.language)?.split('•').filter(f => f.trim()).map(f => f.trim()) || [];
     const momTips = getLocalizedContent(weekData, 'mom_tips', i18n.language)?.split('•').filter(t => t.trim()).map(t => t.trim()) || [];
 
@@ -377,7 +381,7 @@ export const HomeScreen = () => {
     const renderRecommendationCard = ({ item }: { item: Article | Supplement }) => {
         const isArticle = 'article_id' in item;
         const title = getLocalizedContent(item, isArticle ? 'title' : 'name', i18n.language);
-        const subtitle = isArticle ? (item as Article).category : t('common.supplements');
+        const subtitle = isArticle ? t(`categories.${((item as Article).category || '').toLowerCase()}`, { defaultValue: (item as Article).category }) : t('common.supplements');
 
         return (
             <TouchableOpacity
@@ -458,7 +462,7 @@ export const HomeScreen = () => {
             )}
             {/* Gradient Header */}
             <LinearGradient
-                colors={[theme.colors.primary, theme.colors.accent, theme.colors.deepPink]}
+                colors={[theme.colors.primaryStrong, theme.colors.accent, theme.colors.deepPink]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.headerGradient}
@@ -474,7 +478,7 @@ export const HomeScreen = () => {
                             accessibilityRole="button"
                         >
                             <LinearGradient
-                                colors={[theme.colors.whiteAlpha30, theme.colors.whiteAlpha10]}
+                                colors={[theme.colors.headerChipBg, theme.colors.blackAlpha10]}
                                 style={styles.profileGradient}
                             >
                                 <Text style={styles.profileButtonText}>
@@ -553,7 +557,7 @@ export const HomeScreen = () => {
 
                         {/* Week Title (without repeating 'Semaine X') */}
                         <Text style={styles.weekSubtitle}>
-                            {cleanTitle.replace(/^(Semaine|Week|الأسبوع)\s*\d+\s*[-–]\s*/i, '').trim()} {weekData.emoji}
+                            {cleanTitle.replace(/^(Semaine|Week|الأسبوع)\s*\d+\s*[-–]\s*/i, '').trim()} {growth.emoji}
                         </Text>
 
 
@@ -572,7 +576,7 @@ export const HomeScreen = () => {
                                 style={styles.quickActionPill}
                             >
                                 <Text style={styles.quickActionPillIcon}>📅</Text>
-                                <Text style={styles.quickActionPillLabel} numberOfLines={1}>{t('home.myAppointments')}</Text>
+                                <Text style={styles.quickActionPillLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{t('home.myAppointments')}</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
                                 onPress={() => navigation.navigate('Rappels', { screen: 'RemindersMain', params: { screen: 'TasksTab', params: { action: 'add' } } })}
@@ -583,7 +587,7 @@ export const HomeScreen = () => {
                                 style={styles.quickActionPill}
                             >
                                 <Text style={styles.quickActionPillIcon}>➕</Text>
-                                <Text style={styles.quickActionPillLabel} numberOfLines={1}>{t('home.addTask', 'Tâche')}</Text>
+                                <Text style={styles.quickActionPillLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{t('home.addTask', 'Tâche')}</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
                                 onPress={() => {
@@ -605,7 +609,7 @@ export const HomeScreen = () => {
                                 style={styles.quickActionPill}
                             >
                                 <Text style={styles.quickActionPillIcon}>➕</Text>
-                                <Text style={styles.quickActionPillLabel} numberOfLines={1}>{t('home.addAppointment', 'RDV')}</Text>
+                                <Text style={styles.quickActionPillLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{t('home.addAppointment', 'RDV')}</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
                                 onPress={() => navigation.navigate('Ressources', { screen: 'ResourcesMain', params: { openSearch: true } })}
@@ -616,7 +620,7 @@ export const HomeScreen = () => {
                                 style={styles.quickActionPill}
                             >
                                 <Text style={styles.quickActionPillIcon}>🔍</Text>
-                                <Text style={styles.quickActionPillLabel} numberOfLines={1}>{t('common.search')}</Text>
+                                <Text style={styles.quickActionPillLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{t('common.search')}</Text>
                             </TouchableOpacity>
                         </View>
 
@@ -649,6 +653,20 @@ export const HomeScreen = () => {
                     </View>
                 )}
 
+                {/* Past the due date (40+0..42+0 SA) is still a pregnancy: the week-40
+                    content stays, with the real age and a gentle nudge. Only beyond
+                    42+0 does the "did you deliver?" banner above take over. */}
+                {isPostTerm && completedWeeks != null && completedDays != null && (
+                    <View style={styles.postpartumBanner} testID="home_postterm_note">
+                        <Text style={styles.postpartumEmoji}>🤍</Text>
+                        <View style={styles.postpartumTextContainer}>
+                            <Text style={styles.postpartumDesc}>
+                                {t('home.postTermNote', { ga: formatGestationalAge(t, completedWeeks, completedDays) })}
+                            </Text>
+                        </View>
+                    </View>
+                )}
+
                 {/* HERO CARD #1: Baby Growth 3D (NEW) */}
                 {/* U-FIX-6: pass currentDay so the displayed "day of pregnancy" is exact
                     (was ~7 days too high before because it used currentWeek * 7).
@@ -665,7 +683,9 @@ export const HomeScreen = () => {
 
                 {/* SECTION 1: HERO CARD PREMIUM (Phase 1) */}
                 {weekData && !isInvalid && (
-                    <View style={[styles.sectionContainer, { marginTop: -50, paddingTop: 24 }]}>
+                    // No negative top margin: -50 pulled this card 38pt up over the bottom
+                    // of the BabyGrowthCard, hiding the lower edge of its "see the evolution" CTA.
+                    <View style={[styles.sectionContainer, { paddingTop: 24 }]}>
                         {/* Title outside the card for cleaner look */}
                         <Text style={styles.sectionTitleMain}>🍼 {t('common.heroTitle')}</Text>
 
@@ -677,29 +697,29 @@ export const HomeScreen = () => {
                         >
                             {/* 1. Giant Emoji Centered */}
                             <View style={styles.heroEmojiContainer}>
-                                <Text style={styles.heroEmoji}>{weekData.emoji}</Text>
+                                <Text style={styles.heroEmoji}>{growth.emoji}</Text>
                             </View>
 
                             {/* 2. Size & Weight Mini-Cards */}
                             <View style={styles.heroStatsRow}>
                                 <View style={styles.heroStatCard}>
-                                    <Text style={styles.heroStatValue}>{formatMeasure(weekData.baby_size_cm, 'cm', i18n.language)}</Text>
-                                    <Text style={styles.heroStatLabel}>{t('common.size')}</Text>
+                                    <Text style={styles.heroStatValue}>{formatFetalLength(growth, i18n.language, t)}</Text>
+                                    <Text style={styles.heroStatLabel}>{t(fetalLengthLabelKey(growth))}</Text>
                                 </View>
                                 <View style={styles.heroStatCard}>
-                                    <Text style={styles.heroStatValue}>{formatMeasure(weekData.baby_weight_g, 'g', i18n.language)}</Text>
+                                    <Text style={styles.heroStatValue}>{formatFetalWeight(growth, i18n.language, t)}</Text>
                                     <Text style={styles.heroStatLabel}>{t('common.weight')}</Text>
                                 </View>
                             </View>
 
                             {/* 3. Comparison Box */}
                             <View style={styles.heroComparisonBox}>
-                                {/* Don't show "Taille d'un(e)" for adjectives like "Microscopique" */}
-                                {!['microscopique', 'minuscule', 'invisible', 'microscopic'].includes(getLocalizedContent(weekData, 'baby_size_label', i18n.language)?.toLowerCase()) && (
+                                {/* Don't show "Taille d'un(e)" while the embryo is still microscopic */}
+                                {growth.lengthCm !== null && (
                                     <Text style={styles.heroComparisonLabel}>{t('onboarding.step4.babySize', { label: '', emoji: '' }).split('{{')[0].trim()}</Text>
                                 )}
                                 <Text style={styles.heroComparisonValue}>
-                                    {getLocalizedContent(weekData, 'baby_size_label', i18n.language)}
+                                    {formatFetalComparison(currentWeekNumber, i18n.language, t)}
                                 </Text>
                             </View>
 
@@ -759,7 +779,7 @@ export const HomeScreen = () => {
                             <TouchableOpacity
                                 activeOpacity={0.8}
                                 onPress={() => setShowFullBodyText(!showFullBodyText)}
-                                style={styles.infoCardHeader}
+                                style={[styles.infoCardHeader, styles.infoCardHeaderToggle]}
                                 accessibilityRole="button"
                                 accessibilityLabel={t('common.yourBody')}
                                 accessibilityHint={showFullBodyText ? t('a11y.collapseSection') : t('a11y.expandSection')}

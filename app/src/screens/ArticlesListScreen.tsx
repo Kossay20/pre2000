@@ -1,12 +1,13 @@
 import { createLogger } from '../utils/logger';
 const log = createLogger('ArticlesListScreen');
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, TextInput, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, TextInput, ScrollView, Platform } from 'react-native';
 import { collection, getDocs } from 'firebase/firestore';
 import { LinearGradient } from 'expo-linear-gradient';
 import { db } from '../config/firebase';
 import { Article, ArticleAntigravity } from '../types';
 import { getLocalizedContent } from '../utils/i18nHelpers';
+import { matchesSearch } from '../utils/searchNormalize';
 import { useRtlScrollFix } from '../hooks/useRtlScrollFix';
 import { getAntigravityArticlesByCategory } from '../services/contentService'; // ANTIGRAVITY
 import { getAllLocalArticles } from '../services/localContentFallback';
@@ -146,7 +147,7 @@ export const ArticlesListScreen = () => {
     }, [categoryChips, selectedCategory]);
 
     const filteredArticles = React.useMemo(() => {
-        const query = searchQuery.toLowerCase().trim();
+        const query = searchQuery.trim();
         if (!query && !selectedCategory && !favoritesActive) return articles;
 
         return articles.filter(article => {
@@ -164,11 +165,13 @@ export const ArticlesListScreen = () => {
 
             if (!query) return true;
 
-            const title = getLocalizedContent(article, 'title', i18n.language).toLowerCase();
-            const summary = getLocalizedContent(article, 'summary', i18n.language).toLowerCase();
-            const categoryLabel = t(`categories.${categoryKey}`, { defaultValue: article.category }).toLowerCase();
-
-            return title.includes(query) || summary.includes(query) || categoryLabel.includes(query);
+            // Accent/case/harakat-insensitive, like the forbidden-foods search: "nausees" must
+            // find "Nausées matinales" and a bare Arabic query must find vowelled text.
+            return matchesSearch(query, [
+                getLocalizedContent(article, 'title', i18n.language),
+                getLocalizedContent(article, 'summary', i18n.language),
+                t(`categories.${categoryKey}`, { defaultValue: article.category }),
+            ]);
         });
     }, [articles, searchQuery, selectedCategory, favoritesActive, bookmarkedIds, i18n.language]);
 
@@ -257,7 +260,7 @@ export const ArticlesListScreen = () => {
                         ref={searchInputRef}
                         style={styles.searchInput}
                         placeholder={t('common.searchArticlePlaceholder')}
-                        placeholderTextColor={theme.colors.neutral400}
+                        placeholderTextColor={theme.colors.textMuted}
                         value={searchQuery}
                         onChangeText={setSearchQuery}
                         returnKeyType="search"
@@ -285,8 +288,12 @@ export const ArticlesListScreen = () => {
                         onPress={() => setFavoritesActive(v => !v)}
                         activeOpacity={0.7}
                         style={[styles.chip, favoritesActive ? styles.chipActive : styles.chipInactive]}
+                        hitSlop={CHIP_HIT_SLOP}
                         accessibilityRole="button"
                         accessibilityState={{ selected: favoritesActive }}
+                        // RN-Web 0.21 drops accessibilityState, so on web the toggle state is
+                        // exposed as aria-pressed (the ARIA state for an on/off button).
+                        {...(Platform.OS === 'web' ? { 'aria-pressed': favoritesActive } : {})}
                         accessibilityLabel={t('common.favorites')}
                     >
                         <Text style={[styles.chipText, favoritesActive ? styles.chipTextActive : styles.chipTextInactive]}>
@@ -305,6 +312,7 @@ export const ArticlesListScreen = () => {
                                     onPress={() => setSelectedCategory(slug)}
                                     activeOpacity={0.7}
                                     style={[styles.chip, selected ? styles.chipActive : styles.chipInactive]}
+                                    hitSlop={CHIP_HIT_SLOP}
                                     accessibilityRole="button"
                                     accessibilityState={{ selected }}
                                     accessibilityLabel={label}
@@ -334,6 +342,10 @@ export const ArticlesListScreen = () => {
         </View>
     );
 };
+
+// Filter chips stay 32pt tall (a row of 44pt pills would crowd the list header);
+// the slop gives them a 44pt touch area on iOS/Android.
+const CHIP_HIT_SLOP = { top: 6, bottom: 6, left: 2, right: 2 };
 
 const styles = StyleSheet.create({
     container: {
@@ -371,7 +383,7 @@ const styles = StyleSheet.create({
     },
     clearIcon: {
         fontSize: 16,
-        color: theme.colors.neutral400,
+        color: theme.colors.textMuted,
         padding: 4,
     },
     chipScroll: {

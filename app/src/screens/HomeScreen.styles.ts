@@ -68,12 +68,12 @@ export const styles = StyleSheet.create({
     postpartumTitle: {
         fontSize: 16,
         fontWeight: 'bold',
-        color: theme.colors.orange900,
+        color: theme.colors.deepOrange900,
         marginBottom: 4,
     },
     postpartumDesc: {
         fontSize: 13,
-        color: theme.colors.orange900,
+        color: theme.colors.deepOrange900,
         opacity: 0.9,
         lineHeight: 18,
         marginBottom: 12,
@@ -201,13 +201,15 @@ export const styles = StyleSheet.create({
     },
     weekInfo: {
         fontSize: 14,
-        color: theme.colors.whiteAlpha90,
+        color: theme.colors.white,
         fontWeight: '500',
         marginTop: 4,
     },
     profileButtonContainer: {
         position: 'absolute',
-        top: 16,
+        // Flush with the top of the header content: at 16pt the 50pt avatar reached
+        // down into the week row and its tap area overlapped the "next week" chevron.
+        top: 0,
         right: 16,
         zIndex: 10,
     },
@@ -253,7 +255,11 @@ export const styles = StyleSheet.create({
         marginBottom: 8,
     },
     navButton: {
-        paddingHorizontal: 12,
+        minWidth: 44,
+        minHeight: 44,
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: 4,
         paddingVertical: 4,
     },
     weekBadge: {
@@ -268,10 +274,10 @@ export const styles = StyleSheet.create({
     },
     trimesterBadge: {
         fontSize: 12,
-        color: theme.colors.whiteAlpha80,
+        color: theme.colors.white,
         fontWeight: '600',
         marginTop: 4,
-        backgroundColor: theme.colors.whiteAlpha20,
+        backgroundColor: theme.colors.headerChipBg,
         paddingHorizontal: 8,
         paddingVertical: 2,
         borderRadius: 10,
@@ -338,7 +344,7 @@ export const styles = StyleSheet.create({
     },
     progressText: {
         fontSize: 13,
-        color: theme.colors.whiteAlpha90,
+        color: theme.colors.white,
         marginTop: 8,
         fontWeight: '600',
     },
@@ -390,7 +396,7 @@ export const styles = StyleSheet.create({
     },
     modalEmail: {
         fontSize: 14,
-        color: theme.colors.whiteAlpha90,
+        color: theme.colors.white,
     },
     modalContent: {
         maxHeight: 400,
@@ -472,7 +478,7 @@ export const styles = StyleSheet.create({
     quickNavButton: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: theme.colors.whiteAlpha25,
+        backgroundColor: theme.colors.headerChipBg,
         borderRadius: theme.borderRadius.s,
         paddingVertical: 6,
         paddingHorizontal: 12,
@@ -513,8 +519,8 @@ export const styles = StyleSheet.create({
         opacity: 0.5,
     },
     // #9 — Quick action pill buttons (replaces the tiny text quick-links).
-    // Sit on the pink header gradient → translucent white surface + white text
-    // (mirrors the existing quickNavButton treatment). 2x2 wrap, 44pt min target.
+    // Sit on the pink header gradient → darkening glass surface + white text
+    // (a white wash lifted the pink to 2.1:1 behind the labels). 2x2 wrap, 44pt min target.
     quickActionsRow: {
         flexDirection: 'row',
         flexWrap: 'wrap',
@@ -534,19 +540,22 @@ export const styles = StyleSheet.create({
         flexGrow: 1,
         flexBasis: '45%',
         maxWidth: '48%',
-        backgroundColor: theme.colors.whiteAlpha25,
+        backgroundColor: theme.colors.headerChipBg,
         borderRadius: theme.borderRadius.l,
         paddingVertical: 10,
-        paddingHorizontal: 14,
-        gap: 6,
+        paddingHorizontal: 10,
+        gap: 4,
         borderWidth: 1,
         borderColor: theme.colors.whiteAlpha40,
     },
     quickActionPillIcon: {
         fontSize: 16,
     },
+    // On a narrow screen (or large text) "Rechercher" did not fit a half-width pill and
+    // truncated to "Recher…". Native shrinks via adjustsFontSizeToFit; web gets a
+    // point smaller below 320pt.
     quickActionPillLabel: {
-        fontSize: 13,
+        fontSize: width < 320 ? 12 : 13,
         fontWeight: '700',
         color: theme.colors.white,
         flexShrink: 1,
@@ -743,7 +752,7 @@ export const styles = StyleSheet.create({
     warningTitle: {
         fontSize: 20,
         fontWeight: 'bold',
-        color: theme.colors.accentOrangeDeep,
+        color: theme.colors.deepOrange900,
         marginBottom: 12,
     },
     appointmentItem: {
@@ -883,7 +892,7 @@ export const styles = StyleSheet.create({
     },
     tipCategoryText: {
         fontSize: 12,
-        color: theme.colors.accentOrangeDeep,
+        color: theme.colors.deepOrange900,
         fontWeight: '600',
     },
 
@@ -1008,6 +1017,10 @@ export const styles = StyleSheet.create({
         alignItems: 'center',
         marginBottom: 8,
     },
+    // The "Your body" header doubles as the expand/collapse control → 44pt target.
+    infoCardHeaderToggle: {
+        minHeight: 44,
+    },
     infoCardEmoji: {
         fontSize: 20,
         marginEnd: 8,
@@ -1061,7 +1074,7 @@ export const styles = StyleSheet.create({
     },
     toolSubtitle: {
         fontSize: 12,
-        color: theme.colors.neutral400,
+        color: theme.colors.textMuted,
         textAlign: 'center',
     },
 
@@ -1083,7 +1096,7 @@ export const styles = StyleSheet.create({
     },
     babySizeLabelPro: {
         fontSize: 16,
-        color: theme.colors.neutral400,
+        color: theme.colors.textMuted,
         marginBottom: 8,
         fontWeight: '400',
     },
@@ -1107,7 +1120,7 @@ export const styles = StyleSheet.create({
     },
     babyComparisonLabelPro: {
         fontSize: 16,
-        color: theme.colors.neutral400,
+        color: theme.colors.textMuted,
         marginBottom: 8,
     },
     babyComparisonValuePro: {

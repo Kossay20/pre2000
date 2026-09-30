@@ -26,6 +26,8 @@ export const styles = StyleSheet.create({
     permissionBanner: {
         backgroundColor: theme.colors.warningSoftBg,
         padding: 12,
+        minHeight: 44,
+        justifyContent: 'center',
     },
     permissionText: {
         fontSize: 13,
@@ -116,7 +118,7 @@ export const styles = StyleSheet.create({
     },
     essentialsNote: {
         fontSize: 12,
-        color: theme.colors.gray500,
+        color: theme.colors.textMuted,
         textAlign: 'center',
         marginTop: 12,
         fontStyle: 'italic',
@@ -149,8 +151,14 @@ export const styles = StyleSheet.create({
         fontSize: 13,
         color: theme.colors.textSecondary,
     },
+    // 44pt target around a 16pt gear; the negative margin keeps the card row's
+    // height and alignment what they were with the old 4pt padding.
     essentialEditButton: {
-        padding: 4,
+        minWidth: 44,
+        minHeight: 44,
+        alignItems: 'center',
+        justifyContent: 'center',
+        margin: -10,
     },
     essentialEditIcon: {
         fontSize: 16,

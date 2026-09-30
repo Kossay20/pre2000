@@ -7,6 +7,7 @@ import { db } from '../config/firebase';
 import { useCurrentWeek } from '../services/useCurrentWeek';
 import { Article, Supplement } from '../types';
 import { getLocalizedContent } from '../utils/i18nHelpers';
+import { normalizeSupplementSafety } from '../utils/supplementSafety';
 import { getLocalArticle, getLocalSupplement } from '../services/localContentFallback';
 import { FIRESTORE_GUEST_TIMEOUT_MS, withTimeout } from '../utils/withTimeout';
 import { theme } from '../theme';
@@ -88,8 +89,10 @@ export const WeekRecommendationsScreen = () => {
         );
     }
 
+    // Every safety lookup goes through the shared normaliser, so an accented or unknown token
+    // reads the same (caution) here as in the supplements list and its filter.
     const getSafetyColor = (safety: string) => {
-        switch (safety) {
+        switch (normalizeSupplementSafety(safety)) {
             case 'ok': return theme.colors.success;
             case 'a_surveiller': return theme.colors.warning;
             case 'deconseille': return theme.colors.error;
@@ -101,7 +104,7 @@ export const WeekRecommendationsScreen = () => {
     // as text on the light card — 1.6–2.6:1). Verified ≥4.5:1 on white. getSafetyColor stays for the
     // decorative icon-container background.
     const getSafetyTextColor = (safety: string) => {
-        switch (safety) {
+        switch (normalizeSupplementSafety(safety)) {
             case 'ok': return theme.colors.green800;
             case 'a_surveiller': return theme.colors.deepOrange900;
             case 'deconseille': return theme.colors.red800;
@@ -111,7 +114,7 @@ export const WeekRecommendationsScreen = () => {
 
     // D6-07 a11y: convey safety with an icon + text label, not color alone.
     const getSafetyIcon = (safety: string) => {
-        switch (safety) {
+        switch (normalizeSupplementSafety(safety)) {
             case 'ok': return '✓';
             case 'a_surveiller': return '⚠';
             case 'deconseille': return '✗';
@@ -119,7 +122,7 @@ export const WeekRecommendationsScreen = () => {
         }
     };
     const getSafetyLabel = (safety: string) => {
-        switch (safety) {
+        switch (normalizeSupplementSafety(safety)) {
             case 'ok': return t('common.supplementSafety.safe');
             case 'a_surveiller': return t('common.supplementSafety.caution');
             case 'deconseille': return t('common.supplementSafety.avoid');

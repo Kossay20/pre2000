@@ -31,8 +31,8 @@
     "labelConception": "تاريخ الحمل التقديري",
     "previewLabel": "أنتِ الآن في",
     "week": "الأسبوع",
-    "saDays": "أي {{week}} أسابيع + {{day}} أيام",
-    "invalidDate": "التاريخ ما صحيحش. راجعي ما دخلتيه."
+    "saDays": "أي {{ga}}",
+    "invalidDate": "فات أكثر من 42 أسبوع على هالتاريخ. راجعي التاريخ اللي دخلتيه."
   },
   "step3": {
     "title": "تفاصيل صغيرة لمرافقتك",
@@ -43,7 +43,8 @@
     "firstPregnancyLabel": "هل هذا حملك الأول؟",
     "firstPregnancyYes": "نعم، تجربة جديدة! 🌟",
     "firstPregnancyNo": "لا، لدي خبرة 💪",
-    "firstPregnancySkip": "أفضل عدم القول"
+    "firstPregnancySkip": "أفضل عدم القول",
+    "countryHint": "إجباري: باش نورّيوك نمرة الطوارئ الصحيحة (15 في فرنسا، 190 في تونس…)."
   },
   "step4": {
     "defaultName": "ماما المستقبل",
@@ -59,7 +60,8 @@
     "start": "إنشاء حسابي والبدء",
     "finalizeProfile": "إكمال الملف الشخصي",
     "skipAccount": "المتابعة كضيف",
-    "editInfos": "→ تعديل معلوماتي"
+    "editInfos": "→ تعديل معلوماتي",
+    "greeting": "{{name}}،"
   },
   "common": {
     "back": "→ ارجع",
@@ -116,5 +118,11 @@
   "trimester1": "الثلث الأول",
   "trimester2": "الثلث الثاني",
   "trimester3": "الثلث الثالث",
-  "stepper": "الخطوة {{current}} من {{total}}"
+  "stepper": "الخطوة {{current}} من {{total}}",
+  "existingProfile": {
+    "title": "الحساب هذا عندو ملف من قبل",
+    "message": "الحساب هذا فيه ملف حمل من قبل. تحبي تبدّليه بالإجابات اللي دخلتيهم توّا؟",
+    "keep": "نخلّي ملفي",
+    "replace": "بدّل"
+  }
 }

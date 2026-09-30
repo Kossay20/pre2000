@@ -126,7 +126,7 @@ export const CompletedTasksScreen = () => {
         return (
             <View style={styles.container}>
                 <LinearGradient
-                    colors={[theme.colors.primary, theme.colors.accent]}
+                    colors={[theme.colors.primaryStrong, theme.colors.accent]}
                     style={styles.headerGradient}
                 >
                     <Text style={styles.headerTitle}>✓ {t('common.completedTasks')}</Text>
@@ -147,7 +147,7 @@ export const CompletedTasksScreen = () => {
     return (
         <View style={styles.container}>
             <LinearGradient
-                colors={[theme.colors.primary, theme.colors.accent]}
+                colors={[theme.colors.primaryStrong, theme.colors.accent]}
                 style={styles.headerGradient}
             >
                 <Text style={styles.headerTitle}>✓ {t('common.completedTasks')}</Text>
@@ -279,7 +279,7 @@ const styles = StyleSheet.create({
     },
     completedDate: {
         fontSize: 12,
-        color: theme.colors.neutral400,
+        color: theme.colors.textMuted,
         fontStyle: 'italic',
     },
     taskActions: {
@@ -298,7 +298,7 @@ const styles = StyleSheet.create({
     restoreButtonText: {
         fontSize: 14,
         fontWeight: '600',
-        color: theme.colors.green500,
+        color: theme.colors.success,
     },
     deleteButton: {
         flex: 1,

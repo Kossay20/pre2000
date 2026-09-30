@@ -233,7 +233,7 @@ const styles = StyleSheet.create({
     },
     description: {
         fontSize: 13,
-        color: theme.colors.neutral350,
+        color: theme.colors.textMuted,
         marginTop: 2,
         lineHeight: 18,
     },
@@ -281,7 +281,7 @@ const styles = StyleSheet.create({
     },
     frequencyUnit: {
         fontSize: 13,
-        color: theme.colors.neutral350,
+        color: theme.colors.textMuted,
     },
     frequencyInfo: {
         marginBottom: 10,
@@ -338,7 +338,7 @@ const styles = StyleSheet.create({
     },
     advancedHint: {
         fontSize: 12,
-        color: theme.colors.neutral400,
+        color: theme.colors.textMuted,
         fontStyle: 'italic',
     },
 
@@ -372,7 +372,7 @@ const styles = StyleSheet.create({
     },
     dayChipText: {
         fontSize: 12,
-        color: theme.colors.neutral350,
+        color: theme.colors.textMuted,
         fontWeight: '500',
     },
     dayChipTextActive: {
@@ -386,7 +386,7 @@ const styles = StyleSheet.create({
     },
     frequencyPreviewText: {
         fontSize: 13,
-        color: theme.colors.neutral350,
+        color: theme.colors.textMuted,
     },
 
     // Edit button

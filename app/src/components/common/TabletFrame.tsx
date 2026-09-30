@@ -1,9 +1,10 @@
 import React from 'react';
 import { StyleSheet, useWindowDimensions, View } from 'react-native';
 import { theme } from '../../theme';
+import { TABLET_BREAKPOINT, TABLET_CONTENT_MAX_WIDTH } from '../../utils/layout';
 
 /**
- * Constrain the app to a phone-sized column on tablets.
+ * Constrain the app to a centred reading column on tablets.
  *
  * `app.json` declares `ios.supportsTablet: true`, which means the app runs at the
  * iPad's native width — 1032pt in portrait on a 13" — and Apple requires an iPad
@@ -12,9 +13,9 @@ import { theme } from '../../theme';
  * result is a wall of near-empty cards with text at a size meant to be read at
  * 390pt, which reads as unfinished rather than as a tablet layout.
  *
- * Rather than re-lay-out 33 screens for a v1, the app is centred in a column of
- * phone-like width with the gutters painted in the app background. That is a
- * deliberate, common treatment for a phone-first app on tablet, and it is honest:
+ * Rather than re-lay-out 33 screens for a v1, the app is centred in a reading-width
+ * column (`TABLET_CONTENT_MAX_WIDTH`) with the gutters painted in the app
+ * background. That is a deliberate, common treatment for a phone-first app on tablet, and it is honest:
  * it looks intentional instead of broken. A real tablet layout — two-pane home,
  * wider content grids — belongs in a later version.
  *
@@ -22,11 +23,9 @@ import { theme } from '../../theme';
  * container, so phones are completely unaffected.
  */
 
-/** iPad mini portrait is 744pt; anything at or above this is a tablet-class width. */
-export const TABLET_BREAKPOINT = 700;
-
-/** Roughly a large phone, so phone-tuned spacing and type stay in proportion. */
-export const TABLET_CONTENT_MAX_WIDTH = 520;
+// One source for the column width: screens size themselves from `getContentWidth()`,
+// which must agree with the column this frame actually draws.
+export { TABLET_BREAKPOINT, TABLET_CONTENT_MAX_WIDTH };
 
 export const TabletFrame: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { width } = useWindowDimensions();
