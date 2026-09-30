@@ -89,3 +89,7 @@ google-service-account.json
 firestore-debug.log
 ui-debug.log
 firebase-debug.log
+
+# E2E web export wired to the Firebase emulators
+/dist-e2e/
+/e2e/.stack/

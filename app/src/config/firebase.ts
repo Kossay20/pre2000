@@ -1,7 +1,9 @@
 import { initializeApp } from 'firebase/app';
-import { initializeFirestore, persistentLocalCache } from 'firebase/firestore';
+import { connectAuthEmulator } from 'firebase/auth';
+import { connectFirestoreEmulator, initializeFirestore, persistentLocalCache } from 'firebase/firestore';
 import { getAnalytics, isSupported } from 'firebase/analytics';
 import { createFirebaseAuth } from './createFirebaseAuth';
+import { emulatorTarget } from './firebaseEmulator';
 
 const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY!,
@@ -23,6 +25,12 @@ const auth = createFirebaseAuth(app);
 export const db = initializeFirestore(app, {
   localCache: persistentLocalCache()
 });
+
+const emulator = emulatorTarget(process.env.EXPO_PUBLIC_FIREBASE_EMULATOR_HOST);
+if (emulator) {
+  connectAuthEmulator(auth, emulator.authUrl, { disableWarnings: true });
+  connectFirestoreEmulator(db, emulator.firestoreHost, emulator.firestorePort);
+}
 
 export { auth };
 
