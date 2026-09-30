@@ -851,7 +851,7 @@ export const OnboardingScreen = () => {
                             <LinearGradient
                                 colors={loading || (!user && !canCreateAccount)
                                     ? [theme.colors.neutral300, theme.colors.gray500]
-                                    : [theme.colors.primary, theme.colors.accent]}
+                                    : [theme.colors.primaryStrong, theme.colors.accent]}
                                 start={{ x: 0, y: 0 }}
                                 end={{ x: 1, y: 0 }}
                                 style={styles.startButtonGradient}
@@ -936,7 +936,12 @@ export const OnboardingScreen = () => {
                     />
                 ) : (
                     <>
-                        <TouchableOpacity onPress={() => setShowCycleDatePicker(true)} style={styles.dateInput}>
+                        <TouchableOpacity
+                            onPress={() => setShowCycleDatePicker(true)}
+                            style={styles.dateInput}
+                            accessibilityRole="button"
+                            accessibilityLabel={`${t('onboarding.step2Ttc.lastPeriodLabel')}: ${format(lastPeriodDate, 'd MMMM yyyy', { locale: dateLocale })}`}
+                        >
                             <Text style={styles.dateText}>
                                 {format(lastPeriodDate, 'd MMMM yyyy', { locale: dateLocale })}
                             </Text>
@@ -965,6 +970,8 @@ export const OnboardingScreen = () => {
                     <TouchableOpacity
                         style={styles.cycleButton}
                         onPress={() => setCycleLength(Math.max(21, cycleLength - 1))}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${t('a11y.decrease')} — ${t('onboarding.step2Ttc.cycleLengthLabel')}`}
                     >
                         <Text style={styles.cycleButtonText}>−</Text>
                     </TouchableOpacity>
@@ -975,6 +982,8 @@ export const OnboardingScreen = () => {
                     <TouchableOpacity
                         style={styles.cycleButton}
                         onPress={() => setCycleLength(Math.min(35, cycleLength + 1))}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${t('a11y.increase')} — ${t('onboarding.step2Ttc.cycleLengthLabel')}`}
                     >
                         <Text style={styles.cycleButtonText}>+</Text>
                     </TouchableOpacity>
@@ -1082,7 +1091,7 @@ export const OnboardingScreen = () => {
                             <LinearGradient
                                 colors={loading || (!user && !(email.trim().length > 0 && password.length >= 10 && /\d/.test(password) && /[A-Z]/.test(password)))
                                     ? [theme.colors.neutral300, theme.colors.gray500]
-                                    : [theme.colors.primary, theme.colors.accent]}
+                                    : [theme.colors.primaryStrong, theme.colors.accent]}
                                 start={{ x: 0, y: 0 }}
                                 end={{ x: 1, y: 0 }}
                                 style={styles.startButtonGradient}
@@ -1143,6 +1152,8 @@ export const OnboardingScreen = () => {
                     <TouchableOpacity
                         style={styles.sliderButton}
                         onPress={() => setExploreWeek(Math.max(1, exploreWeek - 1))}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${t('a11y.decrease')} — ${t('onboarding.step2.week')} ${exploreWeek}`}
                     >
                         <Text style={styles.sliderButtonText}>−</Text>
                     </TouchableOpacity>
@@ -1154,6 +1165,8 @@ export const OnboardingScreen = () => {
                     <TouchableOpacity
                         style={styles.sliderButton}
                         onPress={() => setExploreWeek(Math.min(40, exploreWeek + 1))}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${t('a11y.increase')} — ${t('onboarding.step2.week')} ${exploreWeek}`}
                     >
                         <Text style={styles.sliderButtonText}>+</Text>
                     </TouchableOpacity>
@@ -1229,7 +1242,7 @@ export const OnboardingScreen = () => {
                         accessibilityLabel={loading ? t('home.loadingData') : t('onboarding.discover')}
                     >
                         <LinearGradient
-                            colors={loading ? [theme.colors.neutral300, theme.colors.gray500] : [theme.colors.primary, theme.colors.accent]}
+                            colors={loading ? [theme.colors.neutral300, theme.colors.gray500] : [theme.colors.primaryStrong, theme.colors.accent]}
                             start={{ x: 0, y: 0 }}
                             end={{ x: 1, y: 0 }}
                             style={styles.startButtonGradient}
@@ -1480,7 +1493,7 @@ export const OnboardingScreen = () => {
                                     ? t('onboarding.step2.labelDdr')
                                     : t('onboarding.step2.labelConception')}
                             </Text>
-                            <TouchableOpacity onPress={() => setShowDatePicker(false)}>
+                            <TouchableOpacity onPress={() => setShowDatePicker(false)} accessibilityRole="button" accessibilityLabel={t('common.done')}>
                                 <Text style={styles.iosPickerDoneText}>{t('common.done')}</Text>
                             </TouchableOpacity>
                         </View>
@@ -1502,7 +1515,7 @@ export const OnboardingScreen = () => {
                     <View style={styles.iosPickerContent}>
                         <View style={styles.iosPickerHeader}>
                             <Text style={styles.iosPickerTitle}>{t('onboarding.step2Ttc.lastPeriodLabel')}</Text>
-                            <TouchableOpacity onPress={() => setShowCycleDatePicker(false)}>
+                            <TouchableOpacity onPress={() => setShowCycleDatePicker(false)} accessibilityRole="button" accessibilityLabel={t('common.done')}>
                                 <Text style={styles.iosPickerDoneText}>{t('common.done')}</Text>
                             </TouchableOpacity>
                         </View>

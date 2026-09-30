@@ -7,6 +7,7 @@
  */
 import * as fs from 'fs';
 import * as path from 'path';
+import { theme } from '../../theme';
 
 const read = (rel: string) => fs.readFileSync(path.resolve(__dirname, '../../..', rel), 'utf8');
 
@@ -225,5 +226,95 @@ describe('A-010 — post-term on Home', () => {
         expect(src).toMatch(/\{isPostTerm && completedWeeks != null && completedDays != null && \(\s*<View style=\{styles\.postpartumBanner\} testID="home_postterm_note">/);
         expect(src).toMatch(/t\('home\.postTermNote', \{ ga: formatGestationalAge\(t, completedWeeks, completedDays\) \}\)/);
         expect(src).toMatch(/\{isInvalid && \(\s*<View style=\{styles\.postpartumBanner\}>/);
+    });
+});
+
+// ── Round 1, Wave E (a11y) on the auth funnel ────────────────────────────────
+
+
+const lum = (hex: string) => {
+    const h = hex.replace('#', '');
+    const [r, g, b] = [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16) / 255)
+        .map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+const contrast = (a: string, b: string) => {
+    const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p);
+    return (x + 0.05) / (y + 0.05);
+};
+
+describe('Wave E — contrast of the funnel text (WCAG AA 4.5:1, computed from the tokens)', () => {
+    const c = theme.colors as Record<string, string>;
+    it.each([
+        ['white on the strong-pink gradient start (AuthChoice CTA, Language header, onboarding CTAs)', c.white, c.primaryStrong],
+        ['auth error text on its background', c.error, c.feedbackErrorBg],
+        ['AuthChoice guest caveat (neutral400 on lavenderBlush)', c.neutral400, c.lavenderBlush],
+        ['AuthChoice subtitle / guest link (textLight on lavenderBlush)', c.textLight, c.lavenderBlush],
+        ['Register strength word "Faible" (error on background)', c.error, c.background],
+        ['Register strength word "Moyen" (textSecondary on background)', c.textSecondary, c.background],
+        ['Register strength word "Fort" (success on background)', c.success, c.background],
+    ])('%s', (_label, fg, bg) => {
+        expect(contrast(fg, bg)).toBeGreaterThanOrEqual(4.5);
+    });
+
+    it.each([
+        'src/screens/AuthChoiceScreen.tsx', 'src/screens/LanguageSelectScreen.tsx', 'src/screens/OnboardingScreen.tsx',
+    ])('%s never starts a text-bearing gradient on the light primary', (file) => {
+        expect(read(file)).not.toMatch(/\[theme\.colors\.primary, theme\.colors\.accent\]/);
+    });
+
+    it('no translucent white text on the funnel gradients', () => {
+        expect(read('src/screens/AuthChoiceScreen.tsx')).not.toMatch(/whiteAlpha85/);
+        expect(read('src/screens/LanguageSelectScreen.tsx')).not.toMatch(/whiteAlpha90/);
+    });
+
+    it('the strength word is not drawn in the bar colours', () => {
+        expect(read('src/screens/RegisterScreen.tsx')).toMatch(/styles\.strengthLabel, \{ color: strengthTextColor \}/);
+    });
+});
+
+describe('Wave E — every control on the funnel has a role and a name', () => {
+    const files = ['AuthChoiceScreen', 'LanguageSelectScreen', 'RegisterScreen', 'LoginScreen', 'OnboardingScreen'];
+    it.each(files)('%s: no touchable without accessibilityRole', (name) => {
+        const src = read(`src/screens/${name}.tsx`);
+        const missing: number[] = [];
+        const re = /<(TouchableOpacity|Pressable)\b/g;
+        let m: RegExpExecArray | null;
+        while ((m = re.exec(src))) {
+            const rest = src.slice(m.index + m[0].length);
+            const end = rest.search(/\n\s*>\s*\n|\/>|>\s*</);
+            const attrs = rest.slice(0, end < 0 ? 600 : end);
+            if (!/accessibilityRole|\{\.\.\.choiceA11y/.test(attrs)) missing.push(src.slice(0, m.index).split('\n').length);
+        }
+        expect(missing).toEqual([]);
+    });
+
+    it('language cards are a radio group with a checked state on web and native', () => {
+        const src = read('src/screens/LanguageSelectScreen.tsx');
+        expect(src).toMatch(/accessibilityRole="radiogroup"/);
+        expect(src).toMatch(/accessibilityRole="radio"[\s\S]{0,160}accessibilityLabel=\{t\(language\.descKey\) === language\.name \? language\.name : `\$\{language\.name\}, \$\{t\(language\.descKey\)\}`\}/);
+        expect(src).toMatch(/accessibilityState=\{\{ checked: selectedLanguage === language\.code/);
+        expect(src).toMatch(/'aria-checked': selectedLanguage === language\.code/);
+    });
+
+    it('the Register terms line is a named link', () => {
+        const src = read('src/screens/RegisterScreen.tsx');
+        expect(src).toMatch(/accessibilityRole="link"\s*accessibilityLabel=\{t\('termsDisclaimer'\)\}/);
+    });
+});
+
+describe('Wave E — 44pt targets without relying on hitSlop (absent on web)', () => {
+    const block = (file: string, style: string) => read(file).split(`${style}: {`)[1].split('},')[0];
+    it.each([
+        ['src/screens/RegisterScreen.tsx', 'eyeButton'],
+        ['src/screens/LoginScreen.tsx', 'eyeButton'],
+        ['src/screens/LoginScreen.tsx', 'forgotPasswordButton'],
+        ['src/screens/LoginScreen.tsx', 'crossNavButton'],
+        ['src/screens/RegisterScreen.tsx', 'crossNavButton'],
+        ['src/screens/RegisterScreen.tsx', 'termsContainer'],
+        ['src/screens/AuthChoiceScreen.tsx', 'termsLinkTarget'],
+        ['src/screens/OnboardingScreen.styles.ts', 'backButtonFinal'],
+    ])('%s %s has minHeight 44', (file, style) => {
+        expect(block(file, style)).toMatch(/minHeight: 44/);
     });
 });

@@ -51,8 +51,11 @@ export const AuthChoiceScreen = () => {
                         accessibilityLabel={t('createAccount')}
                         activeOpacity={0.85}
                     >
+                        {/* White text needs the strong pink at the gradient's start: on
+                            `primary` it measured 2.68:1 ("Créer un compte") and 2.3:1 for the
+                            85 % white subtext. primaryStrong → accent holds ≥ 4.6:1 across. */}
                         <LinearGradient
-                            colors={[theme.colors.primary, theme.colors.accent]}
+                            colors={[theme.colors.primaryStrong, theme.colors.accent]}
                             start={{ x: 0, y: 0 }}
                             end={{ x: 1, y: 0 }}
                             style={styles.primaryGradient}
@@ -99,6 +102,8 @@ export const AuthChoiceScreen = () => {
                             accessibilityRole="link"
                             accessibilityLabel={t('privacyPolicy', { defaultValue: 'Politique de confidentialité' })}
                             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                            // hitSlop does not exist on react-native-web: the link was 18px tall there.
+                            style={styles.termsLinkTarget}
                         >
                             <Text style={[styles.termsLink, isRTL && styles.rtlText]}>
                                 {t('privacyPolicy', { defaultValue: 'Politique de confidentialité' })}
@@ -178,7 +183,8 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
     },
     buttonSubtext: {
-        color: theme.colors.whiteAlpha85,
+        // Full white: 85 % white over primaryStrong is 3.7:1 at 13px.
+        color: theme.colors.white,
         fontSize: 13,
         marginTop: 3,
     },
@@ -215,6 +221,11 @@ const styles = StyleSheet.create({
         color: theme.colors.neutral400,
         textAlign: 'center',
         lineHeight: 16,
+    },
+    termsLinkTarget: {
+        minHeight: 44,
+        justifyContent: 'center',
+        paddingHorizontal: theme.spacing.s,
     },
     termsLink: {
         fontSize: 11,

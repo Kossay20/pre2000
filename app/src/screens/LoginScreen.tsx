@@ -362,6 +362,10 @@ const styles = StyleSheet.create({
         paddingHorizontal: 14,
         justifyContent: 'center',
         alignItems: 'center',
+        // 44pt target on every platform: hitSlop does not exist on react-native-web,
+        // where the toggle measured 49×21.
+        minWidth: 44,
+        minHeight: 44,
     },
     eyeIcon: {
         fontSize: 18,
@@ -372,6 +376,9 @@ const styles = StyleSheet.create({
     forgotPasswordButton: {
         marginTop: theme.spacing.m,
         alignItems: 'center',
+        justifyContent: 'center',
+        // The link was 17px tall: a 44pt target without changing how it looks.
+        minHeight: 44,
     },
     forgotPasswordRow: {
         flexDirection: 'row',
@@ -403,7 +410,9 @@ const styles = StyleSheet.create({
     },
     crossNavButton: {
         alignItems: 'center',
+        justifyContent: 'center',
         paddingVertical: 8,
+        minHeight: 44,
     },
     crossNavText: {
         color: theme.colors.accent,

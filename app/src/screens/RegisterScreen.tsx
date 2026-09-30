@@ -80,6 +80,15 @@ export const RegisterScreen = () => {
         theme.colors.orange500,
         theme.colors.green500,
     ][passwordStrength];
+    // The bar keeps its traffic-light fill; the word under it needs text contrast
+    // (≥ 4.5:1 on the pink background), which the light red/orange/green fills lack.
+    const strengthTextColor = [
+        'transparent',
+        theme.colors.error,
+        theme.colors.textSecondary,
+        theme.colors.textSecondary,
+        theme.colors.success,
+    ][passwordStrength];
     // AUTH-03: the meter carries a short word so the fixed-width label can't collide
     // with the bar — esp. in AR. A strength word, not a rule: the rule is already on
     // the helper line under the field and in the alert on submit, and the meter
@@ -273,7 +282,7 @@ export const RegisterScreen = () => {
                                     />
                                 </View>
                                 <Text
-                                    style={[styles.strengthLabel, { color: strengthColor }]}
+                                    style={[styles.strengthLabel, { color: strengthTextColor }]}
                                     numberOfLines={1}
                                     ellipsizeMode="tail"
                                 >
@@ -331,6 +340,10 @@ export const RegisterScreen = () => {
                         <TouchableOpacity
                             style={styles.termsContainer}
                             onPress={() => navigation.navigate('PrivacyPolicy' as any)}
+                            // It opens the terms and privacy page — a link, named by its text.
+                            // It was a role-less, unnamed <div tabindex=0> on web.
+                            accessibilityRole="link"
+                            accessibilityLabel={t('termsDisclaimer')}
                         >
                             <Text style={[styles.termsText, isRTL && styles.rtlText]}>
                                 {t('termsDisclaimer')}
@@ -456,6 +469,10 @@ const styles = StyleSheet.create({
         paddingHorizontal: 14,
         justifyContent: 'center',
         alignItems: 'center',
+        // 44pt target on every platform: hitSlop does not exist on react-native-web,
+        // where the toggle measured 49×21.
+        minWidth: 44,
+        minHeight: 44,
     },
     eyeIcon: {
         fontSize: 18,
@@ -490,7 +507,9 @@ const styles = StyleSheet.create({
     termsContainer: {
         marginTop: 16,
         alignItems: 'center',
+        justifyContent: 'center',
         paddingHorizontal: 8,
+        minHeight: 44,
     },
     termsText: {
         fontSize: 11,
@@ -516,7 +535,9 @@ const styles = StyleSheet.create({
     },
     crossNavButton: {
         alignItems: 'center',
+        justifyContent: 'center',
         paddingVertical: 8,
+        minHeight: 44,
     },
     crossNavText: {
         color: theme.colors.accent,

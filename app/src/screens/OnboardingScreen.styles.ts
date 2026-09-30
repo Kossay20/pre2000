@@ -371,6 +371,9 @@ export const styles = StyleSheet.create({
     backButtonFinal: {
         marginTop: 20,
         padding: 12,
+        // 44pt target (WCAG 2.5.5 / HIG): padding alone measured 42.
+        minHeight: 44,
+        justifyContent: 'center' as const,
     },
     finalScrollContent: {
         flexGrow: 1,
