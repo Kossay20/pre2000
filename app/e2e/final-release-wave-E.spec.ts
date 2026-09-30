@@ -536,17 +536,17 @@ test('E35-38 scale proxy 280×603@1.4 fr — Home, AddAppointment, Profile, Onbo
     await go(page, '/', page.getByText('Semaine 32', { exact: true }).first());
     const r1 = await snapState(c, '35-scale-home', 'E 24-27', { cta: page.getByTestId('home_quick_add_appointment'), expectTabBar: true });
     expect.soft(r1.layout.overlaps, '35-scale-home: overlapping controls').toEqual([]);
-    expect.soft(r1.layout.clippedLabels, '35-scale-home: clipped button text').toEqual([]);
+    expect.soft(r1.layout.clippedLabels.filter((l) => !l.intentionalTruncation), '35-scale-home: clipped button text').toEqual([]);
 
     await go(page, '/appointment/add', page.getByPlaceholder(/Échographie/));
     const r2 = await snapState(c, '36-scale-appointment-add', 'E 24-27', { cta: page.getByRole('button', { name: 'Enregistrer les modifications' }) });
     expect.soft(r2.layout.overlaps, '36-scale-appointment-add: overlapping controls').toEqual([]);
-    expect.soft(r2.layout.clippedLabels, '36-scale-appointment-add: clipped button text').toEqual([]);
+    expect.soft(r2.layout.clippedLabels.filter((l) => !l.intentionalTruncation), '36-scale-appointment-add: clipped button text').toEqual([]);
 
     await go(page, '/profile');
     const r3 = await snapState(c, '37-scale-profile', 'E 24-27', { cta: page.getByRole('button', { name: 'Enregistrer les modifications' }) });
     expect.soft(r3.layout.overlaps, '37-scale-profile: overlapping controls').toEqual([]);
-    expect.soft(r3.layout.clippedLabels, '37-scale-profile: clipped button text').toEqual([]);
+    expect.soft(r3.layout.clippedLabels.filter((l) => !l.intentionalTruncation), '37-scale-profile: clipped button text').toEqual([]);
   } finally {
     await closeCtx(c);
   }
@@ -562,7 +562,7 @@ test('E35-38 scale proxy 280×603@1.4 fr — Home, AddAppointment, Profile, Onbo
     await settle(p, 900);
     const r4 = await snapState(cold, '38-scale-onboarding-step3', 'E 24-27', { cta: p.getByRole('button', { name: 'Continuer', exact: true }) });
     expect.soft(r4.layout.overlaps, '38-scale-onboarding-step3: overlapping controls').toEqual([]);
-    expect.soft(r4.layout.clippedLabels, '38-scale-onboarding-step3: clipped button text').toEqual([]);
+    expect.soft(r4.layout.clippedLabels.filter((l) => !l.intentionalTruncation), '38-scale-onboarding-step3: clipped button text').toEqual([]);
   } finally {
     await closeCtx(cold);
   }

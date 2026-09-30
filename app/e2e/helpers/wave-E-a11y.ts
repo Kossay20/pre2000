@@ -1011,6 +1011,8 @@ export async function enlargeText(page: Page, factor = 1.4) {
     let n = 0;
     for (const el of Array.from(document.body.querySelectorAll('*')) as HTMLElement[]) {
       if (el.dataset.e2eTextScaled) continue;
+      // The tab bar opts out of OS text scaling (tabBarAllowFontScaling: false, App.tsx).
+      if (el.closest('[role=tablist]')) continue;
       const hasText = Array.from(el.childNodes).some((c) => c.nodeType === 3 && (c.textContent || '').trim());
       if (!hasText && !(el instanceof HTMLInputElement) && !(el instanceof HTMLTextAreaElement)) continue;
       const cs = getComputedStyle(el);

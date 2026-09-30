@@ -102,10 +102,15 @@ const styles = StyleSheet.create({
         borderBottomWidth: 1,
         borderBottomColor: theme.colors.border,
     },
+    // Seven fixed 45pt cells (315pt + gutters) ran off a 320pt screen (iPad Slide
+    // Over, iPhone SE 1st gen): share the row instead, capped at the old 45pt.
     dayContainer: {
         alignItems: 'center',
         justifyContent: 'center',
-        width: 45,
+        flexGrow: 1,
+        flexBasis: 0,
+        maxWidth: 45,
+        marginHorizontal: 1,
         height: 60,
         borderRadius: 12,
     },

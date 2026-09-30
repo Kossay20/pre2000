@@ -238,11 +238,11 @@ const RemindersStack = () => {
 
 const MainTabs = () => {
   const { t } = useTranslation();
-  // Five tabs share the width. Below ~64pt of unscaled room per tab the longest labels
-  // ("Calendrier", "Ressources") truncate to "Calend…"; step the label down a point
-  // there rather than cutting the word. fontScale covers Android's larger text setting.
-  const { width, fontScale } = useWindowDimensions();
-  const narrowTabs = width / 5 / fontScale < 64;
+  // Five tabs share the width. Below ~72pt per tab (320pt iPad Slide Over, small
+  // phones) the longest labels ("Calendrier", "Ressources") truncated to "Calend…";
+  // step the label down a point there rather than cutting the word.
+  const { width } = useWindowDimensions();
+  const narrowTabs = width / 5 < 72;
   const tabLabelFontSize = narrowTabs ? 9 : 10;
   return (
     <Tab.Navigator
@@ -268,12 +268,18 @@ const MainTabs = () => {
         // "Raooels" in the store screenshots). A 24pt icon box (the glyph is 25pt and
         // overflows it harmlessly) gives the label its full line box. On narrow bars the
         // label also borrows the tab's side padding so "Ressources" is not cut.
+        // (maxWidth overrides RN-web's max-width:100% so the negative margin can widen it.)
         tabBarIconStyle: { height: 24 },
         tabBarLabelStyle: {
           fontSize: tabLabelFontSize,
           lineHeight: Math.ceil(tabLabelFontSize * 1.4),
-          ...(narrowTabs ? { marginHorizontal: -4 } : {}),
+          ...(narrowTabs ? { marginHorizontal: -4, maxWidth: 80 } : {}),
         },
+        // The bar is a fixed 49pt: a label scaled by the OS text size cannot fit it and
+        // gets clipped. iOS already opts tab labels out (the Large Content Viewer shows
+        // them enlarged on long-press); do the same on Android so the icon + label stay
+        // whole. Screen content keeps scaling (App.tsx caps it at 1.4).
+        tabBarAllowFontScaling: false,
         // PHASE 2.3 FIX (E2E audit 2026-05-08): replace emoji <Text> with vector
         // icons. RNWeb was rendering the emoji twice in the a11y tree (`tab "🏠 🏠
         // Accueil"`) because emoji <Text> got mirrored as accessibilityLabel.
