@@ -5,7 +5,10 @@ import {
     requestNotificationPermissions,
     scheduleReminderNotification,
     cancelReminderNotifications,
-    scheduleMultipleReminders
+    scheduleMultipleReminders,
+    cancelBabyMessage,
+    scheduleBabyMessage,
+    nativeNotificationsSupported,
 } from '../notificationService';
 
 // Mock dependencies
@@ -147,6 +150,37 @@ describe('NotificationService', () => {
             expect(Notifications.cancelScheduledNotificationAsync).toHaveBeenCalledWith('1');
             expect(Notifications.cancelScheduledNotificationAsync).toHaveBeenCalledWith('3');
             expect(Notifications.cancelScheduledNotificationAsync).not.toHaveBeenCalledWith('2');
+        });
+    });
+
+    describe('web: native notifications are a no-op (not a console.error)', () => {
+        const originalOS = Platform.OS;
+
+        afterEach(() => {
+            Platform.OS = originalOS;
+        });
+
+        it('nativeNotificationsSupported is false on web and true on ios', () => {
+            expect(nativeNotificationsSupported('web')).toBe(false);
+            expect(nativeNotificationsSupported('ios')).toBe(true);
+            expect(nativeNotificationsSupported('android')).toBe(true);
+        });
+
+        it('cancelBabyMessage does not call expo-notifications on web', async () => {
+            Platform.OS = 'web';
+            (Notifications.getAllScheduledNotificationsAsync as jest.Mock).mockRejectedValue(
+                new Error('Notifications.getAllScheduledNotificationsAsync is not available on web'),
+            );
+            await expect(cancelBabyMessage()).resolves.toBeUndefined();
+            expect(Notifications.getAllScheduledNotificationsAsync).not.toHaveBeenCalled();
+        });
+
+        it('scheduleBabyMessage returns null on web without calling the native scheduler', async () => {
+            Platform.OS = 'web';
+            const id = await scheduleBabyMessage('hello from baby', '👶', 10, 0);
+            expect(id).toBeNull();
+            expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled();
+            expect(Notifications.getAllScheduledNotificationsAsync).not.toHaveBeenCalled();
         });
     });
 });

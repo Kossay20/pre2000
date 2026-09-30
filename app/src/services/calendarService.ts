@@ -13,6 +13,7 @@ import { differenceInCalendarDays } from 'date-fns';
 
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../config/firebase';
+import { FIRESTORE_GUEST_TIMEOUT_MS, withTimeout } from '../utils/withTimeout';
 import { createLogger } from '../utils/logger';
 import { cancelRDVReminders } from './rdvNotificationService';
 import { CalendarTemplate } from '../types';
@@ -167,7 +168,10 @@ export const getEventsForWeek = (
 export const loadCalendarTemplates = async (): Promise<CalendarTemplate[]> => {
     log.info('Loading calendar templates from Firestore...');
     try {
-        const snapshot = await getDocs(collection(db, 'calendarTemplates'));
+        const snapshot = await withTimeout(
+            getDocs(collection(db, 'calendarTemplates')),
+            FIRESTORE_GUEST_TIMEOUT_MS,
+        );
         const templates = snapshot.docs.map((doc) => doc.data() as CalendarTemplate);
         log.success(`Loaded ${templates.length} calendar templates`);
         if (templates.length === 0) {

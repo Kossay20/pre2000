@@ -191,6 +191,11 @@ describe('buildContextProfile', () => {
         expect(profile.week_of_pregnancy).toBe(8);
     });
 
+    test('week 13 is still trimester 1 (same SSOT as Home)', () => {
+        expect(buildContextProfile(13).trimester).toBe(1);
+        expect(buildContextProfile(14).trimester).toBe(2);
+    });
+
     test('should correctly calculate trimester 2', () => {
         const profile = buildContextProfile(20);
         expect(profile.trimester).toBe(2);

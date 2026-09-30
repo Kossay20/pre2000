@@ -1,6 +1,7 @@
 import { chromium, FullConfig } from '@playwright/test';
 import { mkdirSync } from 'fs';
 import { dirname } from 'path';
+import { buildGuestProfile } from './helpers/guest-profile';
 
 /**
  * Playwright globalSetup — runs once before the entire test suite.
@@ -17,18 +18,7 @@ import { dirname } from 'path';
  */
 const STATE_PATH = 'e2e/.auth/state.json';
 
-const GUEST_PROFILE = {
-    uid: 'guest_e2e_fixture',
-    firstName: 'E2E',
-    lastName: 'Tester',
-    pregnancyStartDate: '2026-02-13T00:00:00.000Z',
-    lmp: '2026-02-13T00:00:00.000Z',
-    currentWeek: 13,
-    country: 'France',
-    ageRange: '25-29',
-    isFirstPregnancy: true,
-    isGuest: true,
-} as const;
+const GUEST_PROFILE = buildGuestProfile(13);
 
 async function globalSetup(_config: FullConfig) {
     mkdirSync(dirname(STATE_PATH), { recursive: true });

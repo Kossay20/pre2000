@@ -9,6 +9,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
+import { usePregnancy } from '../context/PregnancyContext';
 import { theme } from '../theme';
 import { Button } from '../components/common/Button';
 import { Card } from '../components/common/Card';
@@ -36,6 +37,9 @@ const formatElapsed = (ms: number): string => {
 export const KickCounterScreen: React.FC = () => {
     useScreenAnalytics('KickCounterScreen');
     const { t } = useTranslation();
+    const { pregnancyInfo } = usePregnancy();
+    const week = pregnancyInfo?.week ?? 1;
+    const kickCountRuleApplies = week >= 28;
     const [state, setState] = useState<KickCounterState>({ activeSession: null, history: [] });
     const [now, setNow] = useState<number>(Date.now());
     const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -105,7 +109,9 @@ export const KickCounterScreen: React.FC = () => {
 
                 <Card style={styles.guideCard}>
                     <Text style={styles.guideTitle}>💡 {t('cycle8.kickCounter.guidanceTitle')}</Text>
-                    <Text style={styles.guideText}>{t('cycle8.kickCounter.guidanceText')}</Text>
+                    <Text style={styles.guideText}>
+                        {t(kickCountRuleApplies ? 'cycle8.kickCounter.guidanceText' : 'cycle8.kickCounter.guidanceEarly')}
+                    </Text>
                 </Card>
 
                 {!state.activeSession ? (

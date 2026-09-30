@@ -2,6 +2,7 @@ import React, { useMemo, createContext, useContext, useState, useCallback, useRe
 import { View, Text, StyleSheet, Animated, TouchableOpacity, Platform } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { theme } from '../theme';
+import { toastFixedPosition } from '../utils/toastLayout';
 import { isRtlLang } from '../hooks/useRtl';
 import { usePrefersReducedMotion, getReducedMotionSync } from '../hooks/usePrefersReducedMotion';
 
@@ -159,9 +160,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 const styles = StyleSheet.create({
     toastContainer: {
         position: 'absolute',
-        bottom: Platform.OS === 'ios' ? 100 : 80, // Above tab bar
-        left: 20,
-        right: 20,
+        ...toastFixedPosition(),
         borderRadius: 12,
         padding: 16,
         shadowColor: theme.colors.black,

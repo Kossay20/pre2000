@@ -1,4 +1,4 @@
-import { calculatePregnancyWeek } from '../pregnancyCalculator';
+import { calculatePregnancyWeek, trimesterFromWeek } from '../pregnancyCalculator';
 
 describe('pregnancyCalculator', () => {
     // Helper to mock current date
@@ -49,6 +49,23 @@ describe('pregnancyCalculator', () => {
             const lmp = new Date('2023-11-08T10:00:00.000Z');
             const result = calculatePregnancyWeek(lmp);
             expect(result).toEqual({ week: 10, day: 1, isInvalid: false });
+        });
+
+        it('should return Week 13, Day 1 when LMP was exactly 12 weeks (84 days) ago', () => {
+            const lmp = new Date('2024-01-10T12:00:00.000Z');
+            lmp.setUTCDate(lmp.getUTCDate() - 84);
+            const result = calculatePregnancyWeek(lmp);
+            expect(result).toEqual({ week: 13, day: 1, isInvalid: false });
+        });
+
+        it('trimesterFromWeek: week 13 is T1 (aligned with Home, not week<=12)', () => {
+            expect(trimesterFromWeek(1)).toBe(1);
+            expect(trimesterFromWeek(12)).toBe(1);
+            expect(trimesterFromWeek(13)).toBe(1);
+            expect(trimesterFromWeek(14)).toBe(2);
+            expect(trimesterFromWeek(27)).toBe(2);
+            expect(trimesterFromWeek(28)).toBe(3);
+            expect(trimesterFromWeek(40)).toBe(3);
         });
 
         it('should ignore time components (noon vs midnight)', () => {

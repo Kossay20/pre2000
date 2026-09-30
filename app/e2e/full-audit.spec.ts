@@ -129,25 +129,46 @@ test.describe('Whole-project E2E audit', () => {
     }
   });
 
-  // Deep screens: ONLY those in the app's linking config (App.tsx:248-274) are URL-addressable.
-  // Screens NOT in that config (Profile, Settings, HealthDashboard, WeightTracker, ForbiddenFoods,
-  // KickCounter, ContractionTimer, BabyEvolution) are reached only via in-app navigation from a
-  // Home screen whose content is backend-dependent, so they cannot be reached in this OFFLINE
-  // static-export harness. Their logic is covered by unit tests (kickCounterService,
-  // contractionTimerService, weightService, healthService, etc.); their full E2E requires the
-  // owner's Anonymous-Auth + firestore.rules deploy (owner gate). Documented, not silently skipped.
-  //
-  // AddAppointment IS deep-link addressable (/appointment/add) and renders fully offline (form,
-  // no mount-time backend) — so we audit it with a real proof-of-render (a form input + no tablist,
-  // which would indicate a fallback to a tab/Home).
-  test('AddAppointment form renders clean (deep-link /appointment/add)', async ({ page }) => {
-    const errors = attachConsole(page);
-    await gotoHydrated(page, '/appointment/add');
-    // AddAppointment is a stack screen inside the Calendrier tab, so the bottom tab bar stays
-    // visible — the real proof-of-render is the form's text input (Calendar/Home have none prominent).
-    await expect(page.getByRole('textbox').first()).toBeVisible({ timeout: 15_000 });
-    await auditScreen(page, '08-add-appointment', errors);
-  });
+  // Deep screens in App.tsx linking (Home stack + Calendrier + Rappels + Ressources + Chatbot).
+  // Guest week=13 hides Kick/Contraction/HospitalBag Home cards; the screens themselves remain
+  // URL-addressable and must still render (gated empty / idle UI is the expected state).
+  const DEEP: { name: string; path: string; proof: 'textbox' | 'button' | 'checkbox' | 'switch' | 'tab' | 'heading' }[] = [
+    { name: '08-add-appointment', path: '/appointment/add', proof: 'textbox' },
+    { name: '09-statistics', path: '/statistics', proof: 'button' },
+    { name: '10-health', path: '/health', proof: 'button' },
+    { name: '11-weight', path: '/weight', proof: 'textbox' },
+    { name: '12-kick-counter', path: '/kick-counter', proof: 'button' },
+    { name: '13-contraction-timer', path: '/contraction-timer', proof: 'button' },
+    { name: '14-hospital-bag', path: '/hospital-bag', proof: 'checkbox' },
+    { name: '15-forbidden-foods', path: '/forbidden-foods', proof: 'textbox' },
+    { name: '16-baby-evolution', path: '/baby-evolution', proof: 'button' },
+    { name: '17-profile', path: '/profile', proof: 'textbox' },
+    { name: '18-settings', path: '/settings', proof: 'switch' },
+    { name: '19-recommendations', path: '/recommendations', proof: 'button' },
+    { name: '20-resources-path', path: '/resources', proof: 'tab' },
+    { name: '21-chatbot-path', path: '/chatbot', proof: 'textbox' },
+  ];
+
+  for (const d of DEEP) {
+    test(`deep link ${d.path} renders a real ${d.proof}`, async ({ page }) => {
+      const errors = attachConsole(page);
+      await gotoHydrated(page, d.path);
+      if (d.proof === 'textbox') {
+        await expect(page.getByRole('textbox').first()).toBeVisible({ timeout: 15_000 });
+      } else if (d.proof === 'checkbox') {
+        await expect(page.getByRole('checkbox').first()).toBeVisible({ timeout: 15_000 });
+      } else if (d.proof === 'switch') {
+        await expect(page.getByRole('switch').first()).toBeVisible({ timeout: 15_000 });
+      } else if (d.proof === 'heading') {
+        await expect(page.getByRole('heading').first()).toBeVisible({ timeout: 15_000 });
+      } else if (d.proof === 'tab') {
+        await expect(page.getByRole('tab').first()).toBeVisible({ timeout: 15_000 });
+      } else {
+        await expect(page.getByRole('button').first()).toBeVisible({ timeout: 15_000 });
+      }
+      await auditScreen(page, d.name, errors);
+    });
+  }
 
   // Note: the cold Language picker (no guest state) is covered by cycle9-fixes.spec.ts
   // (15/15), so it is intentionally NOT duplicated here — this suite inherits the seeded

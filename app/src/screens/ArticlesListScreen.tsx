@@ -10,6 +10,7 @@ import { getLocalizedContent } from '../utils/i18nHelpers';
 import { useRtlScrollFix } from '../hooks/useRtlScrollFix';
 import { getAntigravityArticlesByCategory } from '../services/contentService'; // ANTIGRAVITY
 import { getAllLocalArticles } from '../services/localContentFallback';
+import { FIRESTORE_GUEST_TIMEOUT_MS, withTimeout } from '../utils/withTimeout';
 import { getBookmarks, subscribeBookmarks } from '../services/bookmarkService';
 import { theme } from '../theme';
 import { Card } from '../components/common/Card';
@@ -86,8 +87,8 @@ export const ArticlesListScreen = () => {
             log.debug('[ArticlesListScreen] 📚 Fetching all articles (old + Antigravity)...');
             try {
                 const [oldSnapshot, agSnapshot] = await Promise.all([
-                    getDocs(collection(db, 'articles')),
-                    getDocs(collection(db, 'articlesAntigravity')),
+                    withTimeout(getDocs(collection(db, 'articles')), FIRESTORE_GUEST_TIMEOUT_MS),
+                    withTimeout(getDocs(collection(db, 'articlesAntigravity')), FIRESTORE_GUEST_TIMEOUT_MS),
                 ]);
                 if (!isMounted) return;
                 const oldArts = oldSnapshot.docs.map(doc => doc.data() as Article);

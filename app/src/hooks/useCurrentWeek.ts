@@ -4,6 +4,7 @@ import { db } from '../config/firebase';
 import { usePregnancy } from '../context/PregnancyContext';
 import { Week } from '../types';
 import { getLocalWeek } from '../services/localContentFallback';
+import { FIRESTORE_GUEST_TIMEOUT_MS, withTimeout } from '../utils/withTimeout';
 import { createLogger } from '../utils/logger';
 const log = createLogger('useCurrentWeek');
 
@@ -38,7 +39,7 @@ export const useCurrentWeek = (weekNumber?: number) => {
             setLoading(true);
             try {
                 const weekDocRef = doc(db, 'weeks', String(targetWeek));
-                const weekDoc = await getDoc(weekDocRef);
+                const weekDoc = await withTimeout(getDoc(weekDocRef), FIRESTORE_GUEST_TIMEOUT_MS);
 
                 if (!isMounted) return; // Race condition protection
 

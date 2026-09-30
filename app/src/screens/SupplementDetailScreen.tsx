@@ -5,6 +5,7 @@ import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity
 import { Ionicons } from '@expo/vector-icons';
 import { doc, getDoc } from 'firebase/firestore';
 import { getLocalSupplement, getLocalArticle, getAllLocalArticles } from '../services/localContentFallback';
+import { FIRESTORE_GUEST_TIMEOUT_MS, withTimeout } from '../utils/withTimeout';
 import { db } from '../config/firebase';
 import { Supplement, Article } from '../types';
 import { theme } from '../theme';
@@ -69,7 +70,7 @@ export const SupplementDetailScreen = () => {
             setError(null);
             try {
                 const docRef = doc(db, 'supplements', supplementId);
-                const docSnap = await getDoc(docRef);
+                const docSnap = await withTimeout(getDoc(docRef), FIRESTORE_GUEST_TIMEOUT_MS);
                 if (!isMounted) return;
                 if (docSnap.exists()) {
                     setSupplement(docSnap.data() as Supplement);

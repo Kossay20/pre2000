@@ -5,23 +5,18 @@
  * et comparaisons fruits/légumes
  */
 
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import {
     View,
     Text,
     StyleSheet,
-    ScrollView,
     Image,
     TouchableOpacity,
-    Animated,
-    ActivityIndicator,
-    Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
-import { useIsFocused } from '@react-navigation/native';
 import { getAllBabyGrowthData, getBabyGrowthForWeek, BabyGrowthMonth } from '../config/babyGrowthData';
 import { usePregnancy } from '../context/PregnancyContext';
 import { theme } from '../theme';
@@ -57,84 +52,14 @@ export const BabyEvolutionScreen = () => {
     const currentMonth = getBabyGrowthForWeek(currentWeek).month;
 
     const allMonths = getAllBabyGrowthData();
-
-    // TRUE-RTL CAROUSEL. The scroller's *geometry* stays LTR on web (see the effect
-    // below — a dir=rtl scroller gave Chromium a negative scrollLeft that clamped
-    // scrollTo to 0 and stranded ar/tn on Month 9). Instead of fighting that, we
-    // reverse the CARD ORDER for RTL: Month 1 is rendered last, so it lands on the
-    // right-hand edge and the reader advances right-to-left, as Arabic expects,
-    // while scrollLeft stays positive and scrollTo keeps working.
-    const orderedMonths = isRTL ? [...allMonths].reverse() : allMonths;
-    // Position of a month in the rendered order, and the inverse lookup used when
-    // translating a scroll offset back into a month number.
-    const monthToSlot = (month: number) => (isRTL ? allMonths.length - month : month - 1);
-    const slotToMonth = (slot: number) => (isRTL ? allMonths.length - slot : slot + 1);
-
-    const scrollViewRef = useRef<ScrollView>(null);
     const [activeMonth, setActiveMonth] = useState(currentMonth);
-    // Guards the one-time initial positioning below.
-    const didInitialScroll = useRef(false);
-    const initialScrollSettled = useRef(false);
 
-    const scrollToMonth = (month: number, animated: boolean) => {
-        scrollViewRef.current?.scrollTo({
-            x: monthToSlot(month) * (CARD_WIDTH + 16),
-            animated,
-        });
-    };
-
-    // INITIAL-POSITION FIX. The screen used to position itself from a 300 ms
-    // setTimeout, which races the ScrollView's layout: if the content has not been
-    // measured yet, scrollTo clamps to 0 and nothing ever retries. It went unnoticed
-    // because in the previous LTR card order the current month was usually near
-    // slot 0, so x was ~0 anyway — but any user past month 1 (and, once the cards are
-    // reversed for RTL, EVERY Arabic user) landed on the wrong card. Positioning from
-    // onContentSizeChange runs when the content is actually measurable.
-    const handleContentSizeChange = (contentWidth: number) => {
-        if (didInitialScroll.current) return;
-        // Only commit once the full strip has been measured. A partial measurement
-        // would make scrollTo clamp short, and the guard below would stop us retrying.
-        if (contentWidth < (CARD_WIDTH + 16) * allMonths.length * 0.9) return;
-        didInitialScroll.current = true;
-        scrollToMonth(currentMonth, false);
-        setActiveMonth(currentMonth);
-        // The programmatic scroll emits an onScroll carrying the PREVIOUS offset (0),
-        // which would immediately overwrite activeMonth back to the first slot — the
-        // card showed "Month 3" while the header and dots said "Month 1". Ignore
-        // scroll events until the new position has been committed.
-        requestAnimationFrame(() => { initialScrollSettled.current = true; });
-    };
-
-    // Sync active month and scroll when current month changes — with cleanup
     React.useEffect(() => {
         setActiveMonth(currentMonth);
-        // R-BABYEVO-RTL-FIX2 (2026-06-18): force the horizontal scroller to LTR geometry on web
-        // by setting the DOM `dir` attribute directly (via the ScrollView's scrollable node) —
-        // NOT a `direction` style (RN-Web rejects that key: "Invalid style property of direction").
-        // dir=ltr makes scrollLeft positive/standard so scrollTo lands correctly; without it the
-        // row-reverse + document dir=rtl double-reversal gave Chromium a negative scrollLeft that
-        // clamped scrollTo to 0 and stranded ar/tn on Month 9. Cards keep natural order (Month 1→9).
-        if (Platform.OS === 'web' && isRTL) {
-            const node = scrollViewRef.current?.getScrollableNode?.();
-            if (node && typeof node.setAttribute === 'function') node.setAttribute('dir', 'ltr');
-        }
-        // Subsequent changes of the real current month (the initial position is
-        // handled by onContentSizeChange, once the content has been measured).
-        if (!didInitialScroll.current) return;
-        const timer = setTimeout(() => scrollToMonth(currentMonth, true), 300);
-        return () => clearTimeout(timer); // cleanup: prevents setState after unmount
     }, [currentMonth]);
 
-    const handleScroll = (event: any) => {
-        // R5-BABYEVO-RTL-01: with the RTL `row-reverse` content, contentOffset.x can be
-        // negative, which previously yielded "Month -7 / 9". Normalize the offset
-        // (abs) so paging works in both directions, then CLAMP the derived month into
-        // [1, allMonths.length] to guard the label + allMonths[activeMonth-1] lookup.
-        if (!initialScrollSettled.current) return;
-        const offsetX = Math.abs(event.nativeEvent.contentOffset.x);
-        const slot = Math.round(offsetX / (CARD_WIDTH + 16));
-        const clamped = Math.min(allMonths.length, Math.max(1, slotToMonth(slot)));
-        setActiveMonth(clamped);
+    const goToMonth = (month: number) => {
+        setActiveMonth(Math.min(allMonths.length, Math.max(1, month)));
     };
 
     const renderMonthCard = (monthData: BabyGrowthMonth, index: number) => {
@@ -237,14 +162,21 @@ export const BabyEvolutionScreen = () => {
                 with Month 1 on the right — no override needed. */}
             <View style={styles.progressContainer}>
                 {allMonths.map((_, index) => (
-                    <View
+                    <TouchableOpacity
                         key={index}
-                        style={[
-                            styles.progressDot,
-                            activeMonth === index + 1 && styles.progressDotActive,
-                            index + 1 <= currentMonth && styles.progressDotPassed,
-                        ]}
-                    />
+                        onPress={() => goToMonth(index + 1)}
+                        accessibilityRole="button"
+                        accessibilityLabel={t('common.monthLabel', { number: index + 1 })}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                        <View
+                            style={[
+                                styles.progressDot,
+                                activeMonth === index + 1 && styles.progressDotActive,
+                                index + 1 <= currentMonth && styles.progressDotPassed,
+                            ]}
+                        />
+                    </TouchableOpacity>
                 ))}
             </View>
 
@@ -253,21 +185,11 @@ export const BabyEvolutionScreen = () => {
                 {allMonths[activeMonth - 1]?.comparison.emoji} {t('common.monthLabel', { number: activeMonth })} / 9
             </Text>
 
-            {/* Horizontal Scroll Cards — RTL: scroll start auto-adjusts on iOS */}
-            <ScrollView
-                ref={scrollViewRef}
-                horizontal
-                pagingEnabled
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.scrollContent}
-                onScroll={handleScroll}
-                onContentSizeChange={handleContentSizeChange}
-                scrollEventThrottle={16}
-                decelerationRate="fast"
-                snapToInterval={CARD_WIDTH + 16}
-            >
-                {orderedMonths.map((month, index) => renderMonthCard(month, index))}
-            </ScrollView>
+            <View style={styles.singleCardWrap} accessibilityLabel={t('common.monthLabel', { number: activeMonth })}>
+                {allMonths[activeMonth - 1]
+                    ? renderMonthCard(allMonths[activeMonth - 1], activeMonth - 1)
+                    : null}
+            </View>
 
             {/* Bottom Info */}
             <View style={styles.bottomInfo}>
@@ -338,13 +260,12 @@ const styles = StyleSheet.create({
         color: theme.colors.textSecondary,
         marginBottom: 12,
     },
-    scrollContent: {
-        paddingHorizontal: 24,
+    singleCardWrap: {
+        alignItems: 'center',
         paddingBottom: 20,
     },
     cardWrapper: {
         width: CARD_WIDTH,
-        marginEnd: 16,
     },
     card: {
         borderRadius: 24,

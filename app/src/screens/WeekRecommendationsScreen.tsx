@@ -7,6 +7,8 @@ import { db } from '../config/firebase';
 import { useCurrentWeek } from '../services/useCurrentWeek';
 import { Article, Supplement } from '../types';
 import { getLocalizedContent } from '../utils/i18nHelpers';
+import { getLocalArticle, getLocalSupplement } from '../services/localContentFallback';
+import { FIRESTORE_GUEST_TIMEOUT_MS, withTimeout } from '../utils/withTimeout';
 import { theme } from '../theme';
 import { Card } from '../components/common/Card';
 import { SectionHeader } from '../components/common/SectionHeader';
@@ -29,30 +31,25 @@ export const WeekRecommendationsScreen = () => {
         const fetchRecommendations = async () => {
             if (!weekData) return;
 
+            const articleIds = (weekData.recommended_articles_ids || '').split(',').filter(Boolean);
+            const supplementIds = (weekData.recommended_supplements_ids || '').split(',').filter(Boolean);
             try {
-                // Fetch recommended articles
-                const articleIds = (weekData.recommended_articles_ids || '').split(',').filter(Boolean);
-                const articlePromises = articleIds.map((id: string) =>
-                    getDoc(doc(db, 'articles', id.trim()))
+                const articleDocs = await Promise.all(
+                    articleIds.map((id: string) =>
+                        withTimeout(getDoc(doc(db, 'articles', id.trim())), FIRESTORE_GUEST_TIMEOUT_MS)
+                    ),
                 );
-                const articleDocs = await Promise.all(articlePromises);
-                const fetchedArticles = articleDocs
-                    .filter((doc: any) => doc.exists())
-                    .map((doc: any) => doc.data() as Article);
-                setArticles(fetchedArticles);
-
-                // Fetch recommended supplements
-                const supplementIds = (weekData.recommended_supplements_ids || '').split(',').filter(Boolean);
-                const supplementPromises = supplementIds.map((id: string) =>
-                    getDoc(doc(db, 'supplements', id.trim()))
+                setArticles(articleDocs.filter((d: any) => d.exists()).map((d: any) => d.data() as Article));
+                const supplementDocs = await Promise.all(
+                    supplementIds.map((id: string) =>
+                        withTimeout(getDoc(doc(db, 'supplements', id.trim())), FIRESTORE_GUEST_TIMEOUT_MS)
+                    ),
                 );
-                const supplementDocs = await Promise.all(supplementPromises);
-                const fetchedSupplements = supplementDocs
-                    .filter((doc: any) => doc.exists())
-                    .map((doc: any) => doc.data() as Supplement);
-                setSupplements(fetchedSupplements);
-            } catch (error) {
-                log.error('Error fetching recommendations:', error);
+                setSupplements(supplementDocs.filter((d: any) => d.exists()).map((d: any) => d.data() as Supplement));
+            } catch (fsErr) {
+                log.error('Error fetching recommendations:', fsErr);
+                setArticles(articleIds.map((id) => getLocalArticle(id.trim())).filter(Boolean) as Article[]);
+                setSupplements(supplementIds.map((id) => getLocalSupplement(id.trim())).filter(Boolean) as Supplement[]);
             } finally {
                 setLoading(false);
             }

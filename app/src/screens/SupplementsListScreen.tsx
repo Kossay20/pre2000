@@ -14,6 +14,7 @@ import { getLocalizedContent } from '../utils/i18nHelpers';
 import { useRtlScrollFix } from '../hooks/useRtlScrollFix';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
 import { getAllLocalSupplements } from '../services/localContentFallback';
+import { FIRESTORE_GUEST_TIMEOUT_MS, withTimeout } from '../utils/withTimeout';
 import { getBookmarks, subscribeBookmarks } from '../services/bookmarkService';
 
 export const SupplementsListScreen = () => {
@@ -67,7 +68,10 @@ export const SupplementsListScreen = () => {
             setLoading(true);
             setError(false);
             try {
-                const snapshot = await getDocs(collection(db, 'supplements'));
+                const snapshot = await withTimeout(
+                    getDocs(collection(db, 'supplements')),
+                    FIRESTORE_GUEST_TIMEOUT_MS,
+                );
                 if (!isMounted) return;
                 const fetchedSupplements = snapshot.docs.map(doc => doc.data() as Supplement);
                 setSupplements(fetchedSupplements);

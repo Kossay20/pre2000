@@ -15,6 +15,7 @@
     "elapsed": "Durée écoulée",
     "guidanceTitle": "Conseil",
     "guidanceText": "À partir de 28 semaines, comptez 10 mouvements en moins d'1h, idéalement après un repas. Si moins de 10 mouvements en 2h, contactez votre sage-femme ou allez à la maternité.",
+    "guidanceEarly": "Avant 28 semaines, le compteur n'est pas encore une alarme fiable. Les mouvements commencent souvent vers 16–24 semaines. Contactez votre sage-femme en cas d'inquiétude — la règle des 10 mouvements en 2h s'applique à partir de 28 semaines.",
     "disclaimer": "Cet outil est informatif. Il ne remplace pas l'avis médical. En cas de doute, contactez votre professionnel de santé.",
     "tapBabyEmoji": "👶",
     "session": "Session"

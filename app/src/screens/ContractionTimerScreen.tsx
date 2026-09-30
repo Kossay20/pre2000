@@ -146,14 +146,14 @@ export const ContractionTimerScreen: React.FC = () => {
                     )}
                 </View>
 
-                {state.history.length === 0 ? (
+                {state.history.length === 0 && !state.activeStartedAt ? (
                     <EmptyState
                         icon="⏱️"
                         title={t('cycle8.contractionTimer.noContractionsYet')}
                         subtitle={t('cycle8.contractionTimer.noContractionsSub')}
                         compact
                     />
-                ) : (
+                ) : state.history.length > 0 ? (
                     <>
                         <View style={styles.statsGrid}>
                             <StatBox label={t('cycle8.contractionTimer.count')} value={String(stats.count)} />
@@ -197,7 +197,7 @@ export const ContractionTimerScreen: React.FC = () => {
                             />
                         </View>
                     </>
-                )}
+                ) : null}
 
                 {emergencyNumber && (
                     <TouchableOpacity

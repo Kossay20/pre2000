@@ -15,6 +15,7 @@
     "elapsed": "Elapsed",
     "guidanceTitle": "Guidance",
     "guidanceText": "From 28 weeks, count 10 movements in under 1h, ideally after a meal. If fewer than 10 in 2h, contact your midwife or go to the maternity ward.",
+    "guidanceEarly": "Before 28 weeks, kick counts are not yet a reliable alarm. Movements often start around 16–24 weeks. Contact your midwife if anything worries you — the 10-movements-in-2-hours rule applies from 28 weeks.",
     "disclaimer": "This tool is informational. It does not replace medical advice. When in doubt, contact your healthcare provider.",
     "tapBabyEmoji": "👶",
     "session": "Session"

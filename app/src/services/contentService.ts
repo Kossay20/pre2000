@@ -13,6 +13,7 @@ import { collection, documentId, getDocs, query, where, doc, getDoc } from 'fire
 import { db } from '../config/firebase';
 import { Article, Supplement, ArticleAntigravity } from '../types';
 import { getLocalArticle, getLocalSupplement, getLocalAntigravityArticle } from './localContentFallback';
+import { FIRESTORE_GUEST_TIMEOUT_MS, withTimeout } from '../utils/withTimeout';
 
 // ─── In-Memory Cache ──────────────────────────────────────────────────────────
 const articleCache = new Map<string, Article>();
@@ -120,7 +121,10 @@ export const getAntigravityArticle = async (articleId: string): Promise<ArticleA
 
     log.info(`[ContentService] 📰 Fetching Antigravity article: ${articleId}`);
     try {
-        const articleDoc = await getDoc(doc(db, 'articlesAntigravity', articleId));
+        const articleDoc = await withTimeout(
+            getDoc(doc(db, 'articlesAntigravity', articleId)),
+            FIRESTORE_GUEST_TIMEOUT_MS,
+        );
         if (articleDoc.exists()) {
             const data = articleDoc.data() as ArticleAntigravity;
             antigravityCache.set(articleId, data);

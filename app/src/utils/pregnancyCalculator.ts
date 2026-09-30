@@ -42,3 +42,10 @@ export const calculateCurrentWeek = (lmpDate: Date): number => {
     const { week } = calculatePregnancyWeek(lmpDate);
     return week;
 };
+
+/** T1 weeks 1–13, T2 14–27, T3 28+. Shared by Home, Reminders, weight intel. */
+export const trimesterFromWeek = (week: number): 1 | 2 | 3 => {
+    if (week <= 13) return 1;
+    if (week <= 27) return 2;
+    return 3;
+};

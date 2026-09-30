@@ -40,6 +40,7 @@ import { format, addDays, differenceInCalendarDays } from 'date-fns';
 import { useTranslation } from 'react-i18next';
 import { getLocalizedContent } from '../utils/i18nHelpers';
 import { formatMeasure } from '../utils/localizedFormat';
+import { trimesterFromWeek } from '../utils/pregnancyCalculator';
 import { getReducedMotionSync } from '../hooks/usePrefersReducedMotion';
 import { useRtl } from '../hooks/useRtl';
 import { useDateLocale } from '../hooks/useDateLocale';
@@ -359,7 +360,7 @@ export const HomeScreen = () => {
     // Trimester label is derived from the week number (T1 ≤13, T2 ≤27, else T3), NOT
     // the raw `trimester` data field — that field is a localized ordinal ("2ème") which
     // builds a non-existent key (common.trimester_2ème) and leaks the raw key in the UI.
-    const trimesterNum = currentWeekNumber <= 13 ? 1 : currentWeekNumber <= 27 ? 2 : 3;
+    const trimesterNum = trimesterFromWeek(currentWeekNumber);
     const trimesterText = t('common.trimester_' + trimesterNum);
 
     // #9 — "Preview" state: the chevrons turned Home into a time-machine and the

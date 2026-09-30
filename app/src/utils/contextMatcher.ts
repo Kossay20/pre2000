@@ -13,6 +13,7 @@ import {
     ReminderDefinition,
     ContextRuleThen
 } from '../types/remindersV2';
+import { trimesterFromWeek } from './pregnancyCalculator';
 
 /**
  * Match a number against a comparator or exact value
@@ -178,7 +179,7 @@ export function buildContextProfile(
         is_ramadan?: boolean;
     }
 ): ContextProfile {
-    const trimester: 1 | 2 | 3 = weekOfPregnancy <= 12 ? 1 : weekOfPregnancy <= 27 ? 2 : 3;
+    const trimester: 1 | 2 | 3 = trimesterFromWeek(weekOfPregnancy);
 
     return {
         trimester,

@@ -10,10 +10,12 @@ import { Article, Supplement, ArticleAntigravity } from '../types';
 import { getAntigravityArticle } from '../services/contentService'; // ANTIGRAVITY
 import {
     getLocalArticle,
+    getLocalAntigravityArticle,
     getLocalSupplement,
     getAllLocalArticles,
     getAllLocalSupplements,
 } from '../services/localContentFallback';
+import { FIRESTORE_GUEST_TIMEOUT_MS, withTimeout } from '../utils/withTimeout';
 import { theme } from '../theme';
 import { Tag } from '../components/common/Tag';
 import { SectionHeader } from '../components/common/SectionHeader';
@@ -108,7 +110,7 @@ export const ArticleDetailScreen = () => {
                 // Fallback to old articles collection
                 log.debug('[ArticleDetail] 🔍 Not in Antigravity, trying old articles...');
                 const docRef = doc(db, 'articles', articleId);
-                const docSnap = await getDoc(docRef);
+                const docSnap = await withTimeout(getDoc(docRef), FIRESTORE_GUEST_TIMEOUT_MS);
 
                 if (docSnap.exists()) {
                     const articleData = docSnap.data() as Article;
@@ -132,10 +134,18 @@ export const ArticleDetailScreen = () => {
                     }
                 } else {
                     log.warn('[ArticleDetail] ⚠️ Article not found in any collection:', articleId);
+                    const local = getLocalAntigravityArticle(articleId) || getLocalArticle(articleId);
+                    if (local) setArticle(local);
                 }
             } catch (err) {
                 log.error('[ArticleDetail] ❌ Error fetching article:', err);
-                setError(t('common.errorLoadingData'));
+                const local = getLocalAntigravityArticle(articleId) || getLocalArticle(articleId);
+                if (local) {
+                    setArticle(local);
+                    setError(null);
+                } else {
+                    setError(t('common.errorLoadingData'));
+                }
             } finally {
                 setLoading(false);
             }

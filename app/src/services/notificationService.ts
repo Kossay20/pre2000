@@ -21,6 +21,9 @@ import i18n from '../i18n';
 // Create scoped logger for this service
 const log = createLogger('NotificationService');
 
+/** Local notifications are native-only. On web, expo-notifications throws CodedError. */
+export const nativeNotificationsSupported = (os: string = Platform.OS): boolean => os !== 'web';
+
 // Configure notification handler
 Notifications.setNotificationHandler({
     handleNotification: async () => ({
@@ -243,6 +246,11 @@ export const scheduleMultipleReminders = async (
 export const cancelReminderNotifications = async (reminderId: string): Promise<void> => {
     log.info('Canceling notifications for:', reminderId);
 
+    if (!nativeNotificationsSupported()) {
+        log.debug('Skipping reminder cancel: native notifications unavailable on web');
+        return;
+    }
+
     try {
         const scheduled = await Notifications.getAllScheduledNotificationsAsync();
 
@@ -325,6 +333,11 @@ export const scheduleBabyMessage = async (
         minute,
     });
 
+    if (!nativeNotificationsSupported()) {
+        log.debug('Skipping baby-message schedule: native notifications unavailable on web');
+        return null;
+    }
+
     try {
         // Cancel existing baby message
         await cancelBabyMessage();
@@ -364,6 +377,11 @@ export const scheduleBabyMessage = async (
  */
 export const cancelBabyMessage = async (): Promise<void> => {
     log.debug('Canceling baby message...');
+
+    if (!nativeNotificationsSupported()) {
+        log.debug('Skipping baby-message cancel: native notifications unavailable on web');
+        return;
+    }
 
     try {
         const scheduled = await Notifications.getAllScheduledNotificationsAsync();
