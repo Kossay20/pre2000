@@ -72,7 +72,7 @@ jest.mock('expo-notifications', () => ({
     getAllScheduledNotificationsAsync: jest.fn().mockResolvedValue([]),
     cancelScheduledNotificationAsync: jest.fn().mockResolvedValue(undefined),
     scheduleNotificationAsync: jest.fn().mockResolvedValue('notif-id'),
-    SchedulableTriggerInputTypes: { CALENDAR: 'calendar' },
+    SchedulableTriggerInputTypes: { CALENDAR: 'calendar', DAILY: 'daily' },
 }));
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -381,8 +381,8 @@ describe('scheduleHydrationReminders', () => {
         // ids _0 .. _7
         calls.forEach((arg, i) => {
             expect(arg.identifier).toBe(`hydration_reminder_${i}`);
-            expect(arg.trigger.repeats).toBe(true);
-            expect(arg.trigger.type).toBe('calendar');
+            // DAILY repeats by definition and, unlike CALENDAR, is supported on Android.
+            expect(arg.trigger.type).toBe('daily');
             expect(arg.content.sound).toBe('default');
         });
 

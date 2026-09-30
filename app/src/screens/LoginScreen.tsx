@@ -3,7 +3,7 @@ const log = createLogger('LoginScreen');
 import React, { useState, useRef } from 'react';
 import {
     View, Text, StyleSheet, TextInput, ScrollView,
-    TouchableOpacity, KeyboardAvoidingView, Platform,
+    TouchableOpacity, KeyboardAvoidingView, Platform, ActivityIndicator,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { auth } from '../config/firebase';
@@ -16,7 +16,7 @@ import { DismissKeyboardView } from '../components/common/DismissKeyboardView';
 import { ErrorMessage } from '../components/common/ErrorMessage';
 import { SuccessMessage } from '../components/common/SuccessMessage';
 import { validateEmail, validatePasswordForLogin } from '../utils/validation';
-import { getFirebaseErrorMessage } from '../utils/firebaseErrors';
+import { getFirebaseErrorMessage, isExpectedAuthError } from '../utils/firebaseErrors';
 import { useTranslation } from 'react-i18next';
 import { useNavigation } from '@react-navigation/native';
 import { useAuthLoading } from '../hooks/useAuthLoading';
@@ -48,6 +48,7 @@ export const LoginScreen = () => {
     // stranded on the LEFT instead of mirroring to the RIGHT. Language-derived isRTL is correct on
     // BOTH web and native (they agree on native). Same proven pattern as RtlAwareChevron/CalendarScreen.
     const isRTL = i18n.language === 'ar' || i18n.language === 'tn';
+    const showInlineBack = !navigation.canGoBack();
 
     const handleLogin = async () => {
         setError('');
@@ -90,7 +91,9 @@ export const LoginScreen = () => {
                 // saisi son password, on ne pénalise pas un login OK).
                 authLimiter.reset();
             } catch (error: any) {
-                log.error('[LoginScreen] Login error:', error);
+                // A wrong password is the user's to fix and the form says so; logging it
+                // as an error sent every typo to Sentry. Unexpected failures still go.
+                (isExpectedAuthError(error) ? log.warn : log.error)('[LoginScreen] Login error:', error);
                 const errorMessage = error.code
                     ? t(getFirebaseErrorMessage(error.code))
                     : t('errorOccurred');
@@ -120,7 +123,7 @@ export const LoginScreen = () => {
             await sendPasswordResetEmail(auth, email.trim());
             setSuccess(t('resetEmailSent'));
         } catch (error: any) {
-            log.error(error);
+            (isExpectedAuthError(error) ? log.warn : log.error)('[LoginScreen] Password reset error:', error);
             const errorMessage = error.code
                 ? t(getFirebaseErrorMessage(error.code))
                 : t('cannotSendResetEmail');
@@ -143,17 +146,22 @@ export const LoginScreen = () => {
                     contentContainerStyle={styles.container}
                     keyboardShouldPersistTaps="handled"
                 >
-                    {/* Back arrow — position the side EXPLICITLY (not via a `left:undefined`
+                    {/* Back arrow — only when the stack header has none to show (a deep link
+                        to /login opens with no history); otherwise the header back is the one
+                        control. Position the side EXPLICITLY (not via a `left:undefined`
                         override, which react-native-web does not reliably clear, leaving the
                         button stranded on the left in RTL). Only one of left/right is ever set. */}
-                    <TouchableOpacity
-                        style={[styles.backButton, { [isRTL ? 'right' : 'left']: theme.spacing.l }]}
-                        onPress={() => navigation.navigate('AuthChoice')}
-                        accessibilityRole="button"
-                        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                    >
-                        <RtlAwareChevron direction="back" variant="arrow" size={24} color={theme.colors.textSecondary} />
-                    </TouchableOpacity>
+                    {showInlineBack && (
+                        <TouchableOpacity
+                            style={[styles.backButton, { [isRTL ? 'right' : 'left']: theme.spacing.l }]}
+                            onPress={() => navigation.navigate('AuthChoice')}
+                            accessibilityRole="button"
+                            accessibilityLabel={t('common.back')}
+                            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                        >
+                            <RtlAwareChevron direction="back" variant="arrow" size={24} color={theme.colors.textSecondary} />
+                        </TouchableOpacity>
+                    )}
 
                     <Text style={[styles.title, isRTL && styles.rtlText]}>{t('loginTitle')}</Text>
                     <Text style={[styles.subtitle, isRTL && styles.rtlText]}>
@@ -232,12 +240,18 @@ export const LoginScreen = () => {
                             disabled={resetLoading}
                             testID="forgot_password_button"
                             accessibilityRole="button"
-                            accessibilityLabel={t('forgotPassword')}
+                            accessibilityLabel={resetLoading ? t('sendingResetEmail') : t('forgotPassword')}
                             accessibilityState={{ disabled: resetLoading, busy: resetLoading }}
                         >
-                            <Text style={styles.forgotPasswordText}>
-                                {resetLoading ? t('sending', { defaultValue: '…' }) : t('forgotPassword')}
-                            </Text>
+                            {/* In flight: a spinner plus a real word. The label used to fall
+                                back to a bare "…" (the key did not exist), which read as a
+                                broken button rather than one that was working. */}
+                            <View style={styles.forgotPasswordRow}>
+                                {resetLoading && <ActivityIndicator size="small" color={theme.colors.accent} />}
+                                <Text style={styles.forgotPasswordText}>
+                                    {resetLoading ? t('sendingResetEmail') : t('forgotPassword')}
+                                </Text>
+                            </View>
                         </TouchableOpacity>
 
                         {/* Separator */}
@@ -348,6 +362,11 @@ const styles = StyleSheet.create({
     forgotPasswordButton: {
         marginTop: theme.spacing.m,
         alignItems: 'center',
+    },
+    forgotPasswordRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
     },
     forgotPasswordButtonDisabled: {
         opacity: 0.5,

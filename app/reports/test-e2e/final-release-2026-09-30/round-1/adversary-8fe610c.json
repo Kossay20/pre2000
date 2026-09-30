@@ -1,0 +1,172 @@
+{
+  "wave": "ADV",
+  "round": 1,
+  "states_reviewed": 34,
+  "findings": [
+    {
+      "id": "R-001",
+      "state_artifact": "src/services/notificationService.ts:185-190 + :406-411 + src/services/hydrationService.ts:129-135",
+      "category": "silent_error",
+      "severity": "P0",
+      "evidence": "Every recurring reminder is scheduled with trigger { type: SchedulableTriggerInputTypes.CALENDAR, hour, minute, repeats, channelId } on Android too: task reminders (notificationService.ts:185), baby messages (:406) and hydration (hydrationService.ts:129). expo-notifications' JS parser passes it through as type 'calendar' (node_modules/expo-notifications/build/scheduleNotificationAsync.js:120-129), and the Android scheduler has no 'calendar' case. It handles only date/daily/weekly/monthly/yearly/channel and otherwise throws `InvalidArgumentException(\"Trigger of type: $type is not supported on Android.\")` (node_modules/expo-notifications/android/.../NotificationScheduler.kt:163-238). scheduleReminderNotification swallows it (catch → return null, notificationService.ts:196-199), and hydrationService.ts:63 fires it without awaiting. Result: on Android, no daily reminder, baby message or hydration reminder is ever scheduled. This commit edited exactly these trigger objects to 'fix' the Android channelId and describes Android channels as fixed. The unit test notificationService.test.ts:150-154 asserts type CALENDAR, so it locks in the broken call instead of testing the behaviour.",
+      "fix_hint": "On Android use SchedulableTriggerInputTypes.DAILY { hour, minute, channelId } (keep CALENDAR for iOS), in all three places. Add a test that fails when a CALENDAR trigger is built with Platform.OS==='android'. Confirm on a physical Android device with getAllScheduledNotificationsAsync().",
+      "status": "open",
+      "first_seen_round": 1,
+      "rounds_open": 1
+    },
+    {
+      "id": "R-002",
+      "state_artifact": "src/services/remindersScheduler.ts:82-85 + src/screens/reminders/RemindersTab.tsx:258-261 + src/screens/SettingsScreen.tsx:297",
+      "category": "silent_error",
+      "severity": "P1",
+      "evidence": "Since F-015, syncRemindersToNotifications returns early unless permission is already granted (remindersScheduler.ts:82). Only three things show the OS dialog: tapping the Rappels-tab banner, toggling a reminder ON (RemindersTab.tsx:340), and the Settings 'request permissions' row (SettingsScreen.tsx:297). Onboarding and Home never ask, and the default-enabled essential reminders are never offered to the user anywhere else. On iOS, a user who finishes onboarding and does not go looking for the Rappels tab gets zero reminders, with no signal. Granting from Settings (SettingsScreen.tsx:297-300) only shows alert(permissionsGranted) and never re-runs the sync. Scheduling waits for the next week/language/uid change (App.tsx:263-268), up to 7 days. The banner reads permission once on mount (RemindersTab.tsx:258-261), so it is stale after a grant from Settings or a revocation in OS settings. Existing tests only prove that no prompt appears. None proves that a user who completes onboarding ends up with anything scheduled.",
+      "fix_hint": "Add a contextual pre-permission step at the end of onboarding (or a Home card) that calls requestNotificationPermissions and then syncRemindersToNotifications. Call the sync after a grant in SettingsScreen.tsx:297. Re-read permission on tab focus and AppState 'active'.",
+      "status": "open",
+      "first_seen_round": 1,
+      "rounds_open": 1
+    },
+    {
+      "id": "R-003",
+      "state_artifact": "src/context/AuthContext.tsx:364 + :654-661 + src/services/healthService.ts:34 + src/i18n/locales/en/common.json:374-376",
+      "category": "audit_integrity",
+      "severity": "P1",
+      "evidence": "Once Anonymous Auth is enabled (a pending operator action in CLAUDE.md for F100), loginAsGuest uses the anonymous Firebase uid (AuthContext.tsx:364 `effectiveUser?.uid || 'guest_'+Date.now()`). The services decide guest vs account only by the 'guest_' prefix (healthService.ts:34, weightService.ts:168, remindersV2Service.ts:219; accountMode.ts says so explicitly). So a guest's weight, BP, glucose and symptom entries go to Firestore. The new Settings row sends guests to requestResetProfile (SettingsScreen.tsx:470), and resetProfile (AuthContext.tsx:654-661) deletes only userProfiles/{uid} before signOut. It never runs purgeUserFirestoreData, and after signOut the anonymous uid is lost, so nothing can reach that data again. The rewritten policy (en/common.json privacy.guestMode.text) states 'Without an account, your data stays on your phone and is not sent to our servers'. That becomes false, and the 'Erase my data' it points to leaves the health data on the server.",
+      "fix_hint": "Either make every service treat user.isGuest (or an anonymous firebaseUser) as local-only, or have resetProfile run purgeUserFirestoreData(db, uid) and then firebaseUser.delete() for an anonymous user before signOut. Do not enable Anonymous Auth until one of these ships.",
+      "status": "open",
+      "first_seen_round": 1,
+      "rounds_open": 1,
+      "owner_action": true
+    },
+    {
+      "id": "R-004",
+      "state_artifact": "src/context/gdprPurge.ts:96-110 + firestore.rules:178-183,205-207",
+      "category": "silent_error",
+      "severity": "P1",
+      "evidence": "The purge used to be best-effort. It is now fatal: any collection whose listing fails (permission-denied, offline) throws PurgeIncompleteError, and the Auth user is never deleted (gdprPurge.ts:110). The 8 legacy subcollection listings (userProfiles|users/{uid}/{weights,events,journal,chatbot_history}) are readable only through the nested wildcards at firestore.rules:180-182 and 205-207. The rules file's own comment says these returned permission-denied before, and CLAUDE.md lists `firebase deploy --only firestore:rules` as a pending operator action. If production rules predate those wildcards, all 8 listings fail for every user, so deleteAccount always ends in 'Deletion not finished… retry' (useAccountDeletion.tsx:38-44) and no account can ever be deleted in-app. That fails App Store 5.1.1(v) and Play's account-deletion requirement the first time a reviewer tries it. No test runs the purge against the deployed ruleset.",
+      "fix_hint": "Before submission, deploy the rules and run the purge against production (or firestore-rules-tests with the exact deployed ruleset) for one test account. Consider treating permission-denied on a legacy subcollection as 'nothing to delete' only if a rules test proves those paths are readable.",
+      "status": "open",
+      "first_seen_round": 1,
+      "rounds_open": 1,
+      "owner_action": true
+    },
+    {
+      "id": "R-005",
+      "state_artifact": "src/context/accountDeletion.ts:33-45,47-56 + src/context/AuthContext.tsx:186-205",
+      "category": "audit_integrity",
+      "severity": "P2",
+      "evidence": "The up-front check reads auth_time from the cached ID token and compares it with the device clock (accountDeletion.ts:35-38). It returns true (a recent login) whenever the token cannot be read (:39-44). With device clock skew over 1 min, a failed token read, or a network error on user.delete(), the full purge (including userProfiles) runs and then user.delete() fails. After a late requires-recent-login, the user sees the password prompt. If she cancels, the Auth account survives with every document gone, and on the next start onAuthStateChanged synthesises a minimal profile (AuthContext.tsx:186-205) that drops her into an empty account instead of showing that deletion was not finished. The same happens on a network error: the UI shows 'failed' (useAccountDeletion.tsx:76-79), not 'incomplete'. The header comment (accountDeletion.ts:6-8) claims this scenario is prevented.",
+      "fix_hint": "Call getIdTokenResult(true) to force a server round-trip. When user.delete() fails after a clean purge, classify it as 'incomplete' (retryable) rather than 'failed'. Consider a persisted 'deletion pending' flag so the next launch resumes the deletion instead of bootstrapping a minimal profile.",
+      "status": "open",
+      "first_seen_round": 1,
+      "rounds_open": 1
+    },
+    {
+      "id": "R-006",
+      "state_artifact": "src/utils/clinicalChecks.ts:356-368 (resolveEmergencyNumber) + git 8fe610c~1:app/src/screens/OnboardingScreen.tsx:113 / ProfileScreen.tsx:54",
+      "category": "numeric_integrity",
+      "severity": "P2",
+      "evidence": "Before this commit, onboarding preselected country='tunisia' for any device region outside {TN,FR,BE,MA,DZ}, and ProfileScreen initialised country to 'tunisia' and wrote it back on every save. Any profile saved that way (TestFlight or preview testers, web users, a US or CA reviewer account created earlier) still stores 'tunisia'. resolveEmergencyNumber takes step 1 (profile country) first, so these users still get 190. There is no migration, re-prompt or cross-check against the device region.",
+      "fix_hint": "One-off check on profile load: if country==='tunisia' and the device region is a mapped non-TN region (or the profile predates this commit), ask her to confirm the country. At minimum, reset test accounts before review.",
+      "status": "open",
+      "first_seen_round": 1,
+      "rounds_open": 1
+    },
+    {
+      "id": "R-007",
+      "state_artifact": "src/utils/clinicalChecks.ts:241-252",
+      "category": "numeric_integrity",
+      "severity": "P2",
+      "evidence": "Checked: FR 15, TN 190, BE 112, CH 144, US and CA 911, UK/GB 999. Uncertain, needs local clinical sign-off: DZ '16'. The comment itself says 14 (Protection Civile) is the nationwide ambulance and fire dispatch, and 16 SAMU coverage outside large cities is not established. MA '141' (SAMU) is right where SAMU operates, but 15 (Protection Civile) is the long-standing national ambulance number, and the comment's '150 covers rural areas' is unverified. These numbers are dialled directly from critical BP and glucose alerts (HealthDashboardScreen.tsx:211) and the contraction timer.",
+      "fix_hint": "Have a clinician confirm DZ and MA against Ministry of Health sources, or show both numbers (e.g. DZ 14/16, MA 141/15) with labels.",
+      "status": "open",
+      "first_seen_round": 1,
+      "rounds_open": 1,
+      "owner_action": true
+    },
+    {
+      "id": "R-008",
+      "state_artifact": "src/components/common/SourcesFooter.tsx:34 + src/data/contentSources.ts (resolveContentSources) + ArticleDetailScreen.tsx:456 + WeekRecommendationsScreen.tsx:211",
+      "category": "empty_state",
+      "severity": "P2",
+      "evidence": "SourcesFooter returns null unless a record's `sources` holds one of the registry ids (who/has/cngof/nhs/acog). No bundled article or week record has a `sources` field (grep: only chatbot_data, supplements, REMINDERS_V2, WEEKLY_TASKS). Firestore articles carry free-text labels, which resolveContentSources deliberately drops. So the footer shows on zero screens, and the release still ships medical content with no citation (App Store 1.4.1), though the commit presents this as solved.",
+      "fix_hint": "Tag at least the week and article records with clinician-approved registry ids before submission, and add a test that some minimum share of articles resolves to at least one source.",
+      "status": "open",
+      "first_seen_round": 1,
+      "rounds_open": 1,
+      "owner_action": true
+    },
+    {
+      "id": "R-009",
+      "state_artifact": "src/config/appCheck.native.ts:98-106 + eas.json preview profile",
+      "category": "audit_integrity",
+      "severity": "P3",
+      "evidence": "The provider is chosen by __DEV__ alone. The preview profile is a release build (__DEV__=false) distributed as a sideloaded internal APK or ad-hoc IPA, so it uses playIntegrity and appAttest. Play Integrity gives no app-recognition verdict for an APK not installed from Play, so once enforcement is on, preview testers are locked out of Firestore and Auth. Otherwise the bridge looks sound: it is called before initializeAuth and initializeFirestore (firebase.ts:18-32), web resolves appCheck.web.ts, it fails open when RNFB is absent, and the JS SDK backs off rather than retrying without limit.",
+      "fix_hint": "Use the debug provider when APP_ENV==='preview' (via an EXPO_PUBLIC flag) and register those debug tokens, or enforce only after preview testing ends.",
+      "status": "open",
+      "first_seen_round": 1,
+      "rounds_open": 1
+    },
+    {
+      "id": "R-010",
+      "state_artifact": "src/config/appCheck.native.ts:73-78",
+      "category": "console_error",
+      "severity": "P3",
+      "evidence": "The code uses the RNFB namespaced API (`rnfbApp.apps`, `rnfbAppCheck()`, `.initializeAppCheck`, `.getToken`) on @react-native-firebase v24, which marks all namespaced API as deprecated and 'will be removed in the next major release' (node_modules/@react-native-firebase/app/lib/common/index.ts:536). This gives deprecation warnings in dev, and a future major version bump would break App Check silently, because the code fails open.",
+      "fix_hint": "Switch to the modular imports (getApps, getApp, initializeAppCheck, getToken from '@react-native-firebase/app-check').",
+      "status": "open",
+      "first_seen_round": 1,
+      "rounds_open": 1
+    },
+    {
+      "id": "R-011",
+      "state_artifact": "src/config/appCheck.native.ts:55",
+      "category": "audit_integrity",
+      "severity": "P3",
+      "evidence": "tokenExpiryMillis returns now+5min when the token's exp is already in the past (`exp * 1000 > now ? ... : now + FALLBACK`). An expired token handed back by the native cache is then trusted for 5 more minutes, which is the over-trust the comment at :33-38 warns against.",
+      "fix_hint": "For exp <= now, return `now` (forcing an immediate refresh) or call getToken(true).",
+      "status": "open",
+      "first_seen_round": 1,
+      "rounds_open": 1
+    },
+    {
+      "id": "R-012",
+      "state_artifact": "src/context/__tests__/AuthContext.gdpr.test.ts:20-37 + src/services/__tests__/notificationService.test.ts:150-154 + src/hooks/useAccountDeletion.tsx",
+      "category": "audit_integrity",
+      "severity": "P3",
+      "evidence": "The GDPR wiring guard is still a regex over source text (it asserts `await deleteUserAccount(db, firebaseUser)`), not behaviour. notificationService.test.ts asserts the CALENDAR trigger type (see R-001). The new UI flow in useAccountDeletion.tsx (reauth prompt, incomplete → retry, Android modal) has no test at all, and its retry closure (:42) calls runDelete from a stale render.",
+      "fix_hint": "Render-test useAccountDeletion with a mocked useAuth for each rejection class. Replace the regex guard with an AuthProvider-level behavioural test.",
+      "status": "open",
+      "first_seen_round": 1,
+      "rounds_open": 1
+    },
+    {
+      "id": "R-013",
+      "state_artifact": "src/services/pdfExportService.ts:243",
+      "category": "i18n_leak",
+      "severity": "P3",
+      "evidence": "The PDF journal localises the country only when it is 'tunisia'. Every other value, including the options this commit adds (switzerland, canada, usa, uk), is printed as the raw stored key, e.g. 'usa'.",
+      "fix_hint": "Use t(`common.countries.${profile.country}`, { defaultValue: '-' }).",
+      "status": "open",
+      "first_seen_round": 1,
+      "rounds_open": 1
+    },
+    {
+      "id": "R-014",
+      "state_artifact": "src/screens/SettingsScreen.tsx:401 + src/context/AuthContext.tsx:709-711",
+      "category": "i18n_leak",
+      "severity": "P3",
+      "evidence": "`t('common.profileRequired') || t('common.error')`: the key is missing in all 4 locales, and t() returns the raw key (truthy), so the fallback never runs and 'common.profileRequired' is shown to the user. Separately, deleteAccount does nothing and resolves successfully when firebaseUser is null (`if (firebaseUser) {…}`), so a non-guest user whose Firebase session has not resolved yet taps Delete and gets no feedback.",
+      "fix_hint": "Add the key to all 4 locales. Throw from deleteAccount when !firebaseUser so the hook reports the error.",
+      "status": "open",
+      "first_seen_round": 1,
+      "rounds_open": 1
+    }
+  ],
+  "summary": {
+    "P0": 1, "P1": 3, "P2": 4, "P3": 6,
+    "open_P0": 1, "open_P1": 3, "open_P2": 4, "open_P3": 6
+  },
+  "round_to_round_closures": {},
+  "verdict": "RED",
+  "notes": "Adversary review of commit 8fe610c (wave field 'ADV' = adversary, not a capture wave). Checked with no finding: App Check init order (bridgeAppCheck before createFirebaseAuth/initializeFirestore, firebase.ts:22-32); web bundle resolves appCheck.web.ts; fail-open when RNFB is absent; JS SDK refresher backs off rather than retrying without limit; Hermes has atob. app.config.ts guard applies only to APP_ENV preview/production, so development, expo start/export, Jest and e2e are unaffected, and EAS applies build-profile env when it evaluates the config. New i18n keys exist in all 4 locales; the Latin text in ar/tn is only brand or processor names. The chatbot keeps messages only in React state (ChatbotScreen.tsx:36), matching the policy. PRIVATE_STORAGE_KEYS covers kick, contraction and hospital-bag data, and the new @pending_appointment_draft. Removed ProfileScreen reauth styles are no longer referenced. tsc --noEmit passes; the 7 touched Jest suites pass (130 tests), but they mock expo-notifications and so cannot catch R-001."
+}

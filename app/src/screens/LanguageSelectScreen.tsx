@@ -15,6 +15,7 @@ import { useTranslation } from 'react-i18next';
 import { changeLanguage } from '../i18n/rtl';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
 import { useRtl } from '../hooks/useRtl';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // T7-FIX-F53 : utiliser le nom natif comme label principal pour AR/TN aussi
 // (idem FR/EN). Un user arabophone reconnaît "العربية" en premier coup d'œil
@@ -44,6 +45,7 @@ export const LanguageSelectScreen = () => {
     const { textAlign } = useRtl();
     const [selectedLanguage, setSelectedLanguage] = useState(i18n.language || 'fr');
     const [loading, setLoading] = useState(false);
+    const insets = useSafeAreaInsets();
 
     useEffect(() => {
         // Load saved language
@@ -89,93 +91,102 @@ export const LanguageSelectScreen = () => {
         }
     };
 
+    // GJ-006: Continue lives in a footer outside the ScrollView. At the end of the
+    // list it sat below the fold on a phone (y≈1044 on a 390×844 screen in French,
+    // ≈982 in Arabic): the one action this screen exists for was invisible until the
+    // user thought to scroll past an info box.
     return (
-        <ScrollView style={styles.container}>
-            {/* Header with Gradient */}
-            <LinearGradient
-                colors={[theme.colors.primary, theme.colors.accent]}
-                style={styles.header}
-            >
-                <Text style={styles.headerEmoji}>🌐</Text>
-                <Text style={styles.headerTitle}>{t('common.chooseLanguage')}</Text>
-                <Text style={styles.headerSubtitle}>
-                    {t('common.chooseLanguageSubtitle')}
-                </Text>
-            </LinearGradient>
+        <View style={styles.screen}>
+            <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
+                {/* Header with Gradient */}
+                <LinearGradient
+                    colors={[theme.colors.primary, theme.colors.accent]}
+                    style={styles.header}
+                >
+                    <Text style={styles.headerEmoji}>🌐</Text>
+                    <Text style={styles.headerTitle}>{t('common.chooseLanguage')}</Text>
+                    <Text style={styles.headerSubtitle}>
+                        {t('common.chooseLanguageSubtitle')}
+                    </Text>
+                </LinearGradient>
 
-            <View style={styles.content}>
-                <Text style={styles.infoText}>
-                    {t('common.selectLanguageHint')}
-                </Text>
+                <View style={styles.content}>
+                    <Text style={styles.infoText}>
+                        {t('common.selectLanguageHint')}
+                    </Text>
 
-                {LANGUAGES.map((language) => (
-                    <TouchableOpacity
-                        key={language.code}
-                        // Stable E2E hook. The suite used to locate these cards by
-                        // flag emoji and positional index; when the Arabic card swapped
-                        // 🇩🇿 for a region-neutral 🌍 the regex silently matched only
-                        // three cards, so the "ar" test was actually clicking the
-                        // Tunisian card and the en/tn tests broke outright. A testID
-                        // cannot drift with the visual design.
-                        testID={`lang_card_${language.code}`}
-                        style={[
-                            styles.languageCard,
-                            selectedLanguage === language.code && styles.languageCardSelected,
-                        ]}
-                        onPress={() => handleLanguageSelect(language.code)}
-                        disabled={loading}
-                        activeOpacity={0.7}
-                    >
-                        <View style={styles.languageContent}>
-                            <Text style={styles.languageFlag}>{language.flag}</Text>
-                            <View style={styles.languageInfo}>
-                                <Text style={[
-                                    styles.languageName,
-                                    { textAlign },
-                                    selectedLanguage === language.code && styles.languageNameSelected,
-                                ]}>
-                                    {language.name}
-                                </Text>
-                                <Text style={[
-                                    styles.languageNative,
-                                    { textAlign },
-                                    selectedLanguage === language.code && styles.languageNativeSelected,
-                                ]}>
-                                    {t(language.descKey)}
-                                </Text>
-                            </View>
-                            {/* AR-RTL fix: the checkmark used `position:absolute; right:20`, a
-                                physical inset that stayed on the right in Arabic and collided
-                                with the flag. In-flow at the end of the row it mirrors for free. */}
-                            {selectedLanguage === language.code && (
-                                <View style={styles.checkmark}>
-                                    <Text style={styles.checkmarkText}>✓</Text>
+                    {LANGUAGES.map((language) => (
+                        <TouchableOpacity
+                            key={language.code}
+                            // Stable E2E hook. The suite used to locate these cards by
+                            // flag emoji and positional index; when the Arabic card swapped
+                            // 🇩🇿 for a region-neutral 🌍 the regex silently matched only
+                            // three cards, so the "ar" test was actually clicking the
+                            // Tunisian card and the en/tn tests broke outright. A testID
+                            // cannot drift with the visual design.
+                            testID={`lang_card_${language.code}`}
+                            style={[
+                                styles.languageCard,
+                                selectedLanguage === language.code && styles.languageCardSelected,
+                            ]}
+                            onPress={() => handleLanguageSelect(language.code)}
+                            disabled={loading}
+                            activeOpacity={0.7}
+                        >
+                            <View style={styles.languageContent}>
+                                <Text style={styles.languageFlag}>{language.flag}</Text>
+                                <View style={styles.languageInfo}>
+                                    <Text style={[
+                                        styles.languageName,
+                                        { textAlign },
+                                        selectedLanguage === language.code && styles.languageNameSelected,
+                                    ]}>
+                                        {language.name}
+                                    </Text>
+                                    <Text style={[
+                                        styles.languageNative,
+                                        { textAlign },
+                                        selectedLanguage === language.code && styles.languageNativeSelected,
+                                    ]}>
+                                        {t(language.descKey)}
+                                    </Text>
                                 </View>
-                            )}
-                        </View>
-                    </TouchableOpacity>
-                ))}
+                                {/* AR-RTL fix: the checkmark used `position:absolute; right:20`, a
+                                    physical inset that stayed on the right in Arabic and collided
+                                    with the flag. In-flow at the end of the row it mirrors for free. */}
+                                {selectedLanguage === language.code && (
+                                    <View style={styles.checkmark}>
+                                        <Text style={styles.checkmarkText}>✓</Text>
+                                    </View>
+                                )}
+                            </View>
+                        </TouchableOpacity>
+                    ))}
 
-                {/* Info Box */}
-                <View style={styles.infoBox}>
-                    <Text style={styles.infoBoxTitle}>{t('common.infoTitle')}</Text>
-                    <Text style={styles.infoBoxText}>
-                        • {t('common.infoLanguageApplied')}
-                    </Text>
-                    <Text style={styles.infoBoxText}>
-                        • {t('common.infoTranslationsWIP')}
-                    </Text>
-                    <Text style={styles.infoBoxText}>
-                        • {t('common.infoFrenchComplete')}
-                    </Text>
+                    {/* Info Box */}
+                    <View style={styles.infoBox}>
+                        <Text style={styles.infoBoxTitle}>{t('common.infoTitle')}</Text>
+                        <Text style={styles.infoBoxText}>
+                            • {t('common.infoLanguageApplied')}
+                        </Text>
+                        <Text style={styles.infoBoxText}>
+                            • {t('common.infoTranslationsWIP')}
+                        </Text>
+                        <Text style={styles.infoBoxText}>
+                            • {t('common.infoFrenchComplete')}
+                        </Text>
+                    </View>
                 </View>
+            </ScrollView>
 
-                {/* Continue Button */}
+            {/* Continue Button */}
+            <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
                 <TouchableOpacity
                     style={styles.backButton}
                     onPress={() => navigation.dispatch(
                         CommonActions.reset({ index: 0, routes: [{ name: 'AuthChoice' }] })
                     )}
+                    accessibilityRole="button"
                 >
                     <View style={styles.continueRow}>
                         <Text style={styles.backButtonText}>{t('common.continue')}</Text>
@@ -183,14 +194,28 @@ export const LanguageSelectScreen = () => {
                     </View>
                 </TouchableOpacity>
             </View>
-        </ScrollView>
+        </View>
     );
 };
 
 const styles = StyleSheet.create({
+    screen: {
+        flex: 1,
+        backgroundColor: theme.colors.surface,
+    },
     container: {
         flex: 1,
         backgroundColor: theme.colors.surface,
+    },
+    scrollContent: {
+        flexGrow: 1,
+    },
+    footer: {
+        paddingHorizontal: 16,
+        paddingTop: 12,
+        backgroundColor: theme.colors.surface,
+        borderTopWidth: 1,
+        borderTopColor: theme.colors.disabled,
     },
     header: {
         paddingTop: 60,
@@ -214,7 +239,7 @@ const styles = StyleSheet.create({
     },
     content: {
         padding: 16,
-        paddingBottom: 32,
+        paddingBottom: 16,
     },
     infoText: {
         fontSize: 15,
@@ -286,7 +311,6 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         padding: 16,
         marginTop: 24,
-        marginBottom: 24,
         borderWidth: 1,
         borderColor: theme.colors.blue100,
     },

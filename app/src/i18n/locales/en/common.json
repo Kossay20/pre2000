@@ -373,7 +373,7 @@
     },
     "guestMode": {
       "title": "9. Guest mode",
-      "text": "Without an account, your data stays on your phone and is not sent to our servers; only technical error reports (section 2) leave it. To erase it: “{{settings}}” → “{{dataSection}}” → “{{eraseGuest}}”, or uninstall the app."
+      "text": "Without an account, you give no email address. What you record is kept on your phone. Some of it (for example health entries, appointments and reminders) may also be saved on our servers under an anonymous identifier, with no email address, so that the app works; apart from that, only technical error reports (section 2) leave your phone. To erase everything, on your phone and on our servers: “{{settings}}” → “{{dataSection}}” → “{{eraseGuest}}”. Uninstalling the app erases only what is on your phone."
     },
     "footer": "Mama & Bébé © {{year}} KSA MEDIA LLC - All rights reserved"
   },
@@ -725,7 +725,7 @@
     "deleteAccount": "Delete my account",
     "deleteAccountDesc": "Permanently deletes your account and all your data",
     "eraseGuestData": "Erase my data",
-    "eraseGuestDataDesc": "Permanently erases all data stored on this device"
+    "eraseGuestDataDesc": "Permanently erases your data from this device and from our servers"
   },
   "emergency": {
     "title": "Emergency Contacts",

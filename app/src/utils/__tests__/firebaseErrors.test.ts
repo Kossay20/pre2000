@@ -27,6 +27,7 @@ jest.mock('../logger', () => ({
 
 import {
     getFirebaseErrorMessage,
+    isExpectedAuthError,
     isNetworkError,
     isUserInputError,
 } from '../firebaseErrors';
@@ -435,5 +436,56 @@ describe('firebaseErrors', () => {
                 expect(getFirebaseErrorMessage(code)).not.toBe(DEFAULT);
             }
         });
+    });
+});
+
+// Auth failures the user or the network caused are logged at warn (silent in
+// production), not error — logger.error forwards to Sentry, and wrong passwords
+// were flooding it. Anything unexpected must still be an error.
+describe('isExpectedAuthError', () => {
+    it.each([
+        'auth/wrong-password',
+        'auth/invalid-credential',
+        'auth/user-not-found',
+        'auth/email-already-in-use',
+        'auth/invalid-email',
+        'auth/weak-password',
+        'auth/too-many-requests',
+        'auth/network-request-failed',
+        'auth/user-disabled',
+    ])('%s is expected (warn, no Sentry)', (code) => {
+        expect(isExpectedAuthError({ code })).toBe(true);
+    });
+
+    it.each([
+        'auth/operation-not-allowed',
+        'auth/configuration-not-found',
+        'auth/internal-error',
+        'permission-denied',
+    ])('%s is NOT expected (still logged as an error)', (code) => {
+        expect(isExpectedAuthError({ code })).toBe(false);
+    });
+
+    it('treats a code-less error or nothing as unexpected', () => {
+        expect(isExpectedAuthError(new Error('boom'))).toBe(false);
+        expect(isExpectedAuthError(null)).toBe(false);
+        expect(isExpectedAuthError(undefined)).toBe(false);
+    });
+});
+
+describe('auth failure logging sites use isExpectedAuthError', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const read = (rel: string) => fs.readFileSync(path.resolve(__dirname, '../../..', rel), 'utf8');
+    it.each([
+        ['src/screens/LoginScreen.tsx', "'[LoginScreen] Login error:'"],
+        ['src/screens/RegisterScreen.tsx', "'[RegisterScreen] Registration error:'"],
+        ['src/context/AuthContext.tsx', "'[AuthContext] ❌ Login error:'"],
+        ['src/context/AuthContext.tsx', "'[AuthContext] ❌ Registration error:'"],
+        ['src/context/AuthContext.tsx', "'[AuthContext] ❌ Guest upgrade error:'"],
+    ])('%s logs %s through the expected/unexpected split', (file, message) => {
+        const src: string = read(file);
+        expect(src).toContain(`(isExpectedAuthError(error) ? log.warn : log.error)(${message}`);
+        expect(src).not.toContain(`log.error(${message}`);
     });
 });

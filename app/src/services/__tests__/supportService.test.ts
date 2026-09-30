@@ -65,7 +65,8 @@ jest.mock('../../utils/logger', () => ({
     }),
 }));
 
-const SUPPORT_EMAIL = 'support@mamabebe.app';
+// The address the website publishes. support@mamabebe.app bounced: mamabebe.app has no MX.
+const SUPPORT_EMAIL = 'contact@mama-et-bebe.com';
 
 // Typed handles to the mocked functions.
 const mockedCanOpenURL = Linking.canOpenURL as jest.Mock;
@@ -154,12 +155,13 @@ describe('supportService — happy path (mail client available)', () => {
         expect(decodedBody).toContain('OS: ios 17.0');
     });
 
-    test('uses the canonical SUPPORT_EMAIL constant (support@mamabebe.app)', async () => {
+    test('writes to the published address (contact@mama-et-bebe.com)', async () => {
         const t = makeT();
         await openSupportEmail(t);
 
         const openedUrl = mockedOpenURL.mock.calls[0][0] as string;
-        expect(openedUrl).toContain(SUPPORT_EMAIL);
+        expect(openedUrl.startsWith(`mailto:${SUPPORT_EMAIL}?`)).toBe(true);
+        expect(openedUrl).not.toContain('mamabebe.app'); // no MX record: every message bounced
         expect(openedUrl).not.toContain('mama-bebe.app'); // old diverging domain (F104)
     });
 });

@@ -36,7 +36,12 @@ export const PRIVATE_STORAGE_KEYS = [
                                          // survived logout + delete + leaked across users (GDPR Art. 17).
     '@pending_appointment_draft',        // guest's unsaved appointment (title, place, notes) kept
                                          // across sign-up — an erase must not leave it behind
+    '@account_deletion_pending_v1',      // uid whose data was purged but whose Auth user still
+                                         // exists (accountDeletion.ts) — cleared with the rest
 ] as const;
+
+/** Set by accountDeletion.ts between a clean purge and the Auth user's deletion. */
+export const DELETION_PENDING_KEY = '@account_deletion_pending_v1';
 
 /**
  * Prefixes for keys with dynamic suffixes (e.g. `@weight_entries_${uid}`). Purged by scanning

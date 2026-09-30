@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Platform, Text, TextInput, View } from 'react-native';
+import { Platform, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as Sentry from '@sentry/react-native';
 import { logger } from './src/utils/logger';
@@ -30,6 +30,8 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import './src/i18n'; // Initialize i18n
 import { AuthProvider, useAuth } from './src/context/AuthContext';
+import { needsProfileSetup } from './src/context/loginHelpers';
+import { localizedHeaderBack } from './src/navigation/headerBack';
 import { PregnancyProvider, usePregnancy } from './src/context/PregnancyContext';
 import { theme } from './src/theme';
 import { ToastProvider, useToast } from './src/context/ToastContext';
@@ -85,13 +87,52 @@ const Tab = createBottomTabNavigator();
 const AuthStack = () => {
   const { t } = useTranslation();
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="Language" component={LanguageSelectScreen} />
-      <Stack.Screen name="AuthChoice" component={AuthChoiceScreen} />
+    // The titles on Language and AuthChoice are never shown (no header) but they are
+    // what the next screen's back button is named after; without them the header back
+    // on Register/Login/Privacy was announced by route name ("AuthChoice, back").
+    <Stack.Navigator screenOptions={{ headerShown: false, ...localizedHeaderBack(t) }}>
+      <Stack.Screen name="Language" component={LanguageSelectScreen} options={{ title: t('common.chooseLanguage') }} />
+      <Stack.Screen name="AuthChoice" component={AuthChoiceScreen} options={{ title: t('startJourney') }} />
       <Stack.Screen name="Register" component={RegisterScreen} options={{ headerShown: true, title: t('common.screen.createAccount') }} />
       <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: true, title: t('common.screen.login') }} />
       <Stack.Screen name="Onboarding" component={OnboardingScreen} options={{ headerShown: true, title: t('common.screen.onboarding') }} />
       <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} options={{ headerShown: true, title: t('common.screen.legalNotice') }} />
+    </Stack.Navigator>
+  );
+};
+
+// A signed-in account with no profile yet (needsProfileSetup): a fresh registration,
+// or an account that reaches the app without a userProfiles document — a new device,
+// an older build, a partial document. Onboarding is the only way forward, so it is the
+// only screen, with sign-out as the way out for someone on the wrong account.
+const ProfileSetupStack = () => {
+  const { t } = useTranslation();
+  const { logout } = useAuth();
+  return (
+    <Stack.Navigator screenOptions={{
+      headerStyle: { backgroundColor: theme.colors.background },
+      headerTintColor: theme.colors.text,
+      ...localizedHeaderBack(t),
+    }}>
+      <Stack.Screen
+        name="Onboarding"
+        component={OnboardingScreen}
+        options={{
+          title: t('common.screen.onboarding'),
+          headerRight: () => (
+            <TouchableOpacity
+              onPress={logout}
+              accessibilityRole="button"
+              accessibilityLabel={t('profile.logout')}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={{ minHeight: 44, justifyContent: 'center', paddingHorizontal: 12 }}
+              testID="profile_setup_logout"
+            >
+              <Text style={{ color: theme.colors.accent, fontSize: 14, fontWeight: '600' }}>{t('profile.logout')}</Text>
+            </TouchableOpacity>
+          ),
+        }}
+      />
     </Stack.Navigator>
   );
 };
@@ -102,7 +143,7 @@ const HomeStack = () => {
     <Stack.Navigator screenOptions={{
       headerStyle: { backgroundColor: theme.colors.background },
       headerTintColor: theme.colors.text,
-      headerBackTitle: t('common.back', 'Retour'),
+      ...localizedHeaderBack(t),
     }}>
       <Stack.Screen name="HomeMain" component={HomeScreen} options={{ headerShown: false }} />
       <Stack.Screen name="WeekRecommendations" component={WeekRecommendationsScreen} options={{ title: t('common.screen.recommendations') }} />
@@ -155,7 +196,7 @@ const ResourcesStack = () => {
     <Stack.Navigator screenOptions={{
       headerStyle: { backgroundColor: theme.colors.background },
       headerTintColor: theme.colors.text,
-      headerBackTitle: t('common.back', 'Retour'),
+      ...localizedHeaderBack(t),
     }}>
       <Stack.Screen name="ResourcesMain" component={ResourcesScreen} options={{ title: t('common.nav.resources') }} />
       <Stack.Screen name="ArticleDetail" component={ArticleDetailScreen} options={{ title: t('common.screen.article') }} />
@@ -170,7 +211,7 @@ const CalendarStack = () => {
     <Stack.Navigator screenOptions={{
       headerStyle: { backgroundColor: theme.colors.background },
       headerTintColor: theme.colors.text,
-      headerBackTitle: t('common.back', 'Retour'),
+      ...localizedHeaderBack(t),
     }}>
       <Stack.Screen name="CalendarMain" component={CalendarScreen} options={{ title: t('common.nav.calendar') }} />
       <Stack.Screen name="AddAppointment" component={AddAppointmentScreen} options={{ title: t('common.screen.addAppointment') }} />
@@ -187,7 +228,7 @@ const RemindersStack = () => {
     <Stack.Navigator screenOptions={{
       headerStyle: { backgroundColor: theme.colors.background },
       headerTintColor: theme.colors.text,
-      headerBackTitle: t('common.back', 'Retour'),
+      ...localizedHeaderBack(t),
     }}>
       <Stack.Screen name="RemindersMain" component={RemindersScreen} options={{ title: t('common.nav.reminders') }} />
       <Stack.Screen name="Statistics" component={StatisticsScreen} options={{ title: t('common.screen.myStatistics'), headerShown: false }} />
@@ -425,7 +466,7 @@ const AppContent = () => {
       }}
       ref={navigationRef}
     >
-      {user ? <MainTabs /> : <AuthStack />}
+      {user ? (needsProfileSetup(user) ? <ProfileSetupStack /> : <MainTabs />) : <AuthStack />}
     </NavigationContainer>
   );
 };

@@ -17,6 +17,7 @@ import { useToast } from '../context/ToastContext';
 import { usePregnancy } from '../context/PregnancyContext';
 import { saveUserEvent, calculateWeekFromDate, updateUserEvent } from '../services/calendarService';
 import { scheduleRDVReminders, cancelRDVReminders, getRDVReminders, getRDVPreference } from '../services/rdvNotificationService';
+import { requestNotificationsAndResync } from '../services/notificationPermissionFlow';
 import { analyticsService } from '../services/analyticsService';
 import { trackPositiveAction } from '../services/inAppReviewService';
 import { theme } from '../theme';
@@ -45,7 +46,7 @@ export const AddAppointmentScreen = () => {
     const route = useRoute<any>();
     const { user, firebaseUser } = useAuth();
 
-    const { profile } = usePregnancy();
+    const { profile, pregnancyInfo } = usePregnancy();
     const { showToast } = useToast();
     const { t, i18n } = useTranslation();
 
@@ -471,6 +472,9 @@ export const AddAppointmentScreen = () => {
                 const hasAnyReminder = reminderJ1 || reminderJ || reminderH2;
                 if (hasAnyReminder && eventId) {
                     log.debug('[AddAppointmentScreen] Scheduling reminders for:', eventId);
+                    // Asking here (rather than inside scheduleRDVReminders) means a first
+                    // grant from this screen also schedules her other reminders.
+                    await requestNotificationsAndResync({ week: pregnancyInfo?.week, locale: i18n.language, userId: user?.uid });
                     // P3.1 FIX: pass user.country so notifications fire in user's timezone
                     // (was defaulting to Africa/Algiers for everyone — wrong for FR/MA/TN/etc.)
                     await scheduleRDVReminders(eventId, title.trim(), date, {

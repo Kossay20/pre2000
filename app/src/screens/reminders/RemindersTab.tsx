@@ -26,7 +26,8 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { usePregnancy } from '../../context/PregnancyContext';
 import { useAuth } from '../../context/AuthContext';
-import { requestNotificationPermissions, hasNotificationPermission } from '../../services/notificationService';
+import { requestNotificationsAndResync, resyncReminders } from '../../services/notificationPermissionFlow';
+import { useNotificationPermissionState } from '../../hooks/useNotificationPermissionState';
 import { showAlert } from '../../utils/alert';
 import {
     getEssentialReminders,
@@ -53,8 +54,8 @@ import { Trilang } from '../../types/remindersV2';
 import { getLocalizedTrilang, formatTime } from '../../utils/i18nHelpers';
 import { theme } from '../../theme';
 import { RtlAwareChevron } from '../../components/common/RtlAwareChevron';
-import { syncRemindersToNotifications } from '../../services/remindersScheduler';
 import { useScreenAnalytics } from '../../hooks/useScreenAnalytics';
+import { useFocusEffect } from '@react-navigation/native';
 import { styles } from './RemindersTab.styles';
 
 // ============================================
@@ -252,27 +253,21 @@ export const RemindersTab = () => {
     const [editModalVisible, setEditModalVisible] = useState(false);
     const [selectedReminder, setSelectedReminder] = useState<ReminderDefinition | null>(null);
 
-    // Optimistic so the banner does not flash in before the check answers.
-    const [notificationsAllowed, setNotificationsAllowed] = useState(true);
+    // Read-only (never shows the OS dialog), and read again on every focus and
+    // return to the foreground: a grant from Settings or a revocation in the OS
+    // settings has to show up here. Null until the first read, so the banner
+    // does not flash in.
+    const { state: permissionState, refresh: refreshPermission } = useNotificationPermissionState();
+    useFocusEffect(useCallback(() => { refreshPermission(); }, [refreshPermission]));
+    const notificationsAllowed = permissionState === null || permissionState === 'granted';
 
-    useEffect(() => {
-        // Read-only: the mount never shows the OS dialog.
-        hasNotificationPermission().then(setNotificationsAllowed);
-    }, []);
-
-    /** The OS dialog, from a tap. On a grant, schedule what the background sync skipped. */
-    const askForNotifications = async (): Promise<boolean> => {
-        const granted = await requestNotificationPermissions();
-        setNotificationsAllowed(granted);
-        return granted;
-    };
+    const syncContext = { week: pregnancyInfo?.week, locale: i18n.language, userId: user?.uid };
 
     const handlePermissionBannerPress = async () => {
-        if (await askForNotifications()) {
-            const week = pregnancyInfo?.week ?? 1;
-            await syncRemindersToNotifications(week, i18n.language, user?.uid);
-            return;
-        }
+        // The OS dialog, from a tap. A grant schedules what the background sync skipped.
+        const { granted } = await requestNotificationsAndResync(syncContext);
+        refreshPermission();
+        if (granted) return;
         // Already refused: only the system settings can change it now.
         showAlert(
             t('common.permissionsDenied'),
@@ -334,24 +329,25 @@ export const RemindersTab = () => {
     const handleToggle = async (reminder: ReminderDefinition, enabled: boolean) => {
         try {
             if (enabled) {
-                // Turning a reminder on is a request for notifications, so this tap is
-                // a legitimate place for the OS dialog. A refusal still saves the
-                // setting; the banner stays up to ask again later.
-                await askForNotifications();
                 const newSetting = await enableReminder(reminder.id, user?.uid);
                 if (newSetting) {
                     setSettings(prev => ({ ...prev, [reminder.id]: newSetting }));
                 }
+                // Turning a reminder on is a request for notifications, so this tap is
+                // a legitimate place for the OS dialog. It comes after the save so a
+                // grant schedules this reminder too; a refusal still keeps the setting
+                // and the banner stays up to ask again later.
+                const { resynced } = await requestNotificationsAndResync(syncContext);
+                refreshPermission();
+                if (!resynced) await resyncReminders(syncContext);
             } else {
                 await disableReminder(reminder.id, user?.uid);
                 setSettings(prev => ({
                     ...prev,
                     [reminder.id]: { ...prev[reminder.id], enabled: false }
                 }));
+                await resyncReminders(syncContext);
             }
-            // ── FIX: Pass userId and locale so auth users and non-FR users sync correctly
-            const week = pregnancyInfo?.week ?? 1;
-            await syncRemindersToNotifications(week, i18n.language, user?.uid);
         } catch (error) {
             log.error('Error toggling reminder:', error);
         }
@@ -372,10 +368,7 @@ export const RemindersTab = () => {
                 }
             }));
             // NOTIF-08 FIX: Re-sync after time/intensity edit from modal
-            const week = pregnancyInfo?.week ?? 1;
-            syncRemindersToNotifications(week, i18n.language, user?.uid).catch(e =>
-                log.error('Sync after modal save failed:', e)
-            );
+            resyncReminders(syncContext);
         }
     };
 

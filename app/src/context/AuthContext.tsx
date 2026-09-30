@@ -1,7 +1,7 @@
 import { createLogger, logger } from '../utils/logger';
 const log = createLogger('AuthContext');
 
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useContext, useEffect, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
     createUserWithEmailAndPassword,
@@ -14,47 +14,25 @@ import {
     linkWithCredential,
     User as FirebaseUser
 } from 'firebase/auth';
-import { doc, setDoc, getDoc, deleteDoc } from 'firebase/firestore';
-import { deleteUserAccount, finishDeletionAfterReauth } from './accountDeletion';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { deleteUserAccount, finishDeletionAfterReauth, eraseAccountData, resumePendingDeletion } from './accountDeletion';
 import { db, auth } from '../config/firebase';
 import { UserProfile } from '../types';
 import { calculateCurrentWeek } from '../utils/pregnancyCalculator';
 import { calculateFertileWindow } from '../utils/fertility';
 import { migrateAllGuestDataToAuth } from '../services/reminderPersistence';
-import { clearContentCache } from '../services/contentService';
-import { cancelAllNotifications } from '../services/notificationService';
+import { isExpectedAuthError } from '../utils/firebaseErrors';
 
-// NEW-01 & NEW-02 FIX: Single source of truth for ALL private local data keys.
-// Any key added here is automatically purged on logout, resetProfile, and deleteAccount.
-//
-// U-FIX-11: Some services use dynamic key suffixes (e.g. `@weight_entries_${userId}`,
-// `reminders_v2_completions_${userId}`, `@daily_checklist_v2_${date}`). These cannot be
-// listed statically. They are purged via `purgeDynamicPrivateKeys()` below which scans
-// `AsyncStorage.getAllKeys()` for known prefixes.
-// W8 #1: the canonical key lists live in ./storageKeys (pure module) so they can be unit-tested
-// without loading this Provider — see storageKeys.test.ts.
-import { PRIVATE_STORAGE_KEYS, PRIVATE_STORAGE_KEY_PREFIXES } from './storageKeys';
+// Logout, resetProfile and deleteAccount all erase the device through one function:
+// scheduled notifications, every private key listed in ./storageKeys (exact and by prefix),
+// and the content cache. localWipe.test.ts checks it against every key the app writes.
+import { wipeLocalUserData } from './localWipe';
 import { MedicalFlags, sanitizeMedicalFlags } from '../utils/medicalFlags';
-
-const purgeDynamicPrivateKeys = async () => {
-    try {
-        const all = await AsyncStorage.getAllKeys();
-        const toRemove = all.filter(k =>
-            PRIVATE_STORAGE_KEY_PREFIXES.some(prefix => k.startsWith(prefix))
-        );
-        if (toRemove.length > 0) {
-            await AsyncStorage.multiRemove(toRemove);
-            log.debug(`[AuthContext] 🧹 Purged ${toRemove.length} dynamic private keys`);
-        }
-    } catch (e) {
-        log.warn('[AuthContext] Failed to purge dynamic private keys:', e);
-    }
-};
 
 
 // Re-export pure helper extracted to ./loginHelpers so it can be unit-tested
 // without loading AuthContext.tsx (whose JSX trips ts-jest under module:"preserve").
-import { resolveLoginProfile, shouldPreserveExistingProfile } from './loginHelpers';
+import { resolveSessionProfile, shouldPreserveExistingProfile, buildMinimalProfile, toServerProfile } from './loginHelpers';
 import { deriveIsGuest, hasPermanentAccount } from './accountMode';
 export { resolveLoginProfile } from './loginHelpers';
 export type { ResolvedLoginProfile } from './loginHelpers';
@@ -63,12 +41,15 @@ interface AuthContextType {
     user: UserProfile | null;
     firebaseUser: FirebaseUser | null;
     loading: boolean;
-    register: (email: string, password: string) => Promise<FirebaseUser>;
+    // `profileFollows`: the caller writes the profile itself right after (Onboarding's
+    // step-4 account creation). Otherwise the new account gets the minimal placeholder
+    // at once, which routes it to Onboarding.
+    register: (email: string, password: string, opts?: { profileFollows?: boolean }) => Promise<FirebaseUser>;
     // NAV-01: upgrade an in-app guest to a permanent account WITHOUT re-onboarding.
     // Links the anonymous Firebase user in place (preserves uid + data) when one exists;
     // otherwise creates a fresh account and migrates local guest data.
     upgradeGuest: (email: string, password: string) => Promise<FirebaseUser>;
-    login: (email: string, password: string) => Promise<void>;
+    login: (email: string, password: string, opts?: { profileFollows?: boolean }) => Promise<void>;
     loginAsGuest: (
         firstName: string,
         pregnancyStartDate: Date,
@@ -115,6 +96,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [user, setUser] = useState<UserProfile | null>(null);
     const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
     const [loading, setLoading] = useState<boolean>(true);
+    // True while a caller is about to write this account's profile itself — Onboarding
+    // creating the account at step 4, or a guest upgrading. The auth listener fires on
+    // the new sign-in before that write lands and would install the minimal placeholder,
+    // which the root navigator reads as "needs onboarding": the screen doing the work
+    // would unmount mid-flight and the user would see step 1 flash, or — on an upgrade —
+    // lose the guest profile she already has. While this is set a missing profile is
+    // left alone; whoever set it clears it once the real profile is in place.
+    const profileSetupPendingRef = useRef(false);
 
     useEffect(() => {
         // 1. Try to restore from AsyncStorage first (fastest)
@@ -180,12 +169,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         setUser(profile);
                         await AsyncStorage.setItem('user_profile', JSON.stringify(profile));
                     } else {
+                        // A deletion that erased everything but could not delete the Auth
+                        // user is finished here, instead of opening the emptied account as
+                        // if nothing had happened (see accountDeletion.resumePendingDeletion).
+                        if (await resumePendingDeletion(db, fbUser)) {
+                            await wipeLocalUserData();
+                            setUser(null);
+                            setFirebaseUser(null);
+                            logger.setUser(null);
+                            setLoading(false);
+                            return;
+                        }
                         // R4 FIX: parité avec login() — si une session Firebase existe
                         // mais que le doc Firestore est absent (compte orphelin, race
                         // pendant signup, suppression manuelle), on synthétise le
-                        // profil minimal via resolveLoginProfile pour que MainTabs
-                        // puisse se monter. Sans ça, l'utilisateur reste coincé sur
-                        // AuthStack au cold start malgré une session valide.
+                        // profil minimal via resolveLoginProfile. Sans ça, l'utilisateur
+                        // reste coincé sur AuthStack au cold start malgré une session
+                        // valide. Sans ancre de grossesse, needsProfileSetup l'envoie
+                        // ensuite sur Onboarding (et non sur une Home vide).
                         // Hand the cached profile in. An anonymous guest has no
                         // Firestore document at all — loginAsGuest writes one only
                         // for a permanent account — so without this the placeholder
@@ -198,7 +199,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         } catch {
                             cached = null;
                         }
-                        const { profile, isMinimal } = resolveLoginProfile(docSnap, fbUser, cached);
+                        const resolved = resolveSessionProfile(docSnap, fbUser, cached, profileSetupPendingRef.current);
+                        if (!resolved) {
+                            log.debug('[AuthContext] Cold-start: profile missing but being written by the caller — left alone');
+                            setLoading(false);
+                            return;
+                        }
+                        const { profile, isMinimal } = resolved;
                         setUser(profile);
                         await AsyncStorage.setItem('user_profile', JSON.stringify(profile));
                         if (isMinimal) {
@@ -218,16 +225,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return unsubscribe;
     }, []);
 
-    const register = async (email: string, password: string): Promise<FirebaseUser> => {
+    const register = async (
+        email: string,
+        password: string,
+        opts?: { profileFollows?: boolean },
+    ): Promise<FirebaseUser> => {
         log.debug('[AuthContext] 📝 Registering new user:', email);
+        if (opts?.profileFollows) profileSetupPendingRef.current = true;
         try {
             const userCredential = await createUserWithEmailAndPassword(auth, email, password);
             setFirebaseUser(userCredential.user);
+            logger.setUser(userCredential.user.uid);
             log.debug('[AuthContext] ✅ User registered successfully:', userCredential.user.uid);
+            if (!opts?.profileFollows) {
+                // A brand-new account has no profile. Install the placeholder now rather
+                // than waiting for the auth listener's Firestore read: needsProfileSetup
+                // sees no pregnancy anchor and the root navigator shows Onboarding, where
+                // the profile is written under this account. Previously the placeholder
+                // took the user straight to MainTabs — a Home with no week, and no
+                // userProfiles document ever written.
+                const minimal = buildMinimalProfile(userCredential.user);
+                setUser(minimal);
+                await AsyncStorage.setItem('user_profile', JSON.stringify(minimal));
+            }
             // Return the user so it can be passed to loginAsGuest immediately
             return userCredential.user;
         } catch (error) {
-            log.error('[AuthContext] ❌ Registration error:', error);
+            if (opts?.profileFollows) profileSetupPendingRef.current = false;
+            (isExpectedAuthError(error) ? log.warn : log.error)('[AuthContext] ❌ Registration error:', error);
             throw error;
         }
     };
@@ -241,7 +266,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const upgradeGuest = async (email: string, password: string): Promise<FirebaseUser> => {
         log.debug('[AuthContext] ⬆️ Upgrading guest to account:', email);
         const current = auth.currentUser;
+        const guestProfile = user;
         let upgraded: FirebaseUser;
+        // Creating a fresh account (the local-only guest branch) fires the auth
+        // listener for a uid with no Firestore document, and the cached profile still
+        // carries the old guest uid — so it would install the placeholder over the
+        // guest's profile and send her back through onboarding.
+        profileSetupPendingRef.current = true;
         try {
             if (current && current.isAnonymous) {
                 const credential = EmailAuthProvider.credential(email, password);
@@ -254,30 +285,57 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 log.debug('[AuthContext] ✅ New account created for guest upgrade, uid:', upgraded.uid);
             }
         } catch (error) {
-            log.error('[AuthContext] ❌ Guest upgrade error:', error);
+            profileSetupPendingRef.current = false;
+            (isExpectedAuthError(error) ? log.warn : log.error)('[AuthContext] ❌ Guest upgrade error:', error);
             throw error;
         }
         setFirebaseUser(upgraded);
         logger.setUser(upgraded.uid);
         try {
-            await migrateAllGuestDataToAuth(upgraded.uid);
-            log.info('[AuthContext] ✅ Guest data migrated after upgrade');
-        } catch (migrationError) {
-            log.warn('[AuthContext] ⚠️ Guest data migration failed (non-blocking):', migrationError);
+            try {
+                await migrateAllGuestDataToAuth(upgraded.uid);
+                log.info('[AuthContext] ✅ Guest data migrated after upgrade');
+            } catch (migrationError) {
+                log.warn('[AuthContext] ⚠️ Guest data migration failed (non-blocking):', migrationError);
+            }
+            if (guestProfile) {
+                const promoted: UserProfile = {
+                    ...guestProfile,
+                    isGuest: false,
+                    uid: upgraded.uid,
+                    email: upgraded.email ?? guestProfile.email,
+                };
+                // Local first: the auth listener falls back to this cache when the
+                // Firestore document is not there yet, and it must find the promoted
+                // profile under the new uid, not the old guest one.
+                await AsyncStorage.setItem('user_profile', JSON.stringify(promoted)).catch(() => {});
+                setUser(promoted);
+                // Nothing else writes the profile to the server for an upgraded guest —
+                // a guest's profile was device-only — so do it here. Without it the
+                // account had no userProfiles document and a sign-in on another device
+                // had to onboard from scratch. Best effort: the account exists and the
+                // profile is safe on this device either way.
+                try {
+                    await setDoc(
+                        doc(db, 'userProfiles', upgraded.uid),
+                        toServerProfile(promoted, new Date().toISOString()),
+                        { merge: true },
+                    );
+                } catch (writeError) {
+                    log.warn('[AuthContext] ⚠️ Could not write the upgraded profile to Firestore:', writeError);
+                }
+            }
+        } finally {
+            profileSetupPendingRef.current = false;
         }
-        // Flip the in-memory profile to authenticated; the !isGuest+firebaseUser sync
-        // effect writes it to Firestore, and we persist locally for immediate UX.
-        setUser((prev) => {
-            if (!prev) return prev;
-            const promoted = { ...prev, isGuest: false, uid: upgraded.uid };
-            AsyncStorage.setItem('user_profile', JSON.stringify(promoted)).catch(() => {});
-            return promoted;
-        });
         return upgraded;
     };
 
-    const login = async (email: string, password: string) => {
+    const login = async (email: string, password: string, opts?: { profileFollows?: boolean }) => {
         log.debug('[AuthContext] 🔐 Logging in user:', email);
+        // Onboarding's email-already-in-use recovery signs in and then writes the
+        // profile itself; see profileSetupPendingRef.
+        if (opts?.profileFollows) profileSetupPendingRef.current = true;
         try {
             const userCredential = await signInWithEmailAndPassword(auth, email, password);
             setFirebaseUser(userCredential.user);
@@ -285,14 +343,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             log.debug('[AuthContext] ✅ User logged in:', userCredential.user.uid);
 
             // Load profile (BUG FIX: Firestore docs don't carry their own id; F4 FIX:
-            // missing doc → minimal placeholder so MainTabs renders. Both branches
-            // funneled through `resolveLoginProfile` for unit-testability.)
+            // missing doc → minimal placeholder, which needsProfileSetup routes to
+            // Onboarding — where an account without a profile belongs — unless
+            // Onboarding is the caller and is about to write it (resolveSessionProfile
+            // returns null). Funneled through loginHelpers for unit-testability.)
             const docSnap = await getDoc(doc(db, 'userProfiles', userCredential.user.uid));
-            const { profile, isMinimal } = resolveLoginProfile(docSnap, userCredential.user);
-            setUser(profile);
-            await AsyncStorage.setItem('user_profile', JSON.stringify(profile));
+            const resolved = resolveSessionProfile(docSnap, userCredential.user, null, !!opts?.profileFollows);
+            if (resolved) {
+                setUser(resolved.profile);
+                await AsyncStorage.setItem('user_profile', JSON.stringify(resolved.profile));
+            }
 
-            if (!isMinimal) {
+            if (resolved && !resolved.isMinimal) {
                 log.debug('[AuthContext] ✅ User profile loaded from Firestore');
             } else {
                 log.warn('[AuthContext] ⚠️ User profile not found in Firestore — bootstrapping minimal profile');
@@ -309,7 +371,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 log.warn('[AuthContext] ⚠️ Guest data migration failed (non-blocking):', migrationError);
             }
         } catch (error) {
-            log.error('[AuthContext] ❌ Login error:', error);
+            if (opts?.profileFollows) profileSetupPendingRef.current = false;
+            (isExpectedAuthError(error) ? log.warn : log.error)('[AuthContext] ❌ Login error:', error);
             throw error;
         }
     };
@@ -339,7 +402,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // `auth/operation-not-allowed`), fallback sur l'ancien uid local + warning
         // — l'utilisatrice voit toujours un écran vide MAIS au moins l'app ne
         // crashe pas et le dev/operator sait quoi activer.
-        let effectiveUser = authenticatedUser || firebaseUser;
+        // auth.currentUser as a last resort: a signed-in user finishing Onboarding
+        // (needsProfileSetup) can be painted from the cached profile before the auth
+        // listener has put the session into state. Falling through to
+        // signInAnonymously there would swap her account for an anonymous one.
+        let effectiveUser = authenticatedUser || firebaseUser || auth.currentUser;
         if (!effectiveUser) {
             try {
                 const cred = await signInAnonymously(auth);
@@ -511,6 +578,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 if (ttcFields.fertileWindowStart) profileData.fertileWindowStart = ttcFields.fertileWindowStart;
                 if (ttcFields.fertileWindowEnd) profileData.fertileWindowEnd = ttcFields.fertileWindowEnd;
 
+                // Curious mode. Reachable for a signed-in account now that Onboarding
+                // runs for any account without a profile; left out, the cold start would
+                // rebuild her from this document as pregnant at the explored week.
+                if (curiousOptions) {
+                    profileData.isCurious = true;
+                    profileData.exploreWeek = curiousOptions.exploreWeek;
+                }
+
                 // Declared conditions. This payload is a whitelist built field by
                 // field, and the first cut of this feature spread the flags into the
                 // in-memory profile and AsyncStorage but never named them here — so
@@ -559,6 +634,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } catch (error) {
             log.error('[AuthContext] ❌ Failed to save profile:', error);
             throw error;
+        } finally {
+            profileSetupPendingRef.current = false;
         }
     };
 
@@ -567,21 +644,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (firebaseUser) {
                 await signOut(auth);
             }
-            
-            // NEW: Cancel native ghost notifications
-            try {
-                await cancelAllNotifications();
-                log.info('[AuthContext] 🧹 All local notifications cancelled (Auth)');
-            } catch (err) {
-                log.warn('[AuthContext] ⚠️ Failed to cancel notifications:', err);
-            }
-
-            // NEW-01 & NEW-02 FIX: Purge ALL private data (shared constant = no key ever missed)
-            await AsyncStorage.multiRemove([...PRIVATE_STORAGE_KEYS]);
-            // U-FIX-11: also purge dynamic-suffix keys (per-uid weights, completions, daily checklist)
-            await purgeDynamicPrivateKeys();
-            // Clear in-memory Firestore content cache (articles, supplements)
-            clearContentCache();
+            await wipeLocalUserData();
             log.info('[AuthContext] 🧹 All local data purged on logout');
             setUser(null);
             setFirebaseUser(null);
@@ -653,32 +716,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const resetProfile = async () => {
         try {
-            // Delete from Firestore if authenticated user
+            // Any Firebase session (a permanent account, or an anonymous guest once Anonymous
+            // Auth is on) has data in Firestore beyond the profile document: erase all of it
+            // before signing out, because signing out loses the only uid that can reach it.
+            // A failed purge throws here, with the session intact, so the reset can be retried.
             if (firebaseUser) {
-                const userDocRef = doc(db, 'userProfiles', firebaseUser.uid);
-                await deleteDoc(userDocRef);
+                await eraseAccountData(db, firebaseUser);
                 await signOut(auth);
             }
 
-            // NEW: Cancel native ghost notifications
-            try {
-                await cancelAllNotifications();
-            } catch (err) {
-                log.warn('[AuthContext] ⚠️ Failed to cancel notifications:', err);
-            }
-
-            // NEW-01 FIX: Purge ALL private keys including reminder/task data
-            await AsyncStorage.multiRemove([...PRIVATE_STORAGE_KEYS]);
-            // U-FIX-11: also purge dynamic-suffix keys (per-uid weights, completions, daily checklist)
-            await purgeDynamicPrivateKeys();
-
-            // U-FIX-8: also clear the in-memory content cache (articles, supplements)
-            // so the next session for a different account doesn't see cached docs.
-            clearContentCache();
+            await wipeLocalUserData();
 
             // Reset states
             setUser(null);
             setFirebaseUser(null);
+            logger.setUser(null);
 
             log.debug('[AuthContext] ✅ Profile reset complete — all local data purged');
         } catch (error) {
@@ -690,16 +742,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Everything the device holds for the deleted account: scheduled notifications,
     // every private AsyncStorage key, the in-memory content cache, then the session.
     const clearLocalStateAfterDeletion = async () => {
-        try {
-            await cancelAllNotifications();
-        } catch (err) {
-            log.warn('[AuthContext] ⚠️ Failed to cancel notifications:', err);
-        }
-        await AsyncStorage.multiRemove([...PRIVATE_STORAGE_KEYS]);
-        // U-FIX-11: also purge dynamic-suffix keys
-        await purgeDynamicPrivateKeys();
-        // U-FIX-8: also clear in-memory content cache (consistency with logout/reset)
-        clearContentCache();
+        await wipeLocalUserData();
         // Setting user to null swaps the navigator to AuthStack; no screen needs to navigate.
         setUser(null);
         setFirebaseUser(null);

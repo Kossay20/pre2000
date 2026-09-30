@@ -50,6 +50,7 @@ import { BabyFactsCard } from '../components/home/BabyFactsCard';
 import { MomTipsCard } from '../components/home/MomTipsCard';
 
 import { BabyMessageCard } from '../components/home/BabyMessageCard'; // Quick Win #1
+import { NotificationPrimerCard } from '../components/home/NotificationPrimerCard';
 import { CollapsibleCard } from '../components/common/CollapsibleCard'; // Reorganization
 import { DailyRoutinesTracker } from '../components/home/DailyRoutinesTracker'; // Unified Tracker
 import { UserTask } from '../types';
@@ -427,6 +428,11 @@ export const HomeScreen = () => {
                     </TouchableOpacity>
                 </View>
             )}
+            {/* One-time invitation to allow notifications, after the welcome card. */}
+            <NotificationPrimerCard
+                suppressed={showWelcome}
+                syncContext={{ week: pregnancyInfo?.week, locale: i18n.language, userId: user?.uid }}
+            />
             {/* Cycle 3 F212 — Banner Mode découverte (Curious mode).
                 Avertit l'utilisatrice que les données affichées correspondent à
                 une exploration (pas une vraie grossesse). CTA pour basculer si

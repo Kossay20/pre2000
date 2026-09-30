@@ -35,7 +35,7 @@ import { exportUserData } from '../services/dataExportService';
 import { useDateLocale } from '../hooks/useDateLocale';
 // DEAD-CODE-FIX: DemoDataService import removed — was imported but never used.
 // DemoDataService should only ever be called in __DEV__ contexts.
-import { requestNotificationPermissions } from '../services/notificationService';
+import { requestNotificationsAndResync } from '../services/notificationPermissionFlow';
 import { sendTestNotification, getScheduledNotifications } from '../services/rdvNotificationService';
 import { generateAndSharePDF } from '../services/pdfExportService';
 import { getWeightHistory } from '../services/weightService';
@@ -294,7 +294,13 @@ export const SettingsScreen = () => {
                     accessibilityLabel={t('common.requestPermissions')}
                     accessibilityHint={t('common.requestPermissionsDesc')}
                     onPress={async () => {
-                        const granted = await requestNotificationPermissions();
+                        // A grant here schedules the reminders at once instead of at the
+                        // next week change.
+                        const { granted } = await requestNotificationsAndResync({
+                            week: pregnancyInfo?.week,
+                            locale: i18n.language,
+                            userId: user?.uid,
+                        });
 
                         if (granted) {
                             alert(t('common.permissionsGranted'));

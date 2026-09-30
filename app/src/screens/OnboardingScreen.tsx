@@ -51,6 +51,16 @@ import { getContentWidth } from '../utils/layout';
 
 const width = getContentWidth();
 
+// Single-choice options (status, date method, age, country, first pregnancy).
+// accessibilityState reaches VoiceOver/TalkBack, but react-native-web drops it: on
+// web every option was a plain button and nothing said which one was chosen — the
+// only cue was a border colour. aria-pressed is the state a screen reader reads on
+// a toggle button (aria-selected is not allowed on role=button).
+const choiceA11y = (selected: boolean) => ({
+    accessibilityState: { selected },
+    ...(Platform.OS === 'web' ? { 'aria-pressed': selected } : {}),
+});
+
 
 export const OnboardingScreen = () => {
     useScreenAnalytics('OnboardingScreen');
@@ -245,7 +255,7 @@ export const OnboardingScreen = () => {
                     log.debug('[Onboarding] 📝 Creating account...');
                     try {
                         authenticatedUser = await retryOperation(
-                            () => register(email.trim(), password),
+                            () => register(email.trim(), password, { profileFollows: true }),
                             { maxRetries: 1, initialDelay: 500 }
                         );
                     } catch (regError: any) {
@@ -253,7 +263,7 @@ export const OnboardingScreen = () => {
                         // try to log in instead to recover the session and proceed to profile creation.
                         if (regError.code === 'auth/email-already-in-use') {
                             log.warn('[Onboarding] ⚠️ Email already in use, attempting login to recover...');
-                            await login(email.trim(), password);
+                            await login(email.trim(), password, { profileFollows: true });
                             // If login succeeds, we continue. The auth state will update.
                             // We need access to the user object. logic inside login sets the state.
                             // But we need the user object returned here to pass to loginAsGuest.
@@ -341,7 +351,7 @@ export const OnboardingScreen = () => {
                     onPress={() => selectStatusAndAdvance('pregnant')}
                     accessibilityRole="button"
                     accessibilityLabel={t('onboarding.step1.pregnant')}
-                    accessibilityState={{ selected: pregnancyStatus === 'pregnant' }}
+                    {...choiceA11y(pregnancyStatus === 'pregnant')}
                 >
                     <Text style={styles.optionEmoji}>🤰</Text>
                     <Text style={styles.optionText}>{t('onboarding.step1.pregnant')}</Text>
@@ -352,7 +362,7 @@ export const OnboardingScreen = () => {
                     onPress={() => selectStatusAndAdvance('trying')}
                     accessibilityRole="button"
                     accessibilityLabel={t('onboarding.step1.trying')}
-                    accessibilityState={{ selected: pregnancyStatus === 'trying' }}
+                    {...choiceA11y(pregnancyStatus === 'trying')}
                 >
                     <Text style={styles.optionEmoji}>💕</Text>
                     <Text style={styles.optionText}>{t('onboarding.step1.trying')}</Text>
@@ -363,7 +373,7 @@ export const OnboardingScreen = () => {
                     onPress={() => selectStatusAndAdvance('curious')}
                     accessibilityRole="button"
                     accessibilityLabel={t('onboarding.step1.curious')}
-                    accessibilityState={{ selected: pregnancyStatus === 'curious' }}
+                    {...choiceA11y(pregnancyStatus === 'curious')}
                 >
                     <Text style={styles.optionEmoji}>👀</Text>
                     <Text style={styles.optionText}>{t('onboarding.step1.curious')}</Text>
@@ -395,7 +405,7 @@ export const OnboardingScreen = () => {
                     onPress={() => setDateMethod('ddr')}
                     accessibilityRole="button"
                     accessibilityLabel={t('onboarding.step2.methodDdr')}
-                    accessibilityState={{ selected: dateMethod === 'ddr' }}
+                    {...choiceA11y(dateMethod === 'ddr')}
                 >
                     <Text style={[styles.methodText, dateMethod === 'ddr' && styles.methodTextActive]}>
                         {t('onboarding.step2.methodDdr')}
@@ -406,7 +416,7 @@ export const OnboardingScreen = () => {
                     onPress={() => setDateMethod('conception')}
                     accessibilityRole="button"
                     accessibilityLabel={t('onboarding.step2.methodConception')}
-                    accessibilityState={{ selected: dateMethod === 'conception' }}
+                    {...choiceA11y(dateMethod === 'conception')}
                 >
                     <Text style={[styles.methodText, dateMethod === 'conception' && styles.methodTextActive]}>
                         {t('onboarding.step2.methodConception')}
@@ -538,7 +548,7 @@ export const OnboardingScreen = () => {
                             onPress={() => setAgeRange(range)}
                             accessibilityRole="button"
                             accessibilityLabel={range}
-                            accessibilityState={{ selected: ageRange === range }}
+                            {...choiceA11y(ageRange === range)}
                         >
                             <Text style={[styles.ageRangeText, ageRange === range && styles.ageRangeTextSelected]}>
                                 {range}
@@ -558,7 +568,7 @@ export const OnboardingScreen = () => {
                             onPress={() => setCountry(item.value)}
                             accessibilityRole="button"
                             accessibilityLabel={t(item.key)}
-                            accessibilityState={{ selected: country === item.value }}
+                            {...choiceA11y(country === item.value)}
                         >
                             <Text style={styles.radioText}>{t(item.key)}</Text>
                         </TouchableOpacity>
@@ -574,7 +584,7 @@ export const OnboardingScreen = () => {
                         onPress={() => setIsFirstPregnancy(true)}
                         accessibilityRole="button"
                         accessibilityLabel={t('onboarding.step3.firstPregnancyYes')}
-                        accessibilityState={{ selected: isFirstPregnancy === true }}
+                        {...choiceA11y(isFirstPregnancy === true)}
                     >
                         <Text style={[styles.radioText, rtlText]}>{t('onboarding.step3.firstPregnancyYes')}</Text>
                     </TouchableOpacity>
@@ -583,7 +593,7 @@ export const OnboardingScreen = () => {
                         onPress={() => setIsFirstPregnancy(false)}
                         accessibilityRole="button"
                         accessibilityLabel={t('onboarding.step3.firstPregnancyNo')}
-                        accessibilityState={{ selected: isFirstPregnancy === false }}
+                        {...choiceA11y(isFirstPregnancy === false)}
                     >
                         <Text style={[styles.radioText, rtlText]}>{t('onboarding.step3.firstPregnancyNo')}</Text>
                     </TouchableOpacity>
@@ -592,7 +602,7 @@ export const OnboardingScreen = () => {
                         onPress={() => setIsFirstPregnancy(null)}
                         accessibilityRole="button"
                         accessibilityLabel={t('onboarding.step3.firstPregnancySkip')}
-                        accessibilityState={{ selected: isFirstPregnancy === null }}
+                        {...choiceA11y(isFirstPregnancy === null)}
                     >
                         <Text style={[styles.radioText, rtlText]}>{t('onboarding.step3.firstPregnancySkip')}</Text>
                     </TouchableOpacity>
@@ -945,31 +955,35 @@ export const OnboardingScreen = () => {
 
                         <View style={styles.divider} />
 
-                        <View style={styles.accountSection}>
-                            <Text style={styles.accountTitle}>{t('onboarding.step3Ttc.createAccountTitle')}</Text>
-                            <Text style={styles.accountSubtitle}>
-                                {t('onboarding.step3Ttc.createAccountSubtitle')}
-                            </Text>
+                        {/* Signed-in account finishing its profile (needsProfileSetup): no
+                            account to create — same rule as the pregnancy flow's step 4. */}
+                        {!user && (
+                            <View style={styles.accountSection}>
+                                <Text style={styles.accountTitle}>{t('onboarding.step3Ttc.createAccountTitle')}</Text>
+                                <Text style={styles.accountSubtitle}>
+                                    {t('onboarding.step3Ttc.createAccountSubtitle')}
+                                </Text>
 
-                            <TextInput
-                                style={styles.accountInput}
-                                placeholder={t('onboarding.step4.emailPlaceholder')}
-                                placeholderTextColor={theme.colors.neutral400}
-                                value={email}
-                                onChangeText={setEmail}
-                                keyboardType="email-address"
-                                autoCapitalize="none"
-                                autoCorrect={false}
-                            />
-                            <TextInput
-                                style={styles.accountInput}
-                                placeholder={t('onboarding.step4.passwordPlaceholder')}
-                                placeholderTextColor={theme.colors.neutral400}
-                                value={password}
-                                onChangeText={setPassword}
-                                secureTextEntry
-                            />
-                        </View>
+                                <TextInput
+                                    style={styles.accountInput}
+                                    placeholder={t('onboarding.step4.emailPlaceholder')}
+                                    placeholderTextColor={theme.colors.neutral400}
+                                    value={email}
+                                    onChangeText={setEmail}
+                                    keyboardType="email-address"
+                                    autoCapitalize="none"
+                                    autoCorrect={false}
+                                />
+                                <TextInput
+                                    style={styles.accountInput}
+                                    placeholder={t('onboarding.step4.passwordPlaceholder')}
+                                    placeholderTextColor={theme.colors.neutral400}
+                                    value={password}
+                                    onChangeText={setPassword}
+                                    secureTextEntry
+                                />
+                            </View>
+                        )}
 
                         {error ? <ErrorMessage message={error} /> : null}
 
@@ -979,11 +993,11 @@ export const OnboardingScreen = () => {
                             (b) created a real pregnancy profile. Now wired to handleFinishTTC. */}
                         <TouchableOpacity
                             style={styles.startButton}
-                            onPress={() => handleFinishTTC(true)}
-                            disabled={loading || !(email.trim().length > 0 && password.length >= 10 && /\d/.test(password) && /[A-Z]/.test(password))}
+                            onPress={() => handleFinishTTC(!user)}
+                            disabled={loading || (!user && !(email.trim().length > 0 && password.length >= 10 && /\d/.test(password) && /[A-Z]/.test(password)))}
                         >
                             <LinearGradient
-                                colors={loading || !(email.trim().length > 0 && password.length >= 10 && /\d/.test(password) && /[A-Z]/.test(password))
+                                colors={loading || (!user && !(email.trim().length > 0 && password.length >= 10 && /\d/.test(password) && /[A-Z]/.test(password)))
                                     ? [theme.colors.neutral300, theme.colors.gray500]
                                     : [theme.colors.primary, theme.colors.accent]}
                                 start={{ x: 0, y: 0 }}
@@ -1178,13 +1192,13 @@ export const OnboardingScreen = () => {
                 if (createAccount && email && password) {
                     try {
                         authenticatedUser = await retryOperation(
-                            () => register(email.trim(), password),
+                            () => register(email.trim(), password, { profileFollows: true }),
                             { maxRetries: 1, initialDelay: 500 }
                         );
                     } catch (regError: any) {
                         if (regError.code === 'auth/email-already-in-use') {
                             log.warn('[Onboarding] ⚠️ TTC Email already in use, recovering...');
-                            await login(email.trim(), password);
+                            await login(email.trim(), password, { profileFollows: true });
                             authenticatedUser = auth.currentUser;
                         } else {
                             throw regError;

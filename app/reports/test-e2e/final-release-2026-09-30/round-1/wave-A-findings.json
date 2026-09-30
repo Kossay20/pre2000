@@ -1,0 +1,292 @@
+{
+  "wave": "A",
+  "round": 1,
+  "states_reviewed": 55,
+  "findings": [
+    {
+      "id": "A-001",
+      "state_artifact": "round-1/wave-A/11-register-success-landing-fr-run1.png",
+      "category": "silent_error",
+      "severity": "P0",
+      "evidence": "Known, still present in 3 of 3 runs (fr run1, fr run2, ar run3). Register lands on /HomeMain, not Onboarding: landing={onOnboarding:false,onTabs:true,url:'http://localhost:8091/HomeMain'}. The server doc userProfiles/{uid} is null in every run (11-register-server-truth-fr-run1/2, 27-ar-register-server-truth). localProfile={firstName:'',country:''}. In a fresh context Home shows 'Aucune donnée disponible / Compléter mon profil' (11-register-fresh-context-fr-run1.png, 27-ar-register-success-landing.png). The AuthChoice CTA promises 'Créer un compte / Commencer le questionnaire' (03-authchoice-fr.png), but no questionnaire ever appears. This path also never asks for the country, so every registrant gets country '' (see A-008).",
+      "fix_hint": "The fix agent owns this. The working tree RegisterScreen.tsx (~:136-142) now relies on needsProfileSetup routing in App.tsx plus register(...,{profileFollows}) and loginHelpers.ts. Re-verify with 11 and 27 in a new round against a rebuilt bundle: server userProfiles/{uid}.lmp must exist and step 3 (country) must be shown.",
+      "status": "open",
+      "first_seen_round": 1,
+      "rounds_open": 1
+    },
+    {
+      "id": "A-002",
+      "state_artifact": "round-1/wave-A/02-language-continue-fold.png",
+      "category": "element_overlap",
+      "severity": "P1",
+      "evidence": "Known (GJ-006). The Continue text box is at y=1044.5, h=18, so its bottom is 1062.5 against an 844 fold (02 notes). docH=844 and scrollY=0: the inner ScrollView scrolls, not the page. Arabic also fails: the box is at y=963, h=19, bottom 982 > 844 (23-ar-language-continue-fold notes). Per the plan, failing in ar as well makes this P1. Neither PNG shows any Continue affordance, only the 'Information' box header at the bottom edge.",
+      "fix_hint": "LanguageSelectScreen.tsx: move the Continue button out of the ScrollView into a sticky footer (or put it above the info box). Keep the info box below it.",
+      "status": "open",
+      "first_seen_round": 1,
+      "rounds_open": 1
+    },
+    {
+      "id": "A-003",
+      "state_artifact": "round-1/wave-A/05-register-display.png",
+      "category": "aria_keyboard",
+      "severity": "P1",
+      "evidence": "Known (GJ-008). The top band has two back controls on Register and Login in fr and ar: <a role=link aria-label='AuthChoice, back'> at (11,17) and <button '←'> at (24,118) (05/15/25/29 top-band notes). Both are visible in 05, 15, 25 and 29 PNGs. The in-body one navigates to AuthChoice instead of popping.",
+      "fix_hint": "The fix agent owns this. The working tree RegisterScreen.tsx:~175 gates it behind showInlineBack. Apply the same gate in LoginScreen.tsx, then re-run 05, 15, 25 and 29.",
+      "status": "open",
+      "first_seen_round": 1,
+      "rounds_open": 1
+    },
+    {
+      "id": "A-004",
+      "state_artifact": "round-1/wave-A/05-register-display.dom.html",
+      "category": "i18n_leak",
+      "severity": "P1",
+      "evidence": "Known. The header back aria-label is the raw route name 'AuthChoice, back' on Register, Login and Privacy (04a DOM), and on every Onboarding step (12-fr-onboarding-step3.dom.html, 28-ar-onboarding-step3.dom.html). In ar it is still the English 'AuthChoice, back'. On iOS native-stack the back button shows the previous screen's title as visible text and falls back to the route name, so this is not only a screen-reader leak.",
+      "fix_hint": "The fix agent owns this. The working tree App.tsx:95 now gives AuthChoice a title (startJourney). Verify the aria-label on Register, Login, Privacy and Onboarding in all 4 locales, and on an iOS build that the visible back title is localized.",
+      "status": "open",
+      "first_seen_round": 1,
+      "rounds_open": 1
+    },
+    {
+      "id": "A-005",
+      "state_artifact": "round-1/wave-A/20a-forgot-password-sending.png",
+      "category": "i18n_leak",
+      "severity": "P2",
+      "evidence": "Known (HYP-A2). The forgot_password_button text in flight is a bare '…' (20-forgot-password-inflight-label notes: sendingLabel '…'). The PNG shows an underlined '…' where 'Mot de passe oublié ?' was.",
+      "fix_hint": "The fix agent owns this. Add the sendingResetEmail key in fr/en/ar/tn (LoginScreen.tsx:243,252 read t('sendingResetEmail')).",
+      "status": "open",
+      "first_seen_round": 1,
+      "rounds_open": 1
+    },
+    {
+      "id": "A-006",
+      "state_artifact": "round-1/wave-A/16-login-wrong-password.console.json",
+      "category": "console_error",
+      "severity": "P1",
+      "evidence": "Known. On a wrong password the console gets 2 app errors: '[AuthContext] ❌ Login error: FirebaseError … (auth/wrong-password)' and '[LoginScreen] Login error: …'. They go to Sentry through logger.ts. The same double log.error fires for user-caused failures in 10-register-email-in-use (auth/email-already-in-use, AuthContext+RegisterScreen), 17 (auth/user-not-found), 18 (3 attempts, 6 errors) and 29-ar. The spec only enforces the rule in 16 (APP_AUTH_FAILURE_LOG is tolerated elsewhere), so these 4 other states pass even though the defect is present.",
+      "fix_hint": "The fix agent owns this. The working tree has isExpectedAuthError in firebaseErrors.ts. Downgrade the AuthContext login/register catch to log.warn for expected codes as well, not only the screens. Then remove the allowAppAuthLog tolerance from the spec so 10, 17, 18 and 29 enforce it too.",
+      "status": "open",
+      "first_seen_round": 1,
+      "rounds_open": 1
+    },
+    {
+      "id": "A-007",
+      "state_artifact": "round-1/wave-A/12-fr-onboarding-step3-country-derivation.notes.json",
+      "category": "aria_keyboard",
+      "severity": "P2",
+      "evidence": "Known. The onboarding choice buttons expose no selected state: every country, age and first-pregnancy button has aria-selected=null and allSelectable=[] (12/14/28 step3 notes). The preselected 'France' can only be seen from its style rgb(255,245,248)|rgb(255,107,157). A screen-reader user cannot tell that a country was chosen for her, and that country decides the emergency number (A-008).",
+      "fix_hint": "The fix agent owns this. The working tree OnboardingScreen.tsx adds choiceA11y() with aria-pressed. Re-verify in 12, 14, 28 and 32 that aria-pressed='true' is set on exactly one country.",
+      "status": "open",
+      "first_seen_round": 1,
+      "rounds_open": 1
+    },
+    {
+      "id": "A-008",
+      "state_artifact": "round-1/wave-A/28-ar-contraction-emergency-number.png",
+      "category": "silent_error",
+      "severity": "P1",
+      "evidence": "Judgement requested: an unanswered country falls back silently. Step 3 labels the country list with only 'Votre pays' / 'بلدك' / 'Your Country'. There is no hint that it drives the emergency number and no 'required' marker (12-fr-onboarding-step3.dom.html). Continue is always enabled (OnboardingScreen.tsx step-3 Button, no country guard). An ar device with no region saves country '' (28-ar-server-userProfile: country ''). The contraction timer then shows '📞 الاتصال بخدمات الطوارئ (112)' with nothing saying that 112 is a fallback or how to fix it (28-ar-contraction-emergency-number.png). Every Register-path account also has country '' (11 notes, A-001), so it depends entirely on the device region: fr-FR gives 15, while ar/tn phones whose region is unset or outside the 9-entry REGION_TO_COUNTRY map give 112. This is the app's core market: 'العربية + الدارجة' is the Tunisian UI and SAMU there is 190. Verdict: 112 as a last resort is defensible, since 3GPP handsets route it as an emergency call. Leaving it silent on a labour/emergency CTA is not acceptable for a pregnancy app. The user never learns the question mattered, and the CTA never tells her the number is a guess.",
+      "fix_hint": "(1) OnboardingScreen.tsx:~562: add a hint under countryLabel in 4 locales, e.g. 'Sert à afficher le bon numéro d'urgence (15 en France, 190 en Tunisie…)'. (2) Make the question a required single tap: disable step-3 Continue until a country is chosen, and relabel 'other' as 'Autre pays → 112 (international)'. (3) Expose the number's source from clinicalChecks.ts:340 resolveEmergencyNumber (e.g. {number, source:'profile'|'region'|'fallback'}). In ContractionTimerScreen.tsx:~203-215, ChatbotScreen.tsx:35 and HealthDashboardScreen.tsx:211, when source !== 'profile', render '112 (numéro international)' plus a 'Choisir mon pays' link to Profile (ProfileScreen already has COUNTRY_OPTIONS). (4) Optionally preselect 'tunisia', visibly, for the tn (Darija) UI when the region is unknown. tn is Tunisia-specific, unlike ar, which A-ar/32 correctly no longer default. Add a spec state: onboarding with country left empty, then an assertion on the fallback disclosure.",
+      "status": "open",
+      "first_seen_round": 1,
+      "rounds_open": 1
+    },
+    {
+      "id": "A-009",
+      "state_artifact": "round-1/wave-A/12-fr-onboarding-step2.png",
+      "category": "numeric_integrity",
+      "severity": "P1",
+      "evidence": "The gestational age in SA is off by one day. LMP = today−217 days (31w0d exactly: 2026-02-25 → 2026-09-30) is shown as 'Soit 31 SA + 1 jours' (fr), 'أي 31 أسابيع + 1 أيام' (ar, 28-ar-onboarding-step2.png) and 'That is 31 weeks + 1 days' (en). OnboardingScreen.tsx:~492 passes {week: week-1, day: pregnancyInfo.day}, where day is 1-based ((diffDays%7)+1, pregnancyCalculator.ts:26-27). The SA+j notation French midwives and ultrasound reports use counts completed days, so this should read 31 SA + 0 j. On the 7th day of each week it prints the impossible '31 SA + 7 jours'. The same screen family then says 'SEMAINE 32 / JOUR 1' (12-fr-onboarding-step4.png), mixing the two conventions. Grammar: '1 jours' / '1 أيام' / '31 أسابيع' are not pluralized (no i18next _one/_other or Arabic plural forms).",
+      "fix_hint": "OnboardingScreen.tsx:~492: pass day: pregnancyInfo.day - 1, or better expose daysCompleted = diffDays % 7 from pregnancyCalculator.ts. Use i18next plurals for saDays in fr/en (…_one/_other) and ar/tn (_zero/_one/_two/_few/_many/_other). Add a unit test: LMP today−217 d must give '31 SA + 0 j'.",
+      "status": "open",
+      "first_seen_round": 1,
+      "rounds_open": 1
+    },
+    {
+      "id": "A-010",
+      "state_artifact": "round-1/wave-A/12-fr-onboarding-step2-invalid-41w.png",
+      "category": "numeric_integrity",
+      "severity": "P1",
+      "evidence": "Due-date and post-term pregnancies are rejected. calculatePregnancyWeek marks isInvalid for week > 40, i.e. diffDays ≥ 280 (pregnancyCalculator.ts:30-33). From 40+0 SA, the due date itself, onboarding disables Continue and shows the generic 'Date invalide. Veuillez vérifier votre saisie.' / 'التاريخ غير صحيح…' (12/28 step2-invalid PNGs; OnboardingScreen.tsx:~483,512). The locale string also overrides the more honest code fallback 'votre grossesse dépasse 40 semaines'. Pregnancies commonly run to 41-42 SA: French 'terme' is 41 SA and induction is often at 41+x. A woman on or after her due date, exactly when the contraction timer matters, cannot onboard at all. Existing users switch to the postpartum 'avez-vous accouché ?' banner, and fetal content is hidden from 40+0 (HomeScreen.tsx:634,658,667). The spec treats the cap as correct ('today−41w must be disabled'), so the audit locked this behaviour in.",
+      "fix_hint": "pregnancyCalculator.ts:30: move the invalid threshold to diffDays > 294 (42+0 SA), and add a separate 'postTerm' flag for 40+0 to 41+6 that keeps Home and the contraction timer. OnboardingScreen.tsx: show a specific message for > 42 SA ('plus de 42 semaines — vérifiez la date'). Update fr/ar/en/tn onboarding.step2.invalidDate. Spec: add LMP today−40w3d → Continue enabled, and keep today−43w → disabled.",
+      "status": "open",
+      "first_seen_round": 1,
+      "rounds_open": 1
+    },
+    {
+      "id": "A-011",
+      "state_artifact": "round-1/wave-A/11-register-contraction-emergency-number-fr.png",
+      "category": "element_overlap",
+      "severity": "P2",
+      "evidence": "The emergency call row overlaps text on the contraction timer's empty state in fr, ar and en (11, 28, 33 PNGs). The ⏱️ emoji draws over the bottom of the 'Début de contraction' button, and the second subtitle line 'contraction commence.' sits under '📞 Appeler les urgences (15)'. I reproduced it against :8091. The EmptyState <section> is laid out at h=48px (flex '0 1 0%'), while its children span y=417-576. The button ends at y=440 and the emoji starts at y=417. The subtitle bottom is at 576 and the call row text top at 568. Root cause: EmptyState containerCompact {flex:0} (EmptyState.tsx:70-71) becomes flex-basis 0% on RN-web and the box collapses to its padding. Native Yoga treats flex:0 as content-sized, so this is probably web-only (§0.3 → P2 web-harness). Every compact EmptyState on web has the same collapse.",
+      "fix_hint": "EmptyState.tsx:70: replace flex:0 with {flexGrow:0, flexShrink:0} (no flexBasis 0), which is correct on web and native. Check it on an iOS/Android build. Add a spec bbox assertion that the call row top is at or below the subtitle bottom.",
+      "status": "open",
+      "first_seen_round": 1,
+      "rounds_open": 1
+    },
+    {
+      "id": "A-012",
+      "state_artifact": "round-1/wave-A/21-login-success.png",
+      "category": "audit_integrity",
+      "severity": "P2",
+      "evidence": "Every Home PNG is captured at the start of a fade-in, so the visual proof for Home is void: 13-onboarding-step4-create-account, 13-fresh-context-week32, 14-onboarding-step4-skip-guest, 21-login-success, 28-ar-onboarding-create-account-home and 30-ar-login-success all show the hero at roughly 10-30% opacity. I reproduced it: when 'Semaine 32' first becomes 'visible' to Playwright its ancestor opacity is 0.098, and it is 1.0 one second later. The snap fires right after a visibility wait, and Playwright visibility ignores opacity. The text assertions pass, but nothing visual about Home (overlap, truncation, RTL) was reviewed.",
+      "fix_hint": "e2e/final-release-wave-A.spec.ts rig.snap: before mega.snap, wait until the computed opacity product of the hero's ancestors is 1, or use test.use({reducedMotion:'reduce'}) together with the app's usePrefersReducedMotion. Re-capture 13, 14, 21, 28-home and 30.",
+      "status": "open",
+      "first_seen_round": 1,
+      "rounds_open": 1
+    },
+    {
+      "id": "A-013",
+      "state_artifact": "round-1/wave-A/12-fr-onboarding-step1.png",
+      "category": "audit_integrity",
+      "severity": "P2",
+      "evidence": "The 'Langue mise à jour' toast (ToastContext.tsx:73, 3000 ms, global overlay, so it survives navigation) covers the y≈57-117 band in 25 of 55 PNGs, from 02 to 20a, including Home in 13 and 14. In 12-fr-onboarding-step1.png it hides the stepper 'Étape 1 sur 4' and the progress bar, which the spec then 'asserts visible' (Playwright ignores occlusion). In 04a and 04b it covers the top of the Privacy page under the header. Most of Wave A's top band therefore went unreviewed in fr. Product side (P3): a success toast from /welcome follows the user across 2-4 screens and over the Register and Login headers.",
+      "fix_hint": "Spec: after pickLanguage, tap the toast (it is a role=button that hides on press) or wait ~3.4 s before the first snap, and re-capture 03-20a and 12-14. Product: clear the toast on navigation (NavigationContainer onStateChange → hideToast), or show the confirmation inline on the language card instead.",
+      "status": "open",
+      "first_seen_round": 1,
+      "rounds_open": 1
+    },
+    {
+      "id": "A-014",
+      "state_artifact": "round-1/wave-A/12-fr-onboarding-step3.dom.html",
+      "category": "aria_keyboard",
+      "severity": "P2",
+      "evidence": "The step-3 'Retour' control is a bare <div tabindex=0> with no role and no label. In the DOM: '<div tabindex=\"0\" …><div dir=\"auto\">Retour</div>'. The step-2 back is correct: '<button aria-label=\"Étape précédente\" role=\"button\">'. The same pattern appears at OnboardingScreen.tsx:669, and also at :909 and :1077 in the TTC and curious flows. Screen readers do not announce it as a button.",
+      "fix_hint": "OnboardingScreen.tsx:669, 909 and 1077: add accessibilityRole='button' and accessibilityLabel={t('a11y.onboardingBack')}, as on step 2 (:~500-505).",
+      "status": "open",
+      "first_seen_round": 1,
+      "rounds_open": 1
+    },
+    {
+      "id": "A-015",
+      "state_artifact": "round-1/wave-A/12-fr-onboarding-step3.png",
+      "category": "aria_keyboard",
+      "severity": "P2",
+      "evidence": "Onboarding has two back controls that do different things. The stack header ← (aria 'AuthChoice, back') is present on steps 1-4 and pops the whole Onboarding route to AuthChoice, silently dropping the LMP, first name, age, country and medical answers. The in-body 'Retour' and Android hardware back (OnboardingScreen.tsx:207-212) go to the previous step. On step 3 or 4, tapping the most prominent back arrow throws away everything with no confirmation. It is the same class of defect as GJ-008.",
+      "fix_hint": "App.tsx:98 Onboarding options: either hide the header back (headerBackVisible:false / headerLeft that calls prevStep when step>1), or add a beforeRemove listener in OnboardingScreen that routes to prevStep when step>1 and asks for confirmation on step 1.",
+      "status": "open",
+      "first_seen_round": 1,
+      "rounds_open": 1
+    },
+    {
+      "id": "A-016",
+      "state_artifact": "round-1/wave-A/14-guest-identity.notes.json",
+      "category": "i18n_leak",
+      "severity": "P2",
+      "evidence": "Three statements about guest data contradict each other in one funnel (category is the closest fit, this is copy accuracy). AuthChoice says 'Vos données ne seront pas sauvegardées sans compte' / 'Your data won't be saved without an account' (03, 31 PNGs), which implies data loss. Step 3's medical block, shown to a user who came through 'Continuer en invité', says 'Ces informations sont enregistrées dans votre compte, sur nos serveurs sécurisés' (fr common.json:837 privacyNote). Yet after 'Continuer sans compte' the server has no profile (14-guest-identity: serverUserProfile null), while an anonymous Firebase user does exist (anonymousAuthUserExists true; see R-003 for health data under that uid). The privacy policy says guest data stays on the phone. Wrong claims about where medical data is stored are a store-review risk (Apple 5.1.1, Play Data safety).",
+      "fix_hint": "Show a guest variant of common.medicalProfile.privacyNote when !user or user.isGuest ('Enregistrées sur votre téléphone ; créez un compte pour les sauvegarder'). Reword auth guestDisclaimer to 'Sans compte, vos données restent sur ce téléphone' in fr/en/ar/tn. Keep both consistent with R-003's resolution.",
+      "status": "open",
+      "first_seen_round": 1,
+      "rounds_open": 1
+    },
+    {
+      "id": "A-017",
+      "state_artifact": "round-1/wave-A/01-language-fr.dom.html",
+      "category": "i18n_leak",
+      "severity": "P2",
+      "evidence": "The first screen of the store build tells every user the product is unfinished. The Information box (visible at the bottom of 01-language-fr.png and 23-ar-language.png) says '• Certaines traductions sont en cours de développement' and '• Le français est actuellement la langue la plus complète' (fr common.json:153-154; the same in ar, tn and en). It is rendered by LanguageSelectScreen.tsx:173,176. That is unacceptable copy for a release in which ar, tn and en are offered as first-class.",
+      "fix_hint": "Remove the infoTranslationsWIP and infoFrenchComplete bullets (LanguageSelectScreen.tsx:~170-177) and their keys in the 4 locales. Keep only infoLanguageApplied, or drop the box, which also helps A-002.",
+      "status": "open",
+      "first_seen_round": 1,
+      "rounds_open": 1
+    },
+    {
+      "id": "A-018",
+      "state_artifact": "round-1/wave-A/12-fr-onboarding-step4.png",
+      "category": "i18n_leak",
+      "severity": "P3",
+      "evidence": "Copy polish on step 4: 'Votre bébé fait la taille d'un(e) concombre 🥒'. The generic '(e)' reads as a template artefact, and concombre is masculine. In ar, the greeting uses a Latin comma after the name: 'مريم,' (28-ar-onboarding-step4.png) instead of '،'. In en, 'A small detail to accompany you' is literal and awkward, and 'Your First Name (Optional)' uses Title Case (32 PNG).",
+      "fix_hint": "Put the article in each WEEK_COMPARISONS entry (or a gendered key) instead of 'd'un(e)'. Use '،' in the ar/tn greeting template. Polish en onboarding.step3 strings.",
+      "status": "open",
+      "first_seen_round": 1,
+      "rounds_open": 1
+    },
+    {
+      "id": "A-019",
+      "state_artifact": "round-1/wave-A/31-en-authchoice.png",
+      "category": "visual_hash_drift",
+      "severity": "P3",
+      "evidence": "The English flag is inconsistent: 🇬🇧 on the language card (LanguageSelectScreen.tsx:34, 01-language-fr.png) but 🇺🇸 on the AuthChoice language chip (LanguageSelector.tsx:32, 31-en-authchoice.png).",
+      "fix_hint": "Use one flag, or a neutral 🌐 for English, in both places.",
+      "status": "open",
+      "first_seen_round": 1,
+      "rounds_open": 1
+    },
+    {
+      "id": "A-020",
+      "state_artifact": "round-1/wave-A/05-register-display.png",
+      "category": "color_contrast",
+      "severity": "P3",
+      "evidence": "On Register and Login the placeholders render as dark as typed values: 'votre@email.com', 'Mot de passe' and 'Retapez votre mot de passe' in 05/15 look pre-filled (compare 07, where 'not-an-email' is a real value in the same colour). RegisterScreen.tsx:195-300 and LoginScreen set no placeholderTextColor, whereas Onboarding uses theme.colors.neutral400 (OnboardingScreen step 3/4). This may be milder on native (the iOS default is light grey), but the app is inconsistent.",
+      "fix_hint": "Add placeholderTextColor={theme.colors.neutral400} to the Register and Login TextInputs.",
+      "status": "open",
+      "first_seen_round": 1,
+      "rounds_open": 1
+    },
+    {
+      "id": "A-021",
+      "state_artifact": "e2e/final-release-wave-A.spec.ts:42,596,462 + runR1.log (test 1 timeout)",
+      "category": "audit_integrity",
+      "severity": "P2",
+      "evidence": "Harness and spec gaps in round 1. (a) Test 1 hit 'Test timeout of 120000ms exceeded' after a trace ENOENT under test-results/wave-A-r1/.playwright-artifacts-0: the PNGs for 01-04 are 2 min older than the rest, and the file-level test.setTimeout(300_000) (spec:42) evidently did not apply. (b) Plan state 06 in ar (empty submit) has no PNG: the alert is overwritten by invalid-email before 26 is snapped. (c) State 04 returns with page.goBack(), so the in-app header back is never exercised. (d) Step 2's 'preview shows week 32' is getByText('32',{exact:false}), a substring match that can't fail meaningfully. (e) Forgot password with an unknown email is not tested: LoginScreen.tsx:124-130 maps auth/user-not-found to 'Email ou mot de passe incorrect' in a reset context, which is both confusing and an enumeration oracle if Firebase email-enumeration protection is off. (f) No state covers the country-left-empty guest path (A-008) or a due-date LMP (A-010).",
+      "fix_hint": "Use test.describe.configure({timeout:300_000}) and isolate test-results per concurrent wave (outputDir). Snap 26a-ar-register-empty-submit before the invalid-email fill. Click the header back in 04. Assert 'Semaine 32' exactly in the step-2 preview. Add forgot-password with an unknown email and check the 'Cet email n'existe pas'-free wording. Add the A-008 and A-010 states.",
+      "status": "open",
+      "first_seen_round": 1,
+      "rounds_open": 1
+    },
+    {
+      "id": "A-022",
+      "state_artifact": "round-1/wave-A/08b-register-weak-password-upper.png",
+      "category": "i18n_leak",
+      "severity": "P3",
+      "evidence": "One password rule is shown twice, with different wording. The strength label under the bar says 'Ajouter une majuscule' (orange) while the alert box says 'Au moins 1 majuscule' (08b). In 08a, 'Au moins 10 caractères' appears both inline and in the alert.",
+      "fix_hint": "RegisterScreen.tsx strength label (~:270-276): show a strength word (Faible/Moyen/Fort) instead of repeating the rule, or skip the alert when the inline hint already names the rule.",
+      "status": "open",
+      "first_seen_round": 1,
+      "rounds_open": 1
+    },
+    {
+      "id": "A-023",
+      "state_artifact": "src/screens/OnboardingScreen.tsx:264",
+      "category": "silent_error",
+      "severity": "P2",
+      "evidence": "Static finding, not captured. If the step-4 email already exists, handleFinish catches auth/email-already-in-use and logs in with the typed password (OnboardingScreen.tsx:264-272; the TTC flow is at :1199). It then runs loginAsGuest(... lmpDate, country, medicalFlags ...) against that existing account. A returning user who reinstalls, takes the guest path and types her real credentials at step 4 silently overwrites her server lmp, pregnancyStartDate, dpa, country and medical flags with whatever she just entered. There is no 'this account already has a pregnancy profile — keep it or replace it?' prompt.",
+      "fix_hint": "After the recovery login, read userProfiles/{uid}. If it already has an lmp, ask (confirmAction) before merging, or keep the server profile and discard the onboarding answers. Add a Wave A state for it: a pre-seeded week-20 account, then onboarding at week 32 with the same email; the server lmp must not change without consent.",
+      "status": "open",
+      "first_seen_round": 1,
+      "rounds_open": 1
+    },
+    {
+      "id": "A-024",
+      "state_artifact": "round-1/wave-A/12-fr-onboarding-step2.png",
+      "category": "visual_hash_drift",
+      "severity": "P3",
+      "evidence": "Web-harness only: the web <input type=date> in the fr and ar UI shows US format '02/25/2026' / '12/17/2025' (the browser UI locale) in LTR, and has no aria-label (the label is a sibling div). Its max is new Date().toISOString() in UTC (OnboardingScreen.tsx:~443), so between 00:00 local and 00:00 UTC in UTC+1/+2 today is not selectable. Native uses a TouchableOpacity with a localized 'd MMMM yyyy' label and maximumDate=new Date(), so it is not affected.",
+      "fix_hint": "Web-only, P2/P3 per §0.3: set aria-label={t('onboarding.step2.labelDdr')} and a local-date max (format(new Date(),'yyyy-MM-dd')) on the web input.",
+      "status": "open",
+      "first_seen_round": 1,
+      "rounds_open": 1
+    }
+  ],
+  "summary": {
+    "P0": 1,
+    "P1": 7,
+    "P2": 11,
+    "P3": 5,
+    "open_P0": 1,
+    "open_P1": 7,
+    "open_P2": 11,
+    "open_P3": 5
+  },
+  "round_to_round_closures": {
+    "A-001": "FAIL",
+    "A-002": "FAIL",
+    "A-003": "FAIL",
+    "A-004": "FAIL",
+    "A-005": "FAIL",
+    "A-006": "FAIL",
+    "A-007": "FAIL"
+  },
+  "verdict": "RED",
+  "notes": "Build under test: dist served on :8091 (bundle AppEntry-16eb04a2…), run log scratchpad/runR1.log: 8 failed / 4 passed. The fix agent is editing OnboardingScreen, RegisterScreen, LoginScreen, App.tsx and loginHelpers concurrently, so the cited line numbers are for the working tree at review time. Closed since the dry run, with no id assigned: country no longer defaults to Tunisia for ar or en-US devices (round-0 28-ar server country 'tunisia' and 32 selected 'tunisia'; round-1 ar gives '', en-US gives 'usa'/911, fr-FR gives 'france'/15). Clean: all 55 console.json files are empty except the auth-failure states (A-006), and the only network entries ≥400 are the expected auth 400s, each with a visible role=alert. No raw i18n keys; document titles are localized on every route asserted. The ar RTL mirroring (header chevron matrix(-1,0,0,1), tab order, progress bar, alerts) is correct. The login rate limit is interpolated ('Réessayez dans 5 minutes'). Login does not overwrite the server lmp (21 notes). The 14-guest anonymous uid exists on the emulator, which confirms the R-003 precondition (guest health data keyed to a non-'guest_' uid). A-011 and A-012 were reproduced with a standalone Playwright probe against :8091 (bounding boxes and opacity measured)."
+}

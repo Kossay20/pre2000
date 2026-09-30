@@ -118,3 +118,22 @@ export const isUserInputError = (error: unknown): boolean => {
         'auth/email-already-in-use',
     ].includes(code as string);
 };
+
+/**
+ * An auth failure the user or the network caused — a wrong password, an email
+ * already taken, no connection, a throttled attempt. The screen already explains
+ * each of these. Logging them at error level forwarded every routine typo to
+ * Sentry (logger.error reports there), burying the failures that do need a look.
+ * Anything not listed here — a misconfigured project, an SDK fault — still does.
+ */
+export const isExpectedAuthError = (error: unknown): boolean => {
+    const code = typeof error === 'object' && error !== null
+        ? (error as { code?: string }).code
+        : error;
+
+    return (
+        isUserInputError(error) ||
+        isNetworkError(error) ||
+        ['auth/too-many-requests', 'auth/user-disabled', 'auth/missing-password'].includes(code as string)
+    );
+};

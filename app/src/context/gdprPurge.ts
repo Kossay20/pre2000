@@ -10,6 +10,12 @@
  * retry has less left to do, but the purge then rejects with PURGE_INCOMPLETE: the caller
  * deletes the Auth user only after a clean purge, because once the uid is gone nobody can
  * pass the owner rules to delete what was left behind.
+ *
+ * Two kinds of failure are told apart. A network error clears up on a retry. A
+ * permission-denied does not: it means the deployed firestore.rules are older than the
+ * ones in this repo, so every user hits it and retrying is pointless. That case is
+ * reported to Sentry as an error, because only the operator can fix it, and the user is
+ * sent to support instead of being offered a retry that will fail the same way.
  */
 import { doc, deleteDoc, collection, getDocsFromServer, writeBatch, query, where } from 'firebase/firestore';
 import { createLogger } from '../utils/logger';
@@ -56,11 +62,18 @@ async function deleteDocsInBatches(db: any, docs: Array<{ ref: any }>): Promise<
 
 export class PurgeIncompleteError extends Error {
     readonly code = 'PURGE_INCOMPLETE';
-    constructor(readonly failed: string[]) {
+    constructor(readonly failed: string[], readonly permissionDenied: string[] = []) {
         super(`PURGE_INCOMPLETE: ${failed.join(', ')}`);
         this.name = 'PurgeIncompleteError';
     }
+
+    /** True when the server's rules refused part of the purge: a retry cannot succeed. */
+    get blockedByRules(): boolean {
+        return this.permissionDenied.length > 0;
+    }
 }
+
+const isPermissionDenied = (err: any): boolean => err?.code === 'permission-denied';
 
 /**
  * Purge every user-owned Firestore document for `uid`.
@@ -75,6 +88,12 @@ export class PurgeIncompleteError extends Error {
  */
 export const purgeUserFirestoreData = async (db: any, uid: string): Promise<void> => {
     const failed: string[] = [];
+    const permissionDenied: string[] = [];
+    const recordFailure = (name: string, err: unknown) => {
+        log.warn(`Failed to cleanup ${name}`, err);
+        failed.push(name);
+        if (isPermissionDenied(err)) permissionDenied.push(name);
+    };
 
     // 1. Top-level collections (queried by user_id for data isolation)
     for (const colName of topLevelCollectionsToDelete) {
@@ -84,8 +103,7 @@ export const purgeUserFirestoreData = async (db: any, uid: string): Promise<void
             log.debug(`Deleting ${snap.size} docs from ${colName}`);
             await deleteDocsInBatches(db, snap.docs);
         } catch (err) {
-            log.warn(`Failed to cleanup collection ${colName}`, err);
-            failed.push(colName);
+            recordFailure(colName, err);
         }
     }
 
@@ -99,15 +117,23 @@ export const purgeUserFirestoreData = async (db: any, uid: string): Promise<void
                 const subSnap = await getDocsFromServer(collection(db, parentCol, uid, subColName));
                 if (subSnap.size > 0) await deleteDocsInBatches(db, subSnap.docs);
             } catch (err) {
-                log.warn(`Failed to cleanup subcollection ${parentCol}/${subColName}`, err);
-                failed.push(`${parentCol}/${subColName}`);
+                recordFailure(`${parentCol}/${subColName}`, err);
             }
         }
     }
 
     // The profile is what keeps a half-purged account usable and the deletion retryable,
     // so it stays until everything it owns is gone.
-    if (failed.length > 0) throw new PurgeIncompleteError(failed);
+    if (failed.length > 0) {
+        if (permissionDenied.length > 0) {
+            // An operator misconfiguration, not a user problem: surface it in Sentry.
+            log.error(
+                'Account data purge refused by Firestore rules — deploy firestore.rules',
+                new Error(`permission-denied on ${permissionDenied.join(', ')}`),
+            );
+        }
+        throw new PurgeIncompleteError(failed, permissionDenied);
+    }
 
     // 3. The legacy `users/{uid}` document (pre-userProfiles schema), then the profile.
     try {
@@ -116,6 +142,10 @@ export const purgeUserFirestoreData = async (db: any, uid: string): Promise<void
         log.debug('Firestore profile deleted');
     } catch (err) {
         log.warn('Failed to delete profile documents', err);
-        throw new PurgeIncompleteError(['userProfiles']);
+        const denied = isPermissionDenied(err) ? ['userProfiles'] : [];
+        if (denied.length > 0) {
+            log.error('Profile deletion refused by Firestore rules — deploy firestore.rules', err);
+        }
+        throw new PurgeIncompleteError(['userProfiles'], denied);
     }
 };

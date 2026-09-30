@@ -3,13 +3,11 @@ import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import * as Clipboard from 'expo-clipboard';
 import { createLogger } from '../utils/logger';
+// The address the website and the privacy policy publish (see config/contact.ts for why
+// support@mamabebe.app, which bounced, is no longer used).
+import { SUPPORT_EMAIL } from '../config/contact';
 
 const log = createLogger('SupportService');
-
-// Cycle 2 F104 : aligné sur bundle identifier `com.mamabebe.app` (app.json:18,146)
-// et CONTACT_EMAIL `contact@mamabebe.app` (PrivacyPolicyScreen.tsx:9). Avant,
-// `mama-bebe.app` divergeait → MX différent → mailto bounce → rejet review store.
-const SUPPORT_EMAIL = 'support@mamabebe.app';
 
 export const openSupportEmail = async (t: (key: string, options?: any) => string) => {
     try {

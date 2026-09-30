@@ -95,12 +95,40 @@ export const hasNotificationPermission = async (): Promise<boolean> => {
 };
 
 /**
+ * - granted: notifications can be scheduled.
+ * - askable: not granted yet, and the OS will still show its dialog.
+ * - blocked: refused for good — only the system settings can change it.
+ * - unavailable: web or simulator, where local notifications do not exist.
+ */
+export type NotificationPermissionState = 'granted' | 'askable' | 'blocked' | 'unavailable';
+
+/**
+ * Read-only, like hasNotificationPermission, but tells "can still ask" apart
+ * from "refused for good", which decides whether an in-app invitation to turn
+ * notifications on makes sense or would lead to a dialog that never appears.
+ */
+export const getNotificationPermissionState = async (
+    os: string = Platform.OS
+): Promise<NotificationPermissionState> => {
+    if (!nativeNotificationsSupported(os) || !Device.isDevice) return 'unavailable';
+    try {
+        const { status, canAskAgain } = await Notifications.getPermissionsAsync();
+        if (status === 'granted') return 'granted';
+        return canAskAgain ? 'askable' : 'blocked';
+    } catch (error) {
+        log.error('Error reading notification permission:', error);
+        return 'unavailable';
+    }
+};
+
+/**
  * Ask the user for notification permission — shows the OS dialog when the answer
  * is not yet known.
  *
  * Call only from a user action that makes the purpose obvious (the Reminders tab
- * banner, turning a reminder or appointment alert on, the Settings button).
- * Scheduling code uses hasNotificationPermission instead.
+ * banner, turning a reminder or appointment alert on, the Settings button) —
+ * and from screens, through requestNotificationsAndResync, so a grant schedules
+ * the reminders right away. Scheduling code uses hasNotificationPermission instead.
  * @returns Promise resolving to true if permissions granted
  */
 export const requestNotificationPermissions = async (): Promise<boolean> => {
@@ -181,14 +209,16 @@ export const scheduleReminderNotification = async (
                 },
                 sound: 'default',
             },
+            // DAILY, not CALENDAR: the Android scheduler has no calendar trigger and
+            // throws for it, so every recurring reminder was silently never scheduled
+            // there. DAILY repeats at hour:minute on both platforms.
             trigger: {
-                type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
+                type: Notifications.SchedulableTriggerInputTypes.DAILY,
                 hour,
                 minute,
-                repeats: true,
                 // NOTIF-01 FIX: channelId required on Android 8+ or notification is dropped silently
                 ...(Platform.OS === 'android' ? { channelId: REMINDERS_CHANNEL_ID } : {}),
-            } as Notifications.CalendarTriggerInput,
+            } as Notifications.DailyTriggerInput,
         });
 
         log.success('Scheduled notification:', notificationId);
@@ -402,14 +432,14 @@ export const scheduleBabyMessage = async (
                 },
                 sound: 'default',
             },
+            // DAILY for the same reason as scheduleReminderNotification: Android rejects CALENDAR.
             trigger: {
-                type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
+                type: Notifications.SchedulableTriggerInputTypes.DAILY,
                 hour,
                 minute,
-                repeats: true,
                 // NOTIF-01 FIX: channelId required on Android or notification is silently dropped
                 ...(Platform.OS === 'android' ? { channelId: REMINDERS_CHANNEL_ID } : {}),
-            } as Notifications.CalendarTriggerInput,
+            } as Notifications.DailyTriggerInput,
         });
 
         log.success('Baby message scheduled:', notificationId);

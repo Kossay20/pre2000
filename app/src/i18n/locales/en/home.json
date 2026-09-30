@@ -51,5 +51,11 @@
   "welcomeBody": "Follow your pregnancy week by week, add your appointments, and explore our resources. Everything's here to support you.",
   "welcomeDismiss": "Let's go!",
   "completeProfileCta": "Complete my profile",
-  "completeProfileHint": "Enter the date of your last period to see your week."
+  "completeProfileHint": "Enter the date of your last period to see your week.",
+  "notificationPrimer": {
+    "title": "Never miss a reminder",
+    "body": "Allow notifications to get a heads-up before your appointments, your daily reminders and today's message from baby. You choose which ones in the Reminders tab.",
+    "enable": "Turn on notifications",
+    "later": "Not now"
+  }
 }

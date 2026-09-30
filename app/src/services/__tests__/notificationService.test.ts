@@ -147,14 +147,13 @@ describe('NotificationService', () => {
                         highlightId: 'rem-1',
                     }
                 }),
-                // N2-FIX: assert the recurring trigger TYPE (CALENDAR) — the most
-                // regression-prone field, previously unchecked. A daily "take-a-pill"
-                // reminder must use a repeating CALENDAR trigger, not a one-shot date.
+                // The trigger TYPE is the most regression-prone field. A daily reminder
+                // must repeat, and must use DAILY: CALENDAR is iOS-only and the Android
+                // scheduler throws for it, so the reminder never existed on Android.
                 trigger: expect.objectContaining({
-                    type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
+                    type: Notifications.SchedulableTriggerInputTypes.DAILY,
                     hour: 8,
                     minute: 30,
-                    repeats: true
                 })
             }));
         });
@@ -167,6 +166,8 @@ describe('NotificationService', () => {
 
             const arg = (Notifications.scheduleNotificationAsync as jest.Mock).mock.calls[0][0];
             expect(arg.trigger.channelId).toBe('pregnancy-reminders');
+            // Android's NotificationScheduler accepts daily/weekly/date/… but throws for 'calendar'.
+            expect(arg.trigger.type).toBe(Notifications.SchedulableTriggerInputTypes.DAILY);
             Platform.OS = 'ios';
         });
 
@@ -255,6 +256,23 @@ describe('NotificationService', () => {
             expect(id).toBeNull();
             expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled();
             expect(Notifications.getAllScheduledNotificationsAsync).not.toHaveBeenCalled();
+        });
+
+        it('scheduleBabyMessage uses a DAILY trigger on the reminders channel on Android', async () => {
+            Platform.OS = 'android';
+            (Notifications.getAllScheduledNotificationsAsync as jest.Mock).mockResolvedValue([]);
+            (Notifications.scheduleNotificationAsync as jest.Mock).mockResolvedValue('baby-1');
+
+            await expect(scheduleBabyMessage('hello from baby', '👶', 10, 0)).resolves.toBe('baby-1');
+
+            const arg = (Notifications.scheduleNotificationAsync as jest.Mock).mock.calls[0][0];
+            expect(arg.trigger).toEqual({
+                type: Notifications.SchedulableTriggerInputTypes.DAILY,
+                hour: 10,
+                minute: 0,
+                channelId: 'pregnancy-reminders',
+            });
+            Platform.OS = 'ios';
         });
     });
 });

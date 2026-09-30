@@ -11,8 +11,9 @@
  *    REJECTS with PURGE_INCOMPLETE and leaves the profile doc in place, so the caller never
  *    goes on to delete the Auth user over data it could not erase.
  */
+const mockLog = { info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn(), success: jest.fn() };
 jest.mock('../../utils/logger', () => ({
-  createLogger: () => ({ info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn(), success: jest.fn() }),
+  createLogger: () => mockLog,
 }));
 
 let DOC_COUNTS: Record<string, number> = {};
@@ -141,6 +142,35 @@ describe('purgeUserFirestoreData (GDPR Art. 17)', () => {
       failed: [`users/events`],
     });
     expect(deleteDoc).not.toHaveBeenCalled();
+  });
+
+  // R-004. If the deployed rules lag the repo, every user hits permission-denied on the
+  // same listings and a retry can never succeed. That must be told apart from a network
+  // blip — for the UI (support, not retry) and for Sentry (an operator has to act).
+  it('flags permission-denied separately and reports it as an error (Sentry)', async () => {
+    (getDocsFromServer as jest.Mock).mockImplementation((q: any) => {
+      if (!q.coll && q.path === `users/${UID}/journal`) {
+        throw Object.assign(new Error('Missing or insufficient permissions.'), { code: 'permission-denied' });
+      }
+      if (q.coll?.path === 'userTasks') throw Object.assign(new Error('offline'), { code: 'unavailable' });
+      return { size: 0, docs: [] };
+    });
+    const err: any = await purgeUserFirestoreData({}, UID).then(() => null, (e) => e);
+    expect(err.code).toBe('PURGE_INCOMPLETE');
+    expect(err.failed).toEqual(['userTasks', 'users/journal']);
+    expect(err.permissionDenied).toEqual(['users/journal']);
+    expect(err.blockedByRules).toBe(true);
+    expect(mockLog.error).toHaveBeenCalledTimes(1);
+    expect(deleteDoc).not.toHaveBeenCalled();
+  });
+
+  it('treats a transient failure as retryable and does not raise a Sentry error', async () => {
+    (getDocsFromServer as jest.Mock).mockImplementationOnce(() => {
+      throw Object.assign(new Error('offline'), { code: 'unavailable' });
+    });
+    const err: any = await purgeUserFirestoreData({}, UID).then(() => null, (e) => e);
+    expect(err.blockedByRules).toBe(false);
+    expect(mockLog.error).not.toHaveBeenCalled();
   });
 
   it('reports a failed profile delete as PURGE_INCOMPLETE too', async () => {

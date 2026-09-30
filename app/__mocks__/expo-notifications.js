@@ -11,6 +11,8 @@ export const AndroidImportance = {
 };
 export const SchedulableTriggerInputTypes = {
     CALENDAR: 'calendar',
+    DAILY: 'daily',
+    WEEKLY: 'weekly',
     DATE: 'date',
     TIME_INTERVAL: 'timeInterval',
 };

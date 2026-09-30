@@ -15,7 +15,7 @@ import { ErrorMessage } from '../components/common/ErrorMessage';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useToast } from '../context/ToastContext';
 import { validateEmail, validatePassword, validatePasswordMatch } from '../utils/validation';
-import { getFirebaseErrorMessage } from '../utils/firebaseErrors';
+import { getFirebaseErrorMessage, isExpectedAuthError } from '../utils/firebaseErrors';
 import { AuthScreenNavigationProp } from '../types/navigation';
 import { useAuthLoading } from '../hooks/useAuthLoading';
 import { retryOperation } from '../utils/retry';
@@ -46,6 +46,7 @@ export const RegisterScreen = () => {
     // AUDIT-FIX (page-by-page validation 2026-06-02): language-derived RTL — I18nManager.isRTL is
     // false on web (forceRTL skipped to avoid reload loop), breaking absolute-positioned mirroring.
     const isRTL = i18n.language === 'ar' || i18n.language === 'tn';
+    const showInlineBack = !navigation.canGoBack();
 
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -132,24 +133,18 @@ export const RegisterScreen = () => {
                         navigation.navigate('HomeMain' as any);
                     }
                 } else {
+                    // No navigation here. register() installs a profile-less user, and
+                    // the root navigator routes any signed-in account without a
+                    // pregnancy anchor to Onboarding (needsProfileSetup, App.tsx). The
+                    // old navigate('Onboarding') raced that swap: the auth state change
+                    // replaced this whole stack with MainTabs first, and the user landed
+                    // on a Home with no week and no profile ever written.
                     await retryOperation(() => register(email.trim(), password));
-                    // Safety net: this screen is registered in two stacks and only
-                    // AuthStack has 'Onboarding'. If we ever land here from the other
-                    // one, an unhandled NAVIGATE would silently strand the user on a
-                    // form whose account was already created. Fall back instead.
-                    const hasOnboarding = navigation
-                        .getState()
-                        ?.routeNames?.includes('Onboarding');
-                    if (hasOnboarding) {
-                        navigation.navigate('Onboarding');
-                    } else if (navigation.canGoBack()) {
-                        navigation.goBack();
-                    } else {
-                        navigation.navigate('HomeMain' as any);
-                    }
                 }
             } catch (error: any) {
-                log.error('[RegisterScreen] Registration error:', error);
+                // A taken email or a dropped connection is the user's to fix and the
+                // form says so; only an unexpected failure is worth an error report.
+                (isExpectedAuthError(error) ? log.warn : log.error)('[RegisterScreen] Registration error:', error);
                 const errorMessage = error.code
                     ? t(getFirebaseErrorMessage(error.code))
                     : t('errors.createAccount');
@@ -171,17 +166,22 @@ export const RegisterScreen = () => {
                     contentContainerStyle={styles.container}
                     keyboardShouldPersistTaps="handled"
                 >
-                    {/* Back arrow — explicit side per isRTL (RN-Web doesn't clear `left:undefined`). */}
-                    <TouchableOpacity
-                        style={[styles.backButton, { [isRTL ? 'right' : 'left']: theme.spacing.l }]}
-                        onPress={() => upgradeMode
-                            ? (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('HomeMain' as any))
-                            : navigation.navigate('AuthChoice' as any)}
-                        accessibilityRole="button"
-                        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                    >
-                        <RtlAwareChevron direction="back" variant="arrow" size={24} color={theme.colors.textSecondary} />
-                    </TouchableOpacity>
+                    {/* Back arrow — only when the stack header has none to show (a deep link
+                        to /register or /create-account opens with no history). Both stacks
+                        that host this screen show a header back otherwise, and the two
+                        controls side by side were one too many. Explicit side per isRTL
+                        (RN-Web doesn't clear `left:undefined`). */}
+                    {showInlineBack && (
+                        <TouchableOpacity
+                            style={[styles.backButton, { [isRTL ? 'right' : 'left']: theme.spacing.l }]}
+                            onPress={() => navigation.navigate((upgradeMode ? 'HomeMain' : 'AuthChoice') as any)}
+                            accessibilityRole="button"
+                            accessibilityLabel={t('common.back')}
+                            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                        >
+                            <RtlAwareChevron direction="back" variant="arrow" size={24} color={theme.colors.textSecondary} />
+                        </TouchableOpacity>
+                    )}
 
                     <Text style={[styles.title, isRTL && styles.rtlText]}>{t('register')}</Text>
                     <Text style={[styles.subtitle, isRTL && styles.rtlText]}>

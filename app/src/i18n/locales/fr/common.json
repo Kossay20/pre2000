@@ -424,7 +424,7 @@
     },
     "guestMode": {
       "title": "9. Mode Invité",
-      "text": "Sans compte, vos données restent sur votre téléphone et ne sont pas envoyées à nos serveurs ; seuls les rapports d'erreur techniques (section 2) en sortent. Pour les effacer : « {{settings}} » → « {{dataSection}} » → « {{eraseGuest}} », ou désinstallez l'application."
+      "text": "Sans compte, vous ne donnez aucune adresse e-mail. Ce que vous enregistrez est conservé sur votre téléphone. Une partie (par exemple les données de santé, les rendez-vous et les rappels) peut aussi être enregistrée sur nos serveurs sous un identifiant anonyme, sans adresse e-mail, pour que l'application fonctionne ; en dehors de cela, seuls les rapports d'erreur techniques (section 2) quittent votre téléphone. Pour tout effacer, sur votre téléphone et sur nos serveurs : « {{settings}} » → « {{dataSection}} » → « {{eraseGuest}} ». Désinstaller l'application n'efface que ce qui se trouve sur votre téléphone."
     },
     "footer": "Mama & Bébé © {{year}} KSA MEDIA LLC - Tous droits réservés"
   },
@@ -467,7 +467,7 @@
     "deleteAccount": "Supprimer mon compte",
     "deleteAccountDesc": "Efface définitivement votre compte et toutes vos données",
     "eraseGuestData": "Effacer mes données",
-    "eraseGuestDataDesc": "Efface définitivement toutes les données enregistrées sur cet appareil"
+    "eraseGuestDataDesc": "Efface définitivement vos données de cet appareil et de nos serveurs"
   },
   "emergency": {
     "title": "Contacts d'Urgence",
