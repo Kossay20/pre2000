@@ -14,6 +14,7 @@ import { db } from '../config/firebase';
 import { collection, addDoc, query, where, getDocs, orderBy, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createLogger } from '../utils/logger';
+import { toLocalDateKey } from '../utils/localDate';
 
 const log = createLogger('WeightService');
 
@@ -268,6 +269,33 @@ export const getAllWeightEntries = async (userId: string): Promise<WeightEntry[]
     return [...own.map(e => ({ ...e, source: 'weight_entries' as const })), ...dashboard].sort(
         (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
     );
+};
+
+/**
+ * One weighing per day, the latest of that day, newest day first.
+ *
+ * The tracker keeps one weighing a day ("you already logged 68.4 kg today — replace
+ * it?"), but the Health dashboard writes its own collection, so the merged history could
+ * list 68.4 kg and 69 kg on the same day and the gain read off whichever sorted first.
+ * The rule applies across both sources: the later weighing of the day wins; at the same
+ * instant the tracker's own entry wins, then the id, so the pick never depends on read
+ * order. For display and the PDF only — deleting or resetting uses the full list.
+ */
+export const latestWeighingPerDay = (entries: WeightEntry[]): WeightEntry[] => {
+    const rank = (e: WeightEntry) => (e.source === 'healthMetrics' ? 1 : 0);
+    const ordered = [...entries].sort(
+        (a, b) =>
+            new Date(b.date).getTime() - new Date(a.date).getTime() ||
+            rank(a) - rank(b) ||
+            String(a.id ?? '').localeCompare(String(b.id ?? '')),
+    );
+    const seen = new Set<string>();
+    return ordered.filter(e => {
+        const day = toLocalDateKey(new Date(e.date));
+        if (seen.has(day)) return false;
+        seen.add(day);
+        return true;
+    });
 };
 
 /**

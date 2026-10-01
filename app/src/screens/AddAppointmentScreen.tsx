@@ -141,10 +141,15 @@ const AppointmentForm = ({ editingEvent }: { editingEvent?: EditableEvent }) => 
     // CAL-04: prefer the persisted `category` (Medical/Personal) so re-opening an
     // event restores the real choice. Legacy events without `category` fall back to
     // the old type-based heuristic (every user event has type 'appointment' → 'medical').
+    // A new appointment starts on Medical: in a pregnancy app most of them are (scans,
+    // midwife, lab work), and it used to start on Personal only because a missing event
+    // fell through the legacy heuristic.
     const initialType = (
-        editingEvent?.category === 'medical' || editingEvent?.category === 'other'
-            ? editingEvent.category
-            : (editingEvent?.type === 'appointment' ? 'medical' : 'other')
+        !editingEvent
+            ? 'medical'
+            : editingEvent.category === 'medical' || editingEvent.category === 'other'
+                ? editingEvent.category
+                : (editingEvent.type === 'appointment' ? 'medical' : 'other')
     ) as 'medical' | 'other';
     const [type, setType] = useState<'medical' | 'other'>(initialType);
 
@@ -653,6 +658,7 @@ const AppointmentForm = ({ editingEvent }: { editingEvent?: EditableEvent }) => 
                                         value={dateText}
                                         onChangeText={handleWebDateChange}
                                         placeholder="YYYY-MM-DD"
+                                        placeholderTextColor={theme.colors.neutral400}
                                         accessibilityLabel={t('addAppointment.dateLabel')}
                                         // @ts-ignore - Web specific attribute
                                         inputMode="none"
@@ -699,6 +705,7 @@ const AppointmentForm = ({ editingEvent }: { editingEvent?: EditableEvent }) => 
                                     value={isValid(date) ? format(date, 'HH:mm') : ''}
                                     onChangeText={handleWebTimeChange}
                                     placeholder="HH:MM"
+                                    placeholderTextColor={theme.colors.neutral400}
                                     // @ts-ignore - Web specific attribute
                                     inputMode="none"
                                 />

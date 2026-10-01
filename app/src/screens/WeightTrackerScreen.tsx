@@ -27,6 +27,7 @@ import {
     WeightEntry,
     saveWeightEntry,
     getAllWeightEntries,
+    latestWeighingPerDay,
     deleteWeightEntry,
     saveWeightSetup,
     getRecommendedWeightRange,
@@ -118,8 +119,9 @@ export const WeightTrackerScreen = () => {
                 setLoading(false);
                 return;
             }
-            // Health-dashboard weighings included, so both screens show the same history.
-            const history = await getAllWeightEntries(userId);
+            // Health-dashboard weighings included, so both screens show the same history,
+            // one weighing per day like the tracker's own entries.
+            const history = latestWeighingPerDay(await getAllWeightEntries(userId));
             if (isMounted) setWeightHistory(history);
         } catch (error) {
             log.error('Error loading weight history:', error);
@@ -468,6 +470,7 @@ export const WeightTrackerScreen = () => {
                         <TextInput
                             style={styles.setupInput}
                             placeholder={t('common.weightPlaceholder')}
+                            placeholderTextColor={theme.colors.neutral400}
                             keyboardType="decimal-pad"
                             value={setupWeight}
                             onChangeText={setSetupWeight}
@@ -480,6 +483,7 @@ export const WeightTrackerScreen = () => {
                         <TextInput
                             style={styles.setupInput}
                             placeholder={t('common.heightPlaceholder')}
+                            placeholderTextColor={theme.colors.neutral400}
                             keyboardType="decimal-pad"
                             value={setupHeight}
                             onChangeText={setSetupHeight}
@@ -623,6 +627,7 @@ export const WeightTrackerScreen = () => {
                                 <TextInput
                                     style={styles.weightInput}
                                     placeholder={t('common.decimalWeightPlaceholder')}
+                                    placeholderTextColor={theme.colors.neutral400}
                                     keyboardType="decimal-pad"
                                     value={newWeight}
                                     onChangeText={setNewWeight}

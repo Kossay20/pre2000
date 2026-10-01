@@ -15,7 +15,7 @@ import { getBabyGrowthForWeek } from '../../config/babyGrowthData';
 import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { RtlAwareChevron } from '../common/RtlAwareChevron';
-import { getContentWidth } from '../../utils/layout';
+import { babyIllustrationSize, getContentWidth } from '../../utils/layout';
 
 const width = getContentWidth();
 
@@ -24,6 +24,9 @@ interface BabyGrowthCardProps {
     /** U-FIX-6: optional day-in-week (1..7) for accurate dayOfPregnancy display.
      *  When omitted, falls back to `currentWeek * 7` (legacy behavior). */
     currentDay?: number;
+    /** Her real day of pregnancy (displayedPregnancyAge). Past the due date the content
+     *  week stays on 40, so deriving the day from it froze the counter on "Jour 280". */
+    dayOfPregnancy?: number;
     babyName?: string;
     dueDate?: Date;
     weekData?: Week;
@@ -32,6 +35,7 @@ interface BabyGrowthCardProps {
 export const BabyGrowthCard = React.memo<BabyGrowthCardProps>(({
     currentWeek,
     currentDay,
+    dayOfPregnancy: realDayOfPregnancy,
     babyName,
     dueDate,
     weekData,
@@ -50,9 +54,10 @@ export const BabyGrowthCard = React.memo<BabyGrowthCardProps>(({
     // U-FIX-6: was `currentWeek * 7` which always overshot by `7 - dayInWeek` days.
     // E.g. week 10 day 3 displayed day 70 instead of day 66 (= (10-1)*7 + 3).
     // Falls back to legacy formula if currentDay isn't passed (no regression).
-    const dayOfPregnancy = currentDay != null
-        ? Math.max(1, (currentWeek - 1) * 7 + currentDay)
-        : currentWeek * 7;
+    const dayOfPregnancy = realDayOfPregnancy
+        ?? (currentDay != null
+            ? Math.max(1, (currentWeek - 1) * 7 + currentDay)
+            : currentWeek * 7);
 
     // Animation on mount/update
     useEffect(() => {
@@ -208,10 +213,7 @@ const styles = StyleSheet.create({
         position: 'relative',
         marginBottom: 16,
     },
-    babyImage: {
-        width: width * 0.6,
-        height: 240,
-    },
+    babyImage: babyIllustrationSize(width),
     comparisonBadge: {
         position: 'absolute',
         bottom: 16,

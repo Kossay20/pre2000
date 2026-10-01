@@ -91,8 +91,10 @@ describe('iPad: reading column and dialogs', () => {
 
 describe('contrast wiring on the pink header', () => {
     it('header gradients start on the text-bearing pink, chips darken instead of whitening', () => {
+        // E-038: Home and Calendar use the same two-stop pair as every other header.
         for (const file of ['src/screens/HomeScreen.tsx', 'src/components/calendar/CalendarHeader.tsx']) {
-            expect(read(file)).toMatch(/colors=\{\[theme\.colors\.primaryStrong, theme\.colors\.accent, theme\.colors\.deepPink\]\}/);
+            expect(read(file)).toMatch(/colors=\{\[theme\.colors\.primaryStrong, theme\.colors\.accent\]\}/);
+            expect(read(file)).not.toMatch(/theme\.colors\.deepPink\]/);
         }
         expect(homeStyles.quickActionPill.backgroundColor).toBe(theme.colors.headerChipBg);
         expect(homeStyles.trimesterBadge.backgroundColor).toBe(theme.colors.headerChipBg);
@@ -103,8 +105,9 @@ describe('contrast wiring on the pink header', () => {
         expect(calendarStyles.suggestionText.color).toBe(theme.colors.text);
     });
 
-    it('filled AddTask priority chips use the dark (AA) shade under white text', () => {
-        expect(addTaskStyles.priorityButtonActiveMedium.backgroundColor).toBe(theme.colors.deepOrange900);
+    it('filled AddTask priority chips: AA fills, and medium is calm amber with dark text (E-038)', () => {
+        expect(addTaskStyles.priorityButtonActiveMedium.backgroundColor).toBe(theme.colors.accentAmber);
+        expect(addTaskStyles.priorityButtonTextActiveMedium.color).toBe(theme.colors.text);
         expect(addTaskStyles.priorityButtonActiveLow.backgroundColor).toBe(theme.colors.green800);
         expect(addTaskStyles.priorityButtonActiveHigh.backgroundColor).toBe(theme.colors.red800);
     });

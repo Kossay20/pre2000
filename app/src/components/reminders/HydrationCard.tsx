@@ -186,6 +186,7 @@ export const HydrationCard = () => {
                                 onChangeText={setTempGoal}
                                 keyboardType="numeric"
                                 placeholder="3000"
+                                placeholderTextColor={theme.colors.neutral400}
                             />
                         </View>
 
@@ -197,6 +198,7 @@ export const HydrationCard = () => {
                                 onChangeText={setTempFreq}
                                 keyboardType="numeric"
                                 placeholder="8"
+                                placeholderTextColor={theme.colors.neutral400}
                             />
                             <Text style={styles.hint}>{t('reminders.hydration.remindersTimeRange')}</Text>
                         </View>

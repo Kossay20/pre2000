@@ -17,6 +17,7 @@ import {
     getAllLocalArticles,
     getAllLocalSupplements,
 } from '../services/localContentFallback';
+import { isUnreviewedContent } from '../config/unreviewedContent';
 import { FIRESTORE_GUEST_TIMEOUT_MS, withTimeout } from '../utils/withTimeout';
 import { theme } from '../theme';
 import { Tag } from '../components/common/Tag';
@@ -119,7 +120,9 @@ export const ArticleDetailScreen = () => {
                 const docRef = doc(db, 'articles', articleId);
                 const docSnap = await withTimeout(getDoc(docRef), FIRESTORE_GUEST_TIMEOUT_MS);
 
-                if (docSnap.exists()) {
+                // An article on an unreviewed topic (deep link, old bookmark) reads as not
+                // found; the bundled fallback below is filtered the same way.
+                if (docSnap.exists() && !isUnreviewedContent(docSnap.data())) {
                     const articleData = docSnap.data() as Article;
                     log.debug('[ArticleDetail] ✅ Found in old articles:', articleData.title_fr);
                     setArticle(articleData);

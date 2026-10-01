@@ -9,6 +9,7 @@ import { Article, Supplement } from '../types';
 import { getLocalizedContent } from '../utils/i18nHelpers';
 import { normalizeSupplementSafety } from '../utils/supplementSafety';
 import { getLocalArticle, getLocalSupplement } from '../services/localContentFallback';
+import { withoutUnreviewedContent } from '../config/unreviewedContent';
 import { FIRESTORE_GUEST_TIMEOUT_MS, withTimeout } from '../utils/withTimeout';
 import { theme } from '../theme';
 import { Card } from '../components/common/Card';
@@ -42,7 +43,7 @@ export const WeekRecommendationsScreen = () => {
                         withTimeout(getDoc(doc(db, 'articles', id.trim())), FIRESTORE_GUEST_TIMEOUT_MS)
                     ),
                 );
-                setArticles(articleDocs.filter((d: any) => d.exists()).map((d: any) => d.data() as Article));
+                setArticles(withoutUnreviewedContent(articleDocs.filter((d: any) => d.exists()).map((d: any) => d.data() as Article)));
                 const supplementDocs = await Promise.all(
                     supplementIds.map((id: string) =>
                         withTimeout(getDoc(doc(db, 'supplements', id.trim())), FIRESTORE_GUEST_TIMEOUT_MS)

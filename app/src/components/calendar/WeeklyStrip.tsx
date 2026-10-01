@@ -86,7 +86,9 @@ export const WeeklyStrip: React.FC<WeeklyStripProps> = React.memo(({
                 </Text>
             </View>
             <View style={styles.container}>
-                {[0, 1, 2, 3, 4, 5, 6].map(renderDay)}
+                <View style={styles.daysRow}>
+                    {[0, 1, 2, 3, 4, 5, 6].map(renderDay)}
+                </View>
             </View>
         </View>
     );
@@ -94,13 +96,20 @@ export const WeeklyStrip: React.FC<WeeklyStripProps> = React.memo(({
 
 const styles = StyleSheet.create({
     container: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
         paddingVertical: theme.spacing.m,
         paddingHorizontal: theme.spacing.s,
         backgroundColor: theme.colors.white,
         borderBottomWidth: 1,
         borderBottomColor: theme.colors.border,
+    },
+    // The days share a row of at most 520pt, centred. In the 720pt iPad column, spread
+    // edge to edge, today's chip sat alone far left with 100pt gaps between days.
+    daysRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        width: '100%',
+        maxWidth: 520,
+        alignSelf: 'center',
     },
     // Seven fixed 45pt cells (315pt + gutters) ran off a 320pt screen (iPad Slide
     // Over, iPhone SE 1st gen): share the row instead, capped at the old 45pt.

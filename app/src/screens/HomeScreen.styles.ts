@@ -1,9 +1,11 @@
 import { StyleSheet } from 'react-native';
 import { theme } from '../theme';
 import { getTextShadowStyle } from '../utils/styleUtils';
-import { getContentWidth } from '../utils/layout';
+import { getContentWidth, TABLET_BREAKPOINT } from '../utils/layout';
 
 const width = getContentWidth();
+// The 720pt tablet column: the hero's quick actions fill it, four across.
+const tabletColumn = width >= TABLET_BREAKPOINT;
 
 export const styles = StyleSheet.create({
     // NEW STYLES FOR UNIFIED DESIGN
@@ -521,6 +523,8 @@ export const styles = StyleSheet.create({
     // #9 — Quick action pill buttons (replaces the tiny text quick-links).
     // Sit on the pink header gradient → darkening glass surface + white text
     // (a white wash lifted the pink to 2.1:1 behind the labels). 2x2 wrap, 44pt min target.
+    // On a tablet the row sized itself to its content: a 400pt 2×2 grid in the middle of
+    // a 720pt hero. There it spans the column in one row of four.
     quickActionsRow: {
         flexDirection: 'row',
         flexWrap: 'wrap',
@@ -528,6 +532,7 @@ export const styles = StyleSheet.create({
         marginTop: 12,
         marginBottom: 12,
         gap: 8,
+        ...(tabletColumn ? { alignSelf: 'stretch' as const, paddingHorizontal: 24 } : {}),
     },
     quickActionPill: {
         // `row` mirrors on its own under the document's dir=rtl — the inline
@@ -538,8 +543,8 @@ export const styles = StyleSheet.create({
         justifyContent: 'center',
         minHeight: 44,
         flexGrow: 1,
-        flexBasis: '45%',
-        maxWidth: '48%',
+        flexBasis: tabletColumn ? '22%' : '45%',
+        maxWidth: tabletColumn ? '24%' : '48%',
         backgroundColor: theme.colors.headerChipBg,
         borderRadius: theme.borderRadius.l,
         paddingVertical: 10,
@@ -548,8 +553,9 @@ export const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: theme.colors.whiteAlpha40,
     },
+    // Ionicons drawn in white (≥4.6:1 on the tile, WCAG 1.4.11 asks 3:1 for an icon).
     quickActionPillIcon: {
-        fontSize: 16,
+        flexShrink: 0,
     },
     // On a narrow screen (or large text) "Rechercher" did not fit a half-width pill and
     // truncated to "Recher…". Native shrinks via adjustsFontSizeToFit; web gets a

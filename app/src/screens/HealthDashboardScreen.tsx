@@ -51,6 +51,7 @@ import { EmptyState } from '../components/common/EmptyState';
 import { Button } from '../components/common/Button';
 import { styles } from './HealthDashboardScreen.styles';
 import { getContentWidth } from '../utils/layout';
+import { displayedAgeOf } from '../utils/pregnancyCalculator';
 
 const screenWidth = getContentWidth();
 
@@ -444,7 +445,7 @@ export const HealthDashboardScreen = () => {
             {/* Header */}
             <LinearGradient colors={[theme.colors.primaryStrong, theme.colors.accent]} style={styles.header}>
                 <Text style={styles.headerTitle}>{t('dashboard.title')}</Text>
-                <Text style={styles.headerSubtitle}>{t('dashboard.week')} {pregnancyInfo?.week || '—'}</Text>
+                <Text style={styles.headerSubtitle}>{t('dashboard.week')} {pregnancyInfo?.week ? displayedAgeOf(pregnancyInfo).week : '—'}</Text>
             </LinearGradient>
 
             {/* Section 1: Poids */}

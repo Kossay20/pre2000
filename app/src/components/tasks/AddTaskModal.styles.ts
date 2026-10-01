@@ -75,9 +75,11 @@ export const styles = StyleSheet.create({
         borderColor: theme.colors.red800,
         backgroundColor: theme.colors.red800,
     },
+    // Medium is calm amber with dark text (the Calendar Suggestions pill's pair). Brick red
+    // next to the red "Haute" chip read as a second, alarming level.
     priorityButtonActiveMedium: {
-        borderColor: theme.colors.deepOrange900,
-        backgroundColor: theme.colors.deepOrange900,
+        borderColor: theme.colors.accentAmberDark,
+        backgroundColor: theme.colors.accentAmber,
     },
     priorityButtonActiveLow: {
         borderColor: theme.colors.green800,
@@ -91,6 +93,9 @@ export const styles = StyleSheet.create({
     // White on the filled chip — the Active* fills above are the dark (AA) shades.
     priorityButtonTextActive: {
         color: theme.colors.white,
+    },
+    priorityButtonTextActiveMedium: {
+        color: theme.colors.text,
     },
     error: {
         color: theme.colors.error,

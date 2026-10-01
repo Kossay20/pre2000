@@ -32,7 +32,8 @@
     "previewLabel": "You would be at",
     "week": "Week",
     "saDays": "That is {{ga}}",
-    "invalidDate": "More than 42 weeks since this date. Please check it."
+    "invalidDate": "More than 42 weeks since this date. Please check it.",
+    "postTermNote": "Your due date has passed. Stay in touch with your maternity team or midwife."
   },
   "step3": {
     "title": "A few details about you",
@@ -55,7 +56,7 @@
     "createAccountTitle": "📧 Create your account",
     "createAccountSubtitle": "Sync your data across all your devices",
     "emailPlaceholder": "Your Email",
-    "passwordPlaceholder": "Password (10+ chars, 1 uppercase, 1 digit)",
+    "passwordPlaceholder": "Password",
     "creatingAccount": "Creating Account...",
     "start": "Create Account & Start",
     "finalizeProfile": "Finalize Profile",

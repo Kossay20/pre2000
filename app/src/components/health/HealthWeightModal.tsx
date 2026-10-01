@@ -28,6 +28,7 @@ export const HealthWeightModal: React.FC<HealthWeightModalProps> = ({
                     <TextInput
                         style={styles.input}
                         placeholder={t('dashboard.weightPlaceholder')}
+                        placeholderTextColor={theme.colors.neutral400}
                         keyboardType="decimal-pad"
                         value={weightInput}
                         onChangeText={onChangeWeight}

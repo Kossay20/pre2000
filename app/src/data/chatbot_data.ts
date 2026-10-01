@@ -27,8 +27,11 @@ import { Article, RedFlag, ChatbotSuggestion } from '../types';
 // same rows, so it now reads the single source of truth. RED_FLAGS and SUGGESTIONS
 // below are genuinely chatbot-specific (~28 KB) and stay here.
 import articlesDb from './articles_db.json';
+import { withoutUnreviewedContent } from '../config/unreviewedContent';
 
-export const ARTICLES: Article[] = articlesDb as unknown as Article[];
+// Same rows the rest of the app serves: an article on a topic still waiting for its
+// reviewer (art_003, Ramadan fasting) must not come back as a chatbot answer link.
+export const ARTICLES: Article[] = withoutUnreviewedContent(articlesDb as unknown as Article[]);
 
 export const RED_FLAGS: RedFlag[] = [
   {

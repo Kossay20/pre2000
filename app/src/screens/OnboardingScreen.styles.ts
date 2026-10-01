@@ -444,6 +444,13 @@ export const styles = StyleSheet.create({
         marginTop: 10,
         width: '100%',
     },
+    accountHint: {
+        alignSelf: 'stretch',
+        marginTop: 4,
+        fontSize: 12,
+        color: theme.colors.textSecondary,
+        textAlign: 'auto',
+    },
     accountNote: {
         fontSize: 12,
         color: theme.colors.textLight,

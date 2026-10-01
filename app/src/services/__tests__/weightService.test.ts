@@ -73,6 +73,7 @@ import {
     getLatestWeight,
     hasWeightThisWeek,
     getAllWeightEntries,
+    latestWeighingPerDay,
     saveWeightSetup,
     WeightEntry,
 } from '../weightService';
@@ -512,6 +513,59 @@ describe('getAllWeightEntries', () => {
         mockDeleteDoc.mockResolvedValueOnce(undefined as never);
         await deleteWeightEntry('u1', 'h1', 'healthMetrics');
         expect(doc).toHaveBeenCalledWith({}, 'healthMetrics', 'h1');
+    });
+});
+
+// ==========================================================================
+// latestWeighingPerDay — one weighing a day across the tracker and the dashboard
+// ==========================================================================
+
+describe('latestWeighingPerDay', () => {
+    const at = (day: number, hour: number, minute = 0) => new Date(2026, 8, day, hour, minute).toISOString();
+    const entry = (id: string, weight: number, date: string, source: WeightEntry['source']): WeightEntry => ({
+        id, user_id: 'u1', weight, date, week_of_pregnancy: 32, source,
+    });
+
+    it('keeps the later weighing of a day, whichever screen logged it (wave B: 68.4 tracker + 69 Health)', () => {
+        const tracker = entry('w1', 68.4, at(30, 10), 'weight_entries');
+        const health = entry('h1', 69, at(30, 12), 'healthMetrics');
+        const yesterday = entry('w0', 68, at(29, 9), 'weight_entries');
+        expect(latestWeighingPerDay([tracker, yesterday, health]).map((e) => [e.id, e.weight])).toEqual([
+            ['h1', 69],
+            ['w0', 68],
+        ]);
+        // The later one wins when it is the tracker's too.
+        const laterTracker = entry('w2', 68.8, at(30, 18), 'weight_entries');
+        expect(latestWeighingPerDay([health, laterTracker]).map((e) => e.id)).toEqual(['w2']);
+    });
+
+    it('is deterministic at the same instant: the tracker entry, then the id, regardless of read order', () => {
+        const same = at(30, 10);
+        const a = entry('hb', 69, same, 'healthMetrics');
+        const b = entry('wb', 68.4, same, 'weight_entries');
+        const c = entry('wa', 68.5, same, 'weight_entries');
+        for (const order of [[a, b, c], [c, b, a], [b, a, c]]) {
+            expect(latestWeighingPerDay(order).map((e) => e.id)).toEqual(['wa']);
+        }
+    });
+
+    it('groups by her local day and does not touch the input list', () => {
+        const late = entry('late', 70, at(30, 23, 30), 'weight_entries');
+        const early = entry('early', 69, at(1, 0, 15), 'healthMetrics'); // 1 Sept, another day
+        const input = [late, early];
+        expect(latestWeighingPerDay(input).map((e) => e.id)).toEqual(['late', 'early']);
+        expect(input).toEqual([late, early]);
+    });
+
+    it('the tracker and the PDF apply it; reset still deletes every weighing', () => {
+        const fs = require('fs');
+        const path = require('path');
+        const read = (rel: string) => fs.readFileSync(path.resolve(__dirname, '../../..', rel), 'utf8');
+        const tracker = read('src/screens/WeightTrackerScreen.tsx');
+        expect(tracker).toMatch(/const history = latestWeighingPerDay\(await getAllWeightEntries\(userId\)\);/);
+        // handleResetData deletes from the unfiltered list.
+        expect(tracker).toMatch(/const history = await getAllWeightEntries\(userId\);\s*for \(const e of history\) await deleteWeightEntry/);
+        expect(read('src/screens/SettingsScreen.tsx')).toMatch(/latestWeighingPerDay\(await getAllWeightEntries\(userId\)\)/);
     });
 });
 

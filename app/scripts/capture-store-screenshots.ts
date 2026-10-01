@@ -147,9 +147,11 @@ const SCREENS: ScreenSpec[] = [
     id: '3-resources',
     route: '/resources',
     caption: {
-      fr: 'Des articles fiables,\nclassés par thème',
-      en: 'Trusted articles,\nsorted by topic',
-      ar: 'مقالات موثوقة،\nمرتّبة حسب الموضوع',
+      // Not "trusted"/"fiables": no article has been clinically reviewed yet
+      // (docs/clinical-review/README.md), and a caption is a store claim like any other.
+      fr: 'Des articles à lire,\nclassés par thème',
+      en: 'Articles to read,\nsorted by topic',
+      ar: 'مقالات للقراءة،\nمرتّبة حسب الموضوع',
     },
   },
   {
@@ -185,9 +187,10 @@ const SCREENS: ScreenSpec[] = [
     id: '6-foods',
     route: '/forbidden-foods',
     caption: {
-      fr: 'Savoir ce qui est\nsans risque à table',
-      en: 'Know what is\nsafe to eat',
-      ar: 'اعرفي ما هو\nآمن لتناوله',
+      // The screen lists foods to avoid; it cannot promise that the rest is safe.
+      fr: 'Les aliments à éviter,\net pourquoi',
+      en: 'Foods to avoid,\nand why',
+      ar: 'أطعمة يُنصح بتجنّبها،\nولماذا',
     },
   },
 ];

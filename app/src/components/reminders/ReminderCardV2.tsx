@@ -151,6 +151,7 @@ export const ReminderCardV2: React.FC<ReminderCardV2Props> = ({
                             <TouchableOpacity
                                 onPress={onEdit}
                                 style={styles.editLink}
+                                hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
                                 accessibilityRole="button"
                                 accessibilityLabel={t('a11y.edit')}
                             >
@@ -429,11 +430,18 @@ const styles = StyleSheet.create({
         color: theme.colors.textSecondary,
         flex: 1,
     },
+    // A 44pt target around a small gear (it measured 23×20). The negative vertical margin
+    // keeps the summary row as compact as before; on native the slop adds a little more.
     editLink: {
-        paddingStart: 8,
+        minWidth: 44,
+        minHeight: 44,
+        marginVertical: -12,
+        marginStart: 4,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     editLinkText: {
-        fontSize: 12,
+        fontSize: 16,
         color: theme.colors.accent,
     },
 });

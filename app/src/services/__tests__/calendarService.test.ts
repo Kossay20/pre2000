@@ -82,6 +82,8 @@ import {
     getUserEvent,
     getCurrentPregnancyWeekRange,
     countEventsInRange,
+    distinctSuggestions,
+    summariseMonth,
 } from '../calendarService';
 import { theme } from '../../theme';
 import { collection, getDocs, getDoc, doc, setDoc, deleteDoc, where } from 'firebase/firestore';
@@ -914,5 +916,62 @@ describe('getCurrentPregnancyWeekRange + countEventsInRange', () => {
         const lastMinute = makeUserEvent({ date: new Date(2026, 9, 6, 23, 59).toISOString() });
         expect(countEventsInRange([nextWeek], range)).toBe(0);
         expect(countEventsInRange([lastMinute], range)).toBe(1);
+    });
+});
+
+// ===========================================================================
+// Month summary — the Suggestions pill and the "Ce mois" card use one count
+// ===========================================================================
+
+describe('distinctSuggestions + summariseMonth', () => {
+    // A template spanning weeks 28-32 is generated once per week, so the same advice lands on
+    // several days of the month. The pill said 9 (distinct) while the card said 29 (every copy).
+    const templates = [
+        makeTemplate({ template_id: 'kicks', title_fr: 'Compter les mouvements', week_min: 1, week_max: 40 }),
+        makeTemplate({ template_id: 'bag', title_fr: 'Préparer la valise', week_min: 1, week_max: 40 }),
+        makeTemplate({ template_id: 'echo', title_fr: 'Échographie T3', week_min: 2, week_max: 2 }),
+    ];
+    const byDate = (): Record<string, CombinedEvent[]> => {
+        const combined: CombinedEvent[] = generateAllEvents(templates, LMP).map((e) => ({
+            id: e.id, title: e.title, date: e.date, week: e.week, type: e.type, source: 'template' as const,
+        }));
+        combined.push({ id: 'u1', title: 'RDV sage-femme', date: new Date(2026, 0, 20, 9), week: 3, type: 'appointment', source: 'user' });
+        return groupEventsByDate(combined);
+    };
+
+    test('the pill count, the card count and the opened list are the same number', () => {
+        const month = summariseMonth(byDate(), '2026-01');
+        // January holds several weekly copies of "kicks" and "bag" but only three pieces of advice.
+        const copies = Object.entries(byDate())
+            .filter(([k]) => k.startsWith('2026-01'))
+            .flatMap(([, evs]) => evs)
+            .filter((e) => e.source === 'template').length;
+        expect(copies).toBeGreaterThan(3);
+        expect(month.suggestions.map((s) => s.title)).toEqual(
+            expect.arrayContaining(['Compter les mouvements', 'Préparer la valise', 'Échographie T3']),
+        );
+        expect(month.suggestionCount).toBe(3);
+        expect(month.suggestionCount).toBe(month.suggestions.length);
+        expect(month.userEventCount).toBe(1);
+        expect(month.totalEvents).toBe(month.userEventCount + month.suggestionCount);
+    });
+
+    test('suggestions are listed by first date and other months are ignored', () => {
+        const month = summariseMonth(byDate(), '2026-01');
+        const times = month.suggestions.map((s) => s.date.getTime());
+        expect([...times].sort((a, b) => a - b)).toEqual(times);
+        expect(month.suggestions.every((s) => getLocalDateKey(s.date).startsWith('2026-01'))).toBe(true);
+        expect(summariseMonth(byDate(), '2027-06')).toEqual({ suggestions: [], suggestionCount: 0, userEventCount: 0, totalEvents: 0 });
+    });
+
+    test('distinctSuggestions keeps the first copy of each title and drops user events', () => {
+        const d = (day: number) => new Date(2026, 0, day);
+        const list: CombinedEvent[] = [
+            { id: 'a_w2', title: 'A', date: d(9), week: 2, type: 'x', source: 'template' },
+            { id: 'a_w1', title: 'A', date: d(2), week: 1, type: 'x', source: 'template' },
+            { id: 'u', title: 'A', date: d(3), week: 1, type: 'x', source: 'user' },
+            { id: 'b_w1', title: 'B', date: d(5), week: 1, type: 'x', source: 'template' },
+        ];
+        expect(distinctSuggestions(list).map((e) => e.id)).toEqual(['a_w1', 'b_w1']);
     });
 });

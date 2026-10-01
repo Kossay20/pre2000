@@ -19,6 +19,8 @@ import {
     getWeekDates,
     getLocalDateKey,
     countEventsInRange,
+    distinctSuggestions,
+    summariseMonth,
 } from '../services/calendarService';
 import { UserEvent, CombinedEvent } from '../types';
 import { theme } from '../theme';
@@ -236,42 +238,19 @@ export const CalendarScreen = () => {
         [userEvents, weekDates],
     );
 
-    // Count suggestions for this week
-    const suggestionsThisWeekCount = useMemo(() => {
-        return currentWeekEvents.filter(e => e.source === 'template').length;
-    }, [currentWeekEvents]);
+    // Week suggestions (all for the week, not per day), each piece of advice once.
+    const weekSuggestions = useMemo(() => distinctSuggestions(currentWeekEvents), [currentWeekEvents]);
+    const suggestionsThisWeekCount = weekSuggestions.length;
 
-    // Week suggestions (all for the week, not per day)
-    const weekSuggestions = useMemo(() => {
-        return currentWeekEvents.filter(e => e.source === 'template');
-    }, [currentWeekEvents]);
-
-    // Month suggestions - all template events for the selected month
-    const monthSuggestions = useMemo(() => {
-        const monthKey = format(selectedDate, 'yyyy-MM', { locale: dateLocale });
-        const suggestions: CombinedEvent[] = [];
-
-        Object.entries(allEventsByDate).forEach(([dateKey, events]) => {
-            if (dateKey.startsWith(monthKey)) {
-                events.filter(e => e.source === 'template').forEach(e => suggestions.push(e));
-            }
-        });
-
-        const uniqueSuggestions = suggestions.reduce((acc, current) => {
-            const x = acc.find(item => item.title === current.title);
-            if (!x) {
-                return acc.concat([current]);
-            } else {
-                return acc;
-            }
-        }, [] as CombinedEvent[]);
-
-        return uniqueSuggestions.sort((a, b) => a.date.getTime() - b.date.getTime());
-    }, [allEventsByDate, selectedDate]);
-
-    const suggestionsThisMonthCount = useMemo(() => {
-        return monthSuggestions.length;
-    }, [monthSuggestions]);
+    // The month's pill, opened list and "this month" card share one summary, so the pill and
+    // the card show the same Suggestions number. The key is the local date key's 'yyyy-MM'
+    // (a locale-formatted month could carry non-Latin digits and match nothing).
+    const monthSummary = useMemo(
+        () => summariseMonth(allEventsByDate, getLocalDateKey(selectedDate).slice(0, 7)),
+        [allEventsByDate, selectedDate],
+    );
+    const monthSuggestions = monthSummary.suggestions;
+    const suggestionsThisMonthCount = monthSummary.suggestionCount;
 
     const filteredEvents = useMemo(() => {
         const dateKey = getLocalDateKey(selectedDate);
@@ -315,24 +294,6 @@ export const CalendarScreen = () => {
         });
         return counts;
     }, [userEvents]);
-
-    const monthStats = useMemo(() => {
-        const monthKey = format(selectedDate, 'yyyy-MM', { locale: dateLocale });
-        let totalEvents = 0;
-        let userEventCount = 0;
-        let suggestionCount = 0;
-
-        Object.keys(allEventsByDate).forEach(dateKey => {
-            if (dateKey.startsWith(monthKey)) {
-                const events = allEventsByDate[dateKey];
-                totalEvents += events.length;
-                userEventCount += events.filter(e => e.source === 'user').length;
-                suggestionCount += events.filter(e => e.source === 'template').length;
-            }
-        });
-
-        return { totalEvents, userEventCount, suggestionCount };
-    }, [allEventsByDate, selectedDate]);
 
     // Handlers
     const handlePrevWeek = useCallback(() => {
@@ -497,9 +458,9 @@ export const CalendarScreen = () => {
                             {calendarView === 'month' ? (
                                 <>
                                     <CalendarMonthStats
-                                        totalEvents={monthStats.totalEvents}
-                                        userEventCount={monthStats.userEventCount}
-                                        suggestionCount={monthStats.suggestionCount}
+                                        totalEvents={monthSummary.totalEvents}
+                                        userEventCount={monthSummary.userEventCount}
+                                        suggestionCount={monthSummary.suggestionCount}
                                         t={t}
                                     />
                                     <View style={styles.monthGrid}>

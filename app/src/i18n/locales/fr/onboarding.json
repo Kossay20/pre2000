@@ -32,7 +32,8 @@
     "previewLabel": "Vous seriez à la",
     "week": "Semaine",
     "saDays": "Soit {{ga}}",
-    "invalidDate": "Plus de 42 semaines depuis cette date : vérifiez la date saisie."
+    "invalidDate": "Plus de 42 semaines depuis cette date : vérifiez la date saisie.",
+    "postTermNote": "La date prévue d'accouchement est passée. Restez en lien avec votre maternité ou votre sage-femme."
   },
   "step3": {
     "title": "Petit détail pour vous accompagner",
@@ -55,7 +56,7 @@
     "createAccountTitle": "📧 Créez votre compte",
     "createAccountSubtitle": "Synchronisez vos données sur tous vos appareils",
     "emailPlaceholder": "Votre email",
-    "passwordPlaceholder": "Mot de passe (10+ car., 1 majuscule, 1 chiffre)",
+    "passwordPlaceholder": "Mot de passe",
     "creatingAccount": "Création du compte...",
     "start": "Créer mon compte & Démarrer",
     "finalizeProfile": "Finaliser mon profil",

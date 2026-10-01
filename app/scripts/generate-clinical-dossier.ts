@@ -348,6 +348,10 @@ function medicalProfile() {
 // ─────────────────────────────────────────────────────────── README
 
 function readme(counts: Record<string, number>) {
+    // The six dossiers above were the whole packet, and a reviewer who signed all of
+    // them would never have seen the articles, the weeks or the growth figures — the
+    // bulk of what the app says. Those three sources are named here, with what to read
+    // in each, until they get extracted dossiers of their own.
     return `# Revue clinique — Mama & Bébé v1.0
 
 Ce dossier existe pour une raison simple : **aucun contenu médical de cette application
@@ -370,15 +374,35 @@ n'arriveront pas ensemble.
 | **Référent religieux qualifié** | la moitié religieuse de \`RAMADAN\` | ${counts.ramadan} |
 | **Imam et diététicien·ne** | \`HALAL\` | ${counts.halal} |
 
+La sage-femme ou le·la gynécologue relit aussi les trois sources de la section
+« Pas encore en dossier » ci-dessous : elles ne sont pas comptées dans ce tableau.
+
 ## Dans quel ordre
 
 1. **\`TRIAGE_DOSSIER.md\` en premier.** C'est le seul contenu qui peut retarder une prise
    en charge. Un signe classé trop bas est le pire défaut possible de cette application.
 2. **\`SUPPLEMENTS_DOSSIER.md\` ensuite.** Ce sont des doses qu'une utilisatrice peut suivre.
 3. **\`FORBIDDEN_FOODS_DOSSIER.md\`** et **\`MEDICAL_PROFILE_DOSSIER.md\`** — plus courts.
-4. **\`RAMADAN_DOSSIER.md\`** et **\`HALAL_DOSSIER.md\`** en dernier : les écrans concernés sont
+4. **Les articles, les semaines et la table de croissance** (section suivante). Ils sont
+   visibles dès la première publication, comme tout ce qui précède.
+5. **\`RAMADAN_DOSSIER.md\`** et **\`HALAL_DOSSIER.md\`** en dernier : les écrans concernés sont
    déjà **éteints dans l'application** et le resteront jusqu'à signature. Ils ne bloquent
    donc pas une première publication.
+
+## Pas encore en dossier
+
+Trois sources de contenu médical n'ont pas encore de dossier extrait. Elles sont à relire
+dans le fichier lui-même ; chaque ligne y porte un identifiant qui sert de référence
+pour une correction.
+
+| Source | Ce qui est à relire |
+|---|---|
+| \`src/data/articles_db.json\` | **${counts.articles} articles** : titre, résumé et corps en français (\`content_markdown_fr\`), les traductions anglaise, arabe et tunisienne, le niveau de risque attribué à chacun (\`risk_level\`) et ses sources s'il en cite. Repère : \`article_id\`. L'article \`art_003\` (jeûne du Ramadan) est masqué dans l'application avec l'écran Ramadan ; il relève aussi du référent religieux et ne revient qu'avec la signature de \`RAMADAN\`. |
+| \`src/data/weeks_db.json\` | **${counts.weeks} semaines** : développement du bébé (\`baby_dev_text_*\`), changements pour la mère (\`mom_body_text_*\`), signes d'alerte (\`warnings_text_*\`), et les articles et compléments recommandés pour la semaine. Repère : \`week_number\`. |
+| \`src/utils/fetalGrowth.ts\` | La table de taille et de poids du fœtus que tous les écrans affichent (colonnes \`baby_size_cm\` et \`baby_weight_g\` de \`weeks_db.json\`) : la courbe de référence citée dans le fichier, la convention de mesure (vertex-coccyx jusqu'à la semaine 20, vertex-talon ensuite) et la numérotation des semaines (semaines d'aménorrhée). |
+
+Tant que ces trois sources ne sont pas signées, aucun texte public (site, fiches des
+stores) ne dit que le contenu est validé ou relu par un professionnel.
 
 ## Ce qui se passe après une signature
 
@@ -431,6 +455,8 @@ const files: Array<[string, string]> = [
             profile: 6,
             ramadan: ramadanCount,
             halal: halalCount,
+            articles: (read('src/data/articles_db.json') as any[]).length,
+            weeks: (read('src/data/weeks_db.json') as any[]).length,
         }),
     ],
 ];

@@ -16,6 +16,11 @@ import { Article, Supplement, Week, ArticleAntigravity } from '../types';
 import weeksData from '../data/weeks_db.json';
 import supplementsData from '../data/supplements_db.json';
 import articlesData from '../data/articles_db.json';
+import { withoutUnreviewedContent } from '../config/unreviewedContent';
+
+// Articles on a topic still waiting for its reviewer (art_003, Ramadan fasting) are
+// dropped here, once, so no lookup, list or related-link below can hand one out.
+const servableArticles: Article[] = withoutUnreviewedContent(articlesData as unknown as Article[]);
 
 // Build lookup maps once at module load. The casts are safe: data shapes were
 // verified against the types; JSON optional fields simply become undefined.
@@ -28,7 +33,7 @@ const supplementsById: Map<string, Supplement> = new Map(
 );
 
 const articlesById: Map<string, Article> = new Map(
-    (articlesData as unknown as Article[]).map(a => [a.article_id, a]),
+    servableArticles.map(a => [a.article_id, a]),
 );
 
 /** Bundled Week for a given week_number, or null when out of the 1..40 range. */
@@ -44,8 +49,7 @@ export const getLocalArticle = (id: string): Article | undefined =>
     articlesById.get(id);
 
 /** All bundled articles (old Article shape) — for offline list screens. */
-export const getAllLocalArticles = (): Article[] =>
-    articlesData as unknown as Article[];
+export const getAllLocalArticles = (): Article[] => servableArticles;
 
 /** All bundled supplements — for offline list screens. */
 export const getAllLocalSupplements = (): Supplement[] =>

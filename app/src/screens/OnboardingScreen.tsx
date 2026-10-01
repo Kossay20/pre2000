@@ -37,7 +37,7 @@ import { logEvent } from 'firebase/analytics';
 import { getFirebaseErrorMessage } from '../utils/firebaseErrors';
 import { useAuthLoading } from '../hooks/useAuthLoading';
 import { retryOperation } from '../utils/retry';
-import { calculatePregnancyWeek } from '../utils/pregnancyCalculator';
+import { calculatePregnancyWeek, displayedPregnancyAge } from '../utils/pregnancyCalculator';
 import { formatGestationalAge } from '../utils/gestationalAge';
 import { useDateLocale } from '../hooks/useDateLocale';
 import { getPickerLocale } from '../utils/pickerLocale';
@@ -184,9 +184,9 @@ export const OnboardingScreen = () => {
 
     const weekComparison = WEEK_COMPARISONS[pregnancyInfo.week] || WEEK_COMPARISONS[1];
     // The week and day in progress for display, unclamped: a post-term pregnancy reads
-    // "Semaine 41" here, while pregnancyInfo.week stays on 40 for the week content.
-    const displayWeek = pregnancyInfo.completedWeeks + 1;
-    const displayDay = pregnancyInfo.completedDays + 1;
+    // "Semaine 41" here, while pregnancyInfo.week stays on 40 for the week content. The
+    // same helper feeds Home, Profile and the dashboards, so they all print the same week.
+    const { week: displayWeek, day: displayDay } = displayedPregnancyAge(pregnancyInfo.completedWeeks, pregnancyInfo.completedDays);
     const gestationalAge = formatGestationalAge(t, pregnancyInfo.completedWeeks, pregnancyInfo.completedDays);
 
     // Animation for step transitions
@@ -550,7 +550,8 @@ export const OnboardingScreen = () => {
                             </Text>
                             {pregnancyInfo.isPostTerm && (
                                 <Text style={[styles.previewLabel, { textAlign: 'center', marginTop: 8 }]} testID="onboarding_postterm_note">
-                                    {t('home.postTermNote', { ga: gestationalAge })}
+                                    {/* The line above already gives the SA: Home's note would say it twice. */}
+                                    {t('onboarding.step2.postTermNote')}
                                 </Text>
                             )}
                         </>
@@ -832,6 +833,12 @@ export const OnboardingScreen = () => {
                                     autoCapitalize="none"
                                     testID="onboarding_step4_password"
                                 />
+                                {/* The rule as a static line under the field (as on Register): in
+                                    the placeholder it was cut at 390pt ("…1 majuscule, 1 ch") and
+                                    gone as soon as she typed. */}
+                                <Text style={styles.accountHint} testID="onboarding_step4_password_rule">
+                                    {t('passwordMin')}
+                                </Text>
                             </View>
                         )}
 

@@ -32,6 +32,7 @@ export const HealthBPModal: React.FC<HealthBPModalProps> = ({
                     <TextInput
                         style={styles.input}
                         placeholder={t('dashboard.systolic')}
+                        placeholderTextColor={theme.colors.neutral400}
                         keyboardType="number-pad"
                         value={systolicInput}
                         onChangeText={onChangeSystolic}
@@ -39,6 +40,7 @@ export const HealthBPModal: React.FC<HealthBPModalProps> = ({
                     <TextInput
                         style={styles.input}
                         placeholder={t('dashboard.diastolic')}
+                        placeholderTextColor={theme.colors.neutral400}
                         keyboardType="number-pad"
                         value={diastolicInput}
                         onChangeText={onChangeDiastolic}

@@ -11,6 +11,7 @@ import { matchesSearch } from '../utils/searchNormalize';
 import { useRtlScrollFix } from '../hooks/useRtlScrollFix';
 import { getAntigravityArticlesByCategory } from '../services/contentService'; // ANTIGRAVITY
 import { getAllLocalArticles } from '../services/localContentFallback';
+import { withoutUnreviewedContent } from '../config/unreviewedContent';
 import { FIRESTORE_GUEST_TIMEOUT_MS, withTimeout } from '../utils/withTimeout';
 import { getBookmarks, subscribeBookmarks } from '../services/bookmarkService';
 import { theme } from '../theme';
@@ -104,7 +105,8 @@ export const ArticlesListScreen = () => {
                 for (const a of agArts) {
                     if (a.article_id) byId.set(a.article_id, a); // overrides legacy entry
                 }
-                setArticles(Array.from(byId.values()));
+                // Both collections are seeded from articles_db.json, unreviewed topics included.
+                setArticles(withoutUnreviewedContent(Array.from(byId.values())));
             } catch (err) {
                 log.error('[ArticlesListScreen] ❌ Error fetching articles:', err);
                 // CLUSTER-2: Firestore failed (permission-denied for guests / offline).

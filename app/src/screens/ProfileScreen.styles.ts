@@ -192,10 +192,12 @@ export const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: theme.colors.amberBorder,
     },
+    // The due date is information, not a warning: the app's text brown on the amber card
+    // (brick red made it read like an error).
     dpaText: {
         fontSize: 20,
         fontWeight: 'bold',
-        color: theme.colors.deepOrange900,
+        color: theme.colors.text,
         marginTop: 8,
     },
     dpaSubtext: {

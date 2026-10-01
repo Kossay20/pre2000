@@ -38,9 +38,12 @@
   "pregnancy": "Your Pregnancy",
   "currentWeek": "Current week",
   "reminders": {
-    "appointmentsToday": "Today: {{count}} appointment(s)!",
-    "appointmentsTomorrow": "Don't forget! {{count}} appointment(s) tomorrow.",
-    "appointmentsWeek": "You have {{count}} appointment(s) scheduled this week.",
+    "appointmentsToday_one": "Today: {{count}} appointment!",
+    "appointmentsToday_other": "Today: {{count}} appointments!",
+    "appointmentsTomorrow_one": "Don't forget! {{count}} appointment tomorrow.",
+    "appointmentsTomorrow_other": "Don't forget! {{count}} appointments tomorrow.",
+    "appointmentsWeek_one": "You have {{count}} appointment scheduled this week.",
+    "appointmentsWeek_other": "You have {{count}} appointments scheduled this week.",
     "tasksToday": "{{count}} task(s) to do today.",
     "tasksImportant": "{{count}} important task(s) pending.",
     "tasksOngoing": "You have {{count}} ongoing task(s)."

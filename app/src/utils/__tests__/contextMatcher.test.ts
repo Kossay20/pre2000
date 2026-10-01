@@ -215,19 +215,39 @@ describe('buildContextProfile', () => {
     // while isRamadan() went uncalled from anywhere in the app, so the flag could
     // never be true and the docstring's "the user flag overrides this
     // calculation" described a calculation that never ran.
-    test('is_ramadan comes from the calendar, and the user flag overrides it', () => {
+    //
+    // The Ramadan rule is fasting guidance and waits for the clinical sign-off
+    // (RAMADAN_GUIDANCE_CLINICALLY_REVIEWED, see __tests__/unreviewedContent.test.ts),
+    // so this describes the behaviour once the flag is flipped.
+    test('is_ramadan comes from the calendar, and the user flag overrides it (once signed off)', () => {
+        jest.isolateModules(() => {
+            jest.doMock('../../config/featureFlags', () => ({ RAMADAN_GUIDANCE_CLINICALLY_REVIEWED: true }));
+            // eslint-disable-next-line @typescript-eslint/no-var-requires
+            const signed = require('../contextMatcher') as { buildContextProfile: typeof buildContextProfile };
+
+            jest.useFakeTimers().setSystemTime(new Date('2026-03-01T12:00:00Z'));
+            try {
+                expect(signed.buildContextProfile(20).is_ramadan).toBe(true);
+                expect(signed.buildContextProfile(20, { is_ramadan: false }).is_ramadan).toBe(false);
+            } finally {
+                jest.useRealTimers();
+            }
+
+            jest.useFakeTimers().setSystemTime(new Date('2026-08-25T12:00:00Z'));
+            try {
+                expect(signed.buildContextProfile(20).is_ramadan).toBe(false);
+                expect(signed.buildContextProfile(20, { is_ramadan: true }).is_ramadan).toBe(true);
+            } finally {
+                jest.useRealTimers();
+            }
+        });
+        jest.dontMock('../../config/featureFlags');
+    });
+
+    test('is_ramadan stays false until the Ramadan guidance is signed off', () => {
         jest.useFakeTimers().setSystemTime(new Date('2026-03-01T12:00:00Z'));
         try {
-            expect(buildContextProfile(20).is_ramadan).toBe(true);
-            expect(buildContextProfile(20, { is_ramadan: false }).is_ramadan).toBe(false);
-        } finally {
-            jest.useRealTimers();
-        }
-
-        jest.useFakeTimers().setSystemTime(new Date('2026-08-25T12:00:00Z'));
-        try {
             expect(buildContextProfile(20).is_ramadan).toBe(false);
-            expect(buildContextProfile(20, { is_ramadan: true }).is_ramadan).toBe(true);
         } finally {
             jest.useRealTimers();
         }

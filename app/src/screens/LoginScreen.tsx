@@ -151,7 +151,7 @@ export const LoginScreen = () => {
                 into at all. DismissKeyboardView is a no-op on web, unchanged on native. */}
             <DismissKeyboardView>
                 <ScrollView
-                    contentContainerStyle={styles.container}
+                    contentContainerStyle={[styles.container, showInlineBack && styles.containerWithInlineBack]}
                     keyboardShouldPersistTaps="handled"
                 >
                     {/* Back arrow — only when the stack header has none to show (a deep link
@@ -289,12 +289,18 @@ export const LoginScreen = () => {
 };
 
 const styles = StyleSheet.create({
+    // Top-aligned under the stack header. Centred, with 60pt kept for the old inline back,
+    // the short form left a 100-170pt empty band above its title.
     container: {
         flexGrow: 1,
         backgroundColor: theme.colors.background,
         padding: theme.spacing.l,
-        paddingTop: 60,
-        justifyContent: 'center',
+        justifyContent: 'flex-start',
+    },
+    // Deep link with no history: no stack header, so the inline back (top 54, 44pt tall)
+    // takes that room and the title starts below it.
+    containerWithInlineBack: {
+        paddingTop: 54 + 44 + theme.spacing.s,
     },
     backButton: {
         position: 'absolute',

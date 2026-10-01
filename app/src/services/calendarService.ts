@@ -561,3 +561,50 @@ export const groupEventsByDate = (events: CombinedEvent[]): Record<string, Combi
     });
     return grouped;
 };
+
+/**
+ * The suggestions a user is offered, once each. A template that spans several weeks is
+ * generated once per week, so the same advice repeats; the list (and every count of it)
+ * shows it once, at its earliest date.
+ */
+export const distinctSuggestions = (events: ReadonlyArray<CombinedEvent>): CombinedEvent[] => {
+    const seen = new Set<string>();
+    return events
+        .filter((e) => e.source === 'template')
+        .slice()
+        .sort((a, b) => a.date.getTime() - b.date.getTime())
+        .filter((e) => {
+            if (seen.has(e.title)) return false;
+            seen.add(e.title);
+            return true;
+        });
+};
+
+export interface MonthSummary {
+    suggestions: CombinedEvent[];
+    suggestionCount: number;
+    userEventCount: number;
+    totalEvents: number;
+}
+
+/**
+ * One month of the calendar (monthKey 'yyyy-MM', local). The Suggestions pill, the opened
+ * suggestions list and the "this month" card all read this, so they cannot disagree: the
+ * pill used to count distinct advice (9) while the card counted every weekly copy (29).
+ */
+export const summariseMonth = (
+    eventsByDate: Record<string, ReadonlyArray<CombinedEvent>>,
+    monthKey: string,
+): MonthSummary => {
+    const inMonth = Object.entries(eventsByDate)
+        .filter(([dateKey]) => dateKey.startsWith(monthKey))
+        .flatMap(([, events]) => events);
+    const suggestions = distinctSuggestions(inMonth);
+    const userEventCount = inMonth.filter((e) => e.source === 'user').length;
+    return {
+        suggestions,
+        suggestionCount: suggestions.length,
+        userEventCount,
+        totalEvents: userEventCount + suggestions.length,
+    };
+};

@@ -16,6 +16,7 @@ import {
     AccessibilityInfo,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import { HomeHeader } from '../components/home/HomeHeader';
 import { BabyGrowthCard } from '../components/home/BabyGrowthCard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -72,7 +73,11 @@ export const HomeScreen = () => {
     useScreenAnalytics('HomeScreen');
     const [overrideWeek, setOverrideWeek] = useState<number | null>(null);
     const [overrideDay, setOverrideDay] = useState<number | null>(null);
-    const { weekData, loading, error, currentWeekNumber, currentDay, isInvalid, isPostTerm, completedWeeks, completedDays, refetch } = useCurrentWeek(overrideWeek ?? undefined);
+    const { weekData, loading, error, currentWeekNumber, currentDay, displayWeek, dayOfPregnancy, isInvalid, isPostTerm, completedWeeks, completedDays, refetch } = useCurrentWeek(overrideWeek ?? undefined);
+    // The week the header prints: the previewed week, or her real week — uncapped, so 40+3
+    // SA reads "Semaine 41" like onboarding and the post-term note (currentWeekNumber stays
+    // on 40 there: it only picks the week content).
+    const shownWeek = overrideWeek ?? displayWeek;
     // Reads here are one-shot getDocs, so nothing re-delivers when the network
     // returns: without this, coming out of a tunnel leaves the error card up while
     // the offline banner disappears and implies everything is fine again.
@@ -235,8 +240,9 @@ export const HomeScreen = () => {
     }, [currentWeekNumber, currentDay, overrideDay]);
 
     const handlePrevWeek = useCallback(() => {
-        if (currentWeekNumber > 1) {
-            const newWeek = currentWeekNumber - 1;
+        if (shownWeek > 1) {
+            // Past term the header reads 41-43 but the content ends at 40.
+            const newWeek = Math.min(shownWeek - 1, 40);
             setOverrideWeek(newWeek);
             // W2 #5: the week badge updates silently — announce the new week to screen readers.
             AccessibilityInfo.announceForAccessibility(`${t('common.week')} ${newWeek}`);
@@ -246,11 +252,11 @@ export const HomeScreen = () => {
                 Animated.timing(fadeAnim, { toValue: 1, duration: 150, useNativeDriver: false }),
             ]).start();
         }
-    }, [currentWeekNumber, fadeAnim, t]);
+    }, [shownWeek, fadeAnim, t]);
 
     const handleNextWeek = useCallback(() => {
-        if (currentWeekNumber < 40) {
-            const newWeek = currentWeekNumber + 1;
+        if (shownWeek < 40) {
+            const newWeek = shownWeek + 1;
             setOverrideWeek(newWeek);
             setOverrideDay(null); // Reset day when changing week
             // W2 #5: announce the new week to screen readers.
@@ -261,7 +267,7 @@ export const HomeScreen = () => {
                 Animated.timing(fadeAnim, { toValue: 1, duration: 150, useNativeDriver: false }),
             ]).start();
         }
-    }, [currentWeekNumber, fadeAnim, t]);
+    }, [shownWeek, fadeAnim, t]);
 
     // #9 — Return to the user's *real* current week after time-travelling with the
     // week chevrons. Clearing the overrides hands control back to useCurrentWeek,
@@ -374,9 +380,14 @@ export const HomeScreen = () => {
     // #9 — "Preview" state: the chevrons turned Home into a time-machine and the
     // displayed week is NOT the user's real current week (pregnancyInfo.week).
     // Drives the "return to this week" pill + a subtle preview cue on the badge.
-    const realCurrentWeek = pregnancyInfo?.week;
+    // Compared with her real week as printed: past term that is 41+, so stepping back to
+    // 40 is a preview too.
     const isPreviewingWeek =
-        overrideWeek !== null && !!realCurrentWeek && overrideWeek !== realCurrentWeek;
+        overrideWeek !== null && !!pregnancyInfo?.week && overrideWeek !== displayWeek;
+    // The pregnancy tools (kick counter, contraction timer, hospital bag) are for HER, so
+    // they follow her real week, not the week being previewed: previewing week 27 at 32
+    // used to hide the labour tools she needs now.
+    const toolsWeek = pregnancyInfo?.week ?? currentWeekNumber;
 
 
 
@@ -462,9 +473,10 @@ export const HomeScreen = () => {
                     </TouchableOpacity>
                 </View>
             )}
-            {/* Gradient Header */}
+            {/* Gradient Header: the same rose-to-magenta pair as every other header (Calendar,
+                Profile, Health, Language). The third deepPink stop made Home alone heavier. */}
             <LinearGradient
-                colors={[theme.colors.primaryStrong, theme.colors.accent, theme.colors.deepPink]}
+                colors={[theme.colors.primaryStrong, theme.colors.accent]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.headerGradient}
@@ -504,37 +516,37 @@ export const HomeScreen = () => {
                             <View style={styles.weekNavContainer}>
                                 <TouchableOpacity
                                     onPress={handlePrevWeek}
-                                    disabled={currentWeekNumber <= 1}
+                                    disabled={shownWeek <= 1}
                                     style={styles.navButton}
                                     activeOpacity={0.7}
                                     accessibilityLabel={t('a11y.previousWeek')}
                                     accessibilityRole="button"
-                                    accessibilityState={{ disabled: currentWeekNumber <= 1 }}
+                                    accessibilityState={{ disabled: shownWeek <= 1 }}
                                 >
                                     <RtlAwareChevron
                                         direction="back"
                                         size={36}
-                                        color={currentWeekNumber <= 1 ? theme.colors.whiteAlpha30 : theme.colors.white}
+                                        color={shownWeek <= 1 ? theme.colors.whiteAlpha30 : theme.colors.white}
                                         style={{ fontWeight: 'bold' }}
                                     />
                                 </TouchableOpacity>
                                 <View style={[styles.weekBadge, isPreviewingWeek && styles.weekBadgePreview]}>
-                                    <Text style={styles.weekTitle}>{t('common.week')} {currentWeekNumber}</Text>
+                                    <Text style={styles.weekTitle}>{t('common.week')} {shownWeek}</Text>
                                     <Text style={styles.trimesterBadge}>{trimesterText}</Text>
                                 </View>
                                 <TouchableOpacity
                                     onPress={handleNextWeek}
-                                    disabled={currentWeekNumber >= 40}
+                                    disabled={shownWeek >= 40}
                                     style={styles.navButton}
                                     activeOpacity={0.7}
                                     accessibilityLabel={t('a11y.nextWeek')}
                                     accessibilityRole="button"
-                                    accessibilityState={{ disabled: currentWeekNumber >= 40 }}
+                                    accessibilityState={{ disabled: shownWeek >= 40 }}
                                 >
                                     <RtlAwareChevron
                                         direction="forward"
                                         size={36}
-                                        color={currentWeekNumber >= 40 ? theme.colors.whiteAlpha30 : theme.colors.white}
+                                        color={shownWeek >= 40 ? theme.colors.whiteAlpha30 : theme.colors.white}
                                         style={{ fontWeight: 'bold' }}
                                     />
                                 </TouchableOpacity>
@@ -564,7 +576,9 @@ export const HomeScreen = () => {
 
 
 
-                        {/* Quick Actions — real pressable pill buttons (#9).
+                        {/* Quick Actions — real pressable pill buttons (#9). The icons are white
+                            line icons: the ➕ emoji painted dark grey on the dark tile (≈1.3:1),
+                            so "➕ RDV" read as a second "Mes RDV".
                             Cycle 3 F305 : a11y labels explicites pour VoiceOver/TalkBack.
                             Each pill is min 44x44, RTL-safe (icon/label flip), keeps its
                             original onPress/testID/accessibilityLabel. */}
@@ -577,7 +591,7 @@ export const HomeScreen = () => {
                                 accessibilityLabel={t('home.myAppointments')}
                                 style={styles.quickActionPill}
                             >
-                                <Text style={styles.quickActionPillIcon}>📅</Text>
+                                <Ionicons name="calendar-outline" size={18} color={theme.colors.white} style={styles.quickActionPillIcon} />
                                 <Text style={styles.quickActionPillLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{t('home.myAppointments')}</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
@@ -588,7 +602,7 @@ export const HomeScreen = () => {
                                 accessibilityLabel={t('home.addTask', 'Tâche')}
                                 style={styles.quickActionPill}
                             >
-                                <Text style={styles.quickActionPillIcon}>➕</Text>
+                                <Ionicons name="add-circle-outline" size={18} color={theme.colors.white} style={styles.quickActionPillIcon} />
                                 <Text style={styles.quickActionPillLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{t('home.addTask', 'Tâche')}</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
@@ -608,7 +622,7 @@ export const HomeScreen = () => {
                                 accessibilityLabel={t('home.addAppointment', 'RDV')}
                                 style={styles.quickActionPill}
                             >
-                                <Text style={styles.quickActionPillIcon}>➕</Text>
+                                <Ionicons name="add-circle-outline" size={18} color={theme.colors.white} style={styles.quickActionPillIcon} />
                                 <Text style={styles.quickActionPillLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{t('home.addAppointment', 'RDV')}</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
@@ -619,7 +633,7 @@ export const HomeScreen = () => {
                                 accessibilityLabel={t('common.search')}
                                 style={styles.quickActionPill}
                             >
-                                <Text style={styles.quickActionPillIcon}>🔍</Text>
+                                <Ionicons name="search-outline" size={18} color={theme.colors.white} style={styles.quickActionPillIcon} />
                                 <Text style={styles.quickActionPillLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{t('common.search')}</Text>
                             </TouchableOpacity>
                         </View>
@@ -677,6 +691,7 @@ export const HomeScreen = () => {
                     <BabyGrowthCard
                         currentWeek={currentWeekNumber}
                         currentDay={currentDay}
+                        dayOfPregnancy={overrideWeek === null ? dayOfPregnancy : undefined}
                         weekData={weekData}
                     />
                 )}
@@ -926,7 +941,7 @@ export const HomeScreen = () => {
 
                         {/* Cycle 8 — Kick Counter: surfaced from week 16, when fetal
                             movements become countable (trimester-aware Home). */}
-                        {currentWeekNumber >= 16 && (
+                        {toolsWeek >= 16 && (
                             <TouchableOpacity
                                 style={styles.toolCard}
                                 activeOpacity={0.7}
@@ -947,7 +962,7 @@ export const HomeScreen = () => {
 
                         {/* Cycle 8 — Contraction Timer + Hospital Bag: third-trimester
                             labour prep, surfaced from week 28. */}
-                        {currentWeekNumber >= 28 && (
+                        {toolsWeek >= 28 && (
                             <TouchableOpacity
                                 style={styles.toolCard}
                                 activeOpacity={0.7}
@@ -966,7 +981,7 @@ export const HomeScreen = () => {
                             </TouchableOpacity>
                         )}
 
-                        {currentWeekNumber >= 28 && (
+                        {toolsWeek >= 28 && (
                             <TouchableOpacity
                                 style={styles.toolCard}
                                 activeOpacity={0.7}

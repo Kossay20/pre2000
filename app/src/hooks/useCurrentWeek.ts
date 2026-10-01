@@ -6,6 +6,7 @@ import { Week } from '../types';
 import { getLocalWeek } from '../services/localContentFallback';
 import { FIRESTORE_GUEST_TIMEOUT_MS, withTimeout } from '../utils/withTimeout';
 import { createLogger } from '../utils/logger';
+import { displayedAgeOf } from '../utils/pregnancyCalculator';
 const log = createLogger('useCurrentWeek');
 
 export const useCurrentWeek = (weekNumber?: number) => {
@@ -18,6 +19,10 @@ export const useCurrentWeek = (weekNumber?: number) => {
 
     const targetWeek = weekNumber || pregnancyInfo?.week || 1;
     const currentDay = pregnancyInfo?.dayInWeek || 1;
+    // Her real age as printed — never the previewed `weekNumber`, never capped at the
+    // last content week: past the due date `targetWeek` stays on 40 for the content
+    // while the label reads 41, 42 (see displayedPregnancyAge).
+    const displayed = displayedAgeOf(pregnancyInfo);
 
     const refetch = useCallback(() => {
         setError(null);
@@ -89,6 +94,8 @@ export const useCurrentWeek = (weekNumber?: number) => {
         error,
         currentWeekNumber: targetWeek,
         currentDay,
+        displayWeek: displayed.week,
+        dayOfPregnancy: displayed.dayOfPregnancy,
         isInvalid: pregnancyInfo?.isInvalid || false,
         isPostTerm: pregnancyInfo?.isPostTerm || false,
         completedWeeks: pregnancyInfo?.completedWeeks,

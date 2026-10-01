@@ -13,6 +13,7 @@ import { collection, documentId, getDocs, query, where, doc, getDoc } from 'fire
 import { db } from '../config/firebase';
 import { Article, Supplement, ArticleAntigravity } from '../types';
 import { getLocalArticle, getLocalSupplement, getLocalAntigravityArticle } from './localContentFallback';
+import { isUnreviewedContent, withoutUnreviewedContent } from '../config/unreviewedContent';
 import { FIRESTORE_GUEST_TIMEOUT_MS, withTimeout } from '../utils/withTimeout';
 
 // ─── In-Memory Cache ──────────────────────────────────────────────────────────
@@ -48,7 +49,9 @@ export const getArticlesByIds = async (ids: string[]): Promise<Article[]> => {
                 const snapshot = await getDocs(q);
                 snapshot.docs.forEach(d => {
                     const article = d.data() as Article;
-                    articleCache.set(d.id, article);
+                    // Firestore is seeded from the same articles_db.json, so it holds the
+                    // unreviewed-topic rows too; never cache one, so no caller can get it.
+                    if (!isUnreviewedContent(article)) articleCache.set(d.id, article);
                 });
             }
         } catch (error) {
@@ -127,6 +130,8 @@ export const getAntigravityArticle = async (articleId: string): Promise<ArticleA
         );
         if (articleDoc.exists()) {
             const data = articleDoc.data() as ArticleAntigravity;
+            // Unreviewed topic: report "not found" (the bundled copy is filtered too).
+            if (isUnreviewedContent(data)) return null;
             antigravityCache.set(articleId, data);
             log.info(`[ContentService] ✅ Found article: ${data.title_fr}`);
             return data;
@@ -161,12 +166,11 @@ export const getAntigravityArticlesByCategory = async (category: string): Promis
             where('category', '==', category)
         );
         const snapshot = await getDocs(q);
-        const articles = snapshot.docs.map(d => {
-            const data = d.data() as ArticleAntigravity;
-            // Populate cache as a side-effect
+        const articles = withoutUnreviewedContent(snapshot.docs.map(d => d.data() as ArticleAntigravity));
+        // Populate cache as a side-effect
+        for (const data of articles) {
             if (data.article_id) antigravityCache.set(data.article_id, data);
-            return data;
-        });
+        }
         log.info(`[ContentService] ✅ Found ${articles.length} Antigravity articles in ${category}`);
         return articles;
     } catch (error) {
@@ -195,14 +199,12 @@ export const getAntigravityArticlesForWeek = async (week: number): Promise<Artic
             where('week_min', '<=', week)
         );
         const snapshot = await getDocs(q);
-        const articles = snapshot.docs
-            .map(d => {
-                const data = d.data() as ArticleAntigravity;
-                // Populate per-article cache as a side-effect
-                if (data.article_id) antigravityCache.set(data.article_id, data);
-                return data;
-            })
-            .filter(article => article.week_max >= week); // client-side upper bound
+        const fetched = withoutUnreviewedContent(snapshot.docs.map(d => d.data() as ArticleAntigravity));
+        // Populate per-article cache as a side-effect
+        for (const data of fetched) {
+            if (data.article_id) antigravityCache.set(data.article_id, data);
+        }
+        const articles = fetched.filter(article => article.week_max >= week); // client-side upper bound
 
         // Store in week cache
         antigravityWeekCache.set(week, articles);

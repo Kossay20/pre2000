@@ -14,9 +14,18 @@
  *    chain, composited exactly for normal blending. A CSS linear-gradient is evaluated
  *    at the text's own position (worst of three points across the text box), not at its
  *    worst stop; a url() background image marks the sample `indeterminate`;
- *  - layering: an element whose screen/layer is painted over (a tab kept mounted behind
- *    the active one, the page under a modal scrim) is `covered` and left out of the
- *    target, name, overlap and contrast counts (it is counted in `summary.covered`);
+ *  - layering: an element whose own centre shows another layer (the page under a modal
+ *    scrim, a tab kept mounted behind the active one) is `covered` and left out of the
+ *    target, name, overlap and contrast counts. Fixed chrome (tab bars, pinned footers)
+ *    never covers anything: content under it comes back with a scroll. The two kinds are
+ *    counted apart: `summary.coveredByModal` (expected) and `summary.hiddenMounted` (a
+ *    screen still mounted and exposed to assistive tech, E-022: a defect);
+ *  - visible box: geometry for overlaps is clipped by the viewport and by every
+ *    overflow-clipping ancestor (ScrollView), so a row scrolled under a footer is not
+ *    an overlap;
+ *  - text: emoji glyphs (ℹ️, keycaps, ZWJ sequences) are not text for the contrast walk;
+ *  - placeholders: a placeholder painted in the input's own text colour (RN-web's default
+ *    when placeholderTextColor is unset) is flagged `placeholderUnstyled`, not scored as a pass;
  *  - hitSlop: RN-web does not render it, so the DOM box understates native targets.
  *    The React props of the pressable are read and `small44Native` uses the slop box.
  *
@@ -72,6 +81,8 @@ export type ContrastSample = {
   gradient?: string;
   disabled: boolean;
   placeholder?: boolean;
+  /** placeholder drawn in the input's text colour: placeholderTextColor unset (E-023) */
+  placeholderUnstyled?: boolean;
   count: number;
   rect: Rect;
   path: string;
@@ -100,8 +111,13 @@ export type A11yReport = {
   interactive: InteractiveEl[];
   summary: {
     interactiveCount: number;
-    /** interactive elements left out because their layer is painted over */
+    /** interactive elements left out because their layer is painted over (= coveredByModal + hiddenMounted) */
     covered: number;
+    /** …of which: the page under a modal scrim (expected) */
+    coveredByModal: number;
+    /** …of which: a whole screen painted over by another one but still mounted and in the
+     *  accessibility tree — a tab kept alive after blur (E-022). A defect, not a skip. */
+    hiddenMounted: number;
     unnamed: number;
     /** unnamed AND no visible text — truly nameless (the rest are role-less divs with text) */
     unnamedNoText: number;
@@ -121,6 +137,8 @@ export type A11yReport = {
     overlaps: number;
   };
   contrast: ContrastSample[];
+  /** names of the controls behind `summary.hiddenMounted`, to identify the screen */
+  hiddenMountedSample: string[];
   extra?: Record<string, unknown>;
 };
 
@@ -145,9 +163,13 @@ const INTERACTIVE_SELECTOR = [
  * In-page helpers shared by the probes (each page.evaluate body is serialised on its
  * own, so they live on window):
  *  - cut(s, n): first n code points — never splits a surrogate pair (E-025);
- *  - covered(el): is el's layer painted over? The layer is el's nearest ancestor at
- *    least half the viewport in both directions (a screen, a modal); it is covered
- *    when ≥4 of 5 sample points inside it hit something outside it (E-021);
+ *  - layerState(el) / covered(el): 'visible', or the layer painting over el ('modal' or
+ *    'screen'). On screen, el's own visible centre is hit-tested; scrolled out of view,
+ *    its nearest screen-sized ancestor is sampled at 5 points (≥4 must show another
+ *    layer). Points landing on fixed chrome are ignored (E-021, E-037);
+ *  - visibleRect(el): el's box clipped by the viewport and overflow ancestors;
+ *  - inChrome(el): inside a tablist or a small fixed/sticky box;
+ *  - hasRealText(s): letters/digits left once emoji glyphs are removed;
  *  - gradientAt(bi, rect, x, y): colour of a CSS linear-gradient at a point (E-020);
  *  - hitSlopOf(el): hitSlop prop of the pressable that rendered el (E-023).
  */
@@ -156,36 +178,77 @@ async function installPageHelpers(page: Page) {
     const w = window as any;
     if (w.__e2eA11y) return;
     const cut = (s: string, n: number) => Array.from(s || '').slice(0, n).join('');
-    const covered = (el: Element) => {
-      const vw = window.innerWidth;
-      const vh = window.innerHeight;
-      let layer: Element | null = el;
-      while (layer && layer !== document.body) {
-        const r = layer.getBoundingClientRect();
-        if (r.width >= vw * 0.5 && r.height >= vh * 0.5) break;
-        layer = layer.parentElement;
+    type Box = { x0: number; x1: number; y0: number; y1: number };
+    // The part of el the user can see: its box clipped by the viewport and by every
+    // overflow-clipping ancestor (a ScrollView). Content scrolled past the edge of its
+    // ScrollView, under the tab bar or a pinned footer, has no visible box at all.
+    const visibleRect = (el: Element): Box | null => {
+      const r = el.getBoundingClientRect();
+      let x0 = Math.max(0, r.left);
+      let x1 = Math.min(window.innerWidth, r.right);
+      let y0 = Math.max(0, r.top);
+      let y1 = Math.min(window.innerHeight, r.bottom);
+      let node: Element = el;
+      for (let cur = el.parentElement; cur && cur !== document.documentElement; cur = cur.parentElement) {
+        if (getComputedStyle(node).position === 'fixed') break; // ancestors no longer clip it
+        const cs = getComputedStyle(cur);
+        const p = cur.getBoundingClientRect();
+        if (cs.overflowX !== 'visible') {
+          x0 = Math.max(x0, p.left);
+          x1 = Math.min(x1, p.right);
+        }
+        if (cs.overflowY !== 'visible') {
+          y0 = Math.max(y0, p.top);
+          y1 = Math.min(y1, p.bottom);
+        }
+        node = cur;
       }
-      if (!layer || layer === document.body) return false;
-      const r = layer.getBoundingClientRect();
-      const x0 = Math.max(0, r.left);
-      const x1 = Math.min(vw, r.right);
-      const y0 = Math.max(0, r.top);
-      const y1 = Math.min(vh, r.bottom);
-      if (x1 - x0 < 4 || y1 - y0 < 4) return false;
-      const pts: Array<[number, number]> = [
-        [(x0 + x1) / 2, (y0 + y1) / 2],
-        [x0 + (x1 - x0) * 0.25, y0 + (y1 - y0) * 0.25],
-        [x0 + (x1 - x0) * 0.75, y0 + (y1 - y0) * 0.25],
-        [x0 + (x1 - x0) * 0.25, y0 + (y1 - y0) * 0.75],
-        [x0 + (x1 - x0) * 0.75, y0 + (y1 - y0) * 0.75],
-      ];
-      let outside = 0;
-      for (const [x, y] of pts) {
-        const top = document.elementFromPoint(x, y);
-        if (top && !layer.contains(top) && !top.contains(layer)) outside++;
-      }
-      return outside >= 4;
+      return x1 - x0 >= 1 && y1 - y0 >= 1 ? { x0, x1, y0, y1 } : null;
     };
+    // A layer: a box at least half the viewport both ways (a screen, a modal's root).
+    const isLayer = (n: Element) => {
+      const r = n.getBoundingClientRect();
+      return r.width >= window.innerWidth * 0.5 && r.height >= window.innerHeight * 0.5;
+    };
+    // Fixed chrome (the tab bars, a pinned header or footer): content passes under it on
+    // purpose and comes back with a scroll, so it never makes anything "covered".
+    const inChrome = (n: Element) => {
+      for (let cur: Element | null = n; cur && cur !== document.body; cur = cur.parentElement) {
+        if (cur.getAttribute('role') === 'tablist') return true;
+        const pos = getComputedStyle(cur).position;
+        if ((pos === 'fixed' || pos === 'sticky') && !isLayer(cur)) return true;
+      }
+      return false;
+    };
+    // What paints over (x, y) instead of `own`: null when the point shows `own`, chrome, or
+    // a sibling inside own's screen (a badge, the FAB); otherwise the overlay's kind.
+    const overlayAt = (own: Element, x: number, y: number): 'modal' | 'screen' | null => {
+      const top = document.elementFromPoint(x, y);
+      if (!top || own.contains(top) || top.contains(own) || inChrome(top)) return null;
+      for (let cur: Element | null = top; cur && cur !== document.body; cur = cur.parentElement) {
+        if (cur.contains(own)) return null;
+        if (isLayer(cur)) return top.closest('[aria-modal=true],[role=dialog]') ? 'modal' : 'screen';
+      }
+      return null;
+    };
+    const layerState = (el: Element): 'visible' | 'modal' | 'screen' => {
+      // On screen: covered only when its own centre shows another layer (E-037: a section
+      // merely peeking from under the tab bar was dropped with all its rows).
+      const vr = visibleRect(el);
+      if (vr) return overlayAt(el, (vr.x0 + vr.x1) / 2, (vr.y0 + vr.y1) / 2) || 'visible';
+      // Scrolled out of view: judge its screen, the nearest layer with a visible area.
+      for (let layer = el.parentElement; layer && layer !== document.body; layer = layer.parentElement) {
+        if (!isLayer(layer)) continue;
+        const b = visibleRect(layer);
+        if (!b || b.x1 - b.x0 < 4 || b.y1 - b.y0 < 4) continue;
+        const at = (fx: number, fy: number) => overlayAt(layer!, b.x0 + (b.x1 - b.x0) * fx, b.y0 + (b.y1 - b.y0) * fy);
+        const hits = [at(0.5, 0.5), at(0.25, 0.25), at(0.75, 0.25), at(0.25, 0.75), at(0.75, 0.75)].filter(Boolean);
+        if (hits.length < 4) return 'visible';
+        return hits.includes('modal') ? 'modal' : 'screen';
+      }
+      return 'visible';
+    };
+    const covered = (el: Element) => layerState(el) !== 'visible';
     type C = { r: number; g: number; b: number; a: number };
     const parse = (c: string): C | null => {
       const m = c && c.match(/rgba?\(([^)]+)\)/);
@@ -295,7 +358,11 @@ async function installPageHelpers(page: Page) {
       }
       return null;
     };
-    w.__e2eA11y = { cut, covered, gradientAt, hitSlopOf };
+    // Text made of letters or digits, once emoji are removed: 'ℹ️' (U+2139 is a letter, Ll,
+    // but renders as an emoji), keycaps like '1️⃣' and ZWJ sequences are glyphs, not text.
+    const hasRealText = (s: string) =>
+      /[\p{L}\p{N}]/u.test((s || '').replace(/[\p{N}#*]️?⃣|\p{Extended_Pictographic}|️|‍/gu, ''));
+    w.__e2eA11y = { cut, covered, layerState, visibleRect, inChrome, hasRealText, gradientAt, hitSlopOf };
   });
 }
 
@@ -322,10 +389,18 @@ async function collectInteractive(page: Page) {
         const r = el.getBoundingClientRect();
         return r.right > 0 && r.left < vw && !el.closest('[aria-hidden=true]');
       });
-    // A layer painted over (inactive tab kept mounted, page under a modal scrim) is not
-    // what the user sees or touches: counted, not measured.
-    const coveredCount = reachable.filter((el) => H.covered(el)).length;
-    const all = reachable.filter((el) => !H.covered(el));
+    // A layer painted over is not what the user sees or touches: counted, not measured.
+    // The page under a modal scrim is expected. A whole screen painted over by another one
+    // is a tab kept mounted after blur (E-022): it is still in the accessibility tree, so
+    // it is reported (hiddenMounted + a sample of what it exposes), not silently skipped.
+    const states = reachable.map((el) => H.layerState(el) as 'visible' | 'modal' | 'screen');
+    const coveredCount = states.filter((s) => s !== 'visible').length;
+    const coveredByModal = states.filter((s) => s === 'modal').length;
+    const hiddenEls = reachable.filter((_, i) => states[i] === 'screen');
+    const hiddenMountedSample = Array.from(
+      new Set(hiddenEls.map((el) => H.cut((el.getAttribute('aria-label') || (el as HTMLElement).innerText || el.tagName).trim().replace(/\s+/g, ' '), 40))),
+    ).slice(0, 12);
+    const all = reachable.filter((_, i) => states[i] === 'visible');
     // Drop an element if an interactive ancestor already covers it with the same box
     // (RN-web nests a tabindex div inside a button in a few components).
     const out: any[] = [];
@@ -352,7 +427,7 @@ async function collectInteractive(page: Page) {
         html: H.cut(el.outerHTML.replace(/\s+class="[^"]*"/g, ''), 220),
       });
     });
-    return { items: out, coveredCount };
+    return { items: out, coveredCount, coveredByModal, hiddenMounted: hiddenEls.length, hiddenMountedSample };
   }, INTERACTIVE_SELECTOR);
 }
 
@@ -499,13 +574,18 @@ async function layoutProbe(page: Page): Promise<LayoutProbe> {
         const a = inter[i];
         const b = inter[j];
         if (a.contains(b) || b.contains(a)) continue;
-        // content scrolled under the fixed bottom tab bar is occlusion by design, not a collision
-        const inTabBar = (e: Element) => !!e.closest('[role=tablist]') && e.closest('[role=tablist]')!.getBoundingClientRect().bottom >= vh - 2;
-        if (inTabBar(a) !== inTabBar(b)) continue;
+        // Content scrolled under fixed chrome (the bottom tab bar, the Language screen's
+        // pinned footer) is occlusion by design, not a collision.
+        if (HP.inChrome(a) !== HP.inChrome(b)) continue;
         const ra = a.getBoundingClientRect();
         const rb = b.getBoundingClientRect();
-        const w = Math.min(ra.right, rb.right) - Math.max(ra.left, rb.left);
-        const h = Math.min(ra.bottom, rb.bottom) - Math.max(ra.top, rb.top);
+        // Compare what is visible of each: a row clipped by its ScrollView does not reach
+        // the footer laid out below that ScrollView.
+        const va = HP.visibleRect(a);
+        const vb = HP.visibleRect(b);
+        if (!va || !vb) continue;
+        const w = Math.min(va.x1, vb.x1) - Math.max(va.x0, vb.x0);
+        const h = Math.min(va.y1, vb.y1) - Math.max(va.y0, vb.y0);
         if (w > 2 && h > 2) {
           // Both elements' layers are uncovered (filtered above), so both are painted.
           overlaps.push({ a: label(a), b: label(b), area: Math.round(w * h), ra: R(ra), rb: R(rb) });
@@ -687,7 +767,7 @@ async function contrastProbe(page: Page): Promise<ContrastSample[]> {
     const samples: any[] = [];
     const els = Array.from(document.body.querySelectorAll('*')) as HTMLElement[];
     for (const el of els) {
-      if (!Array.from(el.childNodes).some((n) => n.nodeType === 3 && /[\p{L}\p{N}]/u.test(n.textContent || ''))) continue;
+      if (!Array.from(el.childNodes).some((n) => n.nodeType === 3 && HP.hasRealText(n.textContent || ''))) continue;
       if (!vis(el)) continue;
       const r = el.getBoundingClientRect();
       if (r.right <= 0 || r.left >= vw) continue; // off-canvas horizontally (carousel pages etc.)
@@ -697,7 +777,15 @@ async function contrastProbe(page: Page): Promise<ContrastSample[]> {
     for (const inp of Array.from(document.querySelectorAll('input[placeholder],textarea[placeholder]')) as HTMLInputElement[]) {
       if (!vis(inp) || inp.value || HP.covered(inp)) continue;
       const pc = getComputedStyle(inp, '::placeholder').color;
-      samples.push(measure(inp, pc, true));
+      const sample: any = measure(inp, pc, true);
+      // RN-web paints the placeholder in the input's text colour when placeholderTextColor
+      // is unset, so it scored 21:1 while the native default grey is ≈1.7:1 (E-023). That
+      // is not a measured pass: it is a missing style, reported as a failure.
+      if (pc === getComputedStyle(inp).color) {
+        sample.placeholderUnstyled = true;
+        sample.pass = false;
+      }
+      samples.push(sample);
     }
     // dedupe by text+fg+bg+size
     const byKey = new Map<string, any>();
@@ -713,7 +801,7 @@ async function contrastProbe(page: Page): Promise<ContrastSample[]> {
 
 export async function measureA11y(page: Page, state: string, extra?: Record<string, unknown>): Promise<A11yReport> {
   await installPageHelpers(page);
-  const { items: raw, coveredCount } = await collectInteractive(page);
+  const { items: raw, coveredCount, coveredByModal, hiddenMounted, hiddenMountedSample } = await collectInteractive(page);
   const cdp = await page.context().newCDPSession(page);
   let names = new Map<number, { role: string | null; name: string }>();
   try {
@@ -753,6 +841,8 @@ export async function measureA11y(page: Page, state: string, extra?: Record<stri
     summary: {
       interactiveCount: interactive.length,
       covered: coveredCount,
+      coveredByModal,
+      hiddenMounted,
       unnamed: interactive.filter((i) => i.unnamed).length,
       unnamedNoText: interactive.filter((i) => i.unnamed && !i.text).length,
       rolelessWithText: interactive.filter((i) => i.roleless && !!i.text).length,
@@ -770,6 +860,7 @@ export async function measureA11y(page: Page, state: string, extra?: Record<stri
       overlaps: layout.overlaps.length,
     },
     contrast,
+    hiddenMountedSample,
     ...(extra ? { extra } : {}),
   };
 }
@@ -1009,10 +1100,17 @@ export async function styleFingerprint(page: Page) {
 export async function enlargeText(page: Page, factor = 1.4) {
   return page.evaluate((k) => {
     let n = 0;
+    // Only the bottom tab bar opts out of OS text scaling (tabBarAllowFontScaling: false,
+    // App.tsx). The material top tabs (Reminders, Resources) do scale on device, so they
+    // are scaled here too. The bottom one is the lowest tablist in the lower half of the
+    // screen (top tabs sit under the header).
+    const vh = window.innerHeight;
+    const bottomBar = Array.from(document.querySelectorAll('[role=tablist]'))
+      .filter((t) => t.getBoundingClientRect().width > 0 && t.getBoundingClientRect().top >= vh / 2)
+      .sort((a, b) => b.getBoundingClientRect().top - a.getBoundingClientRect().top)[0];
     for (const el of Array.from(document.body.querySelectorAll('*')) as HTMLElement[]) {
       if (el.dataset.e2eTextScaled) continue;
-      // The tab bar opts out of OS text scaling (tabBarAllowFontScaling: false, App.tsx).
-      if (el.closest('[role=tablist]')) continue;
+      if (bottomBar && bottomBar.contains(el)) continue;
       const hasText = Array.from(el.childNodes).some((c) => c.nodeType === 3 && (c.textContent || '').trim());
       if (!hasText && !(el instanceof HTMLInputElement) && !(el instanceof HTMLTextAreaElement)) continue;
       const cs = getComputedStyle(el);

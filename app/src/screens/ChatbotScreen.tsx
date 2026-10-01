@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, TextInput, FlatList, TouchableOpacity, KeyboardAvoidingView, Platform, ActivityIndicator, Linking, Keyboard, AccessibilityInfo } from 'react-native';
 import { showAlert } from '../utils/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -18,6 +18,7 @@ import { resolveEmergencyContact } from '../utils/clinicalChecks';
 import { emergencyNumberLabel } from '../utils/emergencyNumberLabel';
 import { EmergencyNumberNote } from '../components/common/EmergencyNumberNote';
 import { getDeviceRegionCode } from '../utils/deviceRegion';
+import { shouldPinEmergencyCall } from '../utils/chatEmergency';
 
 interface Message {
     id: string;
@@ -55,6 +56,22 @@ export const ChatbotScreen = () => {
     }, []);
 
     const MAX_INPUT_LENGTH = 500; // ── FIX: prevent arbitrarily long messages
+
+    // Scroll to the end once the frame has laid out. Called on content size change, on
+    // the list's own resize (the loading row and the pinned call bar change its height)
+    // and when the last message lays out: the content size alone fired before a red-flag
+    // reply had its final height, so the list stopped short and the call button stayed
+    // under the chips and the input.
+    const scrollToEnd = useCallback(() => {
+        requestAnimationFrame(() => flatListRef.current?.scrollToEnd({ animated: true }));
+    }, []);
+
+    const callEmergency = () => {
+        Linking.openURL(`tel:${emergencyNumber}`).catch(() =>
+            showAlert(t('common.chatEmergency'), t('common.chatEmergencyAction'))
+        );
+    };
+    const pinCall = !!emergencyNumber && shouldPinEmergencyCall(messages);
 
     const handleSend = async (text: string = inputText, isRetry = false) => {
         let messageText = text.trim();
@@ -126,13 +143,17 @@ export const ChatbotScreen = () => {
         return getLocalizedContent(item, 'label', i18n.language) || item.label_fr || '';
     };
 
-    const renderMessage = ({ item }: { item: Message }) => {
+    const renderMessage = ({ item, index }: { item: Message; index: number }) => {
         const isUser = item.sender === 'user';
+        const isLast = index === messages.length - 1;
         // No per-language override: alignSelf flex-start/flex-end are logical and already mirror
         // under I18nManager RTL (native) and the LocaleProvider/dir=rtl (web), so the user bubble
         // sits on the end side (left in ar/tn). Swapping them for RTL flipped it back to the right.
         return (
-            <View style={[styles.messageContainer, isUser ? styles.userMessage : styles.botMessage]}>
+            <View
+                style={[styles.messageContainer, isUser ? styles.userMessage : styles.botMessage]}
+                onLayout={isLast ? scrollToEnd : undefined}
+            >
                 <Text style={[styles.messageText, isUser ? styles.userMessageText : styles.botMessageText, { textAlign: 'auto' as const }]}>
                     {item.text}
                 </Text>
@@ -176,11 +197,7 @@ export const ChatbotScreen = () => {
                         {emergencyNumber ? (
                             <TouchableOpacity
                                 style={styles.callButton}
-                                onPress={() => {
-                                    Linking.openURL(`tel:${emergencyNumber}`).catch(() =>
-                                        showAlert(t('common.chatEmergency'), t('common.chatEmergencyAction'))
-                                    );
-                                }}
+                                onPress={callEmergency}
                                 accessibilityRole="button"
                                 accessibilityLabel={t('a11y.emergencyCall')}
                                 accessibilityHint={t('a11y.emergencyCallHint')}
@@ -278,12 +295,29 @@ export const ChatbotScreen = () => {
                 renderItem={renderMessage}
                 keyExtractor={item => item.id}
                 contentContainerStyle={styles.listContent}
-                onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+                onContentSizeChange={scrollToEnd}
+                onLayout={scrollToEnd}
             />
 
             {loading && (
                 <View style={[styles.messageContainer, styles.botMessage, { paddingHorizontal: 16, paddingVertical: 12 }]}>
                     <ActivityIndicator size="small" color={theme.colors.primary} />
+                </View>
+            )}
+
+            {/* While the conversation is on an emergency, the call action is pinned above the
+                chips and the input as well, so no scroll position can hide it. */}
+            {pinCall && (
+                <View style={styles.pinnedCallBar} testID="chat_pinned_emergency_call">
+                    <TouchableOpacity
+                        style={styles.pinnedCallButton}
+                        onPress={callEmergency}
+                        accessibilityRole="button"
+                        accessibilityLabel={t('a11y.emergencyCall')}
+                        accessibilityHint={t('a11y.emergencyCallHint')}
+                    >
+                        <Text style={styles.callButtonText}>📞 {t('common.chatEmergencyAction')} ({emergencyNumberLabel(t, emergencyContact)})</Text>
+                    </TouchableOpacity>
                 </View>
             )}
 
@@ -464,6 +498,23 @@ const styles = StyleSheet.create({
         minHeight: 44,
         borderRadius: theme.borderRadius.m,
         alignSelf: 'flex-start',
+        justifyContent: 'center',
+    },
+    pinnedCallBar: {
+        paddingHorizontal: theme.spacing.m,
+        paddingVertical: theme.spacing.s,
+        backgroundColor: theme.colors.surfaceRose,
+        borderTopWidth: 1,
+        borderTopColor: theme.colors.error,
+    },
+    pinnedCallButton: {
+        // Same red800 as the in-message call button (white on it is 5.6:1).
+        backgroundColor: theme.colors.red800,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        minHeight: 44,
+        borderRadius: theme.borderRadius.m,
+        alignItems: 'center',
         justifyContent: 'center',
     },
     callButtonText: {

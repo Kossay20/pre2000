@@ -38,7 +38,7 @@ import { useDateLocale } from '../hooks/useDateLocale';
 import { requestNotificationsAndResync } from '../services/notificationPermissionFlow';
 import { sendTestNotification, getScheduledNotifications } from '../services/rdvNotificationService';
 import { generateAndSharePDF } from '../services/pdfExportService';
-import { getAllWeightEntries } from '../services/weightService';
+import { getAllWeightEntries, latestWeighingPerDay } from '../services/weightService';
 import { getAppointments } from '../services/appointmentService';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
 import { useAccountDeletion } from '../hooks/useAccountDeletion';
@@ -403,8 +403,8 @@ export const SettingsScreen = () => {
                                 return;
                             }
 
-                            // Health-dashboard weighings included, as on the tracker.
-                            const weightHistoryData = await getAllWeightEntries(userId);
+                            // Health-dashboard weighings included, one per day, as on the tracker.
+                            const weightHistoryData = latestWeighingPerDay(await getAllWeightEntries(userId));
                             const appointmentsData = await getAppointments();
 
                             // P3.6 FIX: pass the real Profile (firstName, lmp, country) — was passing

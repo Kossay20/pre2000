@@ -9,6 +9,14 @@ import { Locale } from 'date-fns';
 import { TFunction } from 'i18next';
 import { Profile } from '../context/PregnancyContext';
 import { createLogger } from '../utils/logger';
+import { parseLocalDateKey, storedDateKey } from '../utils/localDate';
+
+/** A stored LMP or due date names a calendar day: read it as that day, not as an instant
+ *  (UTC midnight is the evening before west of UTC). */
+const calendarDay = (iso: string): Date => {
+    const date = new Date(iso);
+    return parseLocalDateKey(storedDateKey(date)) ?? date;
+};
 
 const log = createLogger('PDFExportService');
 
@@ -247,12 +255,12 @@ const generateHTML = (data: JournalData, t: TFunction, locale: Locale, langCode:
                     ${profile.lmp ? `
                     <div class="profile-item">
                         <div class="profile-label">${t('pdf.lmp')}</div>
-                        <div class="profile-value">${format(new Date(profile.lmp), 'dd MMM yyyy', { locale })}</div>
+                        <div class="profile-value">${format(calendarDay(profile.lmp), 'dd MMM yyyy', { locale })}</div>
                     </div>` : ''}
                     ${profile.dpa ? `
                     <div class="profile-item">
                         <div class="profile-label">${t('pdf.dpa')}</div>
-                        <div class="profile-value">${format(new Date(profile.dpa), 'dd MMM yyyy', { locale })}</div>
+                        <div class="profile-value">${format(calendarDay(profile.dpa), 'dd MMM yyyy', { locale })}</div>
                     </div>` : ''}
                 </div>
             </div>

@@ -57,6 +57,7 @@ import { RtlAwareChevron } from '../../components/common/RtlAwareChevron';
 import { useScreenAnalytics } from '../../hooks/useScreenAnalytics';
 import { useFocusEffect } from '@react-navigation/native';
 import { styles } from './RemindersTab.styles';
+import { displayedAgeOf } from '../../utils/pregnancyCalculator';
 
 // ============================================
 // PERMISSION BANNER
@@ -507,7 +508,7 @@ export const RemindersTab = () => {
                 <View style={styles.header}>
                     <Text style={styles.headerTitle}>{t('common.myReminders')}</Text>
                     <Text style={styles.headerSubtitle}>
-                        {t('common.week')} {pregnancyInfo?.week} • {t('common.trimesterLabel', { trimester: profile.trimester })}
+                        {t('common.week')} {displayedAgeOf(pregnancyInfo).week} • {t('common.trimesterLabel', { trimester: profile.trimester })}
                     </Text>
                 </View>
 

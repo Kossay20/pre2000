@@ -53,10 +53,14 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
     const swapChevrons = Platform.OS === 'web' && isRTL;
     const prevChevron = swapChevrons ? 'chevron-forward' : 'chevron-back';
     const nextChevron = swapChevrons ? 'chevron-back' : 'chevron-forward';
+    const suggestionsCount = calendarView === 'month' ? suggestionsThisMonthCount : suggestionsThisWeekCount;
+    const suggestionsLabel = suggestionsCount > 0
+        ? t('calendar.suggestionsCount', { count: suggestionsCount })
+        : t('calendar.suggestions');
 
     return (
         <LinearGradient
-            colors={[theme.colors.primaryStrong, theme.colors.accent, theme.colors.deepPink]}
+            colors={[theme.colors.primaryStrong, theme.colors.accent]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.header}
@@ -125,18 +129,14 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                     hitSlop={HEADER_CHIP_HIT_SLOP}
                     onPress={onToggleSuggestions}
                     accessibilityRole="button"
-                    accessibilityLabel={t('calendar.suggestions')}
+                    // The name carries the count the pill shows (WCAG 2.5.3: the visible label is in the name).
+                    accessibilityLabel={suggestionsLabel}
                     accessibilityState={{ expanded: showSuggestions }}
                     // CAL-R2-03: RN-web 0.21.2 drops accessibilityState.expanded → expose aria explicitly.
                     {...(Platform.OS === 'web' ? { 'aria-expanded': showSuggestions } : {})}
                 >
                     <Ionicons name="bulb" size={16} color={theme.colors.text} style={{ marginEnd: 4 }} />
-                    <Text style={styles.suggestionText}>
-                        {calendarView === 'month'
-                            ? (suggestionsThisMonthCount > 0 ? t('calendar.suggestionsCount', { count: suggestionsThisMonthCount }) : t('calendar.suggestions'))
-                            : (suggestionsThisWeekCount > 0 ? t('calendar.suggestionsCount', { count: suggestionsThisWeekCount }) : t('calendar.suggestions'))
-                        }
-                    </Text>
+                    <Text style={styles.suggestionText}>{suggestionsLabel}</Text>
                 </TouchableOpacity>
             </View>
 

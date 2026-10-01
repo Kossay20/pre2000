@@ -44,3 +44,14 @@ export const MODAL_MAX_WIDTH = 480;
  */
 export const getContentWidth = (): number =>
   Math.min(Dimensions.get('window').width, TABLET_CONTENT_MAX_WIDTH);
+
+/**
+ * The Home baby illustration. On a phone: 60% of the width, 240pt tall. In the 720pt
+ * tablet column a fixed 240pt square floated in a 650pt pastel box, so there it grows
+ * with the column (card padding off), up to 420pt.
+ */
+export const babyIllustrationSize = (contentWidth: number): { width: number; height: number } => {
+  if (contentWidth < TABLET_BREAKPOINT) return { width: contentWidth * 0.6, height: 240 };
+  const side = Math.min(contentWidth - 96, 420);
+  return { width: side, height: side };
+};

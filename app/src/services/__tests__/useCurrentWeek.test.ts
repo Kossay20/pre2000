@@ -496,3 +496,27 @@ describe('useCurrentWeek — refetch', () => {
         expect(result.current.error).toBeNull();
     });
 });
+
+describe('useCurrentWeek — the printed week past term (A-025)', () => {
+    it('40+3 SA: content week 40, printed "Semaine 41" and "Jour 284"', () => {
+        mockUsePregnancy.mockReturnValue({
+            pregnancyInfo: { week: 40, dayInWeek: 7, isPostTerm: true, completedWeeks: 40, completedDays: 3, mode: 'pregnant' },
+            loading: false,
+        });
+        const { result } = renderHook();
+        expect(result.current.currentWeekNumber).toBe(40);
+        expect(result.current.displayWeek).toBe(41);
+        expect(result.current.dayOfPregnancy).toBe(284);
+    });
+
+    it('a previewed week never changes the real printed week', () => {
+        mockUsePregnancy.mockReturnValue({
+            pregnancyInfo: { week: 32, dayInWeek: 1, completedWeeks: 31, completedDays: 0, mode: 'pregnant' },
+            loading: false,
+        });
+        const { result } = renderHook(27);
+        expect(result.current.currentWeekNumber).toBe(27);
+        expect(result.current.displayWeek).toBe(32);
+        expect(result.current.dayOfPregnancy).toBe(218);
+    });
+});

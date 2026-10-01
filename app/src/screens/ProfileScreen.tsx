@@ -12,7 +12,7 @@ import { theme } from '../theme';
 import { styles } from './ProfileScreen.styles';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useNavigation } from '@react-navigation/native';
-import { addDays, format } from 'date-fns';
+import { format } from 'date-fns';
 import { useDateLocale } from '../hooks/useDateLocale';
 import { LanguageSelector } from '../components/common/LanguageSelector';
 import { RtlAwareChevron } from '../components/common/RtlAwareChevron';
@@ -23,7 +23,8 @@ import { COUNTRY_OPTIONS } from '../utils/clinicalChecks';
 import { EmergencyContactsSection } from '../components/profile/EmergencyContactsSection';
 import { openSupportEmail } from '../services/supportService';
 import { getPickerLocale } from '../utils/pickerLocale';
-import { calculatePregnancyWeek, calculateCurrentWeek } from '../utils/pregnancyCalculator';
+import { calculatePregnancyWeek, calculateCurrentWeek, dueDateFromLmp } from '../utils/pregnancyCalculator';
+import { parseLocalDateKey, storedDateKey, toLocalDateKey } from '../utils/localDate';
 
 import { LineChart } from 'react-native-chart-kit';
 import { Ionicons } from '@expo/vector-icons';
@@ -44,7 +45,7 @@ export const ProfileScreen = () => {
     const { user, firebaseUser, logout, updateProfile } = useAuth();
     const { requestDeleteAccount, requestResetProfile, busy: deletionBusy, reauthModal } = useAccountDeletion();
     const { profile, setProfile } = usePregnancy();
-    const { currentWeekNumber } = useCurrentWeek();
+    const { displayWeek } = useCurrentWeek();
     const navigation = useNavigation();
     const { t, i18n } = useTranslation();
     const { isRTL } = useRtl();
@@ -89,12 +90,14 @@ export const ProfileScreen = () => {
         }
     }, [profile]);
 
-    // Calculate DPA (Due Date) = LMP + 280 days
-    const calculateDPA = (lmpDate: Date): Date => {
-        return addDays(lmpDate, 280);
-    };
-
-    const dpa = calculateDPA(lmp);
+    // The LMP and the due date are calendar days. A typed or seeded LMP is stored as UTC
+    // midnight, which local time shows as the evening before west of UTC: in New York both
+    // dates read a day early (DPA "01 décembre" where Paris said "02 décembre").
+    const lmpDay = parseLocalDateKey(storedDateKey(lmp)) ?? lmp;
+    const dpa = dueDateFromLmp(lmp) ?? lmpDay;
+    // Stored the way a calendar day is (UTC midnight of that day), so storedDateKey reads
+    // the same day back in every timezone.
+    const dpaIso = `${toLocalDateKey(dpa)}T00:00:00.000Z`;
 
     const handleSave = async () => {
         // VALIDATION FIX: this screen only checked "firstName is non-empty".
@@ -149,7 +152,7 @@ export const ProfileScreen = () => {
                 lastName: lastName.trim() || undefined,
                 country,
                 lmp: lmp.toISOString(),
-                dpa: dpa.toISOString(),
+                dpa: dpaIso,
                 // F-PROF-01 FIX: include physical data so the guest 'guestProfile'
                 // AsyncStorage write (PregnancyContext.setProfile) persists height &
                 // prePregnancyWeight. Without these, guest BMI/weight-gain break and
@@ -167,7 +170,7 @@ export const ProfileScreen = () => {
                 country,
                 pregnancyStartDate: lmp.toISOString(),
                 lmp: lmp.toISOString(),
-                dpa: dpa.toISOString(),
+                dpa: dpaIso,
                 currentWeek: calculateCurrentWeek(lmp),
                 // PROFILE-FIX: Persist physical data for BMI and weight gain calculations
                 ...(isFinite(heightNum) && heightNum > 0 ? { height: heightNum } : {}),
@@ -262,7 +265,7 @@ export const ProfileScreen = () => {
                     </View>
                     <Text style={styles.headerTitle}>{firstName || t('profile.title')} {lastName}</Text>
                     <Text style={[styles.headerSubtitle, { fontWeight: 'bold' }]}>
-                        {t('common.week')} {currentWeekNumber || '—'}
+                        {t('common.week')} {displayWeek || '—'}
                     </Text>
                     <Text style={styles.headerSubtitle}>
                         {/* GUEST-LABEL FIX: this read only the Firestore profile's `email`
@@ -306,6 +309,7 @@ export const ProfileScreen = () => {
                                 value={firstName}
                                 onChangeText={setFirstName}
                                 placeholder={t('common.enterFirstName')}
+                                placeholderTextColor={theme.colors.neutral400}
                                 maxLength={50}
                                 accessibilityLabel={t('common.firstName')}
                             />
@@ -316,6 +320,7 @@ export const ProfileScreen = () => {
                                 value={lastName}
                                 onChangeText={setLastName}
                                 placeholder={t('common.enterLastName')}
+                                placeholderTextColor={theme.colors.neutral400}
                                 maxLength={50}
                                 accessibilityLabel={t('common.lastName')}
                             />
@@ -332,6 +337,7 @@ export const ProfileScreen = () => {
                                         value={height}
                                         onChangeText={setHeight}
                                         placeholder={t('profile.heightPlaceholder')}
+                                        placeholderTextColor={theme.colors.neutral400}
                                         keyboardType="numeric"
                                         maxLength={3}
                                         accessibilityLabel={t('profile.height', 'Taille (cm)')}
@@ -344,6 +350,7 @@ export const ProfileScreen = () => {
                                         value={prePregnancyWeight}
                                         onChangeText={setPrePregnancyWeight}
                                         placeholder={t('profile.weightPlaceholderShort')}
+                                        placeholderTextColor={theme.colors.neutral400}
                                         keyboardType="numeric"
                                         maxLength={5}
                                         accessibilityLabel={t('profile.prePregnancyWeight', 'Poids avant (kg)')}
@@ -360,18 +367,18 @@ export const ProfileScreen = () => {
                                     style={styles.dateButton}
                                     onPress={() => setShowDatePicker(true)}
                                     accessibilityRole="button"
-                                    accessibilityLabel={`${t('profile.lmpLabel')}: ${format(lmp, 'dd MMM yyyy', { locale: dateLocale })}`}
+                                    accessibilityLabel={`${t('profile.lmpLabel')}: ${format(lmpDay, 'dd MMM yyyy', { locale: dateLocale })}`}
                                     accessibilityHint={t('a11y.selectDate')}
                                 >
                                     <Text style={styles.dateButtonText}>
-                                        {format(lmp, 'dd MMM yyyy', { locale: dateLocale })}
+                                        {format(lmpDay, 'dd MMM yyyy', { locale: dateLocale })}
                                     </Text>
                                 </TouchableOpacity>
                             </View>
 
                             {showDatePicker && (
                                 <DateTimePicker
-                                    value={lmp}
+                                    value={lmpDay}
                                     mode="date"
                                     display="spinner"
                                     onChange={(event, selectedDate) => {

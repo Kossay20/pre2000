@@ -38,9 +38,12 @@
   "pregnancy": "Votre Grossesse",
   "currentWeek": "Semaine actuelle",
   "reminders": {
-    "appointmentsToday": "Aujourd'hui : {{count}} rendez-vous !",
-    "appointmentsTomorrow": "N'oubliez pas ! {{count}} rendez-vous demain.",
-    "appointmentsWeek": "Vous avez {{count}} rendez-vous prévus cette semaine.",
+    "appointmentsToday_one": "Aujourd'hui : {{count}} rendez-vous !",
+    "appointmentsToday_other": "Aujourd'hui : {{count}} rendez-vous !",
+    "appointmentsTomorrow_one": "N'oubliez pas ! {{count}} rendez-vous demain.",
+    "appointmentsTomorrow_other": "N'oubliez pas ! {{count}} rendez-vous demain.",
+    "appointmentsWeek_one": "Vous avez {{count}} rendez-vous prévu cette semaine.",
+    "appointmentsWeek_other": "Vous avez {{count}} rendez-vous prévus cette semaine.",
     "tasksToday": "{{count}} tâche(s) à faire aujourd'hui.",
     "tasksImportant": "{{count}} tâche(s) importante(s) en attente.",
     "tasksOngoing": "Vous avez {{count}} tâche(s) en cours."

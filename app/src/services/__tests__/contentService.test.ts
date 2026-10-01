@@ -13,6 +13,8 @@ jest.mock('../../config/firebase', () => ({ db: {} }));
 // returns the fixture docs for the requested ids (or week docs for the week query).
 const ARTICLE_FIXTURE: Record<string, any> = {
   a1: { article_id: 'a1', title_fr: 'A1' }, a2: { article_id: 'a2', title_fr: 'A2' }, a3: { article_id: 'a3', title_fr: 'A3' },
+  // Firestore is seeded from articles_db.json, so it carries art_003 (Ramadan fasting).
+  art_003: { article_id: 'art_003', title_fr: 'Le jeûne du Ramadan : Ce qu\'il faut savoir' },
 };
 const SUPP_FIXTURE: Record<string, any> = {
   s1: { supplement_id: 's1', name_fr: 'Fer' }, s2: { supplement_id: 's2', name_fr: 'Iode' },
@@ -80,6 +82,13 @@ describe('contentService.getArticlesByIds', () => {
     expect(r).toHaveLength(1);
     expect(r[0].article_id).toBe('a01_symptômes_de_grossesse');
     expect(typeof r[0].title_fr).toBe('string');
+  });
+
+  it('never returns an article on a topic still waiting for its reviewer, from Firestore or the bundle', async () => {
+    expect((await getArticlesByIds(['art_003', 'a1'])).map(a => a.article_id)).toEqual(['a1']);
+    clearContentCache();
+    (getDocs as jest.Mock).mockRejectedValueOnce(new Error('permission-denied'));
+    expect(await getArticlesByIds(['art_003'])).toEqual([]);
   });
 
   it('backfills only the missing ids from bundled data when Firestore returns a partial/empty result', async () => {

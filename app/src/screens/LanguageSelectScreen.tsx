@@ -124,9 +124,16 @@ export const LanguageSelectScreen = () => {
                 >
                     <Text style={styles.headerEmoji}>🌐</Text>
                     <Text style={styles.headerTitle}>{t('common.chooseLanguage')}</Text>
-                    <Text style={styles.headerSubtitle}>
-                        {t('common.chooseLanguageSubtitle')}
-                    </Text>
+                    {/* One line per language. As one wrapping line it broke inside a phrase
+                        and split the Arabic one across lines ("اختر" / "لغتك"); each run is its
+                        own paragraph with its own direction (RN-web gives a root Text dir=auto). */}
+                    <View style={styles.headerSubtitleBlock}>
+                        {t('common.chooseLanguageSubtitle').split('•').map((part) => (
+                            <Text key={part} style={styles.headerSubtitle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>
+                                {part.trim()}
+                            </Text>
+                        ))}
+                    </View>
                 </LinearGradient>
 
                 <View style={styles.content}>
@@ -209,14 +216,14 @@ export const LanguageSelectScreen = () => {
             {/* Continue Button */}
             <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
                 <TouchableOpacity
-                    style={styles.backButton}
+                    style={styles.continueButton}
                     onPress={handleContinue}
                     accessibilityRole="button"
                     accessibilityLabel={t('common.continue')}
                 >
                     <View style={styles.continueRow}>
-                        <Text style={styles.backButtonText}>{t('common.continue')}</Text>
-                        <RtlAwareChevron direction="forward" variant="arrow" size={18} color={theme.colors.textSecondary} />
+                        <Text style={styles.continueButtonText}>{t('common.continue')}</Text>
+                        <RtlAwareChevron direction="forward" variant="arrow" size={18} color={theme.colors.white} />
                     </View>
                 </TouchableOpacity>
             </View>
@@ -258,13 +265,18 @@ const styles = StyleSheet.create({
         color: theme.colors.white,
         marginBottom: 8,
     },
+    headerSubtitleBlock: {
+        // The trilingual subtitle ran edge to edge (x=2 in a 375 viewport).
+        paddingHorizontal: 16,
+        alignSelf: 'stretch',
+        alignItems: 'center',
+    },
     headerSubtitle: {
         fontSize: 14,
+        lineHeight: 20,
         // Full white: 90 % white over the gradient fell under 4.5:1.
         color: theme.colors.white,
         textAlign: 'center',
-        // The trilingual subtitle ran edge to edge (x=2 in a 375 viewport).
-        paddingHorizontal: 16,
     },
     content: {
         padding: 16,
@@ -354,18 +366,20 @@ const styles = StyleSheet.create({
         color: theme.colors.blue800,
         lineHeight: 20,
     },
-    backButton: {
-        backgroundColor: theme.colors.white,
+    // The screen's only action, filled like every primary button in the funnel (the
+    // shared Button's primary: accent fill, white text). Grey-on-white read as disabled.
+    continueButton: {
+        backgroundColor: theme.colors.accent,
         paddingVertical: 14,
+        minHeight: 48,
         borderRadius: 12,
         alignItems: 'center',
-        borderWidth: 1,
-        borderColor: theme.colors.disabled,
+        justifyContent: 'center',
     },
-    backButtonText: {
+    continueButtonText: {
         fontSize: 16,
-        fontWeight: '600',
-        color: theme.colors.textSecondary,
+        fontWeight: '700',
+        color: theme.colors.white,
     },
     continueRow: {
         flexDirection: 'row',

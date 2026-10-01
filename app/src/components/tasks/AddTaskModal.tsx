@@ -207,6 +207,7 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
                             <TextInput
                                 style={styles.input}
                                 placeholder={t('tasks.modal.placeholder')}
+                                placeholderTextColor={theme.colors.neutral400}
                                 value={title}
                                 onChangeText={setTitle}
                                 maxLength={100}
@@ -249,7 +250,7 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
                                     <Text
                                         style={[
                                             styles.priorityButtonText,
-                                            priority === 'medium' && styles.priorityButtonTextActive,
+                                            priority === 'medium' && styles.priorityButtonTextActiveMedium,
                                         ]}
                                     >
                                         {t('tasks.modal.medium')}

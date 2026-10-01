@@ -142,6 +142,52 @@ describe('website deletion instructions match the app', () => {
     for (const term of terms) expect({ file, term, phoneOnly: list![1].includes(term) }).toEqual({ file, term, phoneOnly: false });
   });
 
+  // The in-app policy states the legal basis for health data (explicit consent, with the
+  // date and policy version recorded) and how to withdraw it. The public page is the URL
+  // both consoles hold, and it said neither (GDPR art. 13(1)(c), 13(2)(c)).
+  const pageText = (file: string) =>
+    site(file).replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/&rarr;/g, '→').replace(/\s+/g, ' ');
+  const section = (file: string, from: RegExp, to: RegExp) => {
+    const text = pageText(file);
+    const start = text.search(from);
+    const end = text.slice(start + 1).search(to) + start + 1;
+    expect({ file, found: start > -1 && end > start }).toEqual({ file, found: true });
+    return text.slice(start, end);
+  };
+
+  it.each([
+    ['fr', 'privacy.html'],
+    ['en', 'privacy-en.html'],
+  ] as const)('%s %s states the explicit-consent basis in the in-app words', (lang, file) => {
+    const consent: string = load(lang, 'common').privacy.usage.consent;
+    expect(pageText(file).toLowerCase()).toContain(consent.toLowerCase());
+  });
+
+  it.each([
+    ['fr', 'privacy.html', /Retrait du consentement/, /Par email/],
+    ['en', 'privacy-en.html', /Withdrawing consent/, /By email/],
+  ] as const)('%s %s says how to withdraw that consent, with and without an account', (lang, file, from, to) => {
+    const c = load(lang, 'common');
+    const withdraw = section(file, from, to);
+    for (const label of [c.privacyData.deleteAccount, c.privacyData.eraseGuestData, c.medicalProfile.settingsTitle]) {
+      expect({ file, label, found: withdraw.includes(label) }).toEqual({ file, label, found: true });
+    }
+  });
+
+  it.each([
+    ['fr', 'privacy.html', /6\. Durée de Conservation/, /7\. Vos Droits/, 'identifiant anonyme'],
+    ['en', 'privacy-en.html', /6\. Retention/, /7\. Your Rights/, 'anonymous identifier'],
+  ] as const)('%s %s says how long guest data stays on the servers, without inventing a period', (lang, file, from, to, anon) => {
+    // With Anonymous Auth on, a guest's entries sit in Firestore under an anonymous uid
+    // until "Erase my data"; nothing deletes them automatically today. The period is the
+    // owner's decision (RELEASE_READINESS §4, 5 ter) — the page states what happens now
+    // and carries no placeholder number.
+    const retention = section(file, from, to);
+    expect(retention).toContain(anon);
+    expect(retention).toContain(load(lang, 'common').privacyData.eraseGuestData);
+    expect(retention).not.toMatch(/(?:\d+|\bN)\s*(?:jours|days|mois|months|semaines|weeks)|TODO|XX|\[/);
+  });
+
   it.each(['privacy.html', 'privacy-en.html'])('%s is dated 2026-09-30', file => {
     expect(site(file)).toMatch(/30 septembre 2026|September 30, 2026/);
   });

@@ -15,6 +15,7 @@ import {
 } from '../types/remindersV2';
 import { trimesterFromWeek } from './pregnancyCalculator';
 import { toLocalDateKey } from './localDate';
+import { RAMADAN_GUIDANCE_CLINICALLY_REVIEWED } from '../config/featureFlags';
 
 /**
  * Match a number against a comparator or exact value
@@ -189,7 +190,10 @@ export function buildContextProfile(
         trimester,
         week_of_pregnancy: weekOfPregnancy,
         is_hot_season: isHotSeason(),
-        is_ramadan: userFlags?.is_ramadan ?? isRamadan(),
+        // The Ramadan rule moves hydration reminders to the night (21:30, 23:30, 03:30):
+        // fasting guidance, applied by calendar to every user whether she fasts or not.
+        // It is the hidden Ramadan screen's subject, so it waits for the same sign-off.
+        is_ramadan: RAMADAN_GUIDANCE_CLINICALLY_REVIEWED && (userFlags?.is_ramadan ?? isRamadan()),
         has_gestational_diabetes: userFlags?.has_gestational_diabetes ?? false,
         has_hypertension: userFlags?.has_hypertension ?? false,
         is_twins: userFlags?.is_twins ?? false,

@@ -218,6 +218,7 @@ export const EmergencyContactsSection = () => {
                     <TextInput
                         style={styles.input}
                         placeholder={t('emergency.name')}
+                        placeholderTextColor={theme.colors.neutral400}
                         value={newName}
                         onChangeText={setNewName}
                         maxLength={50}
@@ -226,6 +227,7 @@ export const EmergencyContactsSection = () => {
                     <TextInput
                         style={styles.input}
                         placeholder={t('emergency.phone')}
+                        placeholderTextColor={theme.colors.neutral400}
                         value={newNumber}
                         onChangeText={setNewNumber}
                         keyboardType="phone-pad"

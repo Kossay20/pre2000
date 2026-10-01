@@ -1,5 +1,5 @@
 import { createLogger } from './logger';
-import { daysBetweenDateKeys, storedDateKey, toLocalDateKey } from './localDate';
+import { daysBetweenDateKeys, parseLocalDateKey, storedDateKey, toLocalDateKey } from './localDate';
 const log = createLogger('pregnancyCalculator');
 /** Last day a pregnancy is still plausible: 42+0 SA (294 days after the LMP). */
 export const MAX_GESTATION_DAYS = 294;
@@ -65,6 +65,58 @@ export const calculatePregnancyWeek = (lmpDate: Date): PregnancyWeekInfo => {
     const day = completedDays + 1;
     log.debug(`[PregnancyCalculator] ✅ Calculated: Week ${week}, Day ${day} (${diffDays} days since LMP)`);
     return { week, day, completedWeeks, completedDays, isPostTerm: false, isInvalid: false };
+};
+
+export interface DisplayedPregnancyAge {
+    /** Week in progress as printed ("Semaine 41" at 40+3 SA). */
+    week: number;
+    /** Day of that week, 1..7. */
+    day: number;
+    /** Day of pregnancy, 1-based ("Jour 284" at 40+3 SA). */
+    dayOfPregnancy: number;
+}
+
+/**
+ * Her week and day as every screen prints them, from the COMPLETED weeks and days.
+ *
+ * `week`/`day` from calculatePregnancyWeek stop at 40/7 from the due date on, because
+ * they pick the weeks content and that ends at 40. Screens printed them, so from 40+0 to
+ * 42+0 Home said "Semaine 40" and "Jour 280" for two weeks while onboarding said
+ * "Semaine 41" and the post-term note "40 SA + 3 jours". The printed age follows the
+ * calendar up to 42+0 (the last plausible day); only the content stays on week 40.
+ */
+export const displayedPregnancyAge = (completedWeeks: number, completedDays: number): DisplayedPregnancyAge => {
+    const days = Math.min(Math.max(0, completedWeeks * 7 + completedDays), MAX_GESTATION_DAYS);
+    return { week: Math.floor(days / 7) + 1, day: (days % 7) + 1, dayOfPregnancy: days + 1 };
+};
+
+/**
+ * displayedPregnancyAge for what PregnancyContext publishes (`week`/`dayInWeek` plus the
+ * completed weeks and days), falling back to the 1-based pair when those are absent.
+ */
+export const displayedAgeOf = (info?: {
+    week?: number;
+    dayInWeek?: number;
+    completedWeeks?: number;
+    completedDays?: number;
+} | null): DisplayedPregnancyAge =>
+    displayedPregnancyAge(
+        info?.completedWeeks ?? (info?.week || 1) - 1,
+        info?.completedDays ?? (info?.dayInWeek || 1) - 1,
+    );
+
+/**
+ * The due date (LMP + 280 days) as a calendar day, at local midnight.
+ *
+ * The LMP is a calendar day (see storedDateKey: typed on the web it is stored as UTC
+ * midnight), so the due date is too. Adding 280 days to the stored instant and formatting
+ * it in local time gave the evening before west of UTC: the same account read
+ * "01 décembre" in New York and "02 décembre" in Paris.
+ */
+export const dueDateFromLmp = (lmpDate: Date): Date | null => {
+    const lmpDay = parseLocalDateKey(storedDateKey(lmpDate));
+    if (!lmpDay) return null;
+    return new Date(lmpDay.getFullYear(), lmpDay.getMonth(), lmpDay.getDate() + TERM_DAYS);
 };
 
 /**

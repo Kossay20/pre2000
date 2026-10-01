@@ -199,6 +199,9 @@ async function snapState(
   writeA11yJson(OUT_DIRS, state, report);
 
   const L = report.layout;
+  // A screen painted over yet still mounted and in the accessibility tree (a tab kept
+  // alive after blur, E-022) is reported, not skipped as "covered".
+  expect.soft(report.hiddenMountedSample, `${state}: ${report.summary.hiddenMounted} control(s) on a hidden screen still exposed to assistive tech`).toEqual([]);
   expect.soft(L.horizontalScroll, `${state}: horizontal scroll (scrollWidth ${L.doc.scrollWidth} > clientWidth ${L.doc.clientWidth})`).toBe(false);
   expect.soft(L.offscreenX, `${state}: element(s) leave the viewport horizontally`).toEqual([]);
   if (opts.cta && opts.ctaIsPrimary !== false) {
@@ -290,7 +293,7 @@ test.afterAll(async () => {
     allReports.flatMap((r) =>
       r.contrast
         .filter((s) => s.pass === false)
-        .map((s) => ({ key: `${s.text}|${s.fg}|${s.bg}|${s.fontSize}`, state: r.state, item: { text: s.text, fg: s.fg, bg: s.bg, ratio: s.ratio, threshold: s.threshold, fontSize: s.fontSize, fontWeight: s.fontWeight, disabled: s.disabled, placeholder: !!s.placeholder, path: s.path } })),
+        .map((s) => ({ key: `${s.text}|${s.fg}|${s.bg}|${s.fontSize}`, state: r.state, item: { text: s.text, fg: s.fg, bg: s.bg, ratio: s.ratio, threshold: s.threshold, fontSize: s.fontSize, fontWeight: s.fontWeight, disabled: s.disabled, placeholder: !!s.placeholder, placeholderUnstyled: !!s.placeholderUnstyled, path: s.path } })),
     ),
   );
   const out = {
@@ -301,7 +304,9 @@ test.afterAll(async () => {
       names: 'Chromium AX tree via CDP Accessibility.getPartialAXTree per interactive element',
       targets: 'getBoundingClientRect CSS px; small44 = w<44 || h<44 (Apple HIG / plan), below24 = WCAG 2.5.8 floor (spacing exception NOT evaluated)',
       contrast: 'computed color/background-color/opacity along the ancestor chain, exact normal-blend composition over white; a CSS linear-gradient is evaluated at the text position (worst of 3 points across the text box); url() background → indeterminate; WCAG large = ≥24px or ≥18.66px & ≥700',
-      interactiveSelector: 'button, a[href], input, textarea, select, [role=button|link|checkbox|switch|tab|radio|menuitem|slider], [tabindex="0"] — visible only, and not on a layer painted over (inactive tab kept mounted, page under a modal scrim: summary.covered)',
+      interactiveSelector: 'button, a[href], input, textarea, select, [role=button|link|checkbox|switch|tab|radio|menuitem|slider], [tabindex="0"] — visible only, and not on a layer painted over: summary.covered = coveredByModal (page under a modal scrim, expected) + hiddenMounted (a screen painted over but still mounted and exposed, E-022, asserted). Covered = the element\'s own visible centre shows another layer; fixed chrome (tab bars, pinned footers) never covers',
+      placeholders: 'a placeholder drawn in the input\'s text colour (placeholderTextColor unset; RN-web default) is placeholderUnstyled and counted as a failure, not scored',
+      emoji: 'text nodes whose only letters/digits are emoji glyphs (ℹ️ U+2139, keycaps, ZWJ) are not contrast samples',
       counts: 'unnamed = empty Chromium AX name; unnamedNoText = unnamed AND no visible text (truly nameless); rolelessWithText = role-less tabindex div showing text; small44Native = small44 re-evaluated on the box grown by the pressable\'s hitSlop prop (RN-web does not render hitSlop)',
     },
     states: summaries,
