@@ -56,9 +56,15 @@ const VITAMINS = 'Vitamines prénatales';
 
 // ── Shared steps ──────────────────────────────────────────────────────────────
 
-async function newWeek32Account(scenario: string): Promise<CreatedAccount> {
+/** Week 32 as of the user's LOCAL calendar day in `tz` (the app dates the pregnancy by local day). */
+async function newWeek32Account(scenario: string, tz = 'Europe/Paris'): Promise<CreatedAccount> {
   const acct = await createAccount(newAccountEmail('B', scenario), E2E_PASSWORD);
-  await seedProfile(acct.uid, acct.idToken, { week: 32, country: 'France', lastName: 'Testeur', firstName: 'Wave' });
+  const [y, m, d] = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' })
+    .format(new Date())
+    .split('-')
+    .map(Number);
+  const now = new Date(Date.UTC(y, m - 1, d));
+  await seedProfile(acct.uid, acct.idToken, { week: 32, now, country: 'France', lastName: 'Testeur', firstName: 'Wave' });
   return acct;
 }
 
@@ -783,7 +789,7 @@ test.describe('Wave B — B-plan (Europe/Paris)', () => {
 
 async function tzRun(page: Page, testInfo: TestInfo, tz: string, slug: string, base: number) {
   const obs = new Observations('wave-B-plan-observations.json', testInfo);
-  const acct = await newWeek32Account(`tz-${slug}`);
+  const acct = await newWeek32Account(`tz-${slug}`, tz);
   const h = instrument(page, testInfo);
   try {
     await uiLogin(page, acct.email, E2E_PASSWORD, 'fr');

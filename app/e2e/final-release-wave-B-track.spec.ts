@@ -43,8 +43,8 @@ async function kickSnapshot(page: Page) {
   await page.waitForTimeout(800);
   const text = await bodyText(page);
   return {
-    historyRows: (text.match(/^\d+ coups$/gm) || []).length,
-    rows: text.match(/^\d+ coups$/gm) || [],
+    historyRows: (text.match(/^\d+ coups$/gm) ?? ([] as string[])).length,
+    rows: text.match(/^\d+ coups$/gm) ?? ([] as string[]),
     today: text.match(/coups aujourd'hui\s*\n\s*(\d+)/)?.[1] ?? null,
     activeSession: text.includes('Touchez pour compter'),
   };
@@ -61,7 +61,7 @@ async function contractionSnapshot(page: Page) {
     count: text.match(/(\S+)\s*\n\s*Nombre\b/)?.[1] ?? null,
     avgDuration: text.match(/(\S+)\s*\n\s*Durée moyenne/)?.[1] ?? null,
     empty: text.includes('Aucune contraction enregistrée'),
-    historyTimes: text.match(/^\d{1,2}:\d{2}:\d{2}$/gm) || [],
+    historyTimes: text.match(/^\d{1,2}:\d{2}:\d{2}$/gm) ?? ([] as string[]),
   };
 }
 
@@ -78,7 +78,7 @@ async function weightSnapshot(page: Page) {
   const text = await bodyText(page);
   return {
     setupCardVisible: text.includes('⚙️ Configuration initiale'),
-    history: text.match(/^\d+(?:[.,]\d+)? kg$/gm) || [],
+    history: text.match(/^\d+(?:[.,]\d+)? kg$/gm) ?? ([] as string[]),
   };
 }
 
@@ -358,10 +358,10 @@ test.describe('Wave B — B-track (Europe/Paris)', () => {
         const text = await bodyText(page);
         const count = text.match(/(\S+)\s*\n\s*Nombre\b/)?.[1];
         const avg = text.match(/(\S+)\s*\n\s*Durée moyenne/)?.[1];
-        const times = text.match(/^\d{1,2}:\d{2}:\d{2}$/gm) || [];
+        const times = text.match(/^\d{1,2}:\d{2}:\d{2}$/gm) ?? ([] as string[]);
         expect.soft(count, '33: Nombre 2').toBe('2');
         expect.soft(avg && !/NaN/.test(avg) && avg !== '0:00', `33: average duration sane (${avg})`).toBe(true);
-        expect.soft(times.length >= 2 && times[0] >= times[1], `33: history newest first (${times.join(',')})`).toBe(true);
+        expect.soft(times.length >= 2 && (times[0] ?? '') >= (times[1] ?? ''), `33: history newest first (${times.join(',')})`).toBe(true);
       });
 
       // 34 ── Clear all → empty state; then one more contraction for the persistence checks
