@@ -132,13 +132,17 @@ export const RegisterScreen = () => {
                 if (upgradeMode) {
                     // Link the guest in place — no re-onboarding; return to the prior screen.
                     await retryOperation(() => upgradeGuest(email.trim(), password));
-                    showToast(t('common.accountCreated', { defaultValue: 'Compte créé ✅' }), 'success');
+                    // Persistent: she is sent back to where she was right after.
+                    showToast(t('common.accountCreated', { defaultValue: 'Compte créé ✅' }), 'success', { persistent: true });
                     // GUEST-DRAFT FIX: if the upgrade was triggered by a guest trying to
                     // save an appointment, land them back on that form — AddAppointment
                     // restores the stashed draft on mount. goBack() would drop them on
                     // Home instead, stranding the draft and making them retype it.
                     if (await hasPendingAppointmentDraft()) {
-                        navigation.getParent()?.navigate('Calendrier' as any, { screen: 'AddAppointment' });
+                        // `initial: false` keeps CalendarMain under the form, as Home's "+ RDV"
+                        // does: when the Calendar tab had not been opened yet the form became the
+                        // stack's only route, and Save's goBack() left the tab stuck on it.
+                        navigation.getParent()?.navigate('Calendrier' as any, { screen: 'AddAppointment', initial: false });
                     } else if (navigation.canGoBack()) {
                         navigation.goBack();
                     } else {

@@ -64,7 +64,7 @@ export const CompletedTasksScreen = () => {
             await updateTaskStatus(taskId, false);
 
             // 3. Show success
-            showToast(t('common.taskRestored'), 'success');
+            showToast(t('common.taskRestored'), 'success', { persistent: true });
             log.debug('[CompletedTasksScreen] ✅ Task restored');
 
             // 4. Navigate back after a short delay to allow toast to be seen

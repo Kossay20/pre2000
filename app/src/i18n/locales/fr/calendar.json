@@ -34,5 +34,17 @@
     "appointmentsThisWeek": "{{count}} RDV cette semaine",
     "myAppointment": "Mon RDV",
     "noSuggestionsWeek": "Aucune suggestion à afficher pour cette semaine.",
-    "noSuggestionsMonth": "Aucune suggestion à afficher pour ce mois."
+    "noSuggestionsMonth": "Aucune suggestion à afficher pour ce mois.",
+    "category": {
+        "administrative": "Démarche",
+        "exam": "Examen",
+        "preparation": "Préparation",
+        "prevention": "Prévention",
+        "selfCare": "Bien-être"
+    },
+    "importance": {
+        "essential": "Essentiel",
+        "recommended": "Recommandé",
+        "optional": "Facultatif"
+    }
 }

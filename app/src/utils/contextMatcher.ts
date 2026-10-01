@@ -14,6 +14,7 @@ import {
     ContextRuleThen
 } from '../types/remindersV2';
 import { trimesterFromWeek } from './pregnancyCalculator';
+import { toLocalDateKey } from './localDate';
 
 /**
  * Match a number against a comparator or exact value
@@ -163,7 +164,10 @@ export function ramadanTableHorizon(): string {
 }
 
 export function isRamadan(now: Date = new Date()): boolean {
-    const todayStr = now.toISOString().split('T')[0];
+    // Her day, not the UTC one: the windows are calendar days where she lives, and the UTC
+    // day started the fast an hour late in Tunis and ended it hours early in the evening
+    // west of Greenwich.
+    const todayStr = toLocalDateKey(now);
     // Past the horizon, return false rather than guess. A wrong "yes" would shift
     // a pregnant woman's hydration reminders into the middle of the night.
     return RAMADAN_WINDOWS.some(([from, to]) => todayStr >= from && todayStr <= to);

@@ -41,6 +41,32 @@ export const parseTimeHHMM = (value: string): [number, number] | null => {
     return [hours, minutes];
 };
 
+/**
+ * The calendar day a stored date names, as yyyy-MM-dd. A day entered without a time —
+ * the web date input, `new Date('2026-02-25')`, a seeded profile — is stored as UTC
+ * midnight of that day, and read in local time it is the evening before west of UTC.
+ * Any other instant came from a device picker, which keeps the local wall-clock day.
+ */
+export const storedDateKey = (date: Date): string => {
+    if (Number.isNaN(date.getTime())) return '';
+    const utcMidnight =
+        date.getUTCHours() === 0 && date.getUTCMinutes() === 0 && date.getUTCSeconds() === 0 && date.getUTCMilliseconds() === 0;
+    return utcMidnight ? date.toISOString().slice(0, 10) : toLocalDateKey(date);
+};
+
+/**
+ * Whole calendar days from day `from` to day `to` (yyyy-MM-dd), negative when `to` is
+ * earlier; NaN when either key is malformed. Counted on the calendar, so neither the hour
+ * nor a DST change in between can move it.
+ */
+export const daysBetweenDateKeys = (from: string, to: string): number => {
+    const a = DATE_KEY.exec(from);
+    const b = DATE_KEY.exec(to);
+    if (!a || !b) return NaN;
+    const day = (m: RegExpExecArray) => Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+    return Math.round((day(b) - day(a)) / 86_400_000);
+};
+
 /** True when the instant `iso` falls on the local day `dayKey`. */
 export const isOnLocalDay = (iso: string | Date, dayKey: string): boolean => {
     const date = iso instanceof Date ? iso : new Date(iso);

@@ -329,6 +329,8 @@ const AppContent = () => {
   const { user, loading } = useAuth();
   const { profile, pregnancyInfo } = usePregnancy(); // Context for week
   const { i18n } = useTranslation();
+  // A toast belongs to the screen it was shown on (utils/toastNavigationGate.ts).
+  const { onRouteFocused } = useToast();
 
   // Sync Reminders (Smart Notifications & Baby Messages)
   // Re-run when user logs in/out, when pregnancy week advances, or language changes.
@@ -492,9 +494,11 @@ const AppContent = () => {
           return options?.title ? `${options.title} · ${APP_BRAND}` : APP_BRAND;
         },
       }}
+      onReady={() => onRouteFocused(navigationRef.getCurrentRoute()?.key)}
       onStateChange={async () => {
         const currentRouteName = navigationRef.getCurrentRoute()?.name;
         const currentRouteParams = navigationRef.getCurrentRoute()?.params;
+        onRouteFocused(navigationRef.getCurrentRoute()?.key);
 
         if (currentRouteName) {
           // @ts-ignore

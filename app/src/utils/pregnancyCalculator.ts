@@ -1,4 +1,5 @@
 import { createLogger } from './logger';
+import { daysBetweenDateKeys, storedDateKey, toLocalDateKey } from './localDate';
 const log = createLogger('pregnancyCalculator');
 /** Last day a pregnancy is still plausible: 42+0 SA (294 days after the LMP). */
 export const MAX_GESTATION_DAYS = 294;
@@ -37,15 +38,11 @@ export interface PregnancyWeekInfo {
  * woman on her due date, the week she most needs the contraction timer.
  */
 export const calculatePregnancyWeek = (lmpDate: Date): PregnancyWeekInfo => {
-    const now = new Date();
-    const lmp = new Date(lmpDate);
-
-    // Use UTC to avoid timezone issues/DST shifts affecting the day difference
-    const nowAllocated = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
-    const lmpAllocated = Date.UTC(lmp.getUTCFullYear(), lmp.getUTCMonth(), lmp.getUTCDate());
-
-    const diffTime = nowAllocated - lmpAllocated;
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    // Calendar days from the LMP day to TODAY ON HER PHONE. "Today" used to be the UTC
+    // day, so the week and day turned over at 01:00 in Tunis and at 20:00 in New York
+    // instead of at her midnight. Counting calendar days (not elapsed hours) keeps the
+    // time of day and DST out of it.
+    const diffDays = daysBetweenDateKeys(storedDateKey(new Date(lmpDate)), toLocalDateKey(new Date()));
 
     // Handle edge cases
     if (diffDays < 0) {

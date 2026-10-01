@@ -94,6 +94,18 @@ describe('HYP-B8 / 09 — Home quick actions', () => {
         expect(quickAdd).not.toMatch(/toISOString\(\)/);
     });
 
+    it('every jump from another tab into the form keeps the Calendar under it', () => {
+        // Without `initial: false` the form became the Calendar stack's only route when the
+        // tab had not been opened yet, and Save's goBack() left the tab on a stale form.
+        const screens = fs.readdirSync(path.resolve(__dirname, '..')).filter((f) => f.endsWith('.tsx'));
+        const jumps = screens.flatMap((file) => {
+            const src = read(`src/screens/${file}`);
+            return [...src.matchAll(/navigate\('Calendrier'[^)]*?screen: 'AddAppointment'[\s\S]*?\}\)/g)].map((m) => ({ file, call: m[0] }));
+        });
+        expect(jumps.map((j) => j.file).sort()).toEqual(['HomeScreen.tsx', 'RegisterScreen.tsx']);
+        for (const jump of jumps) expect(jump).toEqual({ file: jump.file, call: expect.stringMatching(/initial: false/) });
+    });
+
     it('the Calendar FAB passes a local day key', () => {
         expect(read('src/screens/CalendarScreen.tsx')).toMatch(/selectedDate: getLocalDateKey\(selectedDate\)/);
     });

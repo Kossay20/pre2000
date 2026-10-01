@@ -38,6 +38,7 @@ import { createLogger } from '../utils/logger';
 import { showAlert } from '../utils/alert';
 import { confirmAction } from '../utils/uiUtils';
 import { useDateLocale } from '../hooks/useDateLocale';
+import { isOnLocalDay, toLocalDateKey } from '../utils/localDate';
 import { useTranslation } from 'react-i18next';
 import { trackPositiveAction } from '../services/inAppReviewService';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
@@ -177,9 +178,11 @@ export const WeightTrackerScreen = () => {
             return;
         }
 
-        // Vérifier doublon même jour
-        const today = new Date().toISOString().split('T')[0];
-        const existingToday = weightHistory.find((e: WeightEntry) => e.date.split('T')[0] === today);
+        // Vérifier doublon même jour — her local day. The entry dates are UTC instants, and
+        // comparing their first ten characters with the UTC day missed a morning weighing
+        // in Tunis or asked to replace yesterday evening's in New York.
+        const today = toLocalDateKey();
+        const existingToday = weightHistory.find((e: WeightEntry) => isOnLocalDay(e.date, today));
         if (existingToday) {
             confirmAction(
                 t('weight.entryExistsTitle'),

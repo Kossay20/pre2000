@@ -38,6 +38,7 @@ import {
   type AppLocale,
 } from './helpers/emulator-account';
 import { lmpIsoForWeek } from './helpers/guest-profile';
+import { tickHealthConsent } from './helpers/health-consent';
 
 // A-021a: the file-level test.setTimeout(300_000) did not apply in round 1 (test 1 hit
 // the 120 s default); every describe below configures its own timeout instead.
@@ -672,14 +673,6 @@ async function onboardingSteps1to3(
   await expect.soft(save, `${prefix} step4: saving is disabled until the health-data consent is ticked`).toBeDisabled();
   await tickHealthConsent(page);
   return { countrySel, navLang };
-}
-
-/** Tick onboarding's health-data consent (navigation step only). */
-async function tickHealthConsent(page: Page) {
-  const consent = page.getByTestId('health_consent_checkbox');
-  await expect(consent).toHaveAttribute('aria-checked', 'false', { timeout: 15_000 });
-  await consent.click();
-  await expect(consent).toHaveAttribute('aria-checked', 'true');
 }
 
 async function waitForLanding(page: Page, c: Copy) {

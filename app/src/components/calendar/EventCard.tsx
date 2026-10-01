@@ -6,6 +6,7 @@ import { getDateLocale } from '../../utils/i18nHelpers';
 import { CombinedEvent } from '../../types';
 import { theme } from '../../theme';
 import { getShadowStyle } from '../../utils/styleUtils';
+import { importanceTier, templateCategory } from '../../utils/calendarTemplateTags';
 
 interface EventCardProps {
     event: CombinedEvent;
@@ -18,6 +19,8 @@ export const EventCard: React.FC<EventCardProps> = React.memo(({ event, onEdit, 
     const isUserEvent = event.source === 'user';
     const { t, i18n } = useTranslation();
     const dateLocale = getDateLocale(i18n.language);
+    const category = isUserEvent ? null : templateCategory(event.type);
+    const importance = isUserEvent ? null : importanceTier(event.importance);
 
     return (
         <View style={[styles.card, isUserEvent && styles.userEventCard]}>
@@ -65,26 +68,29 @@ export const EventCard: React.FC<EventCardProps> = React.memo(({ event, onEdit, 
 
                 {/* Tags */}
                 <View style={styles.tagsContainer}>
-                    <View style={[styles.tag, isUserEvent && styles.userTag]}>
-                        <Text style={[styles.tagText, isUserEvent && styles.userTagText]}>
-                            {/* CAL-04: surface the persisted Medical/Personal nature when present;
-                                fall back to the generic "my appointment" label for legacy events. */}
-                            {isUserEvent
-                                ? (event.category === 'medical'
-                                    ? t('addAppointment.typeMedical')
-                                    : event.category === 'other'
-                                        ? t('addAppointment.typeOther')
-                                        : t('calendar.myAppointment'))
-                                : event.type}
-                        </Text>
-                    </View>
-                    {event.importance && !isUserEvent && (
-                        <View style={[styles.tag, { backgroundColor: event.priorityColor + '20' }]}>
-                            <Text style={[styles.tagText, { color: event.priorityColor }]}>
-                                {event.importance}
+                    {(isUserEvent || category) && (
+                        <View style={[styles.tag, isUserEvent && styles.userTag]}>
+                            <Text style={[styles.tagText, isUserEvent && styles.userTagText]}>
+                                {/* CAL-04: surface the persisted Medical/Personal nature when present;
+                                    fall back to the generic "my appointment" label for legacy events. */}
+                                {isUserEvent
+                                    ? (event.category === 'medical'
+                                        ? t('addAppointment.typeMedical')
+                                        : event.category === 'other'
+                                            ? t('addAppointment.typeOther')
+                                            : t('calendar.myAppointment'))
+                                    : t(`calendar.category.${category}`)}
                             </Text>
                         </View>
                     )}
+                    {/* Template events only: the raw value used to print "undefined". */}
+                    {importance ? (
+                        <View style={[styles.tag, { backgroundColor: event.priorityColor + '20' }]}>
+                            <Text style={[styles.tagText, { color: event.priorityColor }]}>
+                                {t(`calendar.importance.${importance}`)}
+                            </Text>
+                        </View>
+                    ) : null}
                 </View>
 
                 {/* Description or Notes */}

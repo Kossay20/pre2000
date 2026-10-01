@@ -34,5 +34,17 @@
     "appointmentsThisWeek": "{{count}} مواعيد هذا الأسبوع",
     "myAppointment": "ميعادي",
     "noSuggestionsWeek": "لا توجد اقتراحات لعرضها لهذا الأسبوع.",
-    "noSuggestionsMonth": "لا توجد اقتراحات لعرضها لهذا الشهر."
+    "noSuggestionsMonth": "لا توجد اقتراحات لعرضها لهذا الشهر.",
+    "category": {
+        "administrative": "إجراءات إدارية",
+        "exam": "فحص",
+        "preparation": "تحضير",
+        "prevention": "وقاية",
+        "selfCare": "العناية بنفسك"
+    },
+    "importance": {
+        "essential": "أساسي",
+        "recommended": "موصى به",
+        "optional": "اختياري"
+    }
 }

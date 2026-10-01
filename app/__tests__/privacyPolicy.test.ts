@@ -73,6 +73,26 @@ describe('in-app privacy policy', () => {
     expect(c.privacyData.eraseGuestDataDesc).not.toContain(DEVICE_ONLY_CLAIMS[lang].erase);
   });
 
+  // Kick sessions, contractions and the hospital bag sync to the account of a signed-in
+  // user (trackerSync.ts); a guest's stay on the phone until she creates one. The policy
+  // used to list them as never leaving the phone.
+  const SYNCED_TRACKERS: Record<(typeof LOCALES)[number], string[]> = {
+    fr: ['mouvements du bébé', 'contractions', 'valise de maternité'],
+    en: ['baby movements', 'contractions', 'hospital bag'],
+    ar: ['حركات الجنين', 'الانقباضات', 'حقيبة الولادة'],
+    tn: ['حركات البيبي', 'الانقباضات', 'شنطة الولادة'],
+  };
+
+  it.each(LOCALES)('%s: synced trackers are health data, not "kept only on your phone"', lang => {
+    const p = load(lang, 'common').privacy;
+    for (const term of SYNCED_TRACKERS[lang]) {
+      expect({ term, inDeviceOnly: p.collection.deviceDesc.includes(term) }).toEqual({ term, inDeviceOnly: false });
+      expect({ term, inHealth: p.collection.healthDesc.includes(term) }).toEqual({ term, inHealth: true });
+      // Guests: the policy says these wait on the phone for an account.
+      expect({ term, inGuest: p.guestMode.text.toLowerCase().includes(term) }).toEqual({ term, inGuest: true });
+    }
+  });
+
   it('uses the contact address the website publishes', () => {
     const email = screen.match(/CONTACT_EMAIL = '([^']+)'/)![1];
     expect(site('privacy.html')).toContain(`mailto:${email}`);
@@ -105,10 +125,22 @@ describe('website deletion instructions match the app', () => {
   it.each(['privacy.html', 'privacy-en.html', 'delete-account.html', 'delete-account-en.html'])(
     '%s does not tell guests their data stays on the phone',
     file => {
-      // (The list of features kept only on the phone — kicks, contractions… — may and does say so.)
+      // (The list of features kept only on the phone — hydration, saved articles… — may and does say so.)
       expect(site(file)).not.toMatch(/vos données restent sur votre téléphone|your data stays on your phone|data stays on your phone/);
     },
   );
+
+  it.each([
+    ['privacy.html', /Données gardées uniquement sur votre téléphone[^<]*<\/strong>([^<]*)/, ['mouvements du bébé', 'contractions', 'valise']],
+    ['privacy-en.html', /Kept only on your phone:<\/strong>([^<]*)/, ['baby movements', 'contractions', 'hospital bag']],
+    ['delete-account.html', /Tout ce qui est gardé sur votre téléphone :([^<]*)/, ['mouvements du bébé', 'contractions', 'valise']],
+    ['delete-account-en.html', /Everything kept on your phone:([^<]*)/, ['baby movements', 'contractions', 'hospital bag']],
+  ] as const)('%s does not list the synced trackers as phone-only', (file, re, terms) => {
+    // Kick sessions, contractions and the hospital bag sync to the account (trackerSync.ts).
+    const list = site(file).match(re);
+    expect(list).not.toBeNull();
+    for (const term of terms) expect({ file, term, phoneOnly: list![1].includes(term) }).toEqual({ file, term, phoneOnly: false });
+  });
 
   it.each(['privacy.html', 'privacy-en.html'])('%s is dated 2026-09-30', file => {
     expect(site(file)).toMatch(/30 septembre 2026|September 30, 2026/);

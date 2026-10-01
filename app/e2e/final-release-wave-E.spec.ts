@@ -52,6 +52,7 @@ import {
   writeA11yJson,
   type A11yReport,
 } from './helpers/wave-E-a11y';
+import { tickHealthConsent } from './helpers/health-consent';
 
 const QUARTET_DIRS = [process.env.E2E_QUARTET_DIR, process.env.E2E_QUARTET_DIR2].filter((d): d is string => !!d);
 const OUT_DIRS = QUARTET_DIRS.length ? QUARTET_DIRS : [path.resolve(__dirname, '../test-results/wave-E')];
@@ -366,6 +367,9 @@ test('E01-06 SE 375×667 fr — cold funnel (welcome, auth, register, login, onb
     await settle(page, 500);
     await page.getByRole('button', { name: 'Continuer', exact: true }).first().click();
     await expect(page.getByTestId('onboarding_step4_submit')).toBeVisible({ timeout: 15_000 });
+    // Tick the health-data consent so the photographed CTA is the live one: a disabled
+    // button is exempt from the contrast check and would hide a real failure.
+    await tickHealthConsent(page);
     await settle(page, 600);
     await snapState(c, '06-se-onboarding-step4', 'E 01-15', { cta: page.getByTestId('onboarding_step4_skip') });
   } finally {

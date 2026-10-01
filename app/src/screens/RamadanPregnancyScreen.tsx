@@ -30,6 +30,7 @@ import {
     setConsultedDoctor,
 } from '../services/ramadanService';
 import guidance from '../data/ramadan_pregnancy_guidance.json';
+import { toLocalDateKey } from '../utils/localDate';
 
 interface TrimesterEntry {
     id: string;
@@ -131,7 +132,8 @@ export const RamadanPregnancyScreen: React.FC = () => {
     );
 
     const onLog = useCallback(async (status: DayStatus) => {
-        const today = new Date().toISOString().slice(0, 10);
+        // The fasting day she is logging is her local day, not the UTC one.
+        const today = toLocalDateKey();
         const next = await logDay(status, today);
         setState(next);
     }, []);

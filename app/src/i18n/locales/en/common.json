@@ -317,13 +317,13 @@
       "profile": "Pregnancy profile:",
       "profileDesc": "first name, last name (optional), country, city, age range, whether this is your first pregnancy, last period date, due date, height and pre-pregnancy weight, cycle length if you track fertility, and your chosen language.",
       "health": "Health data you record:",
-      "healthDesc": "weight, blood pressure, blood glucose, symptoms, medical appointments, reminders and tasks, with any notes you add. The app draws no diagnosis from them.",
+      "healthDesc": "weight, blood pressure, blood glucose, symptoms, baby movements, contractions, medical appointments, reminders and tasks, your hospital bag, with any notes you add. The app draws no diagnosis from them.",
       "medical": "Declared medical follow-up (optional):",
       "medicalDesc": "if you choose to tell us, whether a healthcare professional has flagged gestational diabetes, pregnancy hypertension or a twin pregnancy. It is used only to adjust the reminders offered to you.",
       "emergency": "Emergency contacts:",
       "emergencyDesc": "the names and numbers of the people you add yourself.",
       "device": "Kept only on your phone:",
-      "deviceDesc": "baby movements, contractions, hospital bag, hydration, Ramadan tracking, daily checklist and saved articles. They are not sent to our servers.",
+      "deviceDesc": "hydration, Ramadan tracking, daily checklist and saved articles. They are not sent to our servers.",
       "assistant": "Assistant:",
       "assistantDesc": "it runs entirely on your phone. Your messages are neither sent to a server nor saved.",
       "technical": "Technical data:",
@@ -376,7 +376,7 @@
     },
     "guestMode": {
       "title": "9. Guest mode",
-      "text": "Without an account, you give no email address. What you record is kept on your phone. Some of it (for example health entries, appointments and reminders) may also be saved on our servers under an anonymous identifier, with no email address, so that the app works; apart from that, only technical error reports (section 2) leave your phone. To erase everything, on your phone and on our servers: “{{settings}}” → “{{dataSection}}” → “{{eraseGuest}}”. Uninstalling the app erases only what is on your phone."
+      "text": "Without an account, you give no email address. What you record is kept on your phone. Some of it (for example health entries, appointments and reminders) may also be saved on our servers under an anonymous identifier, with no email address, so that the app works; apart from that, only technical error reports (section 2) leave your phone. Baby movements, contractions and your hospital bag stay only on your phone until you create an account; they are then saved to it. To erase everything, on your phone and on our servers: “{{settings}}” → “{{dataSection}}” → “{{eraseGuest}}”. Uninstalling the app erases only what is on your phone."
     },
     "footer": "Mama & Bébé © {{year}} KSA MEDIA LLC - All rights reserved"
   },

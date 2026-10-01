@@ -27,6 +27,7 @@ import { Button } from '../components/common/Button';
 import { ErrorMessage } from '../components/common/ErrorMessage';
 import { HealthDataConsentCheck } from '../components/common/HealthDataConsentCheck';
 import { recordHealthDataConsent } from '../utils/healthDataConsent';
+import { storedDateKey } from '../utils/localDate';
 import { format, subDays } from 'date-fns';
 import { useTranslation } from 'react-i18next';
 import { analytics, auth, db } from '../config/firebase';
@@ -485,7 +486,10 @@ export const OnboardingScreen = () => {
                 {Platform.OS === 'web' ? (
                     <input
                         type="date"
-                        value={selectedDate.toISOString().split('T')[0]}
+                        // The day the week is counted from (storedDateKey): a typed day is UTC
+                        // midnight, the default "8 weeks ago" is a local instant whose UTC day is
+                        // tomorrow in a New York evening.
+                        value={storedDateKey(selectedDate)}
                         onChange={(e) => {
                             const newDate = new Date(e.target.value);
                             if (!isNaN(newDate.getTime())) setSelectedDate(newDate);

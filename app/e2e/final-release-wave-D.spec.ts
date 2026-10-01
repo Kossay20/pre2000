@@ -43,6 +43,7 @@ import {
   type CreatedAccount,
 } from './helpers/emulator-account';
 import { lmpIsoForWeek } from './helpers/guest-profile';
+import { tickHealthConsent } from './helpers/health-consent';
 import { PRIVATE_STORAGE_KEYS, PRIVATE_STORAGE_KEY_PREFIXES } from '../src/context/storageKeys';
 
 test.use(waveUse('fr'));
@@ -726,10 +727,7 @@ test('D-upgrade: real anonymous guest → account keeps uid, data and a complete
   await page.getByRole('button', { name: /Oui, c'est tout nouveau/ }).click();
   await page.getByRole('button', { name: 'Continuer', exact: true }).click();
   // Health-data consent: the step-4 save stays disabled until it is ticked.
-  const consent = page.getByTestId('health_consent_checkbox');
-  await expect(consent).toHaveAttribute('aria-checked', 'false', { timeout: 15_000 });
-  await consent.click();
-  await expect(consent).toHaveAttribute('aria-checked', 'true');
+  await tickHealthConsent(page);
   await page.getByTestId('onboarding_step4_skip').click({ timeout: 20_000 });
   await expect(page.getByRole('tablist').first()).toBeVisible({ timeout: 45_000 });
   await expect.soft(page.getByText('Semaine 32', { exact: true }).first()).toBeVisible({ timeout: 20_000 });

@@ -40,6 +40,7 @@ import {
   type AppLocale,
 } from './helpers/emulator-account';
 import { lmpIsoForWeek } from './helpers/guest-profile';
+import { tickHealthConsent } from './helpers/health-consent';
 
 // ── i18n (read from the tree the web export is built from) ────────────────────
 
@@ -893,6 +894,7 @@ async function guestOnboard(page: Page, L: 'fr' | 'en', opts: { country?: string
   await page.getByRole('button', { name: '25-29', exact: true }).click({ timeout: 20_000 });
   if (opts.country) await page.getByRole('button', { name: opts.country, exact: true }).click();
   await page.getByRole('button', { name: tr(L, 'common.continue'), exact: true }).click();
+  await tickHealthConsent(page);
   await page.getByTestId('onboarding_step4_skip').click({ timeout: 20_000 });
   await expect(page.getByRole('tablist').first()).toBeVisible({ timeout: 60_000 });
 }

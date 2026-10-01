@@ -368,13 +368,13 @@
       "profile": "Profil de grossesse :",
       "profileDesc": "prénom, nom (facultatif), pays, ville, tranche d'âge, première grossesse ou non, date des dernières règles, terme prévu, taille et poids d'avant grossesse, durée du cycle si vous suivez votre fertilité, et la langue choisie.",
       "health": "Données de santé que vous enregistrez :",
-      "healthDesc": "poids, tension artérielle, glycémie, symptômes, rendez-vous médicaux, rappels et tâches, avec les notes que vous y ajoutez. L'application n'en déduit aucun diagnostic.",
+      "healthDesc": "poids, tension artérielle, glycémie, symptômes, mouvements du bébé, contractions, rendez-vous médicaux, rappels et tâches, valise de maternité, avec les notes que vous y ajoutez. L'application n'en déduit aucun diagnostic.",
       "medical": "Suivi médical déclaré (facultatif) :",
       "medicalDesc": "si vous choisissez de l'indiquer, le fait qu'un professionnel de santé vous ait signalé un diabète gestationnel, une hypertension de la grossesse ou une grossesse gémellaire. Il sert uniquement à adapter les rappels qui vous sont proposés.",
       "emergency": "Contacts d'urgence :",
       "emergencyDesc": "les noms et numéros des personnes que vous ajoutez vous-même.",
       "device": "Données gardées uniquement sur votre téléphone :",
-      "deviceDesc": "mouvements du bébé, contractions, valise de maternité, hydratation, suivi du Ramadan, checklist du jour et articles enregistrés. Elles ne sont pas envoyées à nos serveurs.",
+      "deviceDesc": "hydratation, suivi du Ramadan, checklist du jour et articles enregistrés. Elles ne sont pas envoyées à nos serveurs.",
       "assistant": "Assistant :",
       "assistantDesc": "il fonctionne entièrement sur votre téléphone. Vos messages ne sont ni envoyés à un serveur ni enregistrés.",
       "technical": "Données techniques :",
@@ -427,7 +427,7 @@
     },
     "guestMode": {
       "title": "9. Mode Invité",
-      "text": "Sans compte, vous ne donnez aucune adresse e-mail. Ce que vous enregistrez est conservé sur votre téléphone. Une partie (par exemple les données de santé, les rendez-vous et les rappels) peut aussi être enregistrée sur nos serveurs sous un identifiant anonyme, sans adresse e-mail, pour que l'application fonctionne ; en dehors de cela, seuls les rapports d'erreur techniques (section 2) quittent votre téléphone. Pour tout effacer, sur votre téléphone et sur nos serveurs : « {{settings}} » → « {{dataSection}} » → « {{eraseGuest}} ». Désinstaller l'application n'efface que ce qui se trouve sur votre téléphone."
+      "text": "Sans compte, vous ne donnez aucune adresse e-mail. Ce que vous enregistrez est conservé sur votre téléphone. Une partie (par exemple les données de santé, les rendez-vous et les rappels) peut aussi être enregistrée sur nos serveurs sous un identifiant anonyme, sans adresse e-mail, pour que l'application fonctionne ; en dehors de cela, seuls les rapports d'erreur techniques (section 2) quittent votre téléphone. Les mouvements du bébé, les contractions et la valise de maternité restent uniquement sur votre téléphone jusqu'à ce que vous créiez un compte ; ils y sont alors enregistrés. Pour tout effacer, sur votre téléphone et sur nos serveurs : « {{settings}} » → « {{dataSection}} » → « {{eraseGuest}} ». Désinstaller l'application n'efface que ce qui se trouve sur votre téléphone."
     },
     "footer": "Mama & Bébé © {{year}} KSA MEDIA LLC - Tous droits réservés"
   },

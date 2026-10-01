@@ -34,5 +34,17 @@
     "appointmentsThisWeek": "{{count}} مواعيد الأسبوع هذا",
     "myAppointment": "الموعد متاعي",
     "noSuggestionsWeek": "ما فماش اقتراحات باش تتعرض للأسبوع هذا.",
-    "noSuggestionsMonth": "ما فماش اقتراحات باش تتعرض للشهر هذا."
+    "noSuggestionsMonth": "ما فماش اقتراحات باش تتعرض للشهر هذا.",
+    "category": {
+        "administrative": "ورق إداري",
+        "exam": "فحص",
+        "preparation": "تحضير",
+        "prevention": "وقاية",
+        "selfCare": "تهلّاي في روحك"
+    },
+    "importance": {
+        "essential": "ضروري",
+        "recommended": "منصوح بيه",
+        "optional": "كيف تحب"
+    }
 }

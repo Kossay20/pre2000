@@ -161,8 +161,11 @@ export interface CalendarTemplate {
     description_ar?: string;
     description_en?: string;
     description_tn?: string;
-    type: 'consultation' | 'exam' | 'preparation' | 'administrative' | 'lifestyle';
-    importance: 'essential' | 'recommended' | 'optional';
+    // Authored as a French composite ("examen,echo"); see utils/calendarTemplateTags.
+    type: string;
+    importance?: 'essential' | 'recommended' | 'optional';
+    // What the seeded templates actually carry: 1 = essential … 3 = optional.
+    importance_level?: number;
     week_min: number;
     week_max: number;
     recommended_day?: number; // Day in week

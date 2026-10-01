@@ -19,6 +19,7 @@ import { toLocalDateKey } from '../utils/localDate';
 import { calculateCurrentWeek } from '../utils/pregnancyCalculator';
 import { cancelRDVReminders } from './rdvNotificationService';
 import { CalendarTemplate } from '../types';
+import { rawTemplateImportance } from '../utils/calendarTemplateTags';
 
 // Create scoped logger for this service
 const log = createLogger('CalendarService');
@@ -128,14 +129,14 @@ export const generateEventsForWeek = (
             date: eventDate,
             week: targetWeek,
             type: template.type,
-            importance: String(template.importance),
+            importance: rawTemplateImportance(template),
             description: template.description_fr || '',
             description_fr: template.description_fr || '',
             description_ar: template.description_ar,
             description_en: template.description_en,
             description_tn: template.description_tn,
             source: template.sources,
-            priorityColor: getPriorityColor(String(template.importance)),
+            priorityColor: getPriorityColor(rawTemplateImportance(template)),
         });
     });
 

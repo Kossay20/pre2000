@@ -504,7 +504,8 @@ const AppointmentForm = ({ editingEvent }: { editingEvent?: EditableEvent }) => 
                     location: location.trim() || null,
                     notes: notes.trim() || null,
                 });
-                showToast(pendingSync ? t('addAppointment.savedOffline') : t('addAppointment.successEdit'), pendingSync ? 'info' : 'success');
+                // Persistent: the form closes right after, and the toast is about the calendar she returns to.
+                showToast(pendingSync ? t('addAppointment.savedOffline') : t('addAppointment.successEdit'), pendingSync ? 'info' : 'success', { persistent: true });
             } else {
                 // CREATE new event
                 const result = await saveUserEvent({
@@ -525,7 +526,8 @@ const AppointmentForm = ({ editingEvent }: { editingEvent?: EditableEvent }) => 
                 // reached the server (and instead of spinning on "Enregistrement…").
                 showToast(
                     result.pendingSync ? t('addAppointment.savedOffline') : t('addAppointment.successAdd'),
-                    result.pendingSync ? 'info' : 'success'
+                    result.pendingSync ? 'info' : 'success',
+                    { persistent: true },
                 );
                 // Engagement: Track positive action
                 trackPositiveAction('add_rdv');

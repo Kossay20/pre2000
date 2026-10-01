@@ -69,8 +69,11 @@ describe('pregnancyCalculator', () => {
         });
 
         it('should ignore time components (noon vs midnight)', () => {
-            // Jan 3 at 23:59 should still be 7 days ago relative to Jan 10
-            const lmp = new Date('2024-01-03T23:59:59.000Z');
+            // Jan 3 at 23:59 should still be 7 days ago relative to Jan 10. A picked date
+            // carries the device's wall clock, so it is built in local time (the UTC
+            // instant 23:59Z is already Jan 4 east of Greenwich). Timezones:
+            // pregnancyCalculatorTimezones.test.ts.
+            const lmp = new Date(2024, 0, 3, 23, 59, 59);
             const result = calculatePregnancyWeek(lmp);
             expect(result).toMatchObject({ week: 2, day: 1, isInvalid: false });
         });

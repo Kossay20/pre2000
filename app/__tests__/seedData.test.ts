@@ -119,12 +119,25 @@ describe('calendarTemplates seed', () => {
     expect(bad.map((r) => r.template_id)).toEqual([]);
   });
 
-  it('every template has a French title and description, and a title in ar and tn', () => {
+  // The calendar shows getLocalizedContent(event, 'title' | 'description'): a missing
+  // locale falls back (tn → ar → en → fr), so a blank English field showed English users
+  // French, and blank ar/tn descriptions showed Arabic readers the English or French text.
+  it.each(['title', 'description'])('every template has %s in fr, en, ar and tn', (field) => {
     const gaps = records.flatMap((r) =>
-      ['title_fr', 'description_fr', 'title_ar', 'title_tn']
-        .filter((field) => typeof r[field] !== 'string' || (r[field] as string).trim() === '')
-        .map((field) => `${String(r.template_id)}.${field}`),
+      LOCALES.map((lang) => `${field}_${lang}`)
+        .filter((key) => typeof r[key] !== 'string' || (r[key] as string).trim() === '')
+        .map((key) => `${String(r.template_id)}.${key}`),
     );
     expect(gaps).toEqual([]);
+  });
+
+  it('the calendar carries every locale of a template and renders the one for the app language', () => {
+    const service = read('src/services/calendarService.ts');
+    for (const field of ['title', 'description']) {
+      for (const lang of LOCALES) expect(service).toMatch(new RegExp(`${field}_${lang}: template\\.${field}_${lang}`));
+    }
+    const screen = read('src/screens/CalendarScreen.tsx');
+    expect(screen).toContain("getLocalizedContent(event, 'title', i18n.language)");
+    expect(screen).toContain("getLocalizedContent(event, 'description', i18n.language)");
   });
 });

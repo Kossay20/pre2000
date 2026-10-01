@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test';
 import { expect } from '@playwright/test';
+import { tickHealthConsent } from './health-consent';
 
 /**
  * Session Playwright vierge → flux langue EN + invité + onboarding minimal → MainTabs.
@@ -47,6 +48,7 @@ export async function ensureMainTabs(page: Page): Promise<void> {
   await page.getByRole('button', { name: /Yes, it.*all new/i }).click();
   await page.getByRole('button', { name: 'Continue' }).click();
 
+  await tickHealthConsent(page);
   await page.getByText('Continue as Guest', { exact: true }).click({ timeout: 20_000 });
 
   await expect(page.getByRole('tablist')).toBeVisible({ timeout: 45_000 });

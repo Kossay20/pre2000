@@ -5,11 +5,22 @@ import { theme } from '../theme';
 import { toastFixedPosition } from '../utils/toastLayout';
 import { isRtlLang } from '../hooks/useRtl';
 import { usePrefersReducedMotion, getReducedMotionSync } from '../hooks/usePrefersReducedMotion';
+import { createToastNavigationGate } from '../utils/toastNavigationGate';
 
 type ToastType = 'success' | 'error' | 'info';
 
+interface ToastOptions {
+    /**
+     * Keep the toast when the screen changes. For a confirmation shown right before the
+     * app navigates on its own, about the screen she lands on (see toastNavigationGate.ts).
+     */
+    persistent?: boolean;
+}
+
 interface ToastContextType {
-    showToast: (message: string, type?: ToastType) => void;
+    showToast: (message: string, type?: ToastType, options?: ToastOptions) => void;
+    /** Called by the navigation container with the focused route's key on every change. */
+    onRouteFocused: (routeKey: string | undefined) => void;
 }
 
 const ToastContext = createContext<ToastContextType | undefined>(undefined);
@@ -33,6 +44,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const translateY = useRef(new Animated.Value(20)).current;
     const timerRef = useRef<NodeJS.Timeout | null>(null);
+    const gate = useRef(createToastNavigationGate()).current;
 
     // Cleanup timer on unmount
     useEffect(() => {
@@ -41,9 +53,10 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         };
     }, []);
 
-    const showToast = useCallback((msg: string, t: ToastType = 'success') => {
+    const showToast = useCallback((msg: string, t: ToastType = 'success', options?: ToastOptions) => {
         if (timerRef.current) clearTimeout(timerRef.current);
 
+        gate.shown(!!options?.persistent);
         setMessage(msg);
         setType(t);
         setVisible(true);
@@ -76,6 +89,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }, []);
 
     const hideToast = () => {
+        gate.hidden();
         if (getReducedMotionSync()) {
             fadeAnim.setValue(0);
             translateY.setValue(20);
@@ -122,7 +136,13 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     // all 6 consumers re-rendered whenever ToastProvider did (i.e. on every toast
     // show/hide). `showToast` itself is already a stable useCallback — only the
     // wrapper object was churning.
-    const contextValue = useMemo(() => ({ showToast }), [showToast]);
+    const onRouteFocused = useCallback((routeKey: string | undefined) => {
+        if (!gate.routeFocused(routeKey)) return;
+        if (timerRef.current) clearTimeout(timerRef.current);
+        timerRef.current = null;
+        hideToast();
+    }, []);
+    const contextValue = useMemo(() => ({ showToast, onRouteFocused }), [showToast, onRouteFocused]);
 
     return (
         <ToastContext.Provider value={contextValue}>
