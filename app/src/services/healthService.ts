@@ -293,30 +293,31 @@ export const getSymptomsHistory = async (userId: string, limitDays = 30): Promis
 
 
 /**
- * F-HS-05 FIX: Deduplicate weight entries by calendar day.
- * The legacy `healthMetrics` and V2 `weight_entries` collections can both hold an
- * entry for the same date (e.g. user logged on the dashboard then re-logged in the
- * WeightTracker). A plain concat double-counted those days, inflating the graph and
- * skewing initial/current/gain stats. We group by ISO date (YYYY-MM-DD) and keep the
- * most recently created entry per day, then sort ascending by date.
+ * F-HS-05: one weighing per day across `healthMetrics` and `weight_entries`.
+ *
+ * Must pick the same weighing as the tracker's `latestWeighingPerDay`
+ * (weightService.ts), or Health and "Mon Poids" show different weights for the
+ * same day. Same rule: the phone's calendar day, the later weighing of that day
+ * wins, then the later created_at, then the tracker's own entry (V2 entries are
+ * concatenated after legacy ones, so the later-iterated tie goes to them).
  */
-const dedupeWeightByDate = (entries: HealthMetric[]): HealthMetric[] => {
+export const dedupeWeightByDate = (entries: HealthMetric[]): HealthMetric[] => {
     const byDay = new Map<string, HealthMetric>();
-    const createdAtMs = (m: HealthMetric): number => {
-        const t = m.created_at ? new Date(m.created_at).getTime() : NaN;
-        // Fallback to the entry date when created_at is missing/invalid so we still
-        // compare deterministically rather than treating it as 0 (epoch).
-        return Number.isNaN(t) ? new Date(m.date).getTime() : t;
+    const ms = (value: string | undefined, fallback: number): number => {
+        const t = value ? new Date(value).getTime() : NaN;
+        return Number.isNaN(t) ? fallback : t;
     };
+    const weighedAt = (m: HealthMetric) => ms(m.date, 0);
+    const createdAt = (m: HealthMetric) => ms(m.created_at, weighedAt(m));
 
     for (const entry of entries) {
-        const dayKey = entry.date.slice(0, 10); // ISO date → YYYY-MM-DD
+        const dayKey = toLocalDateKey(new Date(entry.date));
         const existing = byDay.get(dayKey);
-        if (!existing || createdAtMs(entry) >= createdAtMs(existing)) {
-            // On ties (equal created_at) the later iterated entry wins; V2 entries are
-            // concatenated after legacy ones, so the newer source is preferred.
-            byDay.set(dayKey, entry);
-        }
+        const wins =
+            !existing ||
+            weighedAt(entry) > weighedAt(existing) ||
+            (weighedAt(entry) === weighedAt(existing) && createdAt(entry) >= createdAt(existing));
+        if (wins) byDay.set(dayKey, entry);
     }
 
     return Array.from(byDay.values()).sort(

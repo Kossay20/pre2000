@@ -214,6 +214,19 @@ describe('store listing', () => {
       }
     });
 
+    it('never drops the Latin brand into running Arabic text', () => {
+      // A Latin name mid-sentence breaks the right-to-left reading order and reads
+      // as untranslated. It may only appear in parentheses, glossing the Arabic name.
+      const localesDir = path.resolve(__dirname, '..', 'src', 'i18n', 'locales');
+      for (const lang of ['ar', 'tn']) {
+        for (const file of fs.readdirSync(path.join(localesDir, lang))) {
+          const text = fs.readFileSync(path.join(localesDir, lang, file), 'utf8');
+          const bare = text.replace(/\(Mama & Bébé\)/g, '').match(/Mama & Bébé/g) ?? [];
+          expect({ lang, file, latinBrand: bare.length }).toEqual({ lang, file, latinBrand: 0 });
+        }
+      }
+    });
+
     it('uses the shipped bundle identifier', () => {
       const appJson = JSON.parse(
         fs.readFileSync(path.resolve(__dirname, '..', 'app.json'), 'utf8'),

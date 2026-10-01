@@ -583,6 +583,8 @@ async function onboardingSteps1to3(
     await dateInput.fill(lmp40w3dAgo());
     await expect.soft(cont, `${prefix} step2: Continue enabled for LMP today−40w3d (post-term)`).toBeEnabled();
     await expect.soft(page.getByTestId('onboarding_postterm_note'), `${prefix} step2: post-term note`).toContainText(c.postTermNote);
+    // A-025: 40+3 is the 41st week — the preview must say so (not 40, not 42).
+    await expect.soft(page.getByText(`${c.week} 41`, { exact: true }).first(), `${prefix} step2: 40+3 previews "${c.week} 41"`).toBeVisible();
     await r.snap(`${prefix}-step2-postterm-40w3d`);
   }
   await dateInput.fill(lmpWeek(32));
@@ -671,6 +673,9 @@ async function onboardingSteps1to3(
   // Health-data consent: unticked, and the button that saves the profile waits for it.
   const save = page.getByTestId(opts.signedIn ? 'onboarding_step4_submit' : 'onboarding_step4_skip');
   await expect.soft(save, `${prefix} step4: saving is disabled until the health-data consent is ticked`).toBeDisabled();
+  // A-030b: the unticked step 4 is a state of its own (both save buttons gated).
+  await expect.soft(page.getByTestId('health_consent_checkbox'), `${prefix} step4: consent starts unticked`).toHaveAttribute('aria-checked', 'false');
+  await r.snap(`${prefix}-step4-consent-unticked`);
   await tickHealthConsent(page);
   return { countrySel, navLang };
 }
@@ -709,9 +714,12 @@ test.describe('Wave A — fr', () => {
     await r.snap('01-language-fr');
 
     // 02 — GJ-006: Continue visible without scrolling at 390×844.
+    const toastT0 = Date.now();
     await page.getByTestId('lang_card_fr').click();
     await expect(page.getByTestId('lang_card_fr').getByText('✓')).toBeVisible({ timeout: 10_000 });
-    await dismissLanguageToast(page);
+    // A-030c: the toast is NOT tapped away here — the product hides it on route change.
+    const langToast = page.getByText(/Langue mise à jour/).first();
+    const toastShown = await langToast.isVisible().catch(() => false);
     await page.evaluate(() => window.scrollTo(0, 0));
     const box = await langContinue(page, c).boundingBox();
     const scrollInfo = await page.evaluate(() => ({ scrollY: window.scrollY, docH: document.documentElement.scrollHeight }));
@@ -722,9 +730,20 @@ test.describe('Wave A — fr', () => {
     await r.snap('02-language-continue-fold');
 
     // 03 — AuthChoice.
+    const navT = Date.now();
     await langContinue(page, c).dispatchEvent('click');
     const guest = page.getByTestId('auth_guest_button');
     await expect(guest).toBeVisible({ timeout: 20_000 });
+    await expect.soft(langToast, 'A-030c: the language toast is hidden once the route changes').toBeHidden({ timeout: 1_000 });
+    const hiddenAt = Date.now();
+    r.note('03-language-toast-route-change', {
+      toastShownOnLanguage: toastShown,
+      msFromCardTapToNavigate: navT - toastT0,
+      msFromCardTapToHidden: hiddenAt - toastT0,
+      toastLifetimeMs: 3000,
+    });
+    // Hidden by the navigation, not by its own 3 s timer running out.
+    expect.soft(hiddenAt - toastT0, 'A-030c: toast hidden before its 3 s timer would have expired').toBeLessThan(2_900);
     await expect.soft(page.getByTestId('auth_signup_button')).toContainText(c.signup);
     await expect.soft(page.getByTestId('auth_login_button')).toContainText(c.login);
     await expect.soft(guest).toContainText(c.guest);
@@ -1015,6 +1034,31 @@ test.describe('Wave A — fr', () => {
   });
 
   // ─── Login (15-21) ──────────────────────────────────────────────────────────
+  test('A-fr post-term account (40+3) reads Semaine 41 on Home (35, A-025)', async ({ browser }, testInfo) => {
+    const c = COPY.fr;
+    const email = newAccountEmail('A', 'fr-postterm');
+    const acct = await createAccount(email, E2E_PASSWORD);
+    const lmp = `${lmpDaysAgo(40 * 7 + 3)}T00:00:00.000Z`;
+    await seedProfile(acct.uid, acct.idToken, {
+      firstName: 'Terme',
+      lmp,
+      pregnancyStartDate: lmp,
+      dpa: new Date(new Date(lmp).getTime() + 280 * 86_400_000).toISOString(),
+    });
+    const fresh = await freshLogin(browser, email, 'fr');
+    const r = rig(fresh, testInfo);
+    await expect.soft(fresh.getByText(`${c.week} 41`, { exact: true }).first(), '35 A-025: Home reads Semaine 41 at 40+3').toBeVisible({ timeout: 30_000 });
+    await expect.soft(fresh.getByText(/^Semaine (40|42)$/), '35 A-025: no off-by-one week label on Home').toHaveCount(0);
+    r.note('35-fr-postterm-home', { lmp, server: await serverDoc(`userProfiles/${acct.uid}`) });
+    await r.snap('35-fr-postterm-home-week41');
+    r.dispose();
+    await fresh.context().close();
+  });
+
+  test('A-fr pre-consent profile → health-data consent sheet → Home (34, A-030a)', async ({ page, browser }, testInfo) => {
+    await consentGate(page, browser, testInfo, 'fr');
+  });
+
   test('A-fr login: display, wrong pw, unknown user, rate limit, forgot pw, success (15-22)', async ({ page, browser }, testInfo) => {
     const r = rig(page, testInfo);
     const c = COPY.fr;
@@ -1112,6 +1156,66 @@ test.describe('Wave A — fr', () => {
     r.dispose();
   });
 });
+
+
+/**
+ * A-030a: a profile saved before the health-data consent question existed lands on
+ * the consent sheet (App.tsx needsHealthDataConsent) instead of Home.
+ */
+async function consentGate(page: Page, browser: Browser, testInfo: TestInfo, locale: 'fr' | 'ar') {
+  const r = rig(page, testInfo);
+  const c = COPY[locale];
+  const email = newAccountEmail('A', `${locale}-consent-gate`);
+  const acct = await createAccount(email, E2E_PASSWORD);
+  await seedProfile(acct.uid, acct.idToken, { week: 32, firstName: 'Ancienne', consent: false });
+  const before = await serverDoc(`userProfiles/${acct.uid}`);
+  expect(before?.healthDataConsent, 'seed: no consent on the server').toBeUndefined();
+  await page.addInitScript((l) => {
+    try {
+      if (sessionStorage.getItem('__e2e_gate')) return;
+      sessionStorage.setItem('__e2e_gate', '1');
+      localStorage.setItem('app_locale', l);
+      localStorage.setItem('@home_welcome_seen_v1', '1');
+    } catch {
+      /* storage blocked */
+    }
+  }, locale);
+  await page.goto('/login', { waitUntil: 'load' });
+  await expect(page.getByTestId('login_email_input')).toBeVisible({ timeout: 60_000 });
+  await page.getByTestId('login_email_input').fill(email);
+  await page.getByTestId('login_password_input').fill(E2E_PASSWORD);
+  await page.getByTestId('login_submit_button').click();
+  const cont = page.getByTestId('health_consent_continue');
+  await expect(cont).toBeVisible({ timeout: 45_000 });
+  await expect.soft(page.getByRole('tablist'), `34-${locale}: Home must not be reachable before consent`).toHaveCount(0);
+  await expect.soft(page.getByTestId('health_consent_checkbox')).toHaveAttribute('aria-checked', 'false');
+  await expect.soft(cont, `34-${locale}: Continue disabled while unticked`).toBeDisabled();
+  await expect.soft(page.getByTestId('health_consent_policy_link')).toBeVisible();
+  await expect.soft(page.getByTestId('health_consent_erase'), `34-${locale}: an erase alternative is offered`).toBeVisible();
+  if (locale === 'ar') expect.soft(await htmlDirLang(page)).toEqual({ dir: 'rtl', lang: 'ar' });
+  const body = await page.locator('body').innerText();
+  if (locale === 'ar') expect.soft(body.match(FR_LEAK)?.[0] ?? null, '34-ar: no French fallback').toBeNull();
+  await r.snap(`34-${locale}-health-consent-gate`);
+  await tickHealthConsent(page);
+  await expect.soft(cont).toBeEnabled();
+  await r.snap(`34-${locale}-health-consent-ticked`);
+  await cont.click();
+  await expect(page.getByRole('tablist').first()).toBeVisible({ timeout: 45_000 });
+  await expect.soft(page.getByText(`${c.week} 32`, { exact: true }).first(), `34-${locale}: Home week 32 after consent`).toBeVisible({ timeout: 30_000 });
+  await r.snap(`34-${locale}-health-consent-home`);
+  const after = await pollServerDoc(`userProfiles/${acct.uid}`, (d) => !!d?.healthDataConsent);
+  r.note(`34-${locale}-health-consent-server-truth`, { uid: acct.uid, healthDataConsent: after?.healthDataConsent ?? null, lmp: after?.lmp });
+  expect.soft(after?.healthDataConsent, `34-${locale}: consent recorded on the server`).toBeTruthy();
+  expect.soft(after?.lmp, `34-${locale}: consent must not touch lmp`).toBe(before?.lmp);
+  // Fresh context: the sheet must not come back once answered.
+  const fresh = await freshLogin(browser, email, locale);
+  const fr = rig(fresh, testInfo);
+  await expect.soft(fresh.getByTestId('health_consent_continue'), `34-${locale}: no sheet on a fresh device after consent`).toHaveCount(0);
+  await fr.snap(`34-${locale}-health-consent-fresh-context`);
+  fr.dispose();
+  await fresh.context().close();
+  r.dispose();
+}
 
 async function freshLogin(browser: Browser, email: string, locale: AppLocale): Promise<Page> {
   const context = await browser.newContext({ baseURL: E2E_BASE_URL, ...waveUse(locale), storageState: { cookies: [], origins: [] } });
@@ -1264,6 +1368,10 @@ test.describe('Wave A — ar (RTL)', () => {
     expect.soft(num, '28: never 190 for a user who did not choose Tunisia').not.toBe('190');
     void browser;
     r.dispose();
+  });
+
+  test('A-ar pre-consent profile → health-data consent sheet → Home (34, A-030a)', async ({ page, browser }, testInfo) => {
+    await consentGate(page, browser, testInfo, 'ar');
   });
 
   test('A-ar login wrong password + success (29, 30)', async ({ page, browser }, testInfo) => {

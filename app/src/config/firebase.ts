@@ -1,7 +1,7 @@
 import { initializeApp } from 'firebase/app';
 import { connectAuthEmulator } from 'firebase/auth';
 import { connectFirestoreEmulator, initializeFirestore, persistentLocalCache } from 'firebase/firestore';
-import { getAnalytics, isSupported } from 'firebase/analytics';
+import type { Analytics } from 'firebase/analytics';
 import { createFirebaseAuth } from './createFirebaseAuth';
 import { bridgeAppCheck } from './appCheck';
 import { emulatorTarget } from './firebaseEmulator';
@@ -39,12 +39,12 @@ if (emulator) {
 
 export { auth };
 
-// 3. Analytics
-// NOTE: firebase/analytics is the Web SDK and is NOT supported on React Native /
-// Hermes — `isSupported()` resolves to `false`, so this promise always resolves
-// to `null` in the app. All analyticsService methods are intentionally no-ops as
-// a result. See src/services/analyticsService.ts for the migration path to
-// @react-native-firebase/analytics when telemetry becomes a priority.
-export const analytics = isSupported().then(yes => yes ? getAnalytics(app) : null);
+// 3. Analytics — deliberately off.
+// The privacy policy and the iOS privacy manifest both say no analytics is
+// collected. On native the Web SDK was inert anyway (`isSupported()` is false on
+// Hermes), but on web `getAnalytics` sent page views and onboarding/login
+// events to Google Analytics. Enabling telemetry is a privacy-policy change
+// first; see src/services/analyticsService.ts for the migration path.
+export const analytics: Promise<Analytics | null> = Promise.resolve(null);
 
 export default app;

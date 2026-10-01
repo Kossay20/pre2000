@@ -4,14 +4,14 @@ import { useNetInfo } from '@react-native-community/netinfo';
 import { theme } from '../../theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
+import { isDefinitelyOffline } from './OfflineNotice.helpers';
 
 export const OfflineNotice = () => {
     const netInfo = useNetInfo();
     const insets = useSafeAreaInsets();
     const { t } = useTranslation();
 
-    // Don't show on initial load (unknown) or if connected
-    if (netInfo.type === 'unknown' || netInfo.isInternetReachable !== false) {
+    if (!isDefinitelyOffline(netInfo)) {
         return null;
     }
 

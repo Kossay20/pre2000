@@ -57,6 +57,19 @@ const VITAMINS = 'Vitamines prénatales';
 // ── Shared steps ──────────────────────────────────────────────────────────────
 
 /** Week 32 as of the user's LOCAL calendar day in `tz` (the app dates the pregnancy by local day). */
+/** Due date = calendar day of the stored LMP + 280 days, identical in every timezone. */
+function canonicalDpa(lmpIso: string): string {
+  const d = new Date(lmpIso);
+  const utc = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 280));
+  return new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(utc);
+}
+
+/** Profile → the line under "Date Prévue d'Accouchement (DPA)". */
+async function profileDpaText(page: Page): Promise<string | null> {
+  const t = await bodyText(page);
+  return t.match(/Date Prévue d'Accouchement \(DPA\)\s*\n\s*([^\n]+)/)?.[1]?.trim() ?? null;
+}
+
 async function newWeek32Account(scenario: string, tz = 'Europe/Paris'): Promise<CreatedAccount> {
   const acct = await createAccount(newAccountEmail('B', scenario), E2E_PASSWORD);
   const [y, m, d] = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' })
@@ -194,11 +207,8 @@ async function sync4Surfaces(h: Instrumented, obs: Observations, stateName: stri
     timeout: 30_000,
   });
   const prof = await serverDoc(`userProfiles/${acct.uid}`);
-  const expectedDpa = await page.evaluate((lmp) => {
-    const d = new Date(lmp as string);
-    d.setDate(d.getDate() + 280);
-    return new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }).format(d);
-  }, prof?.lmp);
+  const expectedDpa = canonicalDpa(String(prof?.lmp));
+  out.profileDpaText = await profileDpaText(page);
   out.expectedDpa = expectedDpa;
   out.profileShowsDpa = (await bodyText(page)).includes(expectedDpa);
   out.serverCurrentWeek = prof?.currentWeek ?? null;
@@ -211,10 +221,10 @@ async function sync4Surfaces(h: Instrumented, obs: Observations, stateName: stri
   expect.soft(out.remindersTrimester, `${stateName}: Reminders trimester`).toBe('3');
   expect.soft(out.babyEvolutionMonth, `${stateName}: BabyEvolution month`).toBe('8');
   expect.soft(out.kickGuidance28, `${stateName}: Kick ≥28w guidance`).toBe(true);
-  expect.soft(out.profileShowsDpa, `${stateName}: Profile DPA = LMP+280 (${expectedDpa})`).toBe(true);
+  expect.soft(out.profileDpaText, `${stateName}: Profile DPA = LMP calendar day + 280 (${expectedDpa}), timezone-independent`).toBe(expectedDpa);
   const consistent =
     out.homeWeek === '32' && out.calendarWeek === 32 && out.calendarWeekAfterToday === 32 && out.remindersWeek === '32' &&
-    out.babyEvolutionMonth === '8' && out.remindersTrimester === '3' && out.profileShowsDpa === true;
+    out.babyEvolutionMonth === '8' && out.remindersTrimester === '3' && out.profileDpaText === expectedDpa;
   obs.add('SYNC-4', consistent ? 'PASS' : 'FAIL', stateName, out);
   // Leave on Home.
   await page.goto('/', { waitUntil: 'load' });
@@ -269,6 +279,8 @@ test.describe('Wave B — B-plan (Europe/Paris)', () => {
           contractionCards: contraction,
           bagCards: bag,
         });
+        expect.soft(contraction, '02: previewing week 27 keeps the contraction card (her real week is 32)').toBeGreaterThan(0);
+        expect.soft(bag, '02: previewing week 27 keeps the hospital-bag card').toBeGreaterThan(0);
         const back = page.getByTestId('home_return_to_today');
         await expect.soft(back, '02: return-to-today pill').toBeVisible();
         await back.click();
@@ -316,6 +328,8 @@ test.describe('Wave B — B-plan (Europe/Paris)', () => {
         await openAppointmentFormFromFab(page);
         const f = form(page);
         await expect.soft(f.save, '05: Save disabled on empty title').toBeDisabled();
+        await expect.soft(f.medical, '05: new appointment defaults to Médical').toHaveAttribute('aria-selected', 'true');
+        await expect.soft(f.personal, '05: Personnel not selected by default').toHaveAttribute('aria-selected', 'false');
         obs.add('APPT-DEFAULT-TYPE', 'INFO', '05-appt-form-empty', {
           medicalSelected: await f.medical.getAttribute('aria-selected'),
           personalSelected: await f.personal.getAttribute('aria-selected'),
@@ -398,7 +412,7 @@ test.describe('Wave B — B-plan (Europe/Paris)', () => {
         const rel = await relDay(page, apptIso);
         const text = await bodyText(page);
         const expectedPill =
-          rel === 'today' ? "Aujourd'hui : 1 rendez-vous !" : rel === 'tomorrow' ? "N'oubliez pas ! 1 rendez-vous demain." : rel === 'thisWeek' ? 'Vous avez 1 rendez-vous prévus cette semaine.' : null;
+          rel === 'today' ? "Aujourd'hui : 1 rendez-vous !" : rel === 'tomorrow' ? "N'oubliez pas ! 1 rendez-vous demain." : rel === 'thisWeek' ? 'Vous avez 1 rendez-vous prévu cette semaine.' : null;
         if (expectedPill) expect.soft(text.includes(expectedPill), `08: pill "${expectedPill}"`).toBe(true);
         obs.add('HOME-PILL-GRAMMAR', 'INFO', '08-home-upcoming', { pill: expectedPill, rel });
         const counts = await healthAppointmentCounts(page);
@@ -762,7 +776,7 @@ test.describe('Wave B — B-plan (Europe/Paris)', () => {
         await page.waitForTimeout(2500);
         const listed = await page.getByRole('button', { name: /^Wave B RDV \d, / }).filter({ visible: true }).count();
         const text = await bodyText(page);
-        const pill = text.match(/Vous avez (\d+) rendez-vous prévus cette semaine\./);
+        const pill = text.match(/Vous avez (\d+) rendez-vous prévus? cette semaine\./);
         expect.soft(listed, '14: Home lists max 3 upcoming').toBe(3);
         expect.soft(pill?.[1], '14: pill counts all 4 appointments this week').toBe('4');
         await openCalendar(page);
@@ -833,6 +847,8 @@ async function tzRun(page: Page, testInfo: TestInfo, tz: string, slug: string, b
       const listed = (await poll(() => box.count(), (c) => c > 0, 15_000)) > 0;
       expect.soft(listed, `${slug}: MA JOURNÉE lists today's appointment`).toBe(true);
       const iso = await localIso(page, today.key, hhmm);
+      const tzDoc = (await serverQuery('userEvents', 'user_id', acct.uid)).find((r) => r.data.title === `RDV TZ ${slug}`)?.data;
+      expect.soft(tzDoc?.category, `${slug}: appointment saved with the default category Médical`).toBe('medical');
       obs.add(`TZ-${slug}-today-appt`, pill && listed ? 'PASS' : 'FAIL', `${base + 1}-tz-${slug}-today-appt`, {
         localDay: today.key,
         hhmm,
@@ -890,5 +906,39 @@ test.describe(`Wave B — timezone flush: date-boundary ${BOUNDARY_TZ}`, () => {
   test('B-tz boundary: local day ≠ UTC day', async ({ page }, testInfo) => {
     test.setTimeout(8 * 60_000);
     await tzRun(page, testInfo, BOUNDARY_TZ, 'boundary', 44);
+  });
+});
+
+// One account, four timezones: the due date on Profile must be the same calendar day.
+test.describe('Wave B — due date identical across timezones', () => {
+  test('B-tz DPA: Paris / New York / Tunis / boundary show the same DPA', async ({ browser }, testInfo) => {
+    test.setTimeout(6 * 60_000);
+    const obs = new Observations('wave-B-plan-observations.json', testInfo);
+    const acct = await newWeek32Account('tz-dpa');
+    const lmp = String((await serverDoc(`userProfiles/${acct.uid}`))?.lmp);
+    const expected = canonicalDpa(lmp);
+    const seen: Record<string, string | null> = {};
+    try {
+      for (const tz of ['Europe/Paris', 'America/New_York', 'Africa/Tunis', BOUNDARY_TZ]) {
+        const p = await freshContextLogin(browser, acct.email, E2E_PASSWORD, 'fr', { timezoneId: tz });
+        const h = instrument(p, testInfo);
+        try {
+          await state(h, `47-tz-dpa-${tz.replace(/[^A-Za-z]+/g, '-').toLowerCase()}`, async () => {
+            await p.goto('/profile', { waitUntil: 'load' });
+            await expect(vis(p.getByText("Date Prévue d'Accouchement (DPA)", { exact: true })), 'Profile DPA').toBeVisible({ timeout: 30_000 });
+            seen[tz] = await profileDpaText(p);
+            expect.soft(seen[tz], `DPA in ${tz}`).toBe(expected);
+          });
+        } finally {
+          h.dispose();
+          await p.context().close();
+        }
+      }
+      const values = new Set(Object.values(seen));
+      expect.soft(values.size, `DPA identical across zones ${JSON.stringify(seen)}`).toBe(1);
+      obs.add('DPA-ACROSS-TZ', values.size === 1 && seen['Europe/Paris'] === expected ? 'PASS' : 'FAIL', '47-tz-dpa', { lmp, expected, seen });
+    } finally {
+      obs.flush();
+    }
   });
 });

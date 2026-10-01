@@ -10,7 +10,7 @@ import path from 'path';
 import { expect, test, type Locator, type Page, type TestInfo } from '@playwright/test';
 import { attachConsoleStrict, RAW_KEY } from './audit-guards';
 import { attachMegaAuditRecorder } from './mega-audit-snap';
-import { attachDialogRecorder, type DialogRecorder } from './dialog-recorder';
+import { attachDialogRecorder, type DialogRecorder, type DialogRecord } from './dialog-recorder';
 import { FIRESTORE_EMULATOR, PROJECT_ID } from './emulator-account';
 
 const DOCS = `${FIRESTORE_EMULATOR}/v1/projects/${PROJECT_ID}/databases/(default)/documents`;
@@ -28,6 +28,7 @@ export type Instrumented = {
   page: Page;
   strict: string[];
   dialogs: DialogRecorder;
+  recordEvent: ReturnType<typeof attachMegaAuditRecorder>['recordEvent'];
   popups: string[];
   /** Quartet + strict-console slice (soft) + raw-key check (soft). */
   snap: (name: string) => Promise<void>;
@@ -58,17 +59,53 @@ export function instrument(page: Page, testInfo: TestInfo): Instrumented {
     const leak = text.split('\n').find((l) => RAW_KEY.test(l));
     expect.soft(leak, `${name}: raw i18n key leaked → "${leak}"`).toBeFalsy();
   }
-  return {
+  const inst: Instrumented = {
     page,
     strict,
     dialogs,
+    recordEvent: mega.recordEvent,
     popups,
     snap,
     dispose: () => {
       mega.dispose();
-      dialogs.dispose();
+      inst.dialogs.dispose();
     },
   };
+  return inst;
+}
+
+/**
+ * Run `fn` with a per-message dialog policy (e.g. a chain of window.confirm calls where
+ * only one option must be accepted). The committed recorder is detached for the
+ * duration; every dialog is still written to the quartet and returned.
+ */
+export async function withDialogPolicy(
+  h: Instrumented,
+  policy: (message: string, type: string) => 'accept' | 'dismiss',
+  fn: () => Promise<void>,
+): Promise<DialogRecord[]> {
+  const seen: DialogRecord[] = [];
+  h.dialogs.dispose();
+  const handler = async (d: import('@playwright/test').Dialog) => {
+    const action = policy(d.message(), d.type());
+    const rec: DialogRecord = { type: d.type() as DialogRecord['type'], message: d.message(), action: action === 'accept' ? 'accepted' : 'dismissed', ts: Date.now() };
+    seen.push(rec);
+    h.recordEvent({ level: 'dialog', type: rec.type, message: rec.message, action: rec.action, text: `[${rec.type}:${rec.action}] ${rec.message}` });
+    try {
+      if (action === 'accept') await d.accept();
+      else await d.dismiss();
+    } catch {
+      /* page closed */
+    }
+  };
+  h.page.on('dialog', handler);
+  try {
+    await fn();
+  } finally {
+    h.page.off('dialog', handler);
+    h.dialogs = attachDialogRecorder(h.page, { recordEvent: h.recordEvent });
+  }
+  return seen;
 }
 
 /**

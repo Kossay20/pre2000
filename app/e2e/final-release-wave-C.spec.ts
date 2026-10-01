@@ -615,6 +615,15 @@ for (const C of CFG) {
       expect.soft(await countOf(cards), '03: zzqx → 0 cards').toBe(0);
       await w.state('03-articles-nomatch');
 
+      // ── 03b Unreviewed Ramadan/halal content hidden from search ──────────────
+      const ramadanQ = L === 'ar' || L === 'tn' ? 'رمضان' : 'ramadan';
+      await artSearch.fill(ramadanQ);
+      await page.waitForTimeout(300);
+      const nRamadan = await countOf(cards);
+      w.note('03b.ramadanSearch', { q: ramadanQ, n: nRamadan });
+      expect.soft(nRamadan, `03b: "${ramadanQ}" must return no article (clinically unreviewed content hidden)`).toBe(0);
+      await w.state('03b-articles-ramadan-hidden');
+
       // ── 04 Article detail (inside ResourcesStack) + bookmark + Favoris ──────
       await artSearch.fill(C.articleQ);
       await expect(cards.first()).toBeVisible();
@@ -813,6 +822,15 @@ for (const C of CFG) {
       await w.state('09-week-recs');
 
       // ── 10 Baby evolution (GJ-011) ──────────────────────────────────────────
+      // ── 09b Ramadan article deep link → not found ───────────────────────────
+      await page.goto('/article/art_003', { waitUntil: 'load' });
+      const notFound = page.getByText(tr(L, 'article.notFound'), { exact: true });
+      await expect.soft(notFound, '09b: /article/art_003 (Ramadan) must show not-found').toBeVisible({ timeout: 20_000 });
+      const artBody = await visibleLines(page);
+      w.note('09b.art_003', artBody.slice(0, 12));
+      expect.soft(artBody.filter((l) => /ramadan|رمضان/i.test(l)), '09b: no Ramadan text rendered').toEqual([]);
+      await w.state('09b-article-art003-hidden');
+
       await page.goto('/baby-evolution', { waitUntil: 'load' });
       const month8 = page.getByText(new RegExp(`${esc(tr(L, 'common.monthLabel', { number: 8 }))} / 9`));
       const anyMonth = page.getByText(/ \/ 9$/);

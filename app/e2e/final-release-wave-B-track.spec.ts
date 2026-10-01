@@ -26,6 +26,7 @@ import {
   bodyText,
   instrument,
   localDay,
+  withDialogPolicy,
   poll,
   state,
   userWrite,
@@ -79,6 +80,8 @@ async function weightSnapshot(page: Page) {
   return {
     setupCardVisible: text.includes('⚙️ Configuration initiale'),
     history: text.match(/^\d+(?:[.,]\d+)? kg$/gm) ?? ([] as string[]),
+    /** History list rows only: "<w> kg" followed by "<date> • Semaine N". */
+    rows: [...text.matchAll(/^(\d+(?:[.,]\d+)?) kg\n([^\n]*) • Semaine \d+$/gm)].map((m) => ({ kg: m[1], date: m[2] })),
   };
 }
 
@@ -216,14 +219,30 @@ test.describe('Wave B — B-track (Europe/Paris)', () => {
         const input = vis(page.getByPlaceholder('Poids (kg)'));
         await expect(input, 'health weight modal').toBeVisible({ timeout: 10_000 });
         await input.fill('69.0');
+        const n27 = h.dialogs.dialogs.length;
         await vis(page.getByRole('button', { name: 'Enregistrer', exact: true })).click();
-        await page.waitForTimeout(1500);
+        await page.waitForTimeout(2000);
+        const dialogs27 = h.dialogs.dialogs.slice(n27).map((d) => `[${d.type}:${d.action}] ${d.message}`);
         const metrics = await poll(() => serverQuery('healthMetrics', 'user_id', acct.uid), (r) => r.some((x) => x.data.type === 'weight'));
         const w = metrics.filter((r) => r.data.type === 'weight').map((r) => r.data.value);
         expect.soft(w, '27: server healthMetrics weight 69').toEqual([69]);
         const tracker = await weightSnapshot(page);
         const inTracker = tracker.history.some((x) => /^69(\.0)? kg$/.test(x));
         expect.soft(inTracker, '27: WeightTracker lists the Health entry (single weight history)').toBe(true);
+        // One weighing per day across sources (tracker 68.4 then Health 69.0, same day).
+        const todayRows = tracker.rows;
+        expect.soft(todayRows.length, `27: one weighing per day across sources (rows: ${JSON.stringify(todayRows)})`).toBe(1);
+        expect.soft(todayRows[0]?.kg, '27: the day keeps the latest weighing (69)').toBe('69');
+        const we = await serverQuery('weight_entries', 'user_id', acct.uid);
+        const hm = (await serverQuery('healthMetrics', 'user_id', acct.uid)).filter((r) => r.data.type === 'weight');
+        const serverToday = [...we.map((r) => String(r.data.date)), ...hm.map((r) => String(r.data.date))].filter((d) => d.startsWith(utcToday)).length;
+        expect.soft(serverToday, '27: one server weighing today across weight_entries + healthMetrics').toBe(1);
+        obs.add('WEIGHT-SAME-DAY-DEDUPE', todayRows.length === 1 && serverToday === 1 ? 'PASS' : 'FAIL', '27-health-weight-entry', {
+          dialogs: dialogs27,
+          trackerRows: todayRows,
+          serverWeightEntries: we.map((r) => r.data.weight),
+          serverHealthMetricsWeights: hm.map((r) => r.data.value),
+        });
         obs.add('HYP-B10', inTracker ? 'REFUTED' : 'CONFIRMED', '27-health-weight-entry', {
           healthMetricsWeights: w,
           weightTrackerHistory: tracker.history,
@@ -265,6 +284,38 @@ test.describe('Wave B — B-track (Europe/Paris)', () => {
           note: 'UI accepts 300/200 (validation.ts:156-159) → critical alert; on web showAlert() picks the FIRST non-cancel button ("Appeler les urgences", alert.ts) so OK dials the emergency number and "Sauvegarder quand même" is unreachable; the rules-denial path cannot be driven from the web UI',
         });
         expect.soft(specificMessage || bpAfter300 > bpBefore, '28: 300/200 must yield a specific validation message (UI and rules disagree on the bound)').toBe(true);
+        // Critical but rules-valid (165/105): on web the chain of confirms must offer
+        // "Sauvegarder quand même" and saving must work; "Appeler" must not be the only outcome.
+        if (!(await page.getByPlaceholder('Systolique (ex: 120)').filter({ visible: true }).count())) {
+          await openHealthModal(page, '💓 Tension Artérielle, Ajouter');
+        }
+        await vis(page.getByPlaceholder('Systolique (ex: 120)')).fill('165');
+        await vis(page.getByPlaceholder('Diastolique (ex: 80)')).fill('105');
+        const popupsBeforeCrit = h.popups.length;
+        const critDialogs = await withDialogPolicy(
+          h,
+          (msg) => (/Sauvegarder quand même/.test(msg) ? 'accept' : /Appeler/.test(msg) ? 'dismiss' : 'accept'),
+          async () => {
+            await vis(page.getByRole('button', { name: 'Enregistrer', exact: true })).click();
+            await page.waitForTimeout(2500);
+          },
+        );
+        const offeredSave = critDialogs.some((d) => /Sauvegarder quand même/.test(d.message));
+        const offeredCall = critDialogs.some((d) => /Appeler/.test(d.message));
+        const crit = await poll(
+          () => serverQuery('healthMetrics', 'user_id', acct.uid),
+          (r) => r.some((x) => x.data.type === 'blood_pressure' && (x.data.value as any)?.systolic === 165),
+        );
+        const critSaved = crit.some((x) => x.data.type === 'blood_pressure' && (x.data.value as any)?.systolic === 165);
+        expect.soft(offeredSave, '28: critical BP alert offers "Sauvegarder quand même" on web').toBe(true);
+        expect.soft(critSaved, '28: 165/105 saved via "Sauvegarder quand même"').toBe(true);
+        expect.soft(h.popups.length - popupsBeforeCrit, '28: declining "Appeler" opens no dialer').toBe(0);
+        obs.add('BP-CRITICAL-WEB', offeredSave && critSaved ? 'PASS' : 'FAIL', '28-health-bp-boundary', {
+          dialogs: critDialogs.map((d) => `[${d.type}:${d.action}] ${d.message}`),
+          offeredCall,
+          offeredSave,
+          saved: critSaved,
+        });
         // Close the modal if still open, then 140/90.
         if (await page.getByPlaceholder('Systolique (ex: 120)').filter({ visible: true }).count()) {
           await vis(page.getByPlaceholder('Systolique (ex: 120)')).fill('140');
@@ -440,7 +491,7 @@ test.describe('Wave B — B-track (Europe/Paris)', () => {
         const con = await contractionSnapshot(fresh);
         const bag = await bagSnapshot(fresh);
         expect.soft(w.setupCardVisible, '37: WeightTracker setup card must not re-appear on a new device (SYNC-7)').toBe(false);
-        expect.soft(w.history, '37: weight history visible on a new device').toContain('68.4 kg');
+        expect.soft(w.rows.map((r) => r.kg), '37: weight history (one row for today = 69) on a new device').toEqual(['69']);
         obs.add('R6-new-device', kick.historyRows === 0 && con.empty && bag.done === 0 ? 'CONFIRMED' : 'REFUTED', '37-track-fresh-context', {
           before: local,
           freshKick: kick,
@@ -450,7 +501,7 @@ test.describe('Wave B — B-track (Europe/Paris)', () => {
           health,
           cite: 'kick_counter_v1 / contraction_timer_v1 / hospital_bag_v1 are AsyncStorage-only (storageKeys.ts:12-46)',
         });
-        obs.add('SYNC-6/7-fresh', !w.setupCardVisible && w.history.includes('68.4 kg') ? 'PASS' : 'FAIL', '37-track-fresh-context', w);
+        obs.add('SYNC-6/7-fresh', !w.setupCardVisible && w.rows.length === 1 && w.rows[0]?.kg === '69' ? 'PASS' : 'FAIL', '37-track-fresh-context', w);
       });
     } finally {
       obs.flush();
