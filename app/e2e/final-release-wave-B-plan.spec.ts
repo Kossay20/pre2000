@@ -137,8 +137,8 @@ function form(page: Page) {
     time: vis(page.getByPlaceholder('HH:MM')),
     location: vis(page.getByRole('textbox', { name: 'Lieu (optionnel)' })),
     notes: vis(page.getByRole('textbox', { name: 'Notes (optionnel)' })),
-    medical: vis(page.getByRole('button', { name: 'Médical 🩺', exact: true })),
-    personal: vis(page.getByRole('button', { name: 'Personnel 📅', exact: true })),
+    medical: vis(page.getByRole('button', { name: 'Médical', exact: true })),
+    personal: vis(page.getByRole('button', { name: 'Personnel', exact: true })),
     save: vis(page.getByRole('button', { name: 'Enregistrer les modifications', exact: true })),
     switches: page.getByRole('switch').filter({ visible: true }),
   };
@@ -587,8 +587,8 @@ test.describe('Wave B — B-plan (Europe/Paris)', () => {
         await remindersTopTab(page, 'Rappels');
         await expect(vis(page.getByText('Mes Rappels', { exact: true })), '15: reminders loaded').toBeVisible({ timeout: 30_000 });
         const text = await bodyText(page);
-        expect.soft(text.includes('Semaine 32 • 3e trimestre'), '15: header "Semaine 32 • 3e trimestre"').toBe(true);
-        expect.soft(/2e trimestre/.test(text), '15: no "2e trimestre"').toBe(false);
+        expect.soft(text.includes('Semaine 32 • 3ème Trimestre'), '15: header "Semaine 32 • 3ème Trimestre"').toBe(true);
+        expect.soft(/2ème Trimestre/.test(text), '15: no "2ème Trimestre"').toBe(false);
         const banner = await page.getByRole('button', { name: 'Activez les notifications pour recevoir vos rappels' }).filter({ visible: true }).count();
         const settings = await poll(() => serverQuery('reminder_settings_v2', 'user_id', acct.uid), (r) => r.length >= 3);
         obs.add('REMINDERS-DEFAULTS', 'INFO', '15-reminders-tab', {

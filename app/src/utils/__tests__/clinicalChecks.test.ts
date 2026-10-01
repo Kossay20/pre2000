@@ -18,6 +18,8 @@ import {
     countryFromRegion,
     getEmergencyNumber,
     resolveEmergencyNumber,
+    GDM_FASTING_THRESHOLD_MMOL,
+    summarizeGlucoseMonth,
 } from '../clinicalChecks';
 
 const expectSeverity = (
@@ -33,8 +35,17 @@ describe('checkGlucose (mmol/L, fasting)', () => {
         expect(checkGlucose(3.5)).toBeNull();
     });
 
-    it('returns null for normal value (5.5 — upper boundary)', () => {
-        expect(checkGlucose(5.5)).toBeNull();
+    it('returns null just below the pregnancy fasting criterion (5.0)', () => {
+        expect(checkGlucose(5.0)).toBeNull();
+    });
+
+    it('flags 5.1 — the IADPSG 2010 / WHO 2013 fasting criterion — and everything up to 6.9', () => {
+        expect(GDM_FASTING_THRESHOLD_MMOL).toBe(5.1);
+        for (const v of [5.1, 5.2, 5.5]) {
+            const a = checkGlucose(v);
+            expectSeverity(a, 'warning');
+            expect(a!.titleKey).toContain('glucoseSurveillance');
+        }
     });
 
     it('returns critical for hypoglycemia (3.4 — just below threshold)', () => {
@@ -44,7 +55,7 @@ describe('checkGlucose (mmol/L, fasting)', () => {
         expect(a!.titleKey).toContain('glucoseLow');
     });
 
-    it('returns warning for surveillance (5.6 — just above normal)', () => {
+    it('returns warning for surveillance (5.6 — no emergency action)', () => {
         const a = checkGlucose(5.6);
         expectSeverity(a, 'warning');
         expect(a!.emergencyAction).toBeUndefined();
@@ -83,6 +94,44 @@ describe('checkGlucose (mmol/L, fasting)', () => {
     });
 });
 
+// B-009: the Glycémie card said "Glycémie normale ce mois-ci" with no reading at all, and
+// next to an out-of-range one. What it says now comes from the month's readings.
+describe('summarizeGlucoseMonth', () => {
+    const now = new Date(2026, 9, 15, 12, 0, 0);
+    const on = (day: number, value: number, month = 9) => ({ value, date: new Date(2026, month, day, 8).toISOString() });
+
+    it('no reading at all → empty, never "normal"', () => {
+        expect(summarizeGlucoseMonth([], now)).toBe('empty');
+    });
+
+    it('readings only in other months → empty', () => {
+        expect(summarizeGlucoseMonth([on(28, 4.6, 8), on(1, 9.0, 10)], now)).toBe('empty');
+        expect(summarizeGlucoseMonth([{ value: 4.6, date: new Date(2025, 9, 15).toISOString() }], now)).toBe('empty');
+    });
+
+    it('every reading of the month in the target → inRange', () => {
+        expect(summarizeGlucoseMonth([on(1, 4.2), on(8, 5.0)], now)).toBe('inRange');
+    });
+
+    it('one reading at the criterion (5.1) or beyond → outOfRange, whatever the others are', () => {
+        expect(summarizeGlucoseMonth([on(1, 4.2), on(8, 5.1)], now)).toBe('outOfRange');
+        expect(summarizeGlucoseMonth([on(2, 5.2)], now)).toBe('outOfRange');
+        expect(summarizeGlucoseMonth([on(3, 9.0), on(4, 4.5)], now)).toBe('outOfRange');
+    });
+
+    it('a low reading (below 3.5) is out of range too', () => {
+        expect(summarizeGlucoseMonth([on(5, 3.2)], now)).toBe('outOfRange');
+    });
+
+    it('an out-of-range reading from last month does not colour this month', () => {
+        expect(summarizeGlucoseMonth([on(20, 8.0, 8), on(3, 4.4)], now)).toBe('inRange');
+    });
+
+    it('an unreadable date is ignored', () => {
+        expect(summarizeGlucoseMonth([{ value: 9, date: 'not a date' }], now)).toBe('empty');
+    });
+});
+
 describe('checkBloodPressure (mmHg)', () => {
     it('returns null for normal BP (120/75)', () => {
         expect(checkBloodPressure(120, 75)).toBeNull();
@@ -109,6 +158,38 @@ describe('checkBloodPressure (mmHg)', () => {
 
     it('returns severe for hypertension via diastolic alone (135/95)', () => {
         expectSeverity(checkBloodPressure(135, 95), 'severe');
+    });
+
+    it('140/90 is the hypertension tier, 139/89 is not', () => {
+        const at = checkBloodPressure(140, 90);
+        expectSeverity(at, 'severe');
+        expect(at!.messageKey).toBe('dashboard.alerts.bpHigh.message');
+        const below = checkBloodPressure(139, 89);
+        expectSeverity(below, 'warning');
+        expect(below!.titleKey).toContain('bpPreHyp');
+    });
+
+    it('the 140/90 copy asks for an assessment within 24 h in every locale, not "next appointment"', () => {
+        const locales: Record<string, any> = {
+            fr: require('../../i18n/locales/fr/dashboard.json'),
+            en: require('../../i18n/locales/en/dashboard.json'),
+            ar: require('../../i18n/locales/ar/dashboard.json'),
+            tn: require('../../i18n/locales/tn/dashboard.json'),
+        };
+        for (const [lang, strings] of Object.entries(locales)) {
+            const message: string = strings.alerts.bpHigh.message;
+            expect({ lang, has24: /24/.test(message) }).toEqual({ lang, has24: true });
+        }
+        expect(locales.fr.alerts.bpHigh.message).not.toMatch(/prochain rendez-vous/);
+        expect(locales.en.alerts.bpHigh.message).not.toMatch(/next appointment/i);
+    });
+
+    it('the fasting target printed on the Health card states the 5.1 criterion, not 5.5', () => {
+        for (const lang of ['fr', 'en', 'ar', 'tn']) {
+            const target: string = require(`../../i18n/locales/${lang}/dashboard.json`).glucoseTarget;
+            expect({ lang, target, ok: /5[.,]1/.test(target) && !/5[.,]5/.test(target) })
+                .toEqual({ lang, target, ok: true });
+        }
     });
 
     it('returns severe at the upper bound (159/109)', () => {

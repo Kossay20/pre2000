@@ -21,7 +21,7 @@ indique où vit chaque texte, pour que votre correction soit appliquée exacteme
 là où il faut, sans interprétation.
 
 **Source de vérité :** `src/data/supplements_db.json`
-**Généré le :** 2026-08-25 par `scripts/generate-clinical-dossier.ts`
+**Généré le :** 2026-10-01 par `scripts/generate-clinical-dossier.ts`
 
 ---
 
@@ -37,11 +37,11 @@ là où il faut, sans interprétation.
 | 8 | **Vitamine B12** | `ok` | L'apport recommandé est de 2,6 µg par jour. La plupart des vitamines prénatales contiennent cette dose. En cas de carence avérée, des doses plus élevées sont nécessaires sur prescription médicale. | | |
 | 9 | **Zinc** | `a_surveiller` | L'apport recommandé est de 11-12 mg par jour. La supplémentation n'est généralement pas nécessaire avec une alimentation équilibrée. La limite supérieure est de 40 mg/jour. | | |
 | 10 | **Vitamine C** | `a_surveiller` | L'apport recommandé est de 85-120 mg par jour, facilement atteint par une alimentation riche en fruits et légumes. La supplémentation n'est généralement pas nécessaire. | | |
-| 11 | **Vitamine A** | `a_surveiller` | L'apport recommandé est de 770 µg ER par jour. La limite supérieure de sécurité est de 3000 µg ER (10 000 UI) par jour. Il est crucial de ne pas dépasser cette limite. | | |
+| 11 | **Vitamine A** | `deconseille` | L'apport recommandé, alimentation comprise, est de 770 µg ER par jour. La limite supérieure de sécurité est de 3000 µg ER (10 000 UI) par jour. Il est crucial de ne pas dépasser cette limite. | | |
 | 12 | **Probiotiques** | `ok` | Il n'y a pas de dosage standard. La posologie dépend des souches spécifiques (Lactobacillus, Bifidobacterium). Il est recommandé de suivre les instructions du produit et de consulter un professionnel de santé. | | |
 | 13 | **Choline** | `ok` | L'apport recommandé est de 450 mg par jour. La supplémentation peut être nécessaire pour atteindre cet objectif, sur avis médical. | | |
 | 14 | **Vitamine K** | `ok` | L'apport recommandé est de 90 µg par jour, facilement atteint par l'alimentation. Aucune supplémentation de routine n'est recommandée. | | |
-| 15 | **Sélénium** | `a_surveiller` | L'apport recommandé est de 60 µg par jour. La limite supérieure est de 400 µg/jour. La supplémentation doit être évitée sauf en cas de carence avérée et sur avis médical. | | |
+| 15 | **Sélénium** | `deconseille` | L'apport recommandé est de 60 µg par jour. La limite supérieure est de 400 µg/jour. La supplémentation doit être évitée sauf en cas de carence avérée et sur avis médical. | | |
 
 ### Notes longues affichées avec chaque complément
 

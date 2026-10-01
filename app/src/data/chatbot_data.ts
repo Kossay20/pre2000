@@ -45,13 +45,15 @@ export const RED_FLAGS: RedFlag[] = [
     "keywords_en": "hemorrhage,blood,red,bright,bleeding,heavy bleeding,bleeding heavily",
     "keywords_tn": "نزيف,دم,أحمر,فاتح,nzif,dam,shwit dam,nzef,yanzef,دم,نزف,حمرة",
     "severity": "emergency",
-    "standard_message_fr": "Ces signes peuvent indiquer une complication grave (placenta prævia, décollement placentaire, fausse couche tardive). Consultez immédiatement un médecin, une maternité ou les services d’urgence. Ne vous déplacez pas seule.",
-    "standard_message_ar": "قد تشير هذه العلامات إلى مضاعفات خطيرة (المشيمة المنزاحة، انفصال المشيمة، إجهاض متأخر). استشيري طبيباً أو مستشفى الولادة أو خدمات الطوارئ فوراً. لا تذهبي بمفردك.",
-    "standard_message_en": "These signs may indicate a serious complication (placenta previa, placental abruption, late miscarriage). Consult a doctor, maternity ward, or emergency services immediately. Do not travel alone.",
-    "standard_message_tn": "هذا خطير على جسمك وعلى بيبيك. إتصلي بالسبيطار فيساعدوك أو روحي للطوارئ توة.",
+    "standard_message_fr": "Un saignement pendant la grossesse peut être le signe d'une complication grave. Consultez immédiatement un médecin, une maternité ou les services d’urgence. Ne vous déplacez pas seule.",
+    "standard_message_ar": "قد يكون النزيف أثناء الحمل علامة على مضاعفات خطيرة. استشيري طبيباً أو مستشفى الولادة أو خدمات الطوارئ فوراً. لا تذهبي بمفردك.",
+    "standard_message_en": "Bleeding during pregnancy can be a sign of a serious complication. Consult a doctor, maternity ward, or emergency services immediately. Do not travel alone.",
+    "standard_message_tn": "هذا خطير على جسمك وعلى بيبيك. اتصلي بالسبيطار فيساعدوك أو روحي للطوارئ توة.",
+    // The chatbot does not know the week, so the message names no complication tied to a
+    // trimester ("late miscarriage" read to a woman at 32 weeks). The twins article was
+    // linked here by mistake and is gone.
     "linked_articles_ids": [
-      "a03_examens_médicaux_pendant",
-      "a19_grossesses_multiples"
+      "a03_examens_médicaux_pendant"
     ],
     "sources": "OMS 2024, ACOG 2023, NHS"
   },
@@ -69,10 +71,9 @@ export const RED_FLAGS: RedFlag[] = [
     "standard_message_fr": "Ces signes peuvent indiquer une complication (grossesse extra-utérine, décollement placentaire, appendicite). Consultez un médecin ou rendez-vous aux urgences sans attendre.",
     "standard_message_ar": "قد تشير هذه العلامات إلى مضاعفات (حمل خارج الرحم، انفصال المشيمة، التهاب الزائدة الدودية). استشيري طبيباً أو اذهبي إلى الطوارئ دون انتظار.",
     "standard_message_en": "These signs may indicate a complication (ectopic pregnancy, placental abruption, appendicitis). Consult a doctor or go to the emergency room without delay.",
-    "standard_message_tn": "الوجيعة القوية في جانب واحد شي خطير. إتصلي بالطبيب أو روحي للسبيطار بسرعة.",
+    "standard_message_tn": "الوجيعة القوية في جانب واحد شي خطير. اتصلي بالطبيب أو روحي للسبيطار بسرعة.",
     "linked_articles_ids": [
-      "a03_examens_médicaux_pendant",
-      "a19_grossesses_multiples"
+      "a03_examens_médicaux_pendant"
     ],
     "sources": "OMS 2024, ACOG 2023, NHS"
   },
@@ -109,7 +110,7 @@ export const RED_FLAGS: RedFlag[] = [
     "standard_message_fr": "Ces signes, surtout s'ils sont accompagnés de troubles de la vision ou de douleurs à l'estomac, peuvent être un signe de pré-éclampsie. Consultez un médecin ou rendez-vous aux urgences sans attendre.",
     "standard_message_ar": "هذه العلامات، وخاصة إذا كانت مصحوبة باضطرابات في الرؤية أو آلام في المعدة، قد تكون علامة على تسمم الحمل. استشيري طبيباً أو اذهبي إلى الطوارئ دون انتظار.",
     "standard_message_en": "These signs, especially if accompanied by vision problems or stomach pain, may be a sign of preeclampsia. Consult a doctor or go to the emergency room without delay.",
-    "standard_message_tn": "الوجيعة القوية في الراس مع الدوخة أو ضغط - هذا يلزم طبيب. إتصلي بالطبيب توة.",
+    "standard_message_tn": "الوجيعة القوية في الراس مع الدوخة أو ضغط - هذا يلزم طبيب. اتصلي بالطبيب توة.",
     "linked_articles_ids": [
       "a03_examens_médicaux_pendant"
     ]
@@ -147,7 +148,7 @@ export const RED_FLAGS: RedFlag[] = [
     "standard_message_fr": "Une fièvre inexpliquée peut indiquer une infection grave. Consultez un médecin sans attendre pour un diagnostic et un traitement approprié.",
     "standard_message_ar": "قد تشير الحمى غير المبررة إلى عدوى خطيرة. استشيري طبيباً دون انتظار للتشخيص والعلاج المناسب.",
     "standard_message_en": "Unexplained fever may indicate a serious infection. Consult a doctor without delay for diagnosis and appropriate treatment.",
-    "standard_message_tn": "السخانة في الحمل خطيرة. خذي دواء للحرارة وإتصلي بالطبيب إذا ما نقصتش.",
+    "standard_message_tn": "السخانة في الحمل خطيرة. خذي دواء للحرارة واتصلي بالطبيب إذا ما نقصتش.",
     "linked_articles_ids": [
       "a03_examens_médicaux_pendant"
     ]
@@ -176,7 +177,7 @@ export const RED_FLAGS: RedFlag[] = [
     "label_fr": "œdème",
     "label_ar": "تورم (إديميا)",
     "label_en": "Edema",
-    "label_tn": "تورم (إديميا)",
+    "label_tn": "تورّم",
     "keywords_fr": "gonflement visage,œdème",
     "keywords_ar": "تورم الوجه,إديميا",
     "keywords_en": "face swelling,edema,swollen face,face is swollen,puffy face,facial swelling",
@@ -242,7 +243,7 @@ export const RED_FLAGS: RedFlag[] = [
     "standard_message_fr": "Ces signes peuvent indiquer une complication cardiaque ou pulmonaire grave (embolie pulmonaire). Appelez immédiatement les services d'urgence.",
     "standard_message_ar": "قد تشير هذه العلامات إلى مضاعفات قلبية أو رئوية خطيرة (انسداد رئوي). اتصلي بخدمات الطوارئ فوراً.",
     "standard_message_en": "These signs may indicate a serious cardiac or pulmonary complication (pulmonary embolism). Call emergency services immediately.",
-    "standard_message_tn": "إذا ما تقدريش تنفسي مليح بالحمل، هذا خطير. إتصلي بالطوارئ.",
+    "standard_message_tn": "إذا ما تقدريش تنفسي مليح بالحمل، هذا خطير. اتصلي بالطوارئ.",
     "linked_articles_ids": [
       "a03_examens_médicaux_pendant"
     ]
@@ -280,7 +281,7 @@ export const RED_FLAGS: RedFlag[] = [
     "standard_message_fr": "Les convulsions ou une perte de conscience peuvent être un signe d'éclampsie (complication grave de la pré-éclampsie). Appelez immédiatement les services d'urgence.",
     "standard_message_ar": "قد تكون التشنجات أو فقدان الوعي علامة على تسمم الحمل (مضاعفات خطيرة لما قبل تسمم الحمل). اتصلي بخدمات الطوارئ فوراً.",
     "standard_message_en": "Convulsions or loss of consciousness can be a sign of eclampsia (a serious complication of preeclampsia). Call emergency services immediately.",
-    "standard_message_tn": "التشنجات ولا الغيمة الفجائية في الحمل ممكن تكون علامة تسمم الحمل (إكلامبسيا). إتصلي بالإسعاف توة.",
+    "standard_message_tn": "التشنجات ولا الغيمة الفجائية في الحمل ممكن تكون علامة تسمم الحمل (إكلامبسيا). اتصلي بالإسعاف توة.",
     "linked_articles_ids": [
       "a03_examens_médicaux_pendant"
     ]
@@ -500,10 +501,10 @@ export const SUGGESTIONS: ChatbotSuggestion[] = [
   },
   {
     "suggestion_id": "cs19",
-    "label_fr": "Je me sens gonflée",
-    "label_ar": "أشعر بالانتفاخ",
-    "label_en": "I feel bloated",
-    "label_tn": "حاسة روحي منفوخة",
+    "label_fr": "J'ai le visage, les mains ou les pieds gonflés",
+    "label_ar": "لدي تورّم في الوجه أو اليدين أو القدمين",
+    "label_en": "My face, hands or feet are swollen",
+    "label_tn": "وجهي ولا يديّا ولا رجليّا منفوخين",
     "topic": "symptomes",
     "linked_article_ids": "a01_symptômes_de_grossesse",
     "linked_red_flag_ids": "gonflement visage"

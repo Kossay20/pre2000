@@ -76,9 +76,66 @@ describe('purgeUserFirestoreData (GDPR Art. 17)', () => {
     const declared = [...rules.matchAll(/^\s*match \/([A-Za-z0-9_]+)\/\{[^}]+\}\s*\{(.*)$/gm)]
       .filter((m) => !/allow write: if false/.test(m[2]))
       .map((m) => m[1])
-      .filter((name) => !(legacyParentCollections as readonly string[]).includes(name));
+      .filter((name) => !(legacyParentCollections as readonly string[]).includes(name))
+      // The deletion request itself: one document, id = uid, removed by accountDeletion
+      // just before the Auth user (accountDeletion.test.ts), not swept by user_id.
+      .filter((name) => name !== 'deletionRequests');
     expect(declared).toEqual(expect.arrayContaining(['kickSessions', 'contractions', 'hospitalBags']));
     expect([...topLevelCollectionsToDelete].sort()).toEqual(expect.arrayContaining(declared.sort()));
+  });
+
+  // The same guarantee one level down. A client cannot list the subcollections of a
+  // document, so the purge can only sweep names it knows: the rules must accept exactly
+  // those names under the two user parents, and the app must write no other.
+  describe('subcollections under userProfiles/{uid} and users/{uid}', () => {
+    const fs = jest.requireActual('fs');
+    const path = jest.requireActual('path');
+    const appRoot = path.resolve(__dirname, '../../..');
+    const rules: string = fs.readFileSync(path.join(appRoot, 'firestore.rules'), 'utf8');
+
+    it('the rules accept exactly the names the purge sweeps', () => {
+      const list = rules.match(/function isPurgedSubcollection\(sub\) \{\s*return sub in \[([^\]]*)\];/);
+      expect(list).not.toBeNull();
+      const allowed = [...list![1].matchAll(/'([^']+)'/g)].map((m) => m[1]);
+      expect(allowed.sort()).toEqual([...legacySubCollections].sort());
+    });
+
+    it('both user parents gate their subcollections on that list, with no open wildcard left', () => {
+      const nested = [...rules.matchAll(/match \/\{sub\}\/\{doc=\*\*\} \{\s*allow ([^;]+);/g)].map((m) => m[1]);
+      expect(nested).toHaveLength(legacyParentCollections.length);
+      for (const allow of nested) expect(allow).toContain('isPurgedSubcollection(sub)');
+      for (const parent of legacyParentCollections) {
+        expect(rules).toMatch(new RegExp(`match /${parent}/\\{userId\\} \\{[\\s\\S]*?match /\\{sub\\}/\\{doc=\\*\\*\\}`));
+      }
+    });
+
+    it('the app writes no subcollection the purge does not sweep (users/{uid}/weights included)', () => {
+      const walk = (dir: string): string[] => fs.readdirSync(dir, { withFileTypes: true }).flatMap((e: any) => {
+        const full = path.join(dir, e.name);
+        if (e.isDirectory()) return e.name === '__tests__' ? [] : walk(full);
+        return /\.tsx?$/.test(e.name) ? [full] : [];
+      });
+      const used = new Set<string>();
+      // collection(db, 'users', uid, 'weights') / doc(db, 'userProfiles', uid, 'journal', id)
+      const nestedPath = /\b(?:collection|doc)\(\s*db\s*,\s*['"](users|userProfiles)['"]\s*,\s*[^,)]+,\s*['"]([A-Za-z0-9_]+)['"]/g;
+      // collection(db, `users/${uid}/weights`)
+      const templatePath = /[`'"](users|userProfiles)\/\$\{[^}]+\}\/([A-Za-z0-9_]+)/g;
+      for (const file of walk(path.join(appRoot, 'src'))) {
+        const source: string = fs.readFileSync(file, 'utf8');
+        for (const m of source.matchAll(nestedPath)) used.add(m[2]);
+        for (const m of source.matchAll(templatePath)) used.add(m[2]);
+      }
+      // DemoDataService writes users/{uid}/weights and users/{uid}/events.
+      expect([...used]).toEqual(expect.arrayContaining(['weights', 'events']));
+      for (const name of used) expect(legacySubCollections as readonly string[]).toContain(name);
+    });
+
+    it('sweeps every listed name under both parents', async () => {
+      await purgeUserFirestoreData({}, UID);
+      const swept = (getDocsFromServer as jest.Mock).mock.calls.map(([q]) => q.path).filter(Boolean);
+      const expected = legacyParentCollections.flatMap((p) => legacySubCollections.map((s) => `${p}/${UID}/${s}`));
+      expect(swept.sort()).toEqual(expected.sort());
+    });
   });
 
   it('queries EVERY one of the top-level collections by user_id === uid', async () => {

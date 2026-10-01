@@ -1,4 +1,5 @@
 import { theme } from '../../theme';
+import { switchThumbProps } from '../../utils/styleUtils';
 import { createLogger } from '../../utils/logger';
 const log = createLogger('ReminderCard');
 import React, { useState, useEffect } from 'react';
@@ -143,7 +144,7 @@ export const ReminderCard: React.FC<ReminderCardProps> = ({ reminder }) => {
                         value={enabled}
                         onValueChange={handleToggle}
                         trackColor={{ false: theme.colors.neutral300, true: theme.colors.accent }}
-                        thumbColor={enabled ? theme.colors.white : theme.colors.iosGroupedBackground}
+                        {...switchThumbProps(enabled ? theme.colors.white : theme.colors.iosGroupedBackground)}
                     />
                 </View>
                 <Text style={styles.reminderDesc} numberOfLines={2}>

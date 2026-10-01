@@ -235,10 +235,20 @@ service cloud.firestore {
     // short-circuits any guard placed on the parent's own `allow write` (verified
     // live: a 1 MB firstName was accepted). `/{sub}/{doc=**}` requires at least a
     // collection + document, so it covers subcollections only.
+    //
+    // The subcollection names are enumerated, not wildcarded. A client cannot list the
+    // subcollections of a document, so the purge can only sweep names it knows; a name the
+    // rules accepted but the purge did not know would survive "delete my account". The
+    // list is gdprPurge.ts `legacySubCollections`, and gdprPurge.test.ts fails if the two
+    // differ.
+    function isPurgedSubcollection(sub) {
+      return sub in ['weights', 'events', 'journal', 'chatbot_history'];
+    }
+
     match /users/{userId} {
       allow read, write: if isOwner(userId);
       match /{sub}/{doc=**} {
-        allow read, write: if isOwner(userId);
+        allow read, write: if isOwner(userId) && isPurgedSubcollection(sub);
       }
     }
 
@@ -264,8 +274,20 @@ service cloud.firestore {
                             && profileFieldCountSane();
       allow delete: if isOwner(userId);
       match /{sub}/{doc=**} {
-        allow read, write: if isOwner(userId);
+        allow read, write: if isOwner(userId) && isPurgedSubcollection(sub);
       }
+    }
+
+    // A deletion she asked for (accountDeletion.ts). Written before anything is erased and
+    // read at sign-in on any device, so a deletion whose last step failed (the login could
+    // not be deleted) is finished wherever she signs in next, instead of the emptied
+    // account being opened as a new one. One document per user, id = uid, holding only the
+    // server time of the request. No `list`: nobody needs to enumerate who asked.
+    match /deletionRequests/{userId} {
+      allow get, delete: if isOwner(userId);
+      allow create, update: if isOwner(userId)
+                            && request.resource.data.keys().hasOnly(['requestedAt'])
+                            && request.resource.data.requestedAt == request.time;
     }
 
     // =========================================================

@@ -159,7 +159,8 @@ describe('website deletion instructions match the app', () => {
     ['fr', 'privacy.html'],
     ['en', 'privacy-en.html'],
   ] as const)('%s %s states the explicit-consent basis in the in-app words', (lang, file) => {
-    const consent: string = load(lang, 'common').privacy.usage.consent;
+    // \s+ also folds the no-break space the fr strings put before ":" — pageText does the same.
+    const consent: string = load(lang, 'common').privacy.usage.consent.replace(/\s+/g, ' ');
     expect(pageText(file).toLowerCase()).toContain(consent.toLowerCase());
   });
 

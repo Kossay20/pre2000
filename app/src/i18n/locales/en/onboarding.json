@@ -133,6 +133,7 @@
     "sheetTitle": "Your health data",
     "sheetText": "Mama & Bébé needs your agreement to keep using your pregnancy and health data. Tick the box to continue, or choose below not to agree.",
     "declineTitle": "Don't want to agree?",
+    "logoutNote": "Logging out deletes nothing: your data stays stored on our servers. To erase it, choose “{{deleteLabel}}” below.",
     "saveError": "Your agreement could not be saved. Check your connection and try again."
   }
 }

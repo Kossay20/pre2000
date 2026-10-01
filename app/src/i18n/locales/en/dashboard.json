@@ -29,8 +29,12 @@
     "guestLockTitle": "Track your health",
     "guestLockSubtitle": "Create an account to log your weight, blood pressure, blood sugar and much more.",
     "glucose": "Blood Sugar",
-    "glucoseNormal": "Blood sugar normal this month",
-    "glucoseTarget": "Target: 3.5 – 5.5 mmol/L (fasting)",
+    "glucoseMonth": {
+        "empty": "No reading this month",
+        "inRange": "This month's readings are on target",
+        "outOfRange": "A reading outside the target this month"
+    },
+    "glucoseTarget": "Fasting target: 3.5 to below 5.1 mmol/L",
     "symptomsToday": "Today's Symptoms",
     "symptomNausea": "Nausea",
     "symptomFatigue": "Fatigue",
@@ -53,7 +57,7 @@
         },
         "glucoseSurveillance": {
             "title": "Blood sugar to monitor",
-            "message": "This reading is slightly above normal. Record it and mention it at your next appointment."
+            "message": "In pregnancy, a fasting reading of 5.1 mmol/L (92 mg/dL) or more is above the threshold used. If this really was a fasting reading, tell your midwife or doctor in the next few days — don't wait for your next visit."
         },
         "glucoseHigh": {
             "title": "High blood sugar",
@@ -69,7 +73,7 @@
         },
         "bpHigh": {
             "title": "High blood pressure",
-            "message": "High blood pressure. Mention it to your healthcare provider at your next appointment."
+            "message": "Blood pressure of 140/90 or higher. Contact your midwife or doctor within 24 hours to have it checked — don't wait for your next visit. If you also have a severe headache, vision problems or pain in the upper belly, call emergency services."
         },
         "bpSevere": {
             "title": "Very high blood pressure",

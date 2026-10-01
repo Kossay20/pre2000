@@ -21,7 +21,7 @@ indique où vit chaque texte, pour que votre correction soit appliquée exacteme
 là où il faut, sans interprétation.
 
 **Source de vérité :** `src/i18n/locales/{fr,en,ar,tn}/common.json → medicalProfile`
-**Généré le :** 2026-08-25 par `scripts/generate-clinical-dossier.ts`
+**Généré le :** 2026-10-01 par `scripts/generate-clinical-dossier.ts`
 
 ---
 
@@ -35,7 +35,7 @@ recueillir ce qu'un professionnel lui a déjà dit.
 
 ### 1. `title`
 
-- **fr** — Votre médecin vous a-t-il signalé quelque chose ?
+- **fr** — Votre médecin vous a-t-il signalé quelque chose ?
 - **en** — Has your doctor flagged anything?
 - **ar** — هل ذكر لكِ طبيبكِ أمرًا معيّنًا؟
 - **tn** — الطبيب قالّك على حاجة خاصة؟
@@ -49,10 +49,10 @@ recueillir ce qu'un professionnel lui a déjà dit.
 
 ### 2. `intro`
 
-- **fr** — Si votre médecin ou votre sage-femme vous a signalé l'un de ces points, cochez-le : certains rappels s'y adaptent. Sinon, laissez tout décoché et continuez — rien n'est obligatoire ici.
+- **fr** — Si votre médecin ou votre sage-femme vous a signalé l'un de ces points, cochez-le : certains rappels s'y adaptent. Sinon, laissez tout décoché et continuez — rien n'est obligatoire ici.
 - **en** — If your doctor or midwife has mentioned one of these, tick it — some reminders adapt to it. Otherwise leave everything unticked and continue; nothing here is required.
 - **ar** — إذا ذكر لكِ طبيبكِ أو قابلتكِ إحدى هذه النقاط، فاختاريها: بعض التذكيرات تتكيّف معها. وإلّا فاتركي هذه الأسئلة فارغة وواصلي — لا شيء هنا إجباري.
-- **tn** — كان الطبيب ولا القابلة قالّك على حاجة من هاذي، إختاريها: فمّا تذكيرات تتبدّل على حسبها. وإلّا تنجّمي تخلّي الكل فارغ وتكمّلي — ما فمّا حتى حاجة إجبارية.
+- **tn** — كان الطبيب ولا القابلة قالّك على حاجة من هاذي، اختاريها: فمّا تذكيرات تتبدّل على حسبها. وإلّا تنجّمي تخلّي الكل فارغ وتكمّلي — ما فمّا حتى حاجة إجبارية.
 
 | Verdict | |
 |---|---|

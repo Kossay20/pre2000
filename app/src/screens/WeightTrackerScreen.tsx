@@ -33,6 +33,7 @@ import {
     getRecommendedWeightRange,
     evaluateWeightStatus,
     calculateBMICategory,
+    gaugeDotPercent,
 } from '../services/weightService';
 import { detectTrend, getSmartSuggestions, getTrimesterMessage } from '../services/weightIntelligence';
 import { createLogger } from '../utils/logger';
@@ -40,6 +41,8 @@ import { showAlert } from '../utils/alert';
 import { confirmAction } from '../utils/uiUtils';
 import { useDateLocale } from '../hooks/useDateLocale';
 import { isOnLocalDay, toLocalDateKey } from '../utils/localDate';
+import { displayedAgeOf } from '../utils/pregnancyCalculator';
+import { formatDecimal } from '../utils/localizedFormat';
 import { useTranslation } from 'react-i18next';
 import { trackPositiveAction } from '../services/inAppReviewService';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
@@ -50,7 +53,10 @@ const log = createLogger('WeightTrackerScreen');
 
 export const WeightTrackerScreen = () => {
     useScreenAnalytics('WeightTrackerScreen');
-    const { t } = useTranslation(); // Initialize t
+    const { t, i18n } = useTranslation(); // Initialize t
+    // Weights as the language writes them ("68,4 kg" in French), like the Home and
+    // Reminders cards; this screen printed "68.4 kg" beside them.
+    const num = (value: number) => formatDecimal(value, i18n.language);
     const navigation = useNavigation();
     const { user, updateProfile: updateAccountProfile } = useAuth();
     const { pregnancyInfo, profile, setProfile } = usePregnancy();
@@ -86,6 +92,9 @@ export const WeightTrackerScreen = () => {
     // P0.5: No silent fallback - null if unavailable
     const currentWeek = pregnancyInfo?.week ?? null;
     const hasWeekInfo = currentWeek !== null && currentWeek > 0;
+    // currentWeek is the content week (it stops at 40) and drives the IOM ranges; what she
+    // reads, and the week a weigh-in is filed under, is her real week ("Semaine 41" at 40+3).
+    const shownWeek = hasWeekInfo ? displayedAgeOf(pregnancyInfo).week : null;
 
     // Safety check: don't calculate if essential data is missing
     const hasValidData = prePregnancyWeight > 0 && height > 0 && hasWeekInfo;
@@ -188,7 +197,7 @@ export const WeightTrackerScreen = () => {
         if (existingToday) {
             confirmAction(
                 t('weight.entryExistsTitle'),
-                t('weight.entryExistsMsg', { weight: existingToday.weight }),
+                t('weight.entryExistsMsg', { weight: num(existingToday.weight) }),
                 async () => {
                     try {
                         const userId = user?.uid;
@@ -217,7 +226,7 @@ export const WeightTrackerScreen = () => {
             if (weightLoss > 3) {
                 confirmAction(
                     t('weight.lossTitle'),
-                    t('weight.lossMsg', { loss: weightLoss.toFixed(1) }),
+                    t('weight.lossMsg', { loss: num(weightLoss) }),
                     () => saveAndConfirm(weight),
                     undefined,
                     t('weight.correctInput'),
@@ -234,7 +243,7 @@ export const WeightTrackerScreen = () => {
             if (variation > 2) {
                 confirmAction(
                     t('weight.variationTitle'),
-                    t('weight.variationMsg', { variation: variation.toFixed(1), last: lastEntry.weight }),
+                    t('weight.variationMsg', { variation: num(variation), last: num(lastEntry.weight) }),
                     () => saveAndConfirm(weight),
                     undefined,
                     t('weight.correct'),
@@ -259,7 +268,7 @@ export const WeightTrackerScreen = () => {
                 user_id: userId,
                 weight,
                 date: new Date().toISOString(),
-                week_of_pregnancy: currentWeek ?? 0,
+                week_of_pregnancy: shownWeek ?? 0,
             });
             setNewWeight('');
             setShowAddForm(false);
@@ -429,12 +438,12 @@ export const WeightTrackerScreen = () => {
                 {__DEV__ ? (
                     <TouchableOpacity onPress={handleTitlePress}>
                         <Text style={styles.title}>{t('weight.title')}</Text>
-                        <Text style={styles.subtitle}>{t('common.weekLabel', { number: currentWeek || '?' })}</Text>
+                        <Text style={styles.subtitle}>{t('common.weekLabel', { number: shownWeek || '?' })}</Text>
                     </TouchableOpacity>
                 ) : (
                     <View>
                         <Text style={styles.title} accessibilityRole="header">{t('weight.title')}</Text>
-                        <Text style={styles.subtitle}>{t('common.weekLabel', { number: currentWeek || '?' })}</Text>
+                        <Text style={styles.subtitle}>{t('common.weekLabel', { number: shownWeek || '?' })}</Text>
                     </View>
                 )}
 
@@ -515,14 +524,17 @@ export const WeightTrackerScreen = () => {
             {!needsSetup && (
                 <>
 
-                    {/* SIMPLIFIED: Huge Weight Display */}
+                    {/* SIMPLIFIED: Huge Weight Display. With no weighing yet the card is left
+                        out: "Historique" below already carries the empty state and its
+                        call to action, and the two said the same thing twice. */}
+                    {weightHistory.length > 0 && (
                     <View style={styles.weightDisplay}>
                         {latestWeight && hasValidData ? (
                             <>
-                                <Text style={styles.hugeWeight}>{latestWeight} {t('weight.hugeWeight')}</Text>
+                                <Text style={styles.hugeWeight}>{num(latestWeight)} {t('weight.hugeWeight')}</Text>
                                 <View style={styles.weightMeta}>
                                     <Text style={styles.weightGainText}>
-                                        {weightStatus!.gain >= 0 ? '+' : ''}{weightStatus!.gain.toFixed(1)} {t('weight.hugeWeight')} {t('weight.sinceStart')}
+                                        {weightStatus!.gain >= 0 ? '+' : ''}{num(weightStatus!.gain)} {t('weight.hugeWeight')} {t('weight.sinceStart')}
                                     </Text>
                                     {weightStatus?.status !== 'normal' && (
                                         <Text style={styles.miniStatus}>
@@ -540,19 +552,14 @@ export const WeightTrackerScreen = () => {
                                         <View
                                             style={[
                                                 styles.gaugeDot,
-                                                {
-                                                    left: `${Math.min(Math.max(
-                                                        ((latestWeight - recommendedRange.min) / (recommendedRange.max - recommendedRange.min)) * 100,
-                                                        0
-                                                    ), 100)}%`
-                                                }
+                                                { left: `${gaugeDotPercent(latestWeight, recommendedRange.min, recommendedRange.max)}%` }
                                             ]}
                                         />
                                     </View>
                                     <View style={styles.gaugeLabels}>
-                                        <Text style={styles.gaugeLabelText}>{recommendedRange.min.toFixed(0)}{t('common.kg')}</Text>
+                                        <Text style={styles.gaugeLabelText}>{num(recommendedRange.min)} {t('common.kg')}</Text>
                                         <Text style={styles.gaugeIcon}>👍</Text>
-                                        <Text style={styles.gaugeLabelText}>{recommendedRange.max.toFixed(0)}{t('common.kg')}</Text>
+                                        <Text style={styles.gaugeLabelText}>{num(recommendedRange.max)} {t('common.kg')}</Text>
                                     </View>
                                 </View>
                             </>
@@ -560,11 +567,12 @@ export const WeightTrackerScreen = () => {
                             <Text style={styles.noDataText}>{t('weight.noData')}</Text>
                         )}
                     </View>
+                    )}
 
                     {/* Recommended Range Info - SIMPLIFIED */}
                     <View style={styles.infoCard}>
                         <View style={styles.infoHeader}>
-                            <Text style={styles.infoTitle}>{t('weight.targetWeekNumber', { week: currentWeek })}</Text>
+                            <Text style={styles.infoTitle}>{t('weight.targetWeekNumber', { week: shownWeek })}</Text>
                             <TouchableOpacity
                                 style={styles.infoButton}
                                 onPress={() => showAlert(
@@ -582,7 +590,7 @@ export const WeightTrackerScreen = () => {
                         {bmiValue !== null && (
                             <View style={styles.bmiRow}>
                                 <Text style={styles.bmiLabel}>
-                                    {t('weight.bmi')}: <Text style={styles.bmiValue}>{bmiValue.toFixed(1)}</Text>
+                                    {t('weight.bmi')}: <Text style={styles.bmiValue}>{num(bmiValue)}</Text>
                                 </Text>
                                 <View
                                     style={[
@@ -605,10 +613,10 @@ export const WeightTrackerScreen = () => {
                             </View>
                         )}
                         <Text style={{ fontSize: 22, fontWeight: '700', color: theme.colors.info, marginTop: 8 }}>
-                            {recommendedRange.min.toFixed(1)} - {recommendedRange.max.toFixed(1)} {t('common.kg')}
+                            {num(recommendedRange.min)} - {num(recommendedRange.max)} {t('common.kg')}
                         </Text>
                         <Text style={styles.infoDetail}>
-                            {t('weight.about')} +{recommendedRange.targetGain.min.toFixed(1)} - +{recommendedRange.targetGain.max.toFixed(1)} {t('common.kg')} {t('weight.sinceStart')}
+                            {t('weight.about')} +{num(recommendedRange.targetGain.min)} - +{num(recommendedRange.targetGain.max)} {t('common.kg')} {t('weight.sinceStart')}
                         </Text>
                     </View>
 
@@ -685,7 +693,7 @@ export const WeightTrackerScreen = () => {
                                 return (
                                     <View key={`${entry.source ?? 'weight_entries'}-${entry.id}`} style={styles.historyItem}>
                                         <View style={styles.historyLeft}>
-                                            <Text style={styles.historyWeight}>{entry.weight} {t('common.kg')}</Text>
+                                            <Text style={styles.historyWeight}>{num(entry.weight)} {t('common.kg')}</Text>
                                             <Text style={styles.historyDate}>
                                                 {format(new Date(entry.date), 'dd MMM yyyy', { locale: dateLocale })} • {t('common.weekLabel', { number: entry.week_of_pregnancy })}
                                             </Text>
@@ -705,7 +713,7 @@ export const WeightTrackerScreen = () => {
                                                 onPress={() => handleDeleteEntry(entry)}
                                                 accessibilityRole="button"
                                                 accessibilityLabel={t('a11y.deleteWeight')}
-                                                accessibilityHint={`${entry.weight} ${t('common.kg')}, ${format(new Date(entry.date), 'dd MMM yyyy', { locale: dateLocale })}`}
+                                                accessibilityHint={`${num(entry.weight)} ${t('common.kg')}, ${format(new Date(entry.date), 'dd MMM yyyy', { locale: dateLocale })}`}
                                             >
                                                 <Text style={styles.deleteButtonText}>🗑️</Text>
                                             </TouchableOpacity>

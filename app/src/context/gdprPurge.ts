@@ -42,6 +42,11 @@ export const topLevelCollectionsToDelete = [
 // Legacy nested data under userProfiles/{uid}/… and users/{uid}/… from earlier
 // app versions. Both parents must be swept: `users/` predates the userProfiles
 // schema and DemoDataService still writes users/{uid}/{weights,events}.
+//
+// INVARIANT: firestore.rules accepts exactly these subcollection names under those two
+// parents (isPurgedSubcollection). A client cannot list a document's subcollections, so a
+// name the rules allowed but this list lacked could be written and never erased. Guarded
+// by gdprPurge.test.ts, which also scans src/ for any other name.
 export const legacyParentCollections = ['userProfiles', 'users'] as const;
 export const legacySubCollections = ['weights', 'events', 'journal', 'chatbot_history'] as const;
 

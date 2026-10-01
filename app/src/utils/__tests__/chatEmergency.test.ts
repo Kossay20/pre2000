@@ -47,6 +47,12 @@ describe('shouldPinEmergencyCall', () => {
 describe('ChatbotScreen wiring', () => {
     const src = fs.readFileSync(path.resolve(__dirname, '../../screens/ChatbotScreen.tsx'), 'utf8');
 
+    it('links a foods-to-avoid answer to the Foods to avoid screen', () => {
+        expect(src).toMatch(/item\.data\?\.screenLink === 'ForbiddenFoods'/);
+        expect(src).toMatch(/navigation\.navigate\('Home', \{ screen: 'ForbiddenFoods' \}\)/);
+        expect(src).toMatch(/t\('common\.chatSeeForbiddenFoods'\)/);
+    });
+
     it('scrolls to the end after layout: content size, list resize and the last message', () => {
         expect(src).toMatch(/requestAnimationFrame\(\(\) => flatListRef\.current\?\.scrollToEnd\(\{ animated: true \}\)\)/);
         expect(src).toMatch(/onContentSizeChange=\{scrollToEnd\}\s*onLayout=\{scrollToEnd\}/);
@@ -71,5 +77,15 @@ describe('ChatbotScreen wiring', () => {
     it('both call buttons dial the same resolved number', () => {
         expect(src).toMatch(/Linking\.openURL\(`tel:\$\{emergencyNumber\}`\)/);
         expect(src.match(/onPress=\{callEmergency\}/g)).toHaveLength(2);
+    });
+
+    it('never shows both at once: the bubble drops its call button while the bar is pinned', () => {
+        // Wave C: after a red flag the in-message button and the pinned bar were both on screen
+        // with the same label, so a screen reader announced the same button twice.
+        const bubble = src.slice(src.indexOf('styles.alertContainerCritical'), src.indexOf('chat_pinned_emergency_call'));
+        const gate = bubble.indexOf('{emergencyNumber && !pinCall ? (');
+        expect(gate).toBeGreaterThan(-1);
+        expect(gate).toBeLessThan(bubble.indexOf('onPress={callEmergency}'));
+        expect(src).toMatch(/\{pinCall && \(\s*<View style=\{styles\.pinnedCallBar\}/);
     });
 });

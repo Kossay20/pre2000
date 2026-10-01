@@ -5,13 +5,13 @@ import { useTranslation } from 'react-i18next';
 import { createLogger } from '../../utils/logger';
 const log = createLogger('DailyRoutinesTracker');
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
-import { DailyChecklistItem, UserTask, UserEvent } from '../../types';
+import { UserTask, UserEvent } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { usePregnancy } from '../../context/PregnancyContext';
-import { generateDailyChecklist, loadDailyProgress } from '../../services/dailyChecklistService';
+import { generateDailyChecklist, loadDailyProgress, buildMyDayItems, myDayProgress } from '../../services/dailyChecklistService';
 import { getUserTasks } from '../../services/taskService';
-import { countEventsInRange, getCurrentPregnancyWeekRange } from '../../services/calendarService';
-import { isToday, isTomorrow, isThisWeek, format } from 'date-fns';
+import { countEventsInRange, getCurrentPregnancyWeekRange, loadUserEvents } from '../../services/calendarService';
+import { isToday, isTomorrow, isThisWeek } from 'date-fns';
 import { RtlAwareChevron } from '../common/RtlAwareChevron';
 
 interface UnifiedDaySummaryProps {
@@ -33,64 +33,21 @@ export const DailyRoutinesTracker: React.FC<UnifiedDaySummaryProps> = ({
     const loadData = useCallback(async () => {
         try {
             setLoading(true);
-            const currentWeek = pregnancyInfo?.week || 1;
+            const currentWeek = pregnancyInfo?.week ?? 1; // same default as the Tasks tab
 
-            // 1. Load Routines
-            // P3.4 FIX: Pass appointments through so today's RDV appear in the routine.
-            // Was hardcoded [] → checklist never knew about RDV (only the summary line did).
-            const generatedItems = await generateDailyChecklist(appointments, currentWeek, user?.uid, undefined, user);
-            const routineItems = generatedItems.filter(item => item.type !== 'appointment');
-            const itemsWithProgress = await loadDailyProgress(routineItems);
+            // The pill counts the same "Ma Journée" list the Tasks tab shows: today's
+            // appointments included, skipped items excluded. It reads every event (not the
+            // upcoming `appointments` prop, which loses this morning's RDV once it has passed).
+            const [events, userTasks] = user?.uid
+                ? await Promise.all([loadUserEvents(user.uid), getUserTasks(user.uid)])
+                : [[] as UserEvent[], [] as UserTask[]];
+            const checklist = await loadDailyProgress(
+                await generateDailyChecklist(events, currentWeek, user?.uid, undefined, user)
+            );
+            const { done, total } = myDayProgress(buildMyDayItems(checklist, userTasks));
 
-            // 2. Load Tasks
-            let userTasks: UserTask[] = [];
-            if (user?.uid) {
-                userTasks = await getUserTasks(user.uid);
-            }
-
-            // Filter tasks for today
-            const todayStr = format(new Date(), 'yyyy-MM-dd');
-            const now = new Date();
-            const todayTasks = userTasks.filter(task => {
-                let shouldShowToday = true;
-                if (task.recurrence) {
-                    const rule = task.recurrence;
-                    const dayOfWeek = now.getDay();
-                    if (rule.type === 'specific_days' && rule.days) {
-                        shouldShowToday = rule.days.includes(dayOfWeek);
-                    } else if (rule.type === 'interval' && rule.interval) {
-                        if (task.created_at) {
-                            const createdDate = task.created_at instanceof Date ? task.created_at :
-                                (task.created_at && typeof (task.created_at as any).toDate === 'function') ? (task.created_at as any).toDate() :
-                                    new Date(task.created_at as any);
-                            const diffTime = Math.abs(now.getTime() - createdDate.getTime());
-                            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-                            shouldShowToday = diffDays % rule.interval === 0;
-                        }
-                    }
-                } else if (task.reminder_time) {
-                    // One-off task with reminder
-                    const date = task.reminder_time instanceof Date ? task.reminder_time :
-                        (task.reminder_time && typeof (task.reminder_time as any).toDate === 'function') ? (task.reminder_time as any).toDate() :
-                            new Date(task.reminder_time as any);
-                    shouldShowToday = isToday(date);
-                }
-                return shouldShowToday;
-            });
-
-            // Calculate Routines Progress
-            const completedRoutines = itemsWithProgress.filter(item => item.completed || (item.type === 'hydration' && item.current !== undefined && item.target !== undefined && item.current >= item.target)).length;
-
-            // Calculate Tasks Progress
-            const completedTasks = todayTasks.filter(task => {
-                if (task.recurrence) {
-                    return task.completed_dates ? task.completed_dates.includes(todayStr) : false;
-                }
-                return task.completed;
-            }).length;
-
-            setTotalItems(itemsWithProgress.length + todayTasks.length);
-            setCompletedItems(completedRoutines + completedTasks);
+            setTotalItems(total);
+            setCompletedItems(done);
 
         } catch (error) {
             log.error('Error loading daily tracking:', error);

@@ -51,3 +51,33 @@ describe('I3 — count-based keys pluralize correctly per language', () => {
     });
   }
 });
+
+// D-032: the Tasks tab printed "1 tâches restantes". Both blocks that carry the string
+// (reminders.types, reminders.myDay) now have CLDR forms.
+describe('remainingTasks pluralizes', () => {
+  const cases = [
+    { lng: 'fr', at1: '1 tâche restante', at3: '3 tâches restantes', at11: '11 tâches restantes' },
+    { lng: 'en', at1: '1 task remaining', at3: '3 tasks remaining', at11: '11 tasks remaining' },
+    { lng: 'ar', at1: '1 مهمة متبقية', at3: '3 مهام متبقية', at11: '11 مهمة متبقية' },
+  ];
+  for (const key of ['reminders.myDay.remainingTasks', 'reminders.types.remainingTasks']) {
+    for (const c of cases) {
+      it(`${c.lng}: ${key} @1 / @3 / @11`, async () => {
+        await inst.changeLanguage(c.lng);
+        expect(inst.t(key, { count: 1 })).toBe(c.at1);
+        expect(inst.t(key, { count: 3 })).toBe(c.at3);
+        expect(inst.t(key, { count: 11 })).toBe(c.at11);
+      });
+    }
+  }
+
+  // tn resolves through the Arabic rules in the shipped app (tnPluralAlias.test.ts); here
+  // only that every Arabic form exists, with the singular distinct from the plural.
+  it('tn: all six forms exist for the Tasks tab footer', () => {
+    const myDay = (tn as any).reminders.myDay;
+    for (const form of ['zero', 'one', 'two', 'few', 'many', 'other']) {
+      expect(myDay[`remainingTasks_${form}`]).toContain('{{count}}');
+    }
+    expect(myDay.remainingTasks_one).not.toBe(myDay.remainingTasks_few);
+  });
+});

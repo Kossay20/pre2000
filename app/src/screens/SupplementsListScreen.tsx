@@ -11,7 +11,8 @@ import { Tag } from '../components/common/Tag';
 import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { getLocalizedContent } from '../utils/i18nHelpers';
-import { normalizeSupplementSafety } from '../utils/supplementSafety';
+import { normalizeSupplementSafety, SUPPLEMENT_SAFETY_LABEL_KEYS, SUPPLEMENT_SAFETY_TAG_COLORS } from '../utils/supplementSafety';
+import { emptyListMessage, FilterSelection, isFilterChipSelected, NO_FILTER, pressFilterChip } from '../utils/filterChips';
 import { useRtlScrollFix } from '../hooks/useRtlScrollFix';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
 import { getAllLocalSupplements } from '../services/localContentFallback';
@@ -25,13 +26,14 @@ export const SupplementsListScreen = () => {
     // W5 #4: keep the safety/category/favoris filter row reachable under RTL (ar/tn) on web.
     const chipScrollRef = useRtlScrollFix();
     const [searchQuery, setSearchQuery] = useState('');
-    // task 10c: null = "All". Constrained to the pregnancy_safety union.
-    const [selectedSafety, setSelectedSafety] = useState<Supplement['pregnancy_safety'] | null>(null);
+    // task 10b/10c — one filter at a time: "Favoris" (bookmarked only), "All" (value null)
+    // or one pregnancy_safety rating. See utils/filterChips.
+    const [filter, setFilter] = useState<FilterSelection<Supplement['pregnancy_safety']>>(NO_FILTER);
+    const selectedSafety = filter.value;
+    const favoritesActive = filter.favorites;
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(false);
     const [refreshKey, setRefreshKey] = useState(0);
-    // task 10b — "Favoris" filter chip: when active, show only bookmarked items.
-    const [favoritesActive, setFavoritesActive] = useState(false);
     const [bookmarkedIds, setBookmarkedIds] = useState<Set<string>>(new Set());
     const navigation = useNavigation();
 
@@ -57,11 +59,14 @@ export const SupplementsListScreen = () => {
     // W5 #2 (a11y/safety): the pill ICON+LABEL render in DARK tokens (not the pastel success/warning/
     // error) so the safety signal is legible on its light tint — verified ≥4.5:1 (green800/greenTint
     // 4.56, deepOrange900/orangeTint 5.11, red800/rose 4.91). Was 1.6–2.6:1 (illegible).
-    const SAFETY_CONFIG = {
-        ok: { icon: '✓', label: t('common.safetyOk'), color: theme.colors.green800, bgColor: theme.colors.surfaceGreenTint },
-        a_surveiller: { icon: '⚠', label: t('common.safetyMonitor'), color: theme.colors.deepOrange900, bgColor: theme.colors.surfaceOrangeTint },
-        deconseille: { icon: '✗', label: t('common.safetyNotRecommended'), color: theme.colors.red800, bgColor: theme.colors.surfaceRose },
-    };
+    // Label and colours are the shared ones, so the card says what the filter chip says.
+    const SAFETY_ICONS = { ok: '✓', a_surveiller: '⚠', deconseille: '✗' } as const;
+    const safetyConfig = (token: Supplement['pregnancy_safety']) => ({
+        icon: SAFETY_ICONS[token],
+        label: t(SUPPLEMENT_SAFETY_LABEL_KEYS[token]),
+        color: SUPPLEMENT_SAFETY_TAG_COLORS[token].text,
+        bgColor: SUPPLEMENT_SAFETY_TAG_COLORS[token].background,
+    });
 
     useEffect(() => {
         let isMounted = true;
@@ -98,9 +103,9 @@ export const SupplementsListScreen = () => {
     // the white active label is legible (white on green800 5.13:1 / deepOrange900 5.60:1 / red800 ≥5:1).
     // Was selected={backgroundColor: pastel color} + white text → 1.7–3.0:1 (illegible active label).
     const SAFETY_FILTERS: { value: Supplement['pregnancy_safety']; label: string; color: string; fill: string }[] = [
-        { value: 'ok', label: t('common.supplementSafety.safe'), color: theme.colors.success, fill: theme.colors.green800 },
-        { value: 'a_surveiller', label: t('common.supplementSafety.caution'), color: theme.colors.warning, fill: theme.colors.deepOrange900 },
-        { value: 'deconseille', label: t('common.supplementSafety.avoid'), color: theme.colors.error, fill: theme.colors.red800 },
+        { value: 'ok', label: t(SUPPLEMENT_SAFETY_LABEL_KEYS.ok), color: theme.colors.success, fill: theme.colors.green800 },
+        { value: 'a_surveiller', label: t(SUPPLEMENT_SAFETY_LABEL_KEYS.a_surveiller), color: theme.colors.warning, fill: theme.colors.deepOrange900 },
+        { value: 'deconseille', label: t(SUPPLEMENT_SAFETY_LABEL_KEYS.deconseille), color: theme.colors.error, fill: theme.colors.red800 },
     ];
 
     const filteredSupplements = React.useMemo(() => {
@@ -133,7 +138,7 @@ export const SupplementsListScreen = () => {
         // FAILS SAFE to caution (⚠) for any unrecognized token — NEVER to 'ok'/green. The old
         // `|| SAFETY_CONFIG.ok` silently rendered mislabeled supplements (incl. Vitamine A,
         // teratogenic) as ✓ Safe.
-        return SAFETY_CONFIG[normalizeSupplementSafety(safety)];
+        return safetyConfig(normalizeSupplementSafety(safety));
     };
 
     const renderItem = ({ item }: { item: Supplement }) => {
@@ -204,6 +209,15 @@ export const SupplementsListScreen = () => {
         );
     }
 
+    const emptyMessage = emptyListMessage(filter, searchQuery);
+    const favoritesEmpty = emptyMessage.key === 'favoritesEmpty';
+    const emptyText = favoritesEmpty
+        ? t('common.favoritesEmpty.title')
+        : emptyMessage.key === 'noResultsFor'
+            ? t('common.noSupplementFound', { query: searchQuery.trim() })
+            : t('common.noResults');
+    const emptyHint = favoritesEmpty ? t('common.favoritesEmpty.hint') : null;
+
     return (
         <View style={styles.container}>
             <View style={styles.searchContainer}>
@@ -237,7 +251,7 @@ export const SupplementsListScreen = () => {
                 >
                     {/* task 10b — leading "Favoris" chip: filters to bookmarked items only. */}
                     <TouchableOpacity
-                        onPress={() => setFavoritesActive(v => !v)}
+                        onPress={() => setFilter(f => pressFilterChip(f, { type: 'favorites' }))}
                         activeOpacity={0.7}
                         style={[
                             styles.chip,
@@ -254,10 +268,10 @@ export const SupplementsListScreen = () => {
                         </Text>
                     </TouchableOpacity>
                     {(() => {
-                        const allSelected = selectedSafety === null;
+                        const allSelected = isFilterChipSelected(filter, { type: 'all' });
                         return (
                             <TouchableOpacity
-                                onPress={() => setSelectedSafety(null)}
+                                onPress={() => setFilter(f => pressFilterChip(f, { type: 'all' }))}
                                 activeOpacity={0.7}
                                 style={[
                                     styles.chip,
@@ -275,25 +289,25 @@ export const SupplementsListScreen = () => {
                             </TouchableOpacity>
                         );
                     })()}
-                    {SAFETY_FILTERS.map(filter => {
-                        const selected = selectedSafety === filter.value;
+                    {SAFETY_FILTERS.map(safetyFilter => {
+                        const selected = isFilterChipSelected(filter, { type: 'value', value: safetyFilter.value });
                         return (
                             <TouchableOpacity
-                                key={filter.value}
-                                onPress={() => setSelectedSafety(selected ? null : filter.value)}
+                                key={safetyFilter.value}
+                                onPress={() => setFilter(f => pressFilterChip(f, { type: 'value', value: safetyFilter.value }))}
                                 activeOpacity={0.7}
                                 style={[
                                     styles.chip,
                                     selected
-                                        ? { backgroundColor: filter.fill, borderColor: filter.fill }
+                                        ? { backgroundColor: safetyFilter.fill, borderColor: safetyFilter.fill }
                                         : styles.chipInactive,
                                 ]}
                                 accessibilityRole="button"
                                 accessibilityState={{ selected }}
-                                accessibilityLabel={filter.label}
+                                accessibilityLabel={safetyFilter.label}
                             >
                                 <Text style={[styles.chipText, selected ? styles.chipTextActive : styles.chipTextInactive]}>
-                                    {filter.label}
+                                    {safetyFilter.label}
                                 </Text>
                             </TouchableOpacity>
                         );
@@ -309,8 +323,9 @@ export const SupplementsListScreen = () => {
                 showsVerticalScrollIndicator={false}
                 ListEmptyComponent={
                     <View style={styles.emptyState}>
-                        <Text style={styles.emptyEmoji}>🤷‍♀️</Text>
-                        <Text style={styles.emptyText}>{t('common.noSupplementFound', { query: searchQuery })}</Text>
+                        <Text style={styles.emptyEmoji}>{favoritesEmpty ? '⭐' : '🤷‍♀️'}</Text>
+                        <Text style={styles.emptyText}>{emptyText}</Text>
+                        {emptyHint ? <Text style={styles.emptyHint}>{emptyHint}</Text> : null}
                     </View>
                 }
             />
@@ -453,6 +468,12 @@ const styles = StyleSheet.create({
     emptyText: {
         fontSize: 16,
         color: theme.colors.textSecondary,
+        textAlign: 'center',
+    },
+    emptyHint: {
+        marginTop: 8,
+        fontSize: 14,
+        color: theme.colors.textLight,
         textAlign: 'center',
     },
 });

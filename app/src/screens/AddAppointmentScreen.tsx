@@ -26,6 +26,8 @@ import { requestNotificationsAndResync } from '../services/notificationPermissio
 import { analyticsService } from '../services/analyticsService';
 import { trackPositiveAction } from '../services/inAppReviewService';
 import { theme } from '../theme';
+import { switchThumbProps } from '../utils/styleUtils';
+import { Ionicons } from '@expo/vector-icons';
 import { format, isValid } from 'date-fns';
 import { useTranslation } from 'react-i18next';
 import { useDateLocale } from '../hooks/useDateLocale';
@@ -583,7 +585,11 @@ const AppointmentForm = ({ editingEvent }: { editingEvent?: EditableEvent }) => 
                 <View style={styles.header}>
                     <Text style={styles.headerTitle}>{editingEvent ? t('addAppointment.editTitle') : t('addAppointment.newTitle')}</Text>
                     <Text style={styles.headerSubtitle}>
-                        {editingEvent ? t('addAppointment.editSubtitle') : t('addAppointment.newSubtitle')}
+                        {/* Follows the Type chosen below: the form opens on Médical, and a fixed
+                            "rendez-vous personnel" contradicted it. */}
+                        {editingEvent
+                            ? t('addAppointment.editSubtitle')
+                            : t(type === 'medical' ? 'addAppointment.newSubtitleMedical' : 'addAppointment.newSubtitle')}
                     </Text>
                 </View>
 
@@ -631,6 +637,9 @@ const AppointmentForm = ({ editingEvent }: { editingEvent?: EditableEvent }) => 
                                 // CAL-R2-03: RN-web 0.21.2 drops accessibilityState.selected → expose aria explicitly.
                                 {...(Platform.OS === 'web' ? { 'aria-selected': type === 'medical' } : {})}
                             >
+                                {/* A vector icon, not an emoji: it takes the label's colour, where 🩺 stayed
+                                    mid-grey on the selected magenta chip (about 1.5:1). */}
+                                <Ionicons name="medkit-outline" size={16} color={type === 'medical' ? theme.colors.white : theme.colors.text} />
                                 <Text style={[styles.typeText, type === 'medical' && styles.typeTextActive]}>{t('addAppointment.typeMedical')}</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
@@ -642,6 +651,7 @@ const AppointmentForm = ({ editingEvent }: { editingEvent?: EditableEvent }) => 
                                 // CAL-R2-03: RN-web 0.21.2 drops accessibilityState.selected → expose aria explicitly.
                                 {...(Platform.OS === 'web' ? { 'aria-selected': type === 'other' } : {})}
                             >
+                                <Ionicons name="person-outline" size={16} color={type === 'other' ? theme.colors.white : theme.colors.text} />
                                 <Text style={[styles.typeText, type === 'other' && styles.typeTextActive]}>{t('addAppointment.typeOther')}</Text>
                             </TouchableOpacity>
                         </View>
@@ -801,7 +811,7 @@ const AppointmentForm = ({ editingEvent }: { editingEvent?: EditableEvent }) => 
                                 value={reminderJ1}
                                 onValueChange={setReminderJ1}
                                 trackColor={{ false: theme.colors.disabled, true: theme.colors.primarySoft }}
-                                thumbColor={reminderJ1 ? theme.colors.primary : theme.colors.neutral400}
+                                {...switchThumbProps(reminderJ1 ? theme.colors.primary : theme.colors.neutral400)}
                                 accessibilityRole="switch"
                                 accessibilityLabel={t('addAppointment.reminderJ1')}
                                 accessibilityState={{ checked: reminderJ1 }}
@@ -819,7 +829,7 @@ const AppointmentForm = ({ editingEvent }: { editingEvent?: EditableEvent }) => 
                                 value={reminderJ}
                                 onValueChange={setReminderJ}
                                 trackColor={{ false: theme.colors.disabled, true: theme.colors.primarySoft }}
-                                thumbColor={reminderJ ? theme.colors.primary : theme.colors.neutral400}
+                                {...switchThumbProps(reminderJ ? theme.colors.primary : theme.colors.neutral400)}
                                 accessibilityRole="switch"
                                 accessibilityLabel={t('addAppointment.reminderJ')}
                                 accessibilityState={{ checked: reminderJ }}
@@ -837,7 +847,7 @@ const AppointmentForm = ({ editingEvent }: { editingEvent?: EditableEvent }) => 
                                 value={reminderH2}
                                 onValueChange={setReminderH2}
                                 trackColor={{ false: theme.colors.disabled, true: theme.colors.primarySoft }}
-                                thumbColor={reminderH2 ? theme.colors.primary : theme.colors.neutral400}
+                                {...switchThumbProps(reminderH2 ? theme.colors.primary : theme.colors.neutral400)}
                                 accessibilityRole="switch"
                                 accessibilityLabel={t('addAppointment.reminderH2')}
                                 accessibilityState={{ checked: reminderH2 }}

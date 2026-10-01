@@ -165,8 +165,10 @@ export class Observations {
 /** First VISIBLE match (RN-web keeps blurred stack screens mounted in the DOM). */
 export const vis = (l: Locator) => l.filter({ visible: true }).first();
 
+// French strings carry a no-break space before ":", "?" and "!"; fold it to a plain
+// space so the literal expectations in the specs keep reading naturally.
 export async function bodyText(page: Page): Promise<string> {
-  return (await page.locator('body').innerText().catch(() => '')) || '';
+  return ((await page.locator('body').innerText().catch(() => '')) || '').replace(/[\u00a0\u202f]/g, ' ');
 }
 
 /** Bottom tab bar (the tablist that owns "Accueil"). */

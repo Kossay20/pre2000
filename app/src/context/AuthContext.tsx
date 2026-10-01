@@ -15,7 +15,7 @@ import {
     User as FirebaseUser
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, deleteField } from 'firebase/firestore';
-import { deleteUserAccount, finishDeletionAfterReauth, eraseAccountData, resumePendingDeletion, hasPendingDeletion, classifyDeletionFailure } from './accountDeletion';
+import { deleteUserAccount, finishDeletionAfterReauth, eraseAccountData, resumePendingDeletion, pendingDeletionAtSignIn, classifyDeletionFailure } from './accountDeletion';
 import { showAlert } from '../utils/alert';
 import { commitProfileUpdate, createSessionEpoch, installSessionProfile, guestLocalFields, accountLocaleToApply } from './profileSync';
 import { changeLanguage as applyLanguage } from '../i18n/rtl';
@@ -25,10 +25,7 @@ import { UserProfile } from '../types';
 import { calculateCurrentWeek } from '../utils/pregnancyCalculator';
 import { calculateFertileWindow } from '../utils/fertility';
 import { migrateAllGuestDataToAuth } from '../services/reminderPersistence';
-import { pushPendingSessions } from '../services/kickCounterService';
-import { pushPendingContractions } from '../services/contractionTimerService';
-import { pushPendingBag } from '../services/hospitalBagService';
-import { settleWithin } from '../services/trackerSync';
+import { settleTrackersBeforeLogout, type ConfirmUnsyncedLoss } from '../services/trackerLogout';
 import { isExpectedAuthError } from '../utils/firebaseErrors';
 
 // Logout, resetProfile and deleteAccount all erase the device through one function:
@@ -58,7 +55,9 @@ interface AuthContextType {
     // Links the anonymous Firebase user in place (preserves uid + data) when one exists;
     // otherwise creates a fresh account and migrates local guest data.
     upgradeGuest: (email: string, password: string) => Promise<FirebaseUser>;
-    login: (email: string, password: string, opts?: { profileFollows?: boolean }) => Promise<void>;
+    // Resolves to 'deletion-pending' when the account had asked to be deleted: the sign-in
+    // was used to finish that (the listener reports the outcome) and no session is opened.
+    login: (email: string, password: string, opts?: { profileFollows?: boolean }) => Promise<'signed-in' | 'deletion-pending'>;
     loginAsGuest: (
         firstName: string,
         pregnancyStartDate: Date,
@@ -85,7 +84,7 @@ interface AuthContextType {
         // the profile (see utils/healthDataConsent.ts).
         opts?: { replaceExisting?: boolean; healthDataConsent?: HealthDataConsent },
     ) => Promise<void>;
-    logout: () => Promise<void>;
+    logout: (options?: { confirmUnsyncedLoss?: ConfirmUnsyncedLoss }) => Promise<void>;
     // Reports success/failure explicitly and never throws. The server is written first and
     // the device only once it accepted the edit, so `ok: false` means nothing changed
     // anywhere. A field passed as `undefined` is cleared (see profileSync.splitProfileUpdate).
@@ -192,18 +191,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                             pregnancyStartDate: data.pregnancyStartDate || data.lmp
                         } as UserProfile;
 
-                        // Recalculate current week to ensure it's up to date
+                        // currentWeek is the content week (1..40), recomputed on the device on
+                        // every load and never written back: profileSync keeps it client-only.
+                        // This used to store it on the server, where a post-term profile read
+                        // "currentWeek: 40" while every screen said "Semaine 41".
                         if (profile.pregnancyStartDate) {
-                            const lmpDate = new Date(profile.pregnancyStartDate);
-                            const calculatedWeek = calculateCurrentWeek(lmpDate);
-
-                            if (calculatedWeek !== profile.currentWeek) {
-                                log.debug(`[AuthContext] 🔄 Updating current week from ${profile.currentWeek} to ${calculatedWeek}`);
-                                profile.currentWeek = calculatedWeek;
-                                // Update in Firestore silently
-                                setDoc(doc(db, 'userProfiles', fbUser.uid), { currentWeek: calculatedWeek }, { merge: true })
-                                    .catch((e) => log.warn('[AuthContext] Could not store the recomputed week:', e));
-                            }
+                            profile.currentWeek = calculateCurrentWeek(new Date(profile.pregnancyStartDate));
                         }
 
                         await installSessionProfile(stillSignedIn, profile, setUser, persistProfile);
@@ -420,13 +413,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const sessionToken = sessionRef.current.current();
             const docSnap = await getDoc(doc(db, 'userProfiles', userCredential.user.uid));
             const resolved = resolveSessionProfile(docSnap, userCredential.user, null, !!opts?.profileFollows);
-            if (resolved?.isMinimal && (await hasPendingDeletion(userCredential.user.uid))) {
+            if (resolved?.isMinimal && (await pendingDeletionAtSignIn(userCredential.user.uid, db))) {
                 // She asked for this account to be deleted and its data is already erased.
                 // The auth listener, which fires for this same sign-in, finishes the deletion
                 // (this fresh sign-in is recent enough) and tells her; installing the empty
-                // placeholder here would send her to onboarding instead.
+                // placeholder here would send her to onboarding instead. The request is
+                // looked up on the server too (`db`): on a phone other than the one the
+                // deletion ran on, there is no device marker to find.
                 log.info('[AuthContext] Sign-in to an account with a pending deletion — left to the listener');
-                return;
+                return 'deletion-pending' as const;
             }
             if (resolved) {
                 await installSessionProfile(
@@ -460,6 +455,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             } catch (migrationError) {
                 log.warn('[AuthContext] ⚠️ Guest data migration failed (non-blocking):', migrationError);
             }
+            return 'signed-in' as const;
         } catch (error) {
             if (opts?.profileFollows) profileSetupPendingRef.current = false;
             (isExpectedAuthError(error) ? log.warn : log.error)('[AuthContext] ❌ Login error:', error);
@@ -758,23 +754,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     };
 
-    const logout = async () => {
-        // First, so a profile read or save still in flight drops its result instead of
-        // writing 'user_profile' back after the wipe below.
+    const logout = async (options?: { confirmUnsyncedLoss?: ConfirmUnsyncedLoss }) => {
+        // Kick sessions, contractions and the bag are written to the device first and sent
+        // afterwards; the wipe below erases whatever has not reached the server yet. They
+        // get a bounded moment to go up while the session can still write, and if some are
+        // still unsent (no signal) she is told how many would be lost and may stay signed
+        // in — in which case nothing below has run and the session is untouched.
+        const uid = auth.currentUser && !auth.currentUser.isAnonymous ? auth.currentUser.uid : null;
+        if (uid && !(await settleTrackersBeforeLogout(uid, options?.confirmUnsyncedLoss))) return;
+        // Before the sign-out and the wipe, so a profile read or save still in flight drops
+        // its result instead of writing 'user_profile' back after the wipe below.
         sessionRef.current.end();
         try {
-            // Kick sessions, contractions and the bag are written to the device first and
-            // sent afterwards; the wipe below erases whatever has not reached the server yet.
-            // Give those pushes a moment while the session can still write — bounded, so no
-            // signal never blocks the logout.
-            const uid = auth.currentUser && !auth.currentUser.isAnonymous ? auth.currentUser.uid : null;
-            if (uid) {
-                const flushed = await settleWithin(
-                    Promise.allSettled([pushPendingSessions(uid), pushPendingContractions(uid), pushPendingBag(uid)]),
-                    3000,
-                );
-                if (flushed === 'timeout') log.warn('[AuthContext] Tracker records still unsent at logout');
-            }
             // Not gated on `firebaseUser` state: a cold start paints from the cache before
             // the auth listener has reported the restored session, and skipping signOut then
             // left the session alive to be restored on the next launch. signOut is queued

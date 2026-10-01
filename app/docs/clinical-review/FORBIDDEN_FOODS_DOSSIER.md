@@ -21,7 +21,7 @@ indique où vit chaque texte, pour que votre correction soit appliquée exacteme
 là où il faut, sans interprétation.
 
 **Source de vérité :** `src/data/forbidden_foods.json`
-**Généré le :** 2026-08-25 par `scripts/generate-clinical-dossier.ts`
+**Généré le :** 2026-10-01 par `scripts/generate-clinical-dossier.ts`
 
 ---
 
@@ -30,7 +30,7 @@ là où il faut, sans interprétation.
 | 1 | **Poisson cru (sushi, sashimi)**<br>*Poissons et fruits de mer* | Listériose, parasites, toxoplasmose | | |
 | 2 | **Fruits de mer crus (huîtres, moules)**<br>*Poissons et fruits de mer* | Listériose, hépatite A, salmonellose | | |
 | 3 | **Poisson fumé (saumon fumé, truite fumée)**<br>*Poissons et fruits de mer* | Listériose | | |
-| 4 | **Poissons à haute teneur en mercure (thon, espadon, requin)**<br>*Poissons et fruits de mer* | Mercure - toxique pour le développement neurologique du bébé | | |
+| 4 | **Poissons à haute teneur en mercure (espadon, requin, marlin, thon)**<br>*Poissons et fruits de mer* | Mercure - toxique pour le développement neurologique du bébé | | |
 | 5 | **Fromages au lait cru (brie, camembert, roquefort)**<br>*Produits laitiers* | Listériose | | |
 | 6 | **Feta et fromage de chèvre frais (au lait cru)**<br>*Produits laitiers* | Listériose | | |
 | 7 | **Œufs crus ou peu cuits**<br>*Œufs* | Salmonellose | | |
@@ -61,9 +61,9 @@ là où il faut, sans interprétation.
 
 > Le fumage à froid ne détruit pas toutes les bactéries. Éviter sauf si bien cuit ensuite.
 
-**4. Poissons à haute teneur en mercure (thon, espadon, requin)** — `forbidden_foods.json[3].details_fr`
+**4. Poissons à haute teneur en mercure (espadon, requin, marlin, thon)** — `forbidden_foods.json[3].details_fr`
 
-> Le mercure s'accumule dans les gros poissons prédateurs. Limiter à 150g/semaine max.
+> Le mercure s'accumule dans les gros poissons prédateurs. Évitez l'espadon, le marlin, le requin et la lamproie. Pour les autres poissons prédateurs sauvages, comme le thon, limitez-vous à 150 g par semaine.
 
 **5. Fromages au lait cru (brie, camembert, roquefort)** — `forbidden_foods.json[4].details_fr`
 

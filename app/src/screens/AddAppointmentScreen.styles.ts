@@ -162,7 +162,10 @@ export const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: theme.colors.border,
         backgroundColor: theme.colors.white,
+        flexDirection: 'row',
+        justifyContent: 'center',
         alignItems: 'center',
+        gap: 6,
     },
     typeButtonActive: {
         backgroundColor: theme.colors.accent,

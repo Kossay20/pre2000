@@ -23,6 +23,8 @@ import { theme } from '../theme';
 import { Tag } from '../components/common/Tag';
 import { SectionHeader } from '../components/common/SectionHeader';
 import { Card } from '../components/common/Card';
+import { Button } from '../components/common/Button';
+import { EmptyState } from '../components/common/EmptyState';
 import { useNavigation, useNavigationState, useRoute } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { trackPositiveAction } from '../services/inAppReviewService';
@@ -253,12 +255,40 @@ export const ArticleDetailScreen = () => {
     }
 
     if (!article) {
+        // A saved bookmark or an old link can point at an article that is hidden or gone.
+        // Opened that way this screen is the first of its stack: the header draws no back
+        // arrow and goBack() has nowhere to go, which left a bare grey page with a dead
+        // "Retour". So the state says what happened, keeps a back arrow, and always offers
+        // a way on — the articles list.
+        const openArticles = () => (navigation as any).navigate('Ressources', { screen: 'ResourcesMain' });
         return (
-            <View style={styles.centerContainer}>
-                <Text style={theme.typography.body}>{t('article.notFound')}</Text>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginTop: 20, padding: 10 }}>
-                    <Text style={{ color: theme.colors.accent, fontWeight: 'bold' }}>{t('common.back')}</Text>
-                </TouchableOpacity>
+            <View style={styles.notFoundContainer}>
+                {showInlineBack && (
+                    <TouchableOpacity
+                        onPress={() => (navigation.canGoBack() ? navigation.goBack() : openArticles())}
+                        style={styles.notFoundBack}
+                        accessibilityRole="button"
+                        accessibilityLabel={t('a11y.back')}
+                    >
+                        <Ionicons
+                            name={isRTL ? 'arrow-forward' : 'arrow-back'}
+                            size={24}
+                            color={theme.colors.text}
+                        />
+                    </TouchableOpacity>
+                )}
+                {/* The button sits beside the empty state, not in its `action` slot: the
+                    empty state is one accessible element, which on iOS hides its children
+                    from VoiceOver. */}
+                <View style={styles.notFoundBody}>
+                    <EmptyState
+                        compact
+                        icon="📄"
+                        title={t('article.notFound')}
+                        subtitle={t('article.notFoundHint')}
+                    />
+                    <Button title={t('article.browseArticles')} onPress={openArticles} />
+                </View>
             </View>
         );
     }
@@ -566,6 +596,24 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
+    },
+    notFoundContainer: {
+        flex: 1,
+        backgroundColor: theme.colors.background,
+    },
+    notFoundBody: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: theme.spacing.l,
+    },
+    notFoundBack: {
+        alignSelf: 'flex-start',
+        minWidth: 44,
+        minHeight: 44,
+        alignItems: 'center',
+        justifyContent: 'center',
+        margin: theme.spacing.s,
     },
     header: {
         marginBottom: theme.spacing.l,

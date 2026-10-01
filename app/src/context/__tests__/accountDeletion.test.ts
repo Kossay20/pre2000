@@ -17,7 +17,26 @@ jest.mock('../gdprPurge', () => {
   const actual = jest.requireActual('../gdprPurge');
   return { ...actual, purgeUserFirestoreData: (...a: any[]) => mockPurge(...a) };
 });
-jest.mock('firebase/firestore', () => ({}));
+// deletionRequests/{uid} on a fake server: path → data. `mockServerFail` makes the next
+// write of that kind reject, to drive the failure paths.
+const mockServer = new Map<string, any>();
+const mockServerFail: { set?: any; delete?: any } = {};
+const mockServerLog: string[] = [];
+jest.mock('firebase/firestore', () => ({
+  doc: (_db: any, ...p: string[]) => ({ path: p.join('/') }),
+  serverTimestamp: () => 'SERVER_TS',
+  getDoc: jest.fn(async (ref: any) => ({ exists: () => mockServer.has(ref.path) })),
+  setDoc: jest.fn(async (ref: any, data: any) => {
+    if (mockServerFail.set) { const e = mockServerFail.set; mockServerFail.set = undefined; throw e; }
+    mockServerLog.push(`set ${ref.path}`);
+    mockServer.set(ref.path, data);
+  }),
+  deleteDoc: jest.fn(async (ref: any) => {
+    if (mockServerFail.delete) { const e = mockServerFail.delete; mockServerFail.delete = undefined; throw e; }
+    mockServerLog.push(`delete ${ref.path}`);
+    mockServer.delete(ref.path);
+  }),
+}));
 
 const mockStore = new Map<string, string>();
 jest.mock('@react-native-async-storage/async-storage', () => ({
@@ -33,6 +52,7 @@ import {
   eraseAccountData,
   resumePendingDeletion,
   hasPendingDeletion,
+  pendingDeletionAtSignIn,
   isErasedButNotDeleted,
   RECENT_LOGIN_WINDOW_MS,
 } from '../accountDeletion';
@@ -55,7 +75,13 @@ beforeEach(() => {
   mockPurge.mockReset();
   mockPurge.mockResolvedValue(undefined);
   mockStore.clear();
+  mockServer.clear();
+  mockServerLog.length = 0;
+  mockServerFail.set = undefined;
+  mockServerFail.delete = undefined;
 });
+
+const REQUEST = 'deletionRequests/u1';
 
 describe('deleteUserAccount', () => {
   it('purges, then deletes the Auth user, on a recent session', async () => {
@@ -268,5 +294,98 @@ describe('classifyDeletionFailure', () => {
     expect(classifyDeletionFailure(new PurgeIncompleteError(['users/journal'], ['users/journal']))).toBe('blocked');
     expect(classifyDeletionFailure(new Error('boom'))).toBe('failed');
     expect(classifyDeletionFailure(undefined)).toBe('failed');
+  });
+});
+
+// D-031. The device marker only helps on the phone where the deletion ran. If she never
+// signs in there again, her login survived; on another phone she landed in Onboarding inside
+// the account she had asked to delete. The request now lives on the server too.
+describe('the deletion request on the server (deletionRequests/{uid})', () => {
+  it('is recorded before anything is erased, and removed just before the login is deleted', async () => {
+    const user = fakeUser(60_000);
+    mockPurge.mockImplementation(async () => { expect(mockServer.has(REQUEST)).toBe(true); });
+    await deleteUserAccount({}, user, NOW);
+    expect(mockPurge).toHaveBeenCalled();
+    expect(mockServerLog).toEqual([`set ${REQUEST}`, `delete ${REQUEST}`]);
+    expect(mockServer.has(REQUEST)).toBe(false);
+  });
+
+  it('stays on the server when the login could not be deleted after a clean purge', async () => {
+    const user = fakeUser(60_000);
+    user.delete.mockRejectedValueOnce(Object.assign(new Error('net'), { code: 'auth/network-request-failed' }));
+    await expect(deleteUserAccount({}, user, NOW)).rejects.toMatchObject({ code: 'AUTH_DELETE_PENDING' });
+    expect(mockServer.has(REQUEST)).toBe(true);
+  });
+
+  it('stays on the server when it could not be removed (the login is then not deleted either way)', async () => {
+    const user = fakeUser(60_000);
+    user.delete.mockRejectedValueOnce(Object.assign(new Error('net'), { code: 'auth/network-request-failed' }));
+    mockServerFail.delete = new Error('timeout');
+    await expect(deleteUserAccount({}, user, NOW)).rejects.toMatchObject({ code: 'AUTH_DELETE_PENDING' });
+    expect(mockServer.has(REQUEST)).toBe(true);
+    // Offline that removal is only queued and reaches the server later, so the request is
+    // written again behind it rather than trusted to still be there.
+    expect(mockServerLog).toEqual([`set ${REQUEST}`, `set ${REQUEST}`]);
+  });
+
+  it('finishes the deletion when she signs in on ANOTHER phone (no device marker there)', async () => {
+    mockServer.set(REQUEST, { requestedAt: 'SERVER_TS' });
+    expect(mockStore.has(DELETION_PENDING_KEY)).toBe(false);
+    await expect(hasPendingDeletion('u1', {})).resolves.toBe(true);
+    const user = fakeUser(60_000);
+    await expect(resumePendingDeletion({}, user)).resolves.toBe('deleted');
+    expect(user.delete).toHaveBeenCalledTimes(1);
+  });
+
+  it('erases nothing when the request cannot be recorded (offline): a retry starts over', async () => {
+    const user = fakeUser(60_000);
+    mockServerFail.set = Object.assign(new Error('offline'), { code: 'unavailable' });
+    const err = await deleteUserAccount({}, user, NOW).then(() => null, (e) => e);
+    expect(classifyDeletionFailure(err)).toBe('incomplete');
+    expect(mockPurge).not.toHaveBeenCalled();
+    expect(user.delete).not.toHaveBeenCalled();
+    // The timed-out write is still queued: its removal is queued behind it.
+    expect(mockServerLog).toEqual([`delete ${REQUEST}`]);
+  });
+
+  it('still deletes, with the device marker alone, when deployed rules predate the collection', async () => {
+    const user = fakeUser(60_000);
+    mockServerFail.set = Object.assign(new Error('denied'), { code: 'permission-denied' });
+    await deleteUserAccount({}, user, NOW);
+    expect(mockPurge).toHaveBeenCalled();
+    expect(user.delete).toHaveBeenCalled();
+  });
+
+  it('is withdrawn when the purge is incomplete — the account is still usable', async () => {
+    mockPurge.mockRejectedValue(new PurgeIncompleteError(['userTasks']));
+    await expect(deleteUserAccount({}, fakeUser(60_000), NOW)).rejects.toMatchObject({ code: 'PURGE_INCOMPLETE' });
+    expect(mockServer.has(REQUEST)).toBe(false);
+  });
+
+  it('an old request is cleared by a reset, so the profile-less account she kept is not deleted', async () => {
+    mockServer.set(REQUEST, { requestedAt: 'SERVER_TS' });
+    await eraseAccountData({}, { ...fakeUser(0), isAnonymous: false });
+    expect(mockServer.has(REQUEST)).toBe(false);
+    await expect(hasPendingDeletion('u1', {})).resolves.toBe(false);
+  });
+
+  // login() and the auth listener both run for one sign-in. Once the listener is finishing
+  // the deletion it removes the markers, so login() must take the listener's word for it
+  // rather than read them and conclude this is an ordinary empty account.
+  it('login() gets the outcome of a deletion the listener is already finishing', async () => {
+    mockServer.set(REQUEST, { requestedAt: 'SERVER_TS' });
+    const user = fakeUser(60_000);
+    const listener = resumePendingDeletion({}, user);
+    const login = pendingDeletionAtSignIn('u1', {});
+    await expect(listener).resolves.toBe('deleted');
+    expect(mockServer.has(REQUEST)).toBe(false);
+    expect(mockStore.has(DELETION_PENDING_KEY)).toBe(false);
+    await expect(login).resolves.toBe(true);
+  });
+
+  it('login() reads the server itself when no deletion is being finished', async () => {
+    await expect(pendingDeletionAtSignIn('u1', {})).resolves.toBe(false);
+    mockServer.set(REQUEST, { requestedAt: 'SERVER_TS' });
+    await expect(pendingDeletionAtSignIn('u1', {})).resolves.toBe(true);
   });
 });

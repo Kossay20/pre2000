@@ -21,9 +21,11 @@ import { useNavigation, usePreventRemove } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { usePregnancy } from '../context/PregnancyContext';
 import { theme } from '../theme';
+import { Ionicons } from '@expo/vector-icons';
 import { RtlAwareChevron } from '../components/common/RtlAwareChevron';
 import { medicalFlagsFromAnswers } from '../utils/medicalFlags';
 import { Button } from '../components/common/Button';
+import { resolveButtonVariant } from '../components/common/Button.helpers';
 import { ErrorMessage } from '../components/common/ErrorMessage';
 import { HealthDataConsentCheck } from '../components/common/HealthDataConsentCheck';
 import { recordHealthDataConsent } from '../utils/healthDataConsent';
@@ -56,6 +58,14 @@ import { styles } from './OnboardingScreen.styles';
 import { getContentWidth } from '../utils/layout';
 
 const width = getContentWidth();
+
+// The last step's gradient buttons, switched off: the shared Button's disabled pair
+// (dark-grey label on light grey, no shadow), as on step 2 and the consent sheet. They
+// used white on a grey gradient with a pink shadow, about 1.6:1 — she could not read
+// what ticking the box would unlock.
+const OFF = resolveButtonVariant('primary', true);
+const START_OFF_COLORS = [OFF.backgroundColor, OFF.backgroundColor] as const;
+const START_ON_COLORS = [theme.colors.primaryStrong, theme.colors.accent] as const;
 
 // Single-choice options (status, date method, age, country, first pregnancy).
 // accessibilityState reaches VoiceOver/TalkBack, but react-native-web drops it: on
@@ -445,7 +455,9 @@ export const OnboardingScreen = () => {
     // STEP 2: Date Selection (Smart)
     const renderStep2 = () => (
         <View style={styles.stepContent}>
-            <Text style={styles.stepEmoji}>📅</Text>
+            {/* A drawn calendar, not the 📅 emoji: that glyph has a date printed on it
+                ("JUL 17" on Apple) right above the date she is asked for. */}
+            <Ionicons name="calendar-outline" size={64} color={theme.colors.primaryStrong} style={styles.stepIcon} />
             <Text style={styles.stepTitle}>{t('onboarding.step2.title')}</Text>
             <Text style={styles.stepSubtitle}>{t('onboarding.step2.subtitle')}</Text>
 
@@ -861,7 +873,7 @@ export const OnboardingScreen = () => {
                             role=button by web a11y tree (TouchableOpacity does not
                             propagate the role automatically on RNWeb). */}
                         <TouchableOpacity
-                            style={styles.startButton}
+                            style={[styles.startButton, (loading || !healthConsent || (!user && !canCreateAccount)) && styles.startButtonOff]}
                             onPress={() => handleFinish(!!(!user && canCreateAccount))}
                             disabled={loading || !healthConsent || (!user && !canCreateAccount)}
                             accessibilityRole="button"
@@ -876,14 +888,12 @@ export const OnboardingScreen = () => {
                             testID="onboarding_step4_submit"
                         >
                             <LinearGradient
-                                colors={loading || !healthConsent || (!user && !canCreateAccount)
-                                    ? [theme.colors.neutral300, theme.colors.gray500]
-                                    : [theme.colors.primaryStrong, theme.colors.accent]}
+                                colors={loading || !healthConsent || (!user && !canCreateAccount) ? START_OFF_COLORS : START_ON_COLORS}
                                 start={{ x: 0, y: 0 }}
                                 end={{ x: 1, y: 0 }}
                                 style={styles.startButtonGradient}
                             >
-                                <Text style={styles.startButtonText}>
+                                <Text style={[styles.startButtonText, (loading || !healthConsent || (!user && !canCreateAccount)) && { color: OFF.textColor }]}>
                                     {loading
                                         ? t('onboarding.step4.creatingAccount')
                                         : user
@@ -1117,21 +1127,19 @@ export const OnboardingScreen = () => {
                             (a) used `selectedDate` (today) instead of the user's lastPeriodDate, and
                             (b) created a real pregnancy profile. Now wired to handleFinishTTC. */}
                         <TouchableOpacity
-                            style={styles.startButton}
+                            style={[styles.startButton, (loading || !healthConsent || (!user && !(email.trim().length > 0 && password.length >= 10 && /\d/.test(password) && /[A-Z]/.test(password)))) && styles.startButtonOff]}
                             onPress={() => handleFinishTTC(!user)}
                             disabled={loading || !healthConsent || (!user && !(email.trim().length > 0 && password.length >= 10 && /\d/.test(password) && /[A-Z]/.test(password)))}
                             accessibilityRole="button"
                             accessibilityLabel={loading ? t('onboarding.step4.creatingAccount') : t('onboarding.step3Ttc.start')}
                         >
                             <LinearGradient
-                                colors={loading || !healthConsent || (!user && !(email.trim().length > 0 && password.length >= 10 && /\d/.test(password) && /[A-Z]/.test(password)))
-                                    ? [theme.colors.neutral300, theme.colors.gray500]
-                                    : [theme.colors.primaryStrong, theme.colors.accent]}
+                                colors={loading || !healthConsent || (!user && !(email.trim().length > 0 && password.length >= 10 && /\d/.test(password) && /[A-Z]/.test(password))) ? START_OFF_COLORS : START_ON_COLORS}
                                 start={{ x: 0, y: 0 }}
                                 end={{ x: 1, y: 0 }}
                                 style={styles.startButtonGradient}
                             >
-                                <Text style={styles.startButtonText}>
+                                <Text style={[styles.startButtonText, (loading || !healthConsent || (!user && !(email.trim().length > 0 && password.length >= 10 && /\d/.test(password) && /[A-Z]/.test(password)))) && { color: OFF.textColor }]}>
                                     {loading ? t('onboarding.step4.creatingAccount') : t('onboarding.step3Ttc.start')}
                                 </Text>
                             </LinearGradient>
@@ -1277,7 +1285,7 @@ export const OnboardingScreen = () => {
                     {error ? <ErrorMessage message={error} /> : null}
 
                     <TouchableOpacity
-                        style={styles.startButton}
+                        style={[styles.startButton, (loading || !healthConsent) && styles.startButtonOff]}
                         onPress={() => handleFinishCurious()}
                         disabled={loading || !healthConsent}
                         accessibilityRole="button"
@@ -1285,12 +1293,12 @@ export const OnboardingScreen = () => {
                         accessibilityState={{ disabled: loading || !healthConsent, busy: loading }}
                     >
                         <LinearGradient
-                            colors={loading || !healthConsent ? [theme.colors.neutral300, theme.colors.gray500] : [theme.colors.primaryStrong, theme.colors.accent]}
+                            colors={loading || !healthConsent ? START_OFF_COLORS : START_ON_COLORS}
                             start={{ x: 0, y: 0 }}
                             end={{ x: 1, y: 0 }}
                             style={styles.startButtonGradient}
                         >
-                            <Text style={styles.startButtonText}>
+                            <Text style={[styles.startButtonText, (loading || !healthConsent) && { color: OFF.textColor }]}>
                                 {loading ? t('home.loadingData') : t('onboarding.discover')}
                             </Text>
                         </LinearGradient>

@@ -11,11 +11,21 @@
  *   their healthcare professional ("mention to" / "contact" your provider).
  * - The user remains AUTONOMOUS — the screen layer is responsible for offering
  *   a "save anyway" path. These functions only describe risk.
- * - Threshold rationale (gestational guidance, indicative — see references in
- *   clinical literature: WHO/HAS/ACOG):
- *     • Fasting plasma glucose normal range: 3.5 – 5.5 mmol/L.
+ * - Threshold rationale (pregnancy-specific; every value below is listed for
+ *   clinical sign-off in docs/clinical-review/HEALTH_THRESHOLDS_DOSSIER.md):
+ *     • Fasting glucose ≥ 5.1 mmol/L (0.92 g/L, 92 mg/dL) is the gestational
+ *       diabetes criterion of IADPSG 2010, adopted by WHO 2013 and in France by
+ *       the CNGOF/SFD 2010 recommendations. The general-population 5.5 / 5.6
+ *       cut-off does not apply in pregnancy. ≥ 7.0 mmol/L is WHO 2013's
+ *       "diabetes in pregnancy" value.
+ *     • BP ≥ 140/90 is hypertension in pregnancy (after 20 weeks: gestational
+ *       hypertension, possible pre-eclampsia) and calls for a medical
+ *       assessment within 24 h — not at the next routine visit (NICE NG133,
+ *       ACOG Practice Bulletin 222).
  *     • Severe hypertension (pre-eclampsia red flag): sys ≥ 160 OR dia ≥ 110.
  *     • Sudden weight loss > 3 kg between two close entries warrants follow-up.
+ * - Units: the app takes and shows glucose in mmol/L only (the Health input,
+ *   the stored value and every label).
  *
  * If thresholds need to change for medical or regulatory reasons, update them
  * here AND update the test suite — both must move together.
@@ -41,14 +51,17 @@ export interface ClinicalAlert {
 // Glucose (fasting, mmol/L)
 // ────────────────────────────────────────────────────────────────────────────
 
+/** IADPSG 2010 / WHO 2013 fasting criterion for gestational diabetes, mmol/L (= 0.92 g/L). */
+export const GDM_FASTING_THRESHOLD_MMOL = 5.1;
+
 /**
  * Evaluate a fasting blood glucose reading (mmol/L).
- * Returns null when the value is in the normal range (3.5 – 5.5 inclusive).
+ * Returns null when the value is in the pregnancy target (3.5 to below 5.1).
  *
  * Thresholds:
  *   < 3.5            → critical (hypoglycemia)
- *   3.5 – 5.5        → null (normal)
- *   5.6 – 6.9        → warning (surveillance)
+ *   3.5 – < 5.1      → null (normal in pregnancy)
+ *   5.1 – 6.9        → warning (at/above the gestational-diabetes fasting criterion)
  *   7.0 – 10.0       → severe (elevated)
  *   > 10.0           → critical (very elevated)
  */
@@ -66,7 +79,7 @@ export const checkGlucose = (mmolL: number): ClinicalAlert | null => {
         };
     }
 
-    if (mmolL <= 5.5) {
+    if (mmolL < GDM_FASTING_THRESHOLD_MMOL) {
         return null;
     }
 
@@ -94,6 +107,28 @@ export const checkGlucose = (mmolL: number): ClinicalAlert | null => {
     };
 };
 
+/**
+ * What the Glycémie card may say about the current month. It used to print
+ * "Glycémie normale ce mois-ci" whatever the readings were — with none at all,
+ * and next to a 5.2 shown in the alert colour.
+ *   'empty'      → no reading this month
+ *   'outOfRange' → at least one reading this month raises a checkGlucose alert
+ *   'inRange'    → every reading this month is in the pregnancy target
+ */
+export type GlucoseMonthStatus = 'empty' | 'inRange' | 'outOfRange';
+
+export const summarizeGlucoseMonth = (
+    readings: ReadonlyArray<{ value: number; date: string | Date }>,
+    now: Date = new Date(),
+): GlucoseMonthStatus => {
+    const thisMonth = readings.filter(r => {
+        const d = new Date(r.date);
+        return !isNaN(d.getTime()) && d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+    });
+    if (thisMonth.length === 0) return 'empty';
+    return thisMonth.some(r => checkGlucose(Number(r.value)) !== null) ? 'outOfRange' : 'inRange';
+};
+
 // ────────────────────────────────────────────────────────────────────────────
 // Blood pressure (mmHg) — pre-eclampsia is the red flag.
 // ────────────────────────────────────────────────────────────────────────────
@@ -106,7 +141,8 @@ export const checkGlucose = (mmolL: number): ClinicalAlert | null => {
  *
  * Order of checks (highest severity first):
  *   sys ≥ 160 OR dia ≥ 110 → critical (severe hypertension)
- *   sys 140–159 OR dia 90–109 → severe (hypertension)
+ *   sys 140–159 OR dia 90–109 → severe (hypertension — assessment within 24 h,
+ *                               NICE NG133 / ACOG PB 222; the copy says so)
  *   sys 130–139 OR dia 80–89  → warning (pre-hypertension)
  *   sys < 90 OR dia < 60      → warning (hypotension)
  *   otherwise                 → null

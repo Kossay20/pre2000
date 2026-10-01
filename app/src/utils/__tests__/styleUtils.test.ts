@@ -12,7 +12,7 @@
  */
 
 import { Platform } from 'react-native';
-import { getShadowStyle, getTextShadowStyle, hexToRgba } from '../styleUtils';
+import { getShadowStyle, getTextShadowStyle, hexToRgba, switchThumbProps } from '../styleUtils';
 import { theme } from '../../theme';
 
 // Mutable view of the Platform module so we can flip OS freely.
@@ -234,5 +234,23 @@ describe('styleUtils', () => {
             const textShadow = getTextShadowStyle('#000000', 0.2, 4, { width: 0, height: 2 }) as any;
             expect(shadow.boxShadow).toBe(textShadow.textShadow);
         });
+    });
+});
+
+describe('switchThumbProps', () => {
+    afterEach(() => {
+        mutablePlatform.OS = ORIGINAL_OS;
+    });
+
+    it('sets activeThumbColor on web, where thumbColor alone leaves the ON thumb teal', () => {
+        mutablePlatform.OS = 'web';
+        expect(switchThumbProps('#FFFFFF')).toEqual({ thumbColor: '#FFFFFF', activeThumbColor: '#FFFFFF' });
+    });
+
+    it('passes only thumbColor on native', () => {
+        mutablePlatform.OS = 'ios';
+        expect(switchThumbProps('#FFFFFF')).toEqual({ thumbColor: '#FFFFFF' });
+        mutablePlatform.OS = 'android';
+        expect(switchThumbProps('#FFFFFF')).toEqual({ thumbColor: '#FFFFFF' });
     });
 });

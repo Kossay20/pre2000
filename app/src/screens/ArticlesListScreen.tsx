@@ -14,6 +14,7 @@ import { getAllLocalArticles } from '../services/localContentFallback';
 import { withoutUnreviewedContent } from '../config/unreviewedContent';
 import { FIRESTORE_GUEST_TIMEOUT_MS, withTimeout } from '../utils/withTimeout';
 import { getBookmarks, subscribeBookmarks } from '../services/bookmarkService';
+import { emptyListMessage, FilterChip, FilterSelection, isFilterChipSelected, NO_FILTER, pressFilterChip } from '../utils/filterChips';
 import { theme } from '../theme';
 import { Card } from '../components/common/Card';
 import { Tag } from '../components/common/Tag';
@@ -39,9 +40,11 @@ export const ArticlesListScreen = () => {
     // W5 #4: keep the category/favoris filter row reachable under RTL (ar/tn) on web.
     const chipScrollRef = useRtlScrollFix();
     const [searchQuery, setSearchQuery] = useState('');
-    const [selectedCategory, setSelectedCategory] = useState<string | null>(null); // task 10c: null = "All"
-    // task 10b — "Favoris" filter chip: when active, show only bookmarked items.
-    const [favoritesActive, setFavoritesActive] = useState(false);
+    // task 10b/10c — one filter at a time: "Favoris" (bookmarked only), "All" (value null)
+    // or one category. See utils/filterChips.
+    const [filter, setFilter] = useState<FilterSelection<string>>(NO_FILTER);
+    const selectedCategory = filter.value;
+    const favoritesActive = filter.favorites;
     const [bookmarkedIds, setBookmarkedIds] = useState<Set<string>>(new Set());
     const [loading, setLoading] = useState(true);
     const navigation = useNavigation();
@@ -144,7 +147,7 @@ export const ArticlesListScreen = () => {
     // fall back to "All" so the list never silently shows nothing.
     useEffect(() => {
         if (selectedCategory && !categoryChips.includes(selectedCategory)) {
-            setSelectedCategory(null);
+            setFilter(NO_FILTER);
         }
     }, [categoryChips, selectedCategory]);
 
@@ -253,6 +256,15 @@ export const ArticlesListScreen = () => {
         );
     }
 
+    const emptyMessage = emptyListMessage(filter, searchQuery);
+    const favoritesEmpty = emptyMessage.key === 'favoritesEmpty';
+    const emptyText = favoritesEmpty
+        ? t('common.favoritesEmpty.title')
+        : emptyMessage.key === 'noResultsFor'
+            ? t('common.noResultsFor', { query: searchQuery.trim() })
+            : t('common.noResults');
+    const emptyHint = favoritesEmpty ? t('common.favoritesEmpty.hint') : null;
+
     return (
         <View style={styles.container}>
             <View style={styles.searchContainer}>
@@ -287,7 +299,7 @@ export const ArticlesListScreen = () => {
                 >
                     {/* task 10b — leading "Favoris" chip: filters to bookmarked items only. */}
                     <TouchableOpacity
-                        onPress={() => setFavoritesActive(v => !v)}
+                        onPress={() => setFilter(f => pressFilterChip(f, { type: 'favorites' }))}
                         activeOpacity={0.7}
                         style={[styles.chip, favoritesActive ? styles.chipActive : styles.chipInactive]}
                         hitSlop={CHIP_HIT_SLOP}
@@ -304,14 +316,15 @@ export const ArticlesListScreen = () => {
                     </TouchableOpacity>
                     {categoryChips.length > 0 &&
                         [null, ...categoryChips].map(slug => {
-                            const selected = selectedCategory === slug;
+                            const chip: FilterChip<string> = slug ? { type: 'value', value: slug } : { type: 'all' };
+                            const selected = isFilterChipSelected(filter, chip);
                             const label = slug
                                 ? t(`categories.${slug}`, { defaultValue: slug })
                                 : t('categories.all', { defaultValue: 'Tout' });
                             return (
                                 <TouchableOpacity
                                     key={slug ?? '__all__'}
-                                    onPress={() => setSelectedCategory(slug)}
+                                    onPress={() => setFilter(f => pressFilterChip(f, chip))}
                                     activeOpacity={0.7}
                                     style={[styles.chip, selected ? styles.chipActive : styles.chipInactive]}
                                     hitSlop={CHIP_HIT_SLOP}
@@ -336,8 +349,9 @@ export const ArticlesListScreen = () => {
                 showsVerticalScrollIndicator={false}
                 ListEmptyComponent={
                     <View style={styles.emptyState}>
-                        <Text style={styles.emptyEmoji}>🤷‍♀️</Text>
-                        <Text style={styles.emptyText}>{t('common.noResultsFor', { query: searchQuery })}</Text>
+                        <Text style={styles.emptyEmoji}>{favoritesEmpty ? '⭐' : '🤷‍♀️'}</Text>
+                        <Text style={styles.emptyText}>{emptyText}</Text>
+                        {emptyHint ? <Text style={styles.emptyHint}>{emptyHint}</Text> : null}
                     </View>
                 }
             />
@@ -473,6 +487,12 @@ const styles = StyleSheet.create({
     emptyText: {
         fontSize: 16,
         color: theme.colors.textSecondary,
+        textAlign: 'center',
+    },
+    emptyHint: {
+        marginTop: 8,
+        fontSize: 14,
+        color: theme.colors.textLight,
         textAlign: 'center',
     },
 });

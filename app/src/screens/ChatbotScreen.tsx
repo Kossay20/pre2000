@@ -194,7 +194,9 @@ export const ChatbotScreen = () => {
                               user outside the listed countries gets 112 rather than
                               another country's national number.
                         */}
-                        {emergencyNumber ? (
+                        {/* While the call action is pinned above the input, the bubble does not
+                            repeat it: two identical buttons on screen were read out twice. */}
+                        {emergencyNumber && !pinCall ? (
                             <TouchableOpacity
                                 style={styles.callButton}
                                 onPress={callEmergency}
@@ -235,6 +237,17 @@ export const ChatbotScreen = () => {
                             </TouchableOpacity>
                         ))}
                     </View>
+                )}
+
+                {item.data?.screenLink === 'ForbiddenFoods' && (
+                    <TouchableOpacity
+                        style={styles.articleLink}
+                        onPress={() => navigation.navigate('Home', { screen: 'ForbiddenFoods' })}
+                        accessibilityRole="link"
+                        accessibilityLabel={t('common.chatSeeForbiddenFoods')}
+                    >
+                        <Text style={styles.articleLinkText}>🍽️ {t('common.chatSeeForbiddenFoods')}</Text>
+                    </TouchableOpacity>
                 )}
 
                 {/* Render Tips */}

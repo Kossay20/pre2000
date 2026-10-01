@@ -14,7 +14,7 @@ import { db } from '../config/firebase';
 import { collection, addDoc, query, where, getDocs, orderBy, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createLogger } from '../utils/logger';
-import { toLocalDateKey } from '../utils/localDate';
+import { isOnLocalDay, toLocalDateKey } from '../utils/localDate';
 
 const log = createLogger('WeightService');
 
@@ -77,6 +77,9 @@ export const getRecommendedWeightRange = (
     currentWeek: number
 ): { min: number; max: number; targetGain: { min: number; max: number } } => {
     const category = calculateBMICategory(prePregnancyWeight, heightCm);
+    // The gain targets are totals at term (week 40). A weigh-in filed under week 41 or 42
+    // (past the due date) is held to the term range, not to a range extrapolated beyond it.
+    const week = Math.min(currentWeek, 40);
 
     // Weight gain is minimal in T1 (0-13 weeks): about 0.5-2kg total
     // Main gain in T2-T3 (14-40 weeks)
@@ -84,16 +87,16 @@ export const getRecommendedWeightRange = (
     let minGain: number;
     let maxGain: number;
 
-    if (currentWeek <= 13) {
+    if (week <= 13) {
         // First trimester: minimal gain (0.5-2kg total by week 13)
-        const progress = currentWeek / 13;
+        const progress = week / 13;
         minGain = 0.5 * progress;
         maxGain = 2 * progress;
     } else {
         // Second and third trimester - REFINED FORMULA
         const t1GainMin = 0.5; // Minimum T1 gain
         const t1GainMax = 2.0; // Maximum T1 gain
-        const weeksInT2T3 = currentWeek - 13;
+        const weeksInT2T3 = week - 13;
 
         // Calculate remaining gain to reach category targets
         const remainingMinGain = category.minGain - t1GainMin;
@@ -296,6 +299,33 @@ export const latestWeighingPerDay = (entries: WeightEntry[]): WeightEntry[] => {
         seen.add(day);
         return true;
     });
+};
+
+/**
+ * Every weighing logged on the local day `dayKey` (today by default), newest first, from
+ * both sources. Both entry forms ask "replace today's weighing?" off this list: the
+ * tracker asked, the Health dashboard saved a second weighing of the day without a word.
+ */
+export const weighingsOnDay = (entries: WeightEntry[], dayKey: string = toLocalDateKey()): WeightEntry[] =>
+    entries
+        .filter(e => isOnLocalDay(e.date, dayKey))
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+// The gauge draws the recommended range as a band from 10 % to 90 % of the bar.
+export const GAUGE_BAND_START_PCT = 10;
+export const GAUGE_BAND_END_PCT = 90;
+
+/**
+ * Where the gauge dot sits, in % of the bar, for a weight against the recommended range.
+ * min maps to the band's left edge and max to its right edge, so a weight inside the range
+ * is drawn inside the green band; it used to map min→0 % and max→100 % while the band was
+ * drawn 10–90 %, which put 68.4 kg (range 68.2–71.9) left of the band. Clamped to the bar.
+ */
+export const gaugeDotPercent = (weight: number, min: number, max: number): number => {
+    const mid = (GAUGE_BAND_START_PCT + GAUGE_BAND_END_PCT) / 2;
+    if (!Number.isFinite(weight) || !Number.isFinite(min) || !Number.isFinite(max) || max <= min) return mid;
+    const pct = GAUGE_BAND_START_PCT + ((weight - min) / (max - min)) * (GAUGE_BAND_END_PCT - GAUGE_BAND_START_PCT);
+    return Math.min(Math.max(pct, 0), 100);
 };
 
 /**

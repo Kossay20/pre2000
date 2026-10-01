@@ -89,7 +89,7 @@ const LANGS: { code: string; dir: 'ltr' | 'rtl'; cardIndex: number; langAttr: st
   { code: 'fr', dir: 'ltr', cardIndex: 0, langAttr: 'fr', pregnant: /Je suis enceinte/i, cont: /Continuer/i },
   { code: 'en', dir: 'ltr', cardIndex: 3, langAttr: 'en', pregnant: /I am pregnant/i, cont: /Continue/i },
   { code: 'ar', dir: 'rtl', cardIndex: 1, langAttr: 'ar', pregnant: /أنا حامل/, cont: /متابعة/ },
-  { code: 'tn', dir: 'rtl', cardIndex: 2, langAttr: 'tn', pregnant: /أنا حامل/, cont: /متابعة/ },
+  { code: 'tn', dir: 'rtl', cardIndex: 2, langAttr: 'ar-TN', pregnant: /أنا حامل/, cont: /متابعة/ },
 ];
 
 for (const L of LANGS) {

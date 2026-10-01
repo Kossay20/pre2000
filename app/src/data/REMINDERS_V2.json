@@ -1207,7 +1207,7 @@
             ],
             "source_ui": "reminders_only",
             "ui": {
-                "icon": "💉",
+                "icon": "💊",
                 "section_group": "medical"
             }
         },

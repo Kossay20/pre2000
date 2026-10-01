@@ -2,10 +2,18 @@
   {
     "id": "mom-id-card",
     "section": "papers",
-    "label_fr": "Carte d'identité (CIN)",
+    "label_fr": "Pièce d'identité",
     "label_en": "ID card",
     "label_ar": "بطاقة الهوية",
-    "label_tn": "الكارط دي ايدنتيتي"
+    "label_tn": "الكارط دي ايدنتيتي",
+    "labels_by_country": {
+      "tunisia": {
+        "label_fr": "Carte d'identité (CIN)",
+        "label_en": "National ID card (CIN)",
+        "label_ar": "بطاقة التعريف الوطنية",
+        "label_tn": "بطاقة التعريف (CIN)"
+      }
+    }
   },
   {
     "id": "mom-pregnancy-record",
@@ -18,10 +26,24 @@
   {
     "id": "mom-insurance-card",
     "section": "papers",
-    "label_fr": "Carte CNAM / assurance maladie",
+    "label_fr": "Carte d'assurance maladie",
     "label_en": "Health insurance card",
-    "label_ar": "بطاقة الضمان الاجتماعي",
-    "label_tn": "كارط الكنام"
+    "label_ar": "بطاقة التأمين الصحي",
+    "label_tn": "كارط التأمين على المرض",
+    "labels_by_country": {
+      "tunisia": {
+        "label_fr": "Carte CNAM / assurance maladie",
+        "label_en": "CNAM health insurance card",
+        "label_ar": "بطاقة الضمان الاجتماعي (CNAM)",
+        "label_tn": "كارط الكنام"
+      },
+      "france": {
+        "label_fr": "Carte Vitale et carte de mutuelle",
+        "label_en": "Carte Vitale and mutuelle (top-up insurance) card",
+        "label_ar": "بطاقة Vitale وبطاقة التأمين التكميلي (mutuelle)",
+        "label_tn": "كارط فيتال وكارط الميتيال"
+      }
+    }
   },
   {
     "id": "mom-blood-test",

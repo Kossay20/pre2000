@@ -18,7 +18,7 @@ import { analyzeMessage } from '../chatbotService';
 import { SUGGESTIONS, RED_FLAGS } from '../../data/chatbot_data';
 
 const LOCALES = ['fr', 'en', 'ar', 'tn'] as const;
-const REPORTING_CHIPS = ['cs06', 'cs07', 'cs08', 'cs09', 'cs13', 'cs14'];
+const REPORTING_CHIPS = ['cs06', 'cs07', 'cs08', 'cs09', 'cs13', 'cs14', 'cs19'];
 
 const tapChip = async (chip: any, lang: string) => {
   i18nStub.language = lang;
@@ -56,11 +56,12 @@ describe('symptom-reporting chips raise their linked red flag with the alert blo
 
   it('"I\'m bleeding a little" (cs06) is an EMERGENCY with the critical wording in every locale', async () => {
     const chip = SUGGESTIONS.find(s => s.suggestion_id === 'cs06')!;
+    const flag: any = RED_FLAGS.find(f => f.red_flag_id === 'hemorragie_antepartum');
     for (const lang of LOCALES) {
       const r = await tapChip(chip, lang);
       expect(r.redFlag.severity).toBe('emergency');
-      expect(r.message.startsWith('🚨')).toBe(true);
-      expect(r.message).toContain('common.chatResponse.redFlagCritical');
+      // The flag's own instruction, unsoftened — no "don't hesitate… if needed" after it.
+      expect(r.message).toBe(`🚨 ${flag[`standard_message_${lang}`]}`);
     }
   });
 });

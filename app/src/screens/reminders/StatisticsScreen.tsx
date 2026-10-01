@@ -21,6 +21,7 @@ import { RtlAwareChevron } from '../../components/common/RtlAwareChevron';
 import { EmptyState } from '../../components/common/EmptyState';
 import { Button } from '../../components/common/Button';
 import { getContentWidth } from '../../utils/layout';
+import { todayCompletionRate } from './statisticsToday';
 
 const log = createLogger('StatisticsScreen');
 const screenWidth = getContentWidth();
@@ -111,11 +112,26 @@ export const StatisticsScreen = () => {
         );
     }
 
+    // Shared by both branches: the empty state used to render without it, a bare
+    // card on the navigator's grey with no title and no way back.
+    const header = (
+        <View style={styles.header}>
+            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+                <View style={styles.backRow}>
+                    <RtlAwareChevron direction="back" variant="arrow" size={16} color={theme.colors.primary} />
+                    <Text style={styles.backButtonText}>{t('back')}</Text>
+                </View>
+            </TouchableOpacity>
+            <Text style={styles.title}>{t('myStats')}</Text>
+        </View>
+    );
+
     if (!data || data.dates.length === 0) {
         // Cycle 5 F702 — empty state aligné design system + CTA "Aller aux tâches"
         // (avant : juste emoji + texte, l'utilisatrice n'avait aucune action proposée).
         return (
-            <View testID="statistics_screen_root" style={{ flex: 1 }}>
+            <View testID="statistics_screen_root" style={styles.emptyContainer}>
+                {header}
                 <EmptyState
                     icon="📊"
                     title={t('noDataYet')}
@@ -131,18 +147,11 @@ export const StatisticsScreen = () => {
         );
     }
 
+    const todayRate = todayCompletionRate(data, format(new Date(), 'yyyy-MM-dd'));
+
     return (
         <ScrollView testID="statistics_screen_root" style={styles.container}>
-            {/* Header */}
-            <View style={styles.header}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-                    <View style={styles.backRow}>
-                        <RtlAwareChevron direction="back" variant="arrow" size={16} color={theme.colors.primary} />
-                        <Text style={styles.backButtonText}>{t('back')}</Text>
-                    </View>
-                </TouchableOpacity>
-                <Text style={styles.title}>{t('myStats')}</Text>
-            </View>
+            {header}
             {/* Streak Hero Card */}
             <View style={styles.streakContainer}>
                 <LinearGradient
@@ -200,6 +209,9 @@ export const StatisticsScreen = () => {
             {/* Global Progress Chart */}
             <View style={styles.chartCard}>
                 <Text style={styles.chartTitle}>{t('globalSuccess')}</Text>
+                {todayRate !== null && (
+                    <Text style={styles.todayRate}>{t('todayCompletion', { percent: todayRate })}</Text>
+                )}
                 {/* F-HS-NEW-01: a chart with a single point is degenerate (renders as a
                     flat dot). Require >=2 days, else show a 'log more days' placeholder. */}
                 {data.completionRates.length >= 2 ? (
@@ -244,7 +256,7 @@ export const StatisticsScreen = () => {
                         width={screenWidth - 48}
                         height={220}
                         yAxisLabel=""
-                        yAxisSuffix="L"
+                        yAxisSuffix={t('reminders.hydration.unitLitre')}
                         chartConfig={{
                             backgroundColor: theme.colors.white,
                             backgroundGradientFrom: theme.colors.white,
@@ -290,6 +302,10 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: theme.colors.neutral100,
+    },
+    emptyContainer: {
+        flex: 1,
+        backgroundColor: theme.colors.background,
     },
     centerContainer: {
         flex: 1,
@@ -436,6 +452,12 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         color: theme.colors.neutral900,
         marginBottom: 16,
+    },
+    todayRate: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: theme.colors.text,
+        marginBottom: 8,
     },
     chart: {
         marginVertical: 8,

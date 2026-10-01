@@ -67,7 +67,11 @@ describe('GJ-011 — Baby evolution footer matches the tap-a-dot navigation', ()
 describe('Favoris chip exposes its toggled state', () => {
     it('sets aria-pressed on web (RN-Web drops accessibilityState)', () => {
         const src = read('src/screens/ArticlesListScreen.tsx');
-        const favAt = src.indexOf('onPress={() => setFavoritesActive(v => !v)}');
+        // Favoris is now one choice of the single-selection filter row (utils/filterChips);
+        // its lit state is still what both platforms announce.
+        const favAt = src.indexOf("onPress={() => setFilter(f => pressFilterChip(f, { type: 'favorites' }))}");
+        expect(favAt).toBeGreaterThan(-1);
+        expect(src).toMatch(/const favoritesActive = filter\.favorites;/);
         const end = src.indexOf('>', src.indexOf("accessibilityLabel={t('common.favorites')}", favAt));
         const props = src.slice(favAt, end);
         expect(props).toMatch(/accessibilityState=\{\{ selected: favoritesActive \}\}/);
@@ -80,5 +84,61 @@ describe('article search is accent-insensitive', () => {
         const src = read('src/screens/ArticlesListScreen.tsx');
         expect(src).toMatch(/import \{ matchesSearch \} from '\.\.\/utils\/searchNormalize';/);
         expect(src).toMatch(/return matchesSearch\(query, \[/);
+    });
+});
+
+describe('Home — the size comparison has its own label', () => {
+    it('does not cut the onboarding sentence in two', () => {
+        // "Votre bébé fait la taille / d'" sat above a bare "Concombre (42,4 cm)".
+        const src = read('src/screens/HomeScreen.tsx');
+        expect(src).toContain("t('home.sizeComparisonLabel')");
+        expect(src).not.toMatch(/babySize'[^)]*\)\.split\(/);
+    });
+
+    it.each(LOCALES)('%s label is a whole phrase with no dangling article', (lng) => {
+        const label: string = home(lng).sizeComparisonLabel;
+        expect(label.trim().length).toBeGreaterThan(3);
+        expect(label).not.toMatch(/\n|\{\{|d['’]\s*$|un\(e\)/);
+    });
+});
+
+describe('week recommendations — article excerpts are plain text', () => {
+    it('strips markdown from the summary ("# L\'accouchement…" showed its "#")', () => {
+        const src = read('src/screens/WeekRecommendationsScreen.tsx');
+        expect(src).toMatch(/getLocalizedContent\(article, 'summary', i18n\.language, \{ stripMarkdown: true \}\)/);
+    });
+});
+
+describe('ForbiddenFoods — category chips', () => {
+    const src = read('src/screens/ForbiddenFoodsScreen.tsx');
+
+    it('follow the page direction (no forced dir=ltr on the row)', () => {
+        expect(src).not.toContain('useRtlScrollFix');
+    });
+
+    it('expose role and selected state, and centre their label', () => {
+        expect(src.match(/accessibilityRole="button"\s+accessibilityState=\{\{ selected: selectedCategory === (null|cat\.id) \}\}/g)).toHaveLength(2);
+        const chip = src.slice(src.indexOf('categoryChip: {'), src.indexOf('categoryChipActive: {'));
+        expect(chip).toMatch(/justifyContent: 'center'/);
+    });
+});
+
+describe('ArticleDetail — an article that is hidden or gone', () => {
+    const src = read('src/screens/ArticleDetailScreen.tsx');
+    const branch = src.slice(src.indexOf('if (!article) {'), src.indexOf('// Use shared helper for consistent localization'));
+
+    it('renders the shared empty state on the app background, with a way back and a way on', () => {
+        expect(branch).toContain('styles.notFoundContainer');
+        expect(branch).toMatch(/<EmptyState[\s\S]*title=\{t\('article\.notFound'\)\}[\s\S]*subtitle=\{t\('article\.notFoundHint'\)\}/);
+        expect(branch).toMatch(/accessibilityLabel=\{t\('a11y\.back'\)\}/);
+        expect(branch).toMatch(/navigation\.canGoBack\(\) \? navigation\.goBack\(\) : openArticles\(\)/);
+        expect(branch).toMatch(/navigate\('Ressources', \{ screen: 'ResourcesMain' \}\)/);
+        expect(src).toMatch(/notFoundContainer: \{\s*flex: 1,\s*backgroundColor: theme\.colors\.background,/);
+    });
+
+    it.each(LOCALES)('%s has the explanation and the action', (lng) => {
+        const article = JSON.parse(read(`src/i18n/locales/${lng}/common.json`)).article;
+        expect(article.notFoundHint.length).toBeGreaterThanOrEqual(20);
+        expect(article.browseArticles.trim().length).toBeGreaterThan(0);
     });
 });

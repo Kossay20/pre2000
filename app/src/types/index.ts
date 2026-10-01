@@ -223,6 +223,8 @@ export interface ChatResponse {
     matchScore: number;
     anchor?: string; // NEW: For deep linking to specific paragraphs
     originalText?: string; // NEW: For retry logic
+    // An app screen the answer points to, shown as a link under the reply.
+    screenLink?: 'ForbiddenFoods';
 }
 
 export interface Video {
@@ -262,6 +264,9 @@ export interface UserProfile {
     pregnancyStartDate: string; // ISO Date string (for AuthContext)
     lmp?: string; // Last Menstrual Period ISO Date string (for PregnancyContext)
     dpa?: string; // Date Prévue Accouchement (due date) ISO Date string
+    /** The CONTENT week, 1..40 (0 in TTC mode): calculateCurrentWeek, recomputed on the
+     *  device and never stored on the server. It stops at 40 past the due date, so no
+     *  screen prints it — the printed week comes from displayedPregnancyAge. */
     currentWeek: number;
     country: string;
     city?: string;

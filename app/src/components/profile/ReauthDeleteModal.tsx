@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Modal, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { theme } from '../../theme';
@@ -23,6 +23,11 @@ interface Props {
  */
 export const ReauthDeleteModal = ({ visible, password, loading, message, onChangePassword, onCancel, onConfirm, onForgotPassword }: Props) => {
     const { t } = useTranslation();
+    // Same show/hide control as the Login form. Hidden again each time the prompt opens.
+    const [showPassword, setShowPassword] = useState(false);
+    useEffect(() => {
+        if (!visible) setShowPassword(false);
+    }, [visible]);
     return (
         <Modal
             visible={visible}
@@ -36,19 +41,32 @@ export const ReauthDeleteModal = ({ visible, password, loading, message, onChang
                 <View style={styles.card}>
                     <Text style={styles.title}>{t('profile.reauthTitle')}</Text>
                     <Text style={styles.message}>{message}</Text>
-                    <TextInput
-                        style={styles.input}
-                        value={password}
-                        onChangeText={onChangePassword}
-                        secureTextEntry
-                        autoFocus
-                        editable={!loading}
-                        // A dotted placeholder read as a password already typed in.
-                        placeholder={t('passwordPlaceholder')}
-                        placeholderTextColor={theme.colors.textSecondary}
-                        accessibilityLabel={t('passwordPlaceholder')}
-                        accessibilityHint={message}
-                    />
+                    <View style={styles.inputRow}>
+                        <TextInput
+                            style={styles.input}
+                            value={password}
+                            onChangeText={onChangePassword}
+                            secureTextEntry={!showPassword}
+                            autoCapitalize="none"
+                            autoFocus
+                            editable={!loading}
+                            // A dotted placeholder read as a password already typed in.
+                            placeholder={t('passwordPlaceholder')}
+                            placeholderTextColor={theme.colors.textSecondary}
+                            accessibilityLabel={t('passwordPlaceholder')}
+                            accessibilityHint={message}
+                        />
+                        <TouchableOpacity
+                            style={styles.eyeButton}
+                            onPress={() => setShowPassword((v) => !v)}
+                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                            accessibilityRole="button"
+                            accessibilityLabel={showPassword ? t('hidePassword') : t('showPassword')}
+                            accessibilityState={{ selected: showPassword }}
+                        >
+                            <Text style={styles.eyeIcon} accessibilityElementsHidden importantForAccessibility="no">{showPassword ? '🙈' : '👁'}</Text>
+                        </TouchableOpacity>
+                    </View>
                     {onForgotPassword && (
                         <TouchableOpacity
                             style={styles.forgotButton}
@@ -59,6 +77,12 @@ export const ReauthDeleteModal = ({ visible, password, loading, message, onChang
                         >
                             <Text style={styles.forgotText}>{t('forgotPassword')}</Text>
                         </TouchableOpacity>
+                    )}
+                    {/* The erase runs for several seconds behind this button's spinner: say so. */}
+                    {loading && (
+                        <Text style={styles.progressNote} accessibilityLiveRegion="polite">
+                            {t('profile.deleteInProgress')}
+                        </Text>
                     )}
                     <View style={styles.actions}>
                         <TouchableOpacity
@@ -92,6 +116,34 @@ export const ReauthDeleteModal = ({ visible, password, loading, message, onChang
     );
 };
 
+/**
+ * Shown while the account (or a guest's data) is being erased: a dozen collections, then
+ * the login itself, take several seconds, and until now only a greyed-out row said so.
+ * It blocks the screen, so nothing can be tapped — or the screen left — half-way through.
+ */
+export const DeletionProgressModal = ({ visible }: { visible: boolean }) => {
+    const { t } = useTranslation();
+    return (
+        // No onRequestClose handler on purpose: Android's back button must not dismiss it.
+        <Modal visible={visible} transparent animationType="none" onRequestClose={() => {}}>
+            <View
+                style={styles.overlay}
+                accessible
+                accessibilityRole="progressbar"
+                accessibilityLabel={t('profile.deleteInProgress')}
+                accessibilityState={{ busy: true }}
+                accessibilityLiveRegion="assertive"
+                testID="deletion_progress"
+            >
+                <View style={[styles.card, styles.progressCard]}>
+                    <ActivityIndicator size="large" color={theme.colors.primaryStrong} />
+                    <Text style={styles.progressText}>{t('profile.deleteInProgress')}</Text>
+                </View>
+            </View>
+        </Modal>
+    );
+};
+
 const styles = StyleSheet.create({
     overlay: {
         flex: 1,
@@ -119,13 +171,43 @@ const styles = StyleSheet.create({
         color: theme.colors.textSecondary,
         marginBottom: 16,
     },
-    input: {
+    inputRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
         borderWidth: 1,
         borderColor: theme.colors.disabled,
         borderRadius: theme.borderRadius.m,
+        backgroundColor: theme.colors.white,
+    },
+    input: {
+        flex: 1,
         padding: 14,
         fontSize: 16,
-        backgroundColor: theme.colors.white,
+    },
+    eyeButton: {
+        minWidth: 44,
+        minHeight: 44,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    eyeIcon: {
+        fontSize: 18,
+    },
+    progressNote: {
+        fontSize: 14,
+        color: theme.colors.textSecondary,
+        marginTop: 12,
+    },
+    progressCard: {
+        alignItems: 'center',
+        gap: 16,
+        paddingVertical: 28,
+    },
+    progressText: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: theme.colors.text,
+        textAlign: 'center',
     },
     forgotButton: {
         alignSelf: 'flex-start',

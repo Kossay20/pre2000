@@ -1,4 +1,5 @@
 import { theme } from '../../theme';
+import { switchThumbProps } from '../../utils/styleUtils';
 /**
  * ReminderCardV2
  * 
@@ -121,7 +122,7 @@ export const ReminderCardV2: React.FC<ReminderCardV2Props> = ({
                     value={isEnabled}
                     onValueChange={onToggle}
                     trackColor={{ false: theme.colors.neutral300, true: theme.colors.accent }}
-                    thumbColor={isEnabled ? theme.colors.white : theme.colors.iosGroupedBackground}
+                    {...switchThumbProps(isEnabled ? theme.colors.white : theme.colors.iosGroupedBackground)}
                     accessibilityRole="switch"
                     accessibilityLabel={getLocalizedContent(reminder.title)}
                     accessibilityHint={t('a11y.toggleReminder')}

@@ -23,7 +23,6 @@ import { theme } from '../theme';
 import { getShadowStyle } from '../utils/styleUtils';
 import { getLocalizedContent } from '../utils/i18nHelpers';
 import { normalizeForSearch } from '../utils/searchNormalize';
-import { useRtlScrollFix } from '../hooks/useRtlScrollFix';
 
 // Import data
 import forbiddenFoodsData from '../data/forbidden_foods.json';
@@ -70,8 +69,6 @@ export const ForbiddenFoodsScreen = () => {
     const isRTL = ['ar', 'tn'].includes(i18n.language); // ── FIX: RTL layout
     const [searchQuery, setSearchQuery] = useState('');
     const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
-    // W5 #4: keep the category-filter row scrollable/reachable under RTL (ar/tn) on web.
-    const categoryScrollRef = useRtlScrollFix();
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
     // Filter foods
@@ -162,9 +159,10 @@ export const ForbiddenFoodsScreen = () => {
                 />
             </View>
 
-            {/* Category Filters */}
+            {/* Category Filters. The row takes the page's direction: in ar/tn it starts at
+                the right with "All" first, like every other chip row. It used to be forced
+                to dir=ltr on web, which put "All" at the far left and clipped the row's end. */}
             <ScrollView
-                ref={categoryScrollRef}
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 style={styles.categoriesScroll}
@@ -176,6 +174,8 @@ export const ForbiddenFoodsScreen = () => {
                         selectedCategory === null && styles.categoryChipActive
                     ]}
                     onPress={() => setSelectedCategory(null)}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: selectedCategory === null }}
                 >
                     <Text style={[
                         styles.categoryChipText,
@@ -192,6 +192,8 @@ export const ForbiddenFoodsScreen = () => {
                         onPress={() => setSelectedCategory(
                             selectedCategory === cat.id ? null : cat.id
                         )}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: selectedCategory === cat.id }}
                     >
                         <Text style={[
                             styles.categoryChipText,
@@ -354,6 +356,9 @@ const styles = StyleSheet.create({
     categoryChip: {
         paddingHorizontal: 14,
         paddingVertical: 8,
+        // Chips with an emoji are taller; the text-only "All" stretches to their height
+        // and must keep its label in the middle.
+        justifyContent: 'center',
         borderRadius: 20,
         backgroundColor: theme.colors.white,
         borderWidth: 1,

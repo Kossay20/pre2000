@@ -729,9 +729,11 @@ export const HomeScreen = () => {
 
                             {/* 3. Comparison Box */}
                             <View style={styles.heroComparisonBox}>
-                                {/* Don't show "Taille d'un(e)" while the embryo is still microscopic */}
+                                {/* No label while the embryo is still microscopic. The label is its own
+                                    string: cutting the onboarding sentence before its {{label}} left
+                                    "Votre bébé fait la taille / d'" above a bare "Concombre". */}
                                 {growth.lengthCm !== null && (
-                                    <Text style={styles.heroComparisonLabel}>{t('onboarding.step4.babySize', { label: '', emoji: '' }).split('{{')[0].trim()}</Text>
+                                    <Text style={styles.heroComparisonLabel}>{t('home.sizeComparisonLabel')}</Text>
                                 )}
                                 <Text style={styles.heroComparisonValue}>
                                     {formatFetalComparison(currentWeekNumber, i18n.language, t)}

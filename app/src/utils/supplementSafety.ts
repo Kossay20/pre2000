@@ -1,4 +1,5 @@
 import { Supplement } from '../types';
+import { theme } from '../theme';
 
 export type SupplementSafety = Supplement['pregnancy_safety'];
 
@@ -24,4 +25,27 @@ export const normalizeSupplementSafety = (raw: string | null | undefined): Suppl
     if (token === 'ok') return 'ok';
     if (token === 'deconseille') return 'deconseille';
     return 'a_surveiller';
+};
+
+/**
+ * The one label each rating carries, wherever it is shown — the list card, the filter
+ * chip, the detail tag and the week recommendations. The list card used to read the older
+ * `safetyOk` / `safetyMonitor` strings, so the "With caution" chip filtered to cards
+ * labelled "Monitor".
+ */
+export const SUPPLEMENT_SAFETY_LABEL_KEYS: Readonly<Record<SupplementSafety, string>> = {
+    ok: 'common.supplementSafety.safe',
+    a_surveiller: 'common.supplementSafety.caution',
+    deconseille: 'common.supplementSafety.avoid',
+};
+
+/**
+ * Text and fill of a rating badge. Dark text on a light tint of the same hue, each pair
+ * at least 4.5:1 (pinned in the theme contrast test). The detail tag used to put the
+ * theme's brown body text on the saturated success/warning/error fills — 2.2:1 on green.
+ */
+export const SUPPLEMENT_SAFETY_TAG_COLORS: Readonly<Record<SupplementSafety, { text: string; background: string }>> = {
+    ok: { text: theme.colors.green800, background: theme.colors.surfaceGreenTint },
+    a_surveiller: { text: theme.colors.deepOrange900, background: theme.colors.surfaceOrangeTint },
+    deconseille: { text: theme.colors.red800, background: theme.colors.surfaceRose },
 };

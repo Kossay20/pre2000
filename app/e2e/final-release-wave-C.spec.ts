@@ -42,6 +42,7 @@ import {
 } from './helpers/emulator-account';
 import { lmpIsoForWeek } from './helpers/guest-profile';
 import { tickHealthConsent } from './helpers/health-consent';
+import { SUGGESTIONS } from '../src/data/chatbot_data';
 
 // ── i18n (read from the tree the web export is built from) ────────────────────
 
@@ -126,8 +127,16 @@ const CFG: LocaleCfg[] = [
 // ── Language / script oracles ─────────────────────────────────────────────────
 
 const ARABIC = /[؀-ۿ]/;
-/** Tokens legitimately Latin inside Arabic UI (acronyms, units, brand). */
-const LATIN_ALLOW = /\b(BETA|DHA|EPA|DNA|ARN|ADN|hCG|B12|B9|OMS|WHO|ACOG|HAS|NICE|NHS|CNGOF|CDC|mg|µg|mcg|UI|IU|SA|Mama|Bébé|OK)\b/g;
+/**
+ * Tokens legitimately Latin inside Arabic UI: units, brand, and acronyms with no usual Arabic
+ * form. "OMS" / "WHO" are NOT here — the WHO has an Arabic name and the app must print it
+ * (this list used to hide a French "OMS" in the ar/tn supplement source line).
+ */
+const LATIN_ALLOW = /\b(DHA|EPA|DNA|ARN|ADN|hCG|B12|B9|ACOG|HAS|NICE|NHS|NIH|ODS|EFSA|ANSES|ATA|WAO|WGO|IOM|NAM|CNGOF|CDC|mg|µg|mcg|UI|IU|SA|Mama|Bébé|OK)\b/g;
+/** `<html lang>` per app locale: the key `tn` is published as the BCP-47 tag ar-TN. */
+const HTML_LANG: Record<AppLocale, string> = { fr: 'fr', en: 'en', ar: 'ar', tn: 'ar-TN' };
+/** Week-32 Home weight, unit included ("1.7" alone would also pass for "1.7 g"). */
+const W32_WEIGHT: Record<AppLocale, string> = { fr: '1,7 kg', en: '1.7 kg', ar: '1.7 كغ', tn: '1,7 كغ' };
 const LATIN_WORD = /[A-Za-zÀ-ÖØ-öø-ÿ]{3,}/;
 /** Distinctly French function words / domain words that never belong in English copy. */
 const FRENCH_WORDS = /\b(les|des|pour|avec|pendant|grossesse|enceinte|votre|vous|dans|sont|être|peut|chez|lors|une|du|au|aux)\b/i;
@@ -223,7 +232,7 @@ class WaveCtx {
     expect.soft(raw, `${full}: raw i18n key(s) visible`).toEqual([]);
     const wantDir = L === 'ar' || L === 'tn' ? 'rtl' : 'ltr';
     expect.soft(await page.locator('html').getAttribute('dir'), `${full}: html[dir]`).toBe(wantDir);
-    expect.soft(await page.locator('html').getAttribute('lang'), `${full}: html[lang]`).toBe(L);
+    expect.soft(await page.locator('html').getAttribute('lang'), `${full}: html[lang]`).toBe(HTML_LANG[L]);
     if (opts.script !== false) {
       const leaks = scriptLeaks(L, opts.scriptLines ?? lines, this.typed);
       if (leaks.length) this.note(`${full}.scriptLeaks`, leaks.slice(0, 25));
@@ -296,6 +305,10 @@ async function chipGeometry(page: Page, firstChipLabel: string) {
     if (!sc) return { error: 'no horizontal scroll container' } as any;
     const vw = window.innerWidth;
     const rects = () => [...sc!.querySelectorAll('[role="button"]')].map((e) => e.getBoundingClientRect());
+    // The list mounts only a window of chips at a time, so the chips are counted by the
+    // distinct labels seen over the whole scroll, not by what is in the DOM at one moment.
+    const seen = new Set<string>();
+    const collect = () => sc!.querySelectorAll('[role="button"]').forEach((e) => seen.add(e.getAttribute('aria-label') || ''));
     const measure = () => {
       const rs = rects();
       const f = chip.getBoundingClientRect();
@@ -315,11 +328,13 @@ async function chipGeometry(page: Page, firstChipLabel: string) {
       for (let i = 0; i < 40; i++) {
         sc!.scrollLeft = target;
         await wait();
+        collect();
         if (sc!.scrollLeft === last) break;
         last = sc!.scrollLeft;
       }
     };
     const initial = measure();
+    collect();
     await pushTo(1e7);
     const atMax = measure();
     await pushTo(-1e7);
@@ -330,6 +345,7 @@ async function chipGeometry(page: Page, firstChipLabel: string) {
       vw,
       dir: getComputedStyle(sc).direction,
       count: rects().length,
+      distinct: seen.size,
       scrollWidth: sc.scrollWidth,
       clientWidth: sc.clientWidth,
       containerLeft: Math.round(sr.left),
@@ -555,7 +571,7 @@ for (const C of CFG) {
       w.note('00.homeGrowth', hg);
       expect.soft(hg, '00: Home hero size/weight cards found').not.toBeNull();
       expect.soft(num(hg?.length), '00: week-32 length on Home = 42.4 cm').toBe(42.4);
-      expect.soft(num(hg?.weight), '00: week-32 weight on Home = 1.7 kg').toBe(1.7);
+      expect.soft(hg?.weight.replace(/\s+/g, ' '), `00: week-32 weight on Home = "${W32_WEIGHT[L]}", unit included`).toBe(W32_WEIGHT[L]);
       const homeSa = (await visibleLines(page)).filter((l) => /\(\s*\d+\s*SA\s*\)/.test(l));
       expect.soft(homeSa, '00: no stray "(N SA)" aside on Home').toEqual([]);
       await w.state('00-home');
@@ -723,7 +739,7 @@ for (const C of CFG) {
       await setChip(cautionChip, true);
       const nCaution = (await collectCards(page, cards)).size;
       w.note('06.HYP-C4.caution', nCaution);
-      expect.soft(nCaution, '06 HYP-C4: "with caution" filter must list the 4 à-surveiller supplements (s09/s10/s11/s15)').toBeGreaterThanOrEqual(1);
+      expect.soft(nCaution, '06 HYP-C4: "with caution" filter must list the à-surveiller supplements (s09/s10)').toBeGreaterThanOrEqual(1);
       await w.state('06-supplements-caution-filter', { script: false });
       await setChip(cautionChip, false);
 
@@ -743,6 +759,16 @@ for (const C of CFG) {
       const unknownLbl = tr(L, 'common.supplementSafety.unknown');
       const sBody = (await page.locator('body').innerText()) || '';
       expect.soft(sBody.includes(unknownLbl), `07 HYP-C4b: s11 status must not read "${unknownLbl}"`).toBe(false);
+      const sourceLead = tr(L, 'common.sourceLine', { sources: '' }).trim();
+      const sourceLines = splitLines(sBody).filter((l) => l.startsWith(sourceLead));
+      w.note('07.sourceLine', sourceLines);
+      expect.soft(sourceLines.length, `07: source line starts with "${sourceLead}"`).toBeGreaterThan(0);
+      if (L !== 'fr') {
+        expect.soft(sourceLines.filter((l) => /\bOMS\b|\bRevue\b|Source :/.test(l)), `07: no French authority name or "Source :" in ${L}`).toEqual([]);
+      }
+      if (L === 'ar' || L === 'tn') {
+        expect.soft(sourceLines.filter((l) => /\bWHO\b/.test(l)), `07: WHO printed under its Arabic name in ${L}`).toEqual([]);
+      }
       await page.getByRole('button', { name: addFav, exact: true }).click();
       await expect.soft(page.getByRole('button', { name: savedLbl, exact: true }), '07: supplement bookmark flips').toBeVisible();
       await w.state('07-supplement-detail');
@@ -826,6 +852,9 @@ for (const C of CFG) {
       await page.goto('/article/art_003', { waitUntil: 'load' });
       const notFound = page.getByText(tr(L, 'article.notFound'), { exact: true });
       await expect.soft(notFound, '09b: /article/art_003 (Ramadan) must show not-found').toBeVisible({ timeout: 20_000 });
+      await expect.soft(page.getByText(tr(L, 'article.notFoundHint'), { exact: true }), '09b: not-found explains itself').toBeVisible();
+      await expect.soft(page.getByRole('button', { name: tr(L, 'article.browseArticles'), exact: true }), '09b: not-found offers the articles list').toBeVisible();
+      await expect.soft(page.getByRole('button', { name: tr(L, 'a11y.back'), exact: true }).first(), '09b: not-found keeps a back control').toBeVisible();
       const artBody = await visibleLines(page);
       w.note('09b.art_003', artBody.slice(0, 12));
       expect.soft(artBody.filter((l) => /ramadan|رمضان/i.test(l)), '09b: no Ramadan text rendered').toEqual([]);
@@ -863,12 +892,11 @@ for (const C of CFG) {
       await expect.soft(page.getByText(tr(L, 'common.chatDisclaimer')).first(), '11: medical disclaimer visible').toBeVisible();
       const welcomeFirst = splitLines(tr(L, 'common.chatWelcome'))[0];
       await expect.soft(page.getByText(welcomeFirst).first(), `11: welcome in ${L}`).toBeVisible();
-      w.note('11.betaBadge', await page.getByText('BETA', { exact: true }).count());
       await expect(page.getByRole('button', { name: C.cs01, exact: true }), '11: chip cs01 rendered').toBeVisible({ timeout: 15_000 });
       const geo = await chipGeometry(page, C.cs01);
       w.note('11.GJ-007.chips', geo);
       if (!geo.error) {
-        expect.soft(geo.count, '11: 25 suggestion chips').toBeGreaterThanOrEqual(20);
+        expect.soft(geo.distinct, `11: one chip per chatbot_data suggestion (${SUGGESTIONS.length})`).toBe(SUGGESTIONS.length);
         if (rtl) {
           expect.soft(geo.atMin.minLeft, `11 GJ-007: RTL — last chip fully visible (left ≥ 8) at scroll end ${JSON.stringify(geo.atMin)}`).toBeGreaterThanOrEqual(8);
           expect.soft(geo.initial.firstRight, `11 GJ-007: RTL — first chip flush right at start ${JSON.stringify(geo.initial)}`).toBeGreaterThanOrEqual(geo.vw - 24);
@@ -914,10 +942,14 @@ for (const C of CFG) {
       const alertText = got13 ? await lastAlert.innerText() : '';
       w.note('13.alertText', alertText);
       expect.soft(alertText.includes(tr(L, 'common.chatEmergency')), `13: alert titled "${tr(L, 'common.chatEmergency')}"`).toBe(true);
-      const call = lastAlert.getByRole('button', { name: tr(L, 'a11y.emergencyCall'), exact: true });
+      // One call action at a time: while the conversation is on an emergency it is the bar
+      // pinned above the input, and the alert bubble does not repeat it.
+      const call = page.getByRole('button', { name: tr(L, 'a11y.emergencyCall'), exact: true });
+      w.note('13.callInBubble', got13 ? await lastAlert.getByRole('button', { name: tr(L, 'a11y.emergencyCall'), exact: true }).count() : null);
       const hasCall = got13 ? await call.count() : 0;
       w.note('13.callButton', { count: hasCall, text: hasCall ? await call.first().innerText() : null });
-      expect.soft(hasCall, '13: emergency call button present').toBe(1);
+      expect.soft(hasCall, '13: exactly one emergency call button on screen').toBe(1);
+      expect.soft(await page.getByTestId('chat_pinned_emergency_call').getByRole('button').count(), '13: the call button is the pinned one').toBe(1);
       if (hasCall) await expectCallOnScreen(w, call.first(), '13');
       if (hasCall) {
         expect.soft(await call.first().innerText(), `13 SYNC-16: country ${C.country} → (${C.emergency})`).toContain(`(${C.emergency})`);
@@ -950,7 +982,6 @@ for (const C of CFG) {
       // ── 15 Bleeding chip cs06 ──────────────────────────────────────────────
       await markAlerts(page);
       w.typed.push(C.cs06);
-      const before15 = new Set(splitLines((await page.locator('body').innerText()) || ''));
       const bubbles15 = (await userMsgBoxes(page, C.cs06)).length;
       await page.getByRole('button', { name: C.cs06, exact: true }).click();
       await expect.soft(newAlert(page), '15: bleeding chip → at least urgent_consult triage').toHaveCount(1, { timeout: 15_000 });
@@ -961,8 +992,7 @@ for (const C of CFG) {
         alert15.includes(tr(L, 'common.chatEmergency')) || alert15.includes(tr(L, 'common.chatResponse.redFlagHigh')),
         '15: triage block titled emergency or urgent-consult',
       ).toBe(true);
-      const after15 = splitLines((await page.locator('body').innerText()) || '').filter((l) => !before15.has(l));
-      w.note('15.chip.newLines', after15);
+      w.note('15.chip.answer', { alerts: await newAlert(page).count(), alertLines: splitLines(alert15) });
       const bubbles15After = (await userMsgBoxes(page, C.cs06)).length;
       w.note('15.userBubbles', { before: bubbles15, after: bubbles15After });
       expect.soft(bubbles15After, '15: chip text sent as a user message').toBe(bubbles15 + 1);
@@ -1042,7 +1072,7 @@ test.describe('Wave C — C-G1 real anonymous guest (fr)', () => {
     await page.getByRole('button', { name: tr(L, 'common.supplementSafety.caution'), exact: true }).click();
     await page.waitForTimeout(300);
     const caution = await cards.count();
-    // Firestore seed stores 'à_surveiller' (filter → 0); bundled JSON stores 'a_surveiller' (→ 4).
+    // Firestore seed stores 'à_surveiller' (filter → 0); bundled JSON stores 'a_surveiller' (→ 2).
     w.note('G-01.cautionCount', caution);
     await page.getByRole('button', { name: tr(L, 'common.supplementSafety.caution'), exact: true }).click();
     await w.state('01-guest-resources', { script: false });
@@ -1062,7 +1092,7 @@ test.describe('Wave C — C-G1 real anonymous guest (fr)', () => {
     await markAlerts(page);
     await chatExchange(w, "j'ai des saignements abondants");
     await expect.soft(newAlert(page), 'G-03: triage alert').toHaveCount(1, { timeout: 10_000 });
-    const call = newAlert(page).last().getByRole('button', { name: tr(L, 'a11y.emergencyCall'), exact: true });
+    const call = page.getByRole('button', { name: tr(L, 'a11y.emergencyCall'), exact: true });
     const callText = (await call.count()) ? await call.first().innerText() : null;
     w.note('G-03.call', callText);
     expect.soft(callText ?? '', 'G-03: guest France → 15').toContain('(15)');
@@ -1102,7 +1132,7 @@ test.describe('Wave C — C-G2 en guest, region-less device (HYP-C5)', () => {
     await markAlerts(page);
     await chatExchange(w, 'I have heavy bleeding');
     await expect.soft(newAlert(page), 'G2: triage alert').toHaveCount(1, { timeout: 10_000 });
-    const call = newAlert(page).last().getByRole('button', { name: tr(L, 'a11y.emergencyCall'), exact: true });
+    const call = page.getByRole('button', { name: tr(L, 'a11y.emergencyCall'), exact: true });
     const n = await call.count();
     const text = n ? await call.first().innerText() : null;
     w.note('G2.HYP-C5.call', { count: n, text, alert: (await newAlert(page).count()) ? await newAlert(page).last().innerText() : null });
@@ -1141,7 +1171,7 @@ test.describe('Wave C — C-G3 signed-in user with no country, region-less devic
     await chatExchange(w, 'I have heavy bleeding');
     await expect.soft(newAlert(page), 'G3: triage alert').toHaveCount(1, { timeout: 10_000 });
     const alertText = (await newAlert(page).count()) ? await newAlert(page).last().innerText() : '';
-    const call = newAlert(page).last().getByRole('button', { name: tr(L, 'a11y.emergencyCall'), exact: true });
+    const call = page.getByRole('button', { name: tr(L, 'a11y.emergencyCall'), exact: true });
     const n = await call.count();
     const text = n ? await call.first().innerText() : null;
     w.note('G3.call', { count: n, text, alert: alertText });

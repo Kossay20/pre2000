@@ -6,7 +6,7 @@ import { theme } from '../../theme';
 import { MODAL_MAX_WIDTH } from '../../utils/layout';
 import { useTranslation } from 'react-i18next';
 import { HydrationData, loadHydrationData, addIntake, saveHydrationData } from '../../services/hydrationService';
-import { getShadowStyle } from '../../utils/styleUtils';
+import { getShadowStyle, switchThumbProps } from '../../utils/styleUtils';
 import { formatDecimal } from '../../utils/localizedFormat';
 
 export const HydrationCard = () => {
@@ -107,7 +107,7 @@ export const HydrationCard = () => {
                         <View>
                             <Text style={styles.amountLarge}>
                                 {formatDecimal(data.currentIntake / 1000, i18n.language)}
-                                <Text style={styles.unit}> L</Text>
+                                <Text style={styles.unit}> {t('reminders.hydration.unitLitre')}</Text>
                             </Text>
                             <Text style={styles.goalText}>
                                 {t('reminders.hydration.outOf', { goalL: formatDecimal(data.dailyGoal / 1000, i18n.language) })}
@@ -214,6 +214,7 @@ export const HydrationCard = () => {
                                     setData(newData);
                                 }}
                                 trackColor={{ false: theme.colors.neutral300, true: theme.colors.pinkAccentBright }}
+                                {...switchThumbProps(theme.colors.white)}
                             />
                         </View>
 

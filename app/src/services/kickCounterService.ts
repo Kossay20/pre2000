@@ -86,6 +86,10 @@ const newestFirst = (a: KickSession, b: KickSession) => b.startedAt - a.startedA
 // device the logout just wiped.
 const isSignedInAs = (uid: string) => auth.currentUser?.uid === uid;
 
+/** How many ended sessions the server does not have yet — what a logout would erase. */
+export const countPendingSessions = async (): Promise<number> =>
+    (await serial(readState)).history.filter((s) => !s.synced && s.endedAt !== null).length;
+
 /** Send every ended session the server does not have yet. Safe to repeat: ids are stable. */
 export const pushPendingSessions = async (uid: string): Promise<void> => {
     const { history } = await serial(readState);
@@ -212,6 +216,24 @@ export const CANCEL_SESSION_PROMPT = {
     keep: 'cycle8.kickCounter.keepCounting',
     discard: 'cycle8.kickCounter.discardSession',
 } as const;
+
+/**
+ * i18n keys of the block shown while no session is running. "No session yet" is
+ * only true before the first one: with ten kicks just saved, that title sat right
+ * above "kicks today 10" and contradicted it.
+ */
+export const idleSessionPrompt = (historyLength: number) =>
+    historyLength === 0
+        ? ({
+              title: 'cycle8.kickCounter.noSessionYet',
+              subtitle: 'cycle8.kickCounter.noSessionSub',
+              action: 'cycle8.kickCounter.startSession',
+          } as const)
+        : ({
+              title: 'cycle8.kickCounter.nextSessionTitle',
+              subtitle: 'cycle8.kickCounter.nextSessionSub',
+              action: 'cycle8.kickCounter.newSession',
+          } as const);
 
 export const countInLastHour = (session: KickSession | null): number => {
     if (!session) return 0;

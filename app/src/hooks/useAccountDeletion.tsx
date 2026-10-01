@@ -8,7 +8,7 @@ import { auth } from '../config/firebase';
 import { showAlert } from '../utils/alert';
 import { confirmAction } from '../utils/uiUtils';
 import { getFirebaseErrorMessage, isExpectedAuthError } from '../utils/firebaseErrors';
-import { ReauthDeleteModal } from '../components/profile/ReauthDeleteModal';
+import { ReauthDeleteModal, DeletionProgressModal } from '../components/profile/ReauthDeleteModal';
 import { createLogger } from '../utils/logger';
 import { SUPPORT_EMAIL } from '../config/contact';
 
@@ -23,9 +23,13 @@ const log = createLogger('useAccountDeletion');
  * AuthStack. A navigation.reset to 'AuthChoice' from inside MainTabs targets a route that
  * only exists in AuthStack, so it was never handled.
  *
- * Callers render `reauthModal` once, anywhere in their tree.
+ * Callers render `reauthModal` once, anywhere in their tree. It also carries the blocking
+ * "deleting…" overlay shown while an erase is running.
+ *
+ * `exportOnThisScreen`: the caller offers the export itself (the consent sheet, which has
+ * no Settings to go to), so the confirmations point there instead of at Settings.
  */
-export const useAccountDeletion = () => {
+export const useAccountDeletion = (opts?: { exportOnThisScreen?: boolean }) => {
     const { t } = useTranslation();
     const { user, deleteAccount, reauthenticateAndDelete, resetProfile, logout, firebaseUser } = useAuth();
     // The confirmations name what is erased and where to export it first.
@@ -33,6 +37,14 @@ export const useAccountDeletion = () => {
         settings: t('common.settings'),
         exportLabel: t('common.privacyData.export'),
         deleteLabel: t('profile.deleteAccount'),
+    };
+    // The export advice is the last paragraph of both confirmations (locked by
+    // waveDAccountScreens.test.ts). Where Settings cannot be reached it is replaced by one
+    // that names the button on the current screen.
+    const confirmMessage = (key: string) => {
+        const message = t(key, copyParams);
+        if (!opts?.exportOnThisScreen) return message;
+        return `${message.slice(0, message.lastIndexOf('\n\n'))}\n\n${t('profile.exportFirstHere', copyParams)}`;
     };
     const [busy, setBusy] = useState(false);
     const [reauthVisible, setReauthVisible] = useState(false);
@@ -107,6 +119,17 @@ export const useAccountDeletion = () => {
                         style: 'destructive',
                         onPress: (password?: string) => { runReauthAndDelete(password ?? ''); },
                     },
+                    // The native prompt closes on any button. Without this one an iPhone
+                    // user who forgot her password had no way to delete her account in the
+                    // app. If her data is already erased she is signed out, as on Cancel:
+                    // signing in with the new password finishes the deletion.
+                    ...(firebaseUser?.email ? [{
+                        text: t('forgotPassword'),
+                        onPress: () => {
+                            sendPasswordReset();
+                            if (afterErase) leaveErasedAccount();
+                        },
+                    }] : []),
                 ],
                 'secure-text',
             );
@@ -196,7 +219,7 @@ export const useAccountDeletion = () => {
     const requestDeleteAccount = () => {
         confirmAction(
             t('profile.deleteAccountTitle'),
-            t('profile.deleteAccountMsg', copyParams),
+            confirmMessage('profile.deleteAccountMsg'),
             () => { runDelete(); },
             undefined,
             t('common.cancel'),
@@ -230,7 +253,7 @@ export const useAccountDeletion = () => {
         confirmAction(
             t('profile.resetConfirmTitle'),
             // A guest has no account to keep: her reset erases the only copy.
-            t(user?.isGuest ? 'profile.resetConfirmMsgGuest' : 'profile.resetConfirmMsg', copyParams),
+            confirmMessage(user?.isGuest ? 'profile.resetConfirmMsgGuest' : 'profile.resetConfirmMsg'),
             () => { runReset(); },
             undefined,
             t('common.cancel'),
@@ -239,6 +262,10 @@ export const useAccountDeletion = () => {
     };
 
     const reauthModal = (
+        <>
+        {/* While the password prompt is open its own button shows the progress; two modals
+            at once do not stack reliably on iOS. */}
+        <DeletionProgressModal visible={busy && !reauthVisible} />
         <ReauthDeleteModal
             visible={reauthVisible}
             password={reauthPassword}
@@ -249,6 +276,7 @@ export const useAccountDeletion = () => {
             onConfirm={() => { runReauthAndDelete(reauthPassword); }}
             onForgotPassword={firebaseUser?.email ? () => { sendPasswordReset(); } : undefined}
         />
+        </>
     );
 
     return { requestDeleteAccount, requestResetProfile, busy, reauthModal };

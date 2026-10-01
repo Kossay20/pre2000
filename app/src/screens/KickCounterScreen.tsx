@@ -24,6 +24,7 @@ import {
     countInLastHour,
     countToday,
     endSession,
+    idleSessionPrompt,
     loadState,
     recordKick,
     startSession,
@@ -107,6 +108,7 @@ export const KickCounterScreen: React.FC = () => {
     const lastHourCount = state.activeSession ? countInLastHour(state.activeSession) : 0;
     const totalToday = countToday(state.history, state.activeSession);
     const elapsed = state.activeSession ? now - state.activeSession.startedAt : 0;
+    const idlePrompt = idleSessionPrompt(state.history.length);
 
     return (
         <SafeAreaView style={styles.safe} edges={['bottom']}>
@@ -125,11 +127,11 @@ export const KickCounterScreen: React.FC = () => {
                     <View style={styles.emptyWrap}>
                         <EmptyState
                             icon="👶"
-                            title={t('cycle8.kickCounter.noSessionYet')}
-                            subtitle={t('cycle8.kickCounter.noSessionSub')}
+                            title={t(idlePrompt.title)}
+                            subtitle={t(idlePrompt.subtitle)}
                             action={
                                 <Button
-                                    title={t('cycle8.kickCounter.startSession')}
+                                    title={t(idlePrompt.action)}
                                     onPress={onTap}
                                 />
                             }
@@ -170,7 +172,7 @@ export const KickCounterScreen: React.FC = () => {
                             <Button
                                 title={t('cycle8.kickCounter.cancelSession')}
                                 onPress={onCancel}
-                                variant="secondary"
+                                variant="outline"
                             />
                         </View>
                     </View>

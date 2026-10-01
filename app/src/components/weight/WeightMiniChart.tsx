@@ -6,8 +6,15 @@ import { styles } from '../../screens/WeightTrackerScreen.styles';
 import { hexToRgba } from '../../utils/styleUtils';
 import type { WeightEntry } from '../../services/weightService';
 import { getContentWidth } from '../../utils/layout';
+import { formatDecimal } from '../../utils/localizedFormat';
 
-const SCREEN_WIDTH = getContentWidth();
+// The chart sits inside the card: the screen's 16pt gutter and the card's own 16pt
+// padding come off on both sides. With only the gutter taken off, the chart was 32pt
+// wider than the card's inside and its white panel stuck out past the right edge.
+const SCREEN_GUTTER = 16;
+const CARD_PADDING = 16;
+export const weightChartWidth = (contentWidth: number): number =>
+    contentWidth - 2 * (SCREEN_GUTTER + CARD_PADDING);
 
 interface WeightMiniChartProps {
     weightHistory: WeightEntry[];
@@ -60,9 +67,10 @@ export const WeightMiniChart: React.FC<WeightMiniChartProps> = ({
                         }
                     ]
                 }}
-                width={SCREEN_WIDTH - 32} // padding 16*2
+                width={weightChartWidth(getContentWidth())}
                 height={220}
                 yAxisSuffix={t('common.kg')}
+                formatYLabel={(y) => formatDecimal(Number(y))}
                 yAxisInterval={1}
                 chartConfig={{
                     backgroundColor: theme.colors.white,
@@ -92,7 +100,7 @@ export const WeightMiniChart: React.FC<WeightMiniChartProps> = ({
 
             {/* Starting weight reference */}
             <View style={styles.chartStartRef}>
-                <Text style={styles.startRefText}>{t('weight.startWeightValue', { weight: prePregnancyWeight })}</Text>
+                <Text style={styles.startRefText}>{t('weight.startWeightValue', { weight: formatDecimal(prePregnancyWeight) })}</Text>
             </View>
         </View>
     );

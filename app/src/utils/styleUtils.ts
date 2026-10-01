@@ -72,3 +72,12 @@ export const getTextShadowStyle = (
         textShadowRadius: radius,
     };
 };
+
+/**
+ * Thumb colour props for a `<Switch>`.
+ * react-native-web ignores `thumbColor` while the switch is ON and paints its own
+ * default teal unless `activeThumbColor` is set. Native has no such prop,
+ * so it is only added on web — where the store screenshots are taken.
+ */
+export const switchThumbProps = (color: string): { thumbColor: string; activeThumbColor?: string } =>
+    Platform.OS === 'web' ? { thumbColor: color, activeThumbColor: color } : { thumbColor: color };

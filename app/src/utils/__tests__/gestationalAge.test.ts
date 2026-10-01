@@ -23,11 +23,19 @@ describe('formatGestationalAge', () => {
         expect(ga('en', 40, 2)).toBe('40 weeks + 2 days');
     });
 
-    it.each(['ar', 'tn'])('%s: Arabic number agreement (1, 2, 3-10, 11+)', (lng) => {
-        expect(ga(lng, 1, 1)).toBe('أسبوع واحد + يوم واحد');
-        expect(ga(lng, 2, 2)).toBe('أسبوعان + يومان');
-        expect(ga(lng, 9, 3)).toBe('9 أسابيع + 3 أيام');
-        expect(ga(lng, 31, 0)).toBe('31 أسبوعًا + 0 يوم');
+    it('ar: Arabic number agreement (1, 2, 3-10, 11+)', () => {
+        expect(ga('ar', 1, 1)).toBe('أسبوع واحد + يوم واحد');
+        expect(ga('ar', 2, 2)).toBe('أسبوعان + يومان');
+        expect(ga('ar', 9, 3)).toBe('9 أسابيع + 3 أيام');
+        expect(ga('ar', 31, 0)).toBe('31 أسبوعًا + 0 يوم');
+    });
+
+    it('tn: same agreement in the spoken register (no literary dual or tanwin)', () => {
+        // "أسبوعان" / "أسبوعًا" sat next to Tunisian copy such as "زوز مواعيد".
+        expect(ga('tn', 1, 1)).toBe('أسبوع واحد + يوم واحد');
+        expect(ga('tn', 2, 2)).toBe('أسبوعين + يومين');
+        expect(ga('tn', 9, 3)).toBe('9 أسابيع + 3 أيام');
+        expect(ga('tn', 31, 0)).toBe('31 أسبوع + 0 يوم');
     });
 
     it('the onboarding preview for LMP = today − 217 days reads 31 SA + 0 jour', () => {

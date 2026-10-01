@@ -8,8 +8,10 @@ import {
     TouchableOpacity,
     ActivityIndicator,
     Linking,
+    Platform,
 } from 'react-native';
 import { showAlert } from '../utils/alert';
+import { confirmAction } from '../utils/uiUtils';
 import { LineChart } from 'react-native-chart-kit';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../context/AuthContext';
@@ -40,8 +42,11 @@ import {
     checkBloodPressure,
     checkWeightChange,
     resolveEmergencyContact,
+    summarizeGlucoseMonth,
     type ClinicalAlert,
 } from '../utils/clinicalChecks'; // SAFETY-CRITICAL: clinical alerts on dangerous values
+import { getAllWeightEntries, weighingsOnDay, deleteWeightEntry, type WeightEntry } from '../services/weightService';
+import { formatDecimal } from '../utils/localizedFormat';
 import { getDeviceRegionCode } from '../utils/deviceRegion';
 import { emergencyNumberLabel } from '../utils/emergencyNumberLabel';
 import { HealthWeightModal } from '../components/health/HealthWeightModal';
@@ -62,6 +67,9 @@ const ADD_PILL_HIT_SLOP = { top: 8, bottom: 8, left: 4, right: 4 };
 export const HealthDashboardScreen = () => {
     useScreenAnalytics('HealthDashboardScreen');
     const { t, i18n } = useTranslation();
+    // Decimals as the language writes them ("5,2 mmol/L" in French), like the target
+    // line printed on the same card.
+    const num = (value: number) => formatDecimal(Number(value), i18n.language);
     const { user } = useAuth();
     const { pregnancyInfo } = usePregnancy();
     const navigation = useNavigation();
@@ -255,10 +263,19 @@ export const HealthDashboardScreen = () => {
         }
 
         const userId = user.uid;
-        const week = pregnancyInfo.week;
-        const persist = async () => {
+        // The week she is in, as printed ("S41" at 40+3 SA): the entry's week is only a
+        // label on the charts. pregnancyInfo.week is the content week and stops at 40.
+        const week = displayedAgeOf(pregnancyInfo).week;
+        // `replaced`: today's weighings she agreed to replace. The new one is saved first,
+        // so a failed save never leaves the day without its weighing.
+        const persist = async (replaced: WeightEntry[]) => {
             try {
                 await saveWeightEntry(userId, weightValue, new Date(), week);
+                for (const old of replaced) {
+                    if (!old.id) continue;
+                    await deleteWeightEntry(userId, old.id, old.source).catch(err =>
+                        log.warn('[HealthDashboard] Replaced weighing not deleted:', err));
+                }
                 setNewWeight('');
                 setShowWeightModal(false);
                 loadData();
@@ -268,18 +285,36 @@ export const HealthDashboardScreen = () => {
             }
         };
 
-        // SAFETY: detect rapid loss / large variation against most recent entry.
-        // weightHistory is sorted ascending by date → latest is the last item.
-        const lastWeight =
-            weightHistory.length > 0
-                ? (weightHistory[weightHistory.length - 1].value as number)
-                : undefined;
-        const alert = checkWeightChange(weightValue, lastWeight);
-        if (alert) {
-            showClinicalAlert(alert, persist);
+        const checkThenPersist = async (replaced: WeightEntry[]) => {
+            // SAFETY: detect rapid loss / large variation against most recent entry.
+            // weightHistory is sorted ascending by date → latest is the last item.
+            const lastWeight =
+                weightHistory.length > 0
+                    ? (weightHistory[weightHistory.length - 1].value as number)
+                    : undefined;
+            const alert = checkWeightChange(weightValue, lastWeight);
+            if (alert) {
+                showClinicalAlert(alert, () => persist(replaced));
+                return;
+            }
+            await persist(replaced);
+        };
+
+        // One weighing a day, the rule "Mon Poids" applies: a weighing already logged
+        // today (on either screen) is replaced on her say-so, not silently doubled.
+        const today = weighingsOnDay(await getAllWeightEntries(userId));
+        if (today.length > 0) {
+            confirmAction(
+                t('weight.entryExistsTitle'),
+                t('weight.entryExistsMsg', { weight: num(today[0].weight) }),
+                () => { void checkThenPersist(today); },
+                undefined,
+                t('common.cancel'),
+                t('weight.replace'),
+            );
             return;
         }
-        await persist();
+        await checkThenPersist([]);
     };
 
     const handleAddBP = async () => {
@@ -294,7 +329,7 @@ export const HealthDashboardScreen = () => {
         }
 
         const userId = user.uid;
-        const week = pregnancyInfo.week;
+        const week = displayedAgeOf(pregnancyInfo).week;
         const persist = async () => {
             try {
                 await saveBloodPressureEntry(userId, sys, dia, new Date(), week);
@@ -331,7 +366,7 @@ export const HealthDashboardScreen = () => {
         }
 
         const userId = user.uid;
-        const week = pregnancyInfo.week;
+        const week = displayedAgeOf(pregnancyInfo).week;
         const persist = async () => {
             try {
                 await saveGlucoseEntry(userId, {
@@ -370,7 +405,7 @@ export const HealthDashboardScreen = () => {
             : [...prev, key];
         setSymptoms(updated);
         try {
-            await saveDailySymptoms(user.uid, pregnancyInfo.week, updated as SymptomKey[]);
+            await saveDailySymptoms(user.uid, displayedAgeOf(pregnancyInfo).week, updated as SymptomKey[]);
         } catch (err) {
             log.error('[HealthDashboard] Error saving symptoms:', err);
             setSymptoms(prev);
@@ -437,6 +472,15 @@ export const HealthDashboardScreen = () => {
         );
     }
 
+    // What the Glycémie card says about the month comes from the month's readings.
+    const glucoseMonth = summarizeGlucoseMonth(glucoseHistory);
+    const glucoseMonthLabel = t(`dashboard.glucoseMonth.${glucoseMonth}`);
+
+    // A saved reading the clinical checks flag keeps its flag in the lists: 165/105 used
+    // to sit in the history looking like any other line.
+    const renderFlag = (flag: ClinicalAlert | null) =>
+        flag ? <Text style={styles.historyFlag}>⚠️ {t(flag.titleKey)}</Text> : null;
+
     const weightData = weightHistory.map(w => w.value as number);
     const weightLabels = weightHistory.map(w => `${t('weight.weekShort')}${w.week}`);
 
@@ -468,7 +512,7 @@ export const HealthDashboardScreen = () => {
                         <View style={styles.statsRow}>
                             <View style={styles.statBox}>
                                 <Text style={styles.statLabel}>{t('dashboard.current')}</Text>
-                                <Text style={styles.statValue}>{stats?.weightCurrent || '—'} {t('dashboard.kg')}</Text>
+                                <Text style={styles.statValue}>{stats?.weightCurrent ? num(stats.weightCurrent) : '—'} {t('dashboard.kg')}</Text>
                             </View>
                             <View style={styles.statBox}>
                                 <Text style={styles.statLabel}>{t('dashboard.gain')}</Text>
@@ -479,7 +523,7 @@ export const HealthDashboardScreen = () => {
                                     { color: (stats?.weightGain ?? 0) < 0 ? theme.colors.warning : theme.colors.success }
                                 ]}>
                                     {stats?.weightGain != null
-                                        ? `${stats.weightGain >= 0 ? '+' : ''}${stats.weightGain.toFixed(1)} ${t('dashboard.kg')}`
+                                        ? `${stats.weightGain >= 0 ? '+' : ''}${num(stats.weightGain)} ${t('dashboard.kg')}`
                                         : `— ${t('dashboard.kg')}`}
                                 </Text>
                             </View>
@@ -493,6 +537,7 @@ export const HealthDashboardScreen = () => {
                                 }}
                                 width={screenWidth - 48}
                                 height={180}
+                                formatYLabel={(y) => num(Number(y))}
                                 chartConfig={{
                                     backgroundColor: theme.colors.white,
                                     backgroundGradientFrom: theme.colors.white,
@@ -539,6 +584,7 @@ export const HealthDashboardScreen = () => {
                             <Text style={styles.bpValue}>
                                 {stats?.lastBP?.systolic || '—'} / {stats?.lastBP?.diastolic || '—'}
                             </Text>
+                            {renderFlag(stats?.lastBP ? checkBloodPressure(stats.lastBP.systolic, stats.lastBP.diastolic) : null)}
                             <Text style={styles.bpDate}>
                                 {stats?.lastBP?.date
                                     ? new Date(stats.lastBP.date).toLocaleDateString(i18n.language)
@@ -550,9 +596,12 @@ export const HealthDashboardScreen = () => {
                             const value = bp.value as { systolic: number; diastolic: number };
                             return (
                                 <View key={bp.metric_id} style={styles.bpHistoryItem}>
-                                    <Text style={styles.bpHistoryValue}>
-                                        {value.systolic} / {value.diastolic}
-                                    </Text>
+                                    <View style={styles.historyValueColumn}>
+                                        <Text style={styles.bpHistoryValue}>
+                                            {value.systolic} / {value.diastolic}
+                                        </Text>
+                                        {renderFlag(checkBloodPressure(value.systolic, value.diastolic))}
+                                    </View>
                                     <Text style={styles.bpHistoryDate}>
                                         {new Date(bp.date).toLocaleDateString(i18n.language)} • S{bp.week}
                                     </Text>
@@ -584,12 +633,15 @@ export const HealthDashboardScreen = () => {
                         <View style={styles.statsRow}>
                             <View style={styles.statBox}>
                                 <Text style={styles.statLabel}>{t('dashboard.glucose')}</Text>
-                                <Text style={[styles.statValue, { color: theme.colors.deepOrange900 }]}>
-                                    {glucoseHistory[0].value} {t('dashboard.mmolL')}
+                                {/* The alert colour only for a reading checkGlucose flags — it
+                                    used to colour every reading, in range or not. */}
+                                <Text style={[styles.statValue, checkGlucose(glucoseHistory[0].value) && { color: theme.colors.deepOrange900 }]}>
+                                    {num(glucoseHistory[0].value)} {t('dashboard.mmolL')}
                                 </Text>
+                                {renderFlag(checkGlucose(glucoseHistory[0].value))}
                             </View>
                             <View style={styles.statBox}>
-                                <Text style={styles.statLabel}>{t('dashboard.glucoseNormal')}</Text>
+                                <Text style={[styles.statLabel, { textAlign: 'center' }]}>{glucoseMonthLabel}</Text>
                                 <Text style={{ fontSize: 11, color: theme.colors.textMuted, textAlign: 'center', maxWidth: 120 }}>
                                     {t('dashboard.glucoseTarget')}
                                 </Text>
@@ -597,7 +649,10 @@ export const HealthDashboardScreen = () => {
                         </View>
                         {glucoseHistory.slice(1, 3).map((g, i) => (
                             <View key={i} style={styles.bpHistoryItem}>
-                                <Text style={styles.bpHistoryValue}>{g.value} {t('dashboard.mmolL')}</Text>
+                                <View style={styles.historyValueColumn}>
+                                    <Text style={styles.bpHistoryValue}>{num(g.value)} {t('dashboard.mmolL')}</Text>
+                                    {renderFlag(checkGlucose(g.value))}
+                                </View>
                                 <Text style={styles.bpHistoryDate}>
                                     {new Date(g.date).toLocaleDateString(i18n.language)}
                                 </Text>
@@ -606,7 +661,7 @@ export const HealthDashboardScreen = () => {
                     </>
                 ) : (
                     <>
-                        <Text style={styles.emptyText}>{t('dashboard.glucoseNormal')}</Text>
+                        <Text style={styles.emptyText}>{glucoseMonthLabel}</Text>
                         <Text style={[styles.emptyText, { color: theme.colors.textMuted, fontSize: 12, marginTop: 4 }]}>
                             {t('dashboard.glucoseTarget')}
                         </Text>
@@ -629,6 +684,10 @@ export const HealthDashboardScreen = () => {
                             accessibilityRole="button"
                             accessibilityLabel={chip.label}
                             accessibilityState={{ selected: symptoms.includes(chip.key) }}
+                            // react-native-web drops `selected` on a button (aria-selected is
+                            // only valid on tabs/options), so on web the on/off state is
+                            // exposed as aria-pressed, as on the other toggle chips.
+                            {...(Platform.OS === 'web' ? { 'aria-pressed': symptoms.includes(chip.key) } : {})}
                             accessibilityHint={symptoms.includes(chip.key) ? t('a11y.removeSymptom') : t('a11y.addSymptom', { name: chip.label })}
                         >
                             <Text style={styles.symptomEmoji}>{chip.emoji}</Text>

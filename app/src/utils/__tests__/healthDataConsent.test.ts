@@ -138,7 +138,8 @@ describe('profiles saved before the question — blocking sheet', () => {
 
     it('declining offers the existing erase flow, or sign-out for an account', () => {
         const src = read('src/screens/HealthDataConsentScreen.tsx');
-        expect(src).toMatch(/useAccountDeletion\(\)/);
+        // Same hook as Profile and Settings; here the export button is on the sheet itself.
+        expect(src).toMatch(/useAccountDeletion\(\{ exportOnThisScreen: true \}\)/);
         expect(src).toMatch(/user\?\.isGuest \? requestResetProfile : requestDeleteAccount/);
         expect(src).toMatch(/onPress=\{logout\}/);
         expect(src).toMatch(/updateProfile\(\{ healthDataConsent: recordHealthDataConsent\(\) \}\)/);

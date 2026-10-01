@@ -23,6 +23,7 @@ import {
     HospitalBagSection,
     HospitalBagState,
     addCustomItem,
+    bagItemLabel,
     computeProgress,
     loadState,
     removeCustomItem,
@@ -30,19 +31,6 @@ import {
 } from '../services/hospitalBagService';
 
 const SECTIONS: HospitalBagSection[] = ['papers', 'mom', 'baby', 'partner'];
-
-const labelFor = (item: HospitalBagItem, lang: string): string => {
-    switch (lang) {
-        case 'fr':
-            return item.label_fr;
-        case 'ar':
-            return item.label_ar;
-        case 'tn':
-            return item.label_tn || item.label_ar;
-        default:
-            return item.label_en;
-    }
-};
 
 export const HospitalBagChecklistScreen: React.FC = () => {
     useScreenAnalytics('HospitalBagChecklistScreen');
@@ -142,7 +130,7 @@ export const HospitalBagChecklistScreen: React.FC = () => {
                                         onPress={() => onToggle(item.id)}
                                         accessibilityRole="checkbox"
                                         accessibilityState={{ checked }}
-                                        accessibilityLabel={labelFor(item, i18n.language)}
+                                        accessibilityLabel={bagItemLabel(item, i18n.language, user?.country)}
                                         {...(Platform.OS === 'web' ? { 'aria-checked': checked } : {})}
                                     >
                                         <View
@@ -161,7 +149,7 @@ export const HospitalBagChecklistScreen: React.FC = () => {
                                             ]}
                                             numberOfLines={2}
                                         >
-                                            {labelFor(item, i18n.language)}
+                                            {bagItemLabel(item, i18n.language, user?.country)}
                                         </Text>
                                     </TouchableOpacity>
                                     {item.custom && (

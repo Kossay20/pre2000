@@ -1,6 +1,6 @@
 {
   "step1": {
-    "title": "Où en êtes-vous dans\nvotre belle aventure ?",
+    "title": "Où en êtes-vous dans\nvotre belle aventure ?",
     "pregnant": "Je suis enceinte",
     "trying": "J'essaie de concevoir",
     "curious": "Je suis curieuse"
@@ -24,7 +24,7 @@
   },
   "step2": {
     "title": "Pour calculer votre semaine",
-    "subtitle": "Quelle méthode préférez-vous ?",
+    "subtitle": "Quelle méthode préférez-vous ?",
     "methodDdr": "📆 Dernières règles",
     "methodConception": "💫 Conception",
     "labelDdr": "Date de vos dernières règles",
@@ -32,7 +32,7 @@
     "previewLabel": "Vous seriez à la",
     "week": "Semaine",
     "saDays": "Soit {{ga}}",
-    "invalidDate": "Plus de 42 semaines depuis cette date : vérifiez la date saisie.",
+    "invalidDate": "Plus de 42 semaines depuis cette date : vérifiez la date saisie.",
     "postTermNote": "La date prévue d'accouchement est passée. Restez en lien avec votre maternité ou votre sage-femme."
   },
   "step3": {
@@ -41,11 +41,11 @@
     "firstNamePlaceholder": "Pour personnaliser vos messages",
     "ageLabel": "Votre tranche d'âge",
     "countryLabel": "Votre pays",
-    "firstPregnancyLabel": "Est-ce votre première grossesse ?",
-    "firstPregnancyYes": "Oui, c'est tout nouveau ! 🌟",
+    "firstPregnancyLabel": "Est-ce votre première grossesse ?",
+    "firstPregnancyYes": "Oui, c'est tout nouveau ! 🌟",
     "firstPregnancyNo": "Non, j'ai de l'expérience 💪",
     "firstPregnancySkip": "Je préfère ne pas dire",
-    "countryHint": "Obligatoire : sert à afficher le bon numéro d'urgence (15 en France, 190 en Tunisie…)."
+    "countryHint": "Obligatoire : sert à afficher le bon numéro d'urgence (15 en France, 190 en Tunisie…)."
   },
   "step4": {
     "defaultName": "Future Maman",
@@ -66,7 +66,7 @@
   },
   "back": "← Retour",
   "continue": "Continuer",
-  "discoverWelcome": "Bienvenue en mode découverte !",
+  "discoverWelcome": "Bienvenue en mode découverte !",
   "youExplore": "Vous explorez la",
   "babySize": "Bébé fait la taille\nd'{{label}} {{emoji}}",
   "discoverInfo": "📚 Parcourez les articles et ressources\n🔔 Aucune notification ne sera envoyée\n🤰 Passez en mode \"enceinte\" à tout moment",
@@ -122,7 +122,7 @@
   "stepper": "Étape {{current}} sur {{total}}",
   "existingProfile": {
     "title": "Ce compte a déjà un profil",
-    "message": "Ce compte contient déjà un profil de grossesse. Le remplacer par les réponses que vous venez de saisir ?",
+    "message": "Ce compte contient déjà un profil de grossesse. Le remplacer par les réponses que vous venez de saisir ?",
     "keep": "Garder mon profil",
     "replace": "Remplacer"
   },
@@ -132,7 +132,8 @@
     "policyLink": "Lire la politique de confidentialité",
     "sheetTitle": "Vos données de santé",
     "sheetText": "Mama & Bébé a besoin de votre accord pour continuer à utiliser vos données de grossesse et de santé. Cochez la case pour continuer, ou choisissez plus bas de ne pas donner votre accord.",
-    "declineTitle": "Vous ne souhaitez pas donner votre accord ?",
+    "declineTitle": "Vous ne souhaitez pas donner votre accord ?",
+    "logoutNote": "Vous déconnecter ne supprime rien : vos données restent enregistrées sur nos serveurs. Pour les effacer, choisissez « {{deleteLabel}} » ci-dessous.",
     "saveError": "Votre accord n'a pas pu être enregistré. Vérifiez votre connexion et réessayez."
   }
 }

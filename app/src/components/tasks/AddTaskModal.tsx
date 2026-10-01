@@ -20,6 +20,7 @@ import { useTranslation } from 'react-i18next';
 import { getPickerLocale } from '../../utils/pickerLocale';
 import { addDays, isSameDay } from 'date-fns';
 import { theme } from '../../theme';
+import { switchThumbProps } from '../../utils/styleUtils';
 import { RecurrenceRule } from '../../types';
 import { styles } from './AddTaskModal.styles';
 
@@ -287,7 +288,7 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
                                     onValueChange={setIsRecurring}
                                     accessibilityLabel={t('tasks.modal.routine')}
                                     trackColor={{ false: theme.colors.neutral200, true: theme.colors.primary }}
-                                    thumbColor={isRecurring ? theme.colors.accent : theme.colors.iosGroupedBackground}
+                                    {...switchThumbProps(isRecurring ? theme.colors.accent : theme.colors.iosGroupedBackground)}
                                 />
                             </View>
 
@@ -384,7 +385,7 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
                                     onValueChange={setReminderEnabled}
                                     accessibilityLabel={t('tasks.modal.addReminder')}
                                     trackColor={{ false: theme.colors.neutral200, true: theme.colors.primary }}
-                                    thumbColor={reminderEnabled ? theme.colors.accent : theme.colors.iosGroupedBackground}
+                                    {...switchThumbProps(reminderEnabled ? theme.colors.accent : theme.colors.iosGroupedBackground)}
                                 />
                             </View>
 

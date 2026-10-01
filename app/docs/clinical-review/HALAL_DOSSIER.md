@@ -21,7 +21,7 @@ indique où vit chaque texte, pour que votre correction soit appliquée exacteme
 là où il faut, sans interprétation.
 
 **Source de vérité :** `src/i18n/locales/{fr,en,ar,tn}/cycle8.json → forbiddenFoodsHalal`
-**Généré le :** 2026-08-25 par `scripts/generate-clinical-dossier.ts`
+**Généré le :** 2026-10-01 par `scripts/generate-clinical-dossier.ts`
 
 ---
 

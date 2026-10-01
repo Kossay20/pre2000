@@ -256,6 +256,115 @@ export const loadDailyProgress = async (
     }
 };
 
+// ============================================
+// "MA JOURNÉE" — ONE LIST FOR HOME AND TASKS
+// ============================================
+
+const toTaskDate = (value: unknown): Date =>
+    value instanceof Date ? value
+        : (value && typeof (value as any).toDate === 'function') ? (value as any).toDate()
+            : new Date(value as any);
+
+/**
+ * Today's "Ma Journée" list: the generated checklist (appointments + reminders, with the
+ * saved progress already merged) plus the user's own tasks that are due today, sorted by
+ * time then priority, skipped items removed. The Tasks tab lists exactly these items and
+ * the Home pill counts them, so the two can no longer disagree (Home used to drop today's
+ * appointments and keep skipped items, and showed 1/2 while Tasks showed 1 of 3).
+ */
+export const buildMyDayItems = (
+    checklist: DailyChecklistItem[],
+    userTasks: UserTask[],
+    now: Date = new Date(),
+    tomorrowLabel: string = ''
+): DailyChecklistItem[] => {
+    const todayStr = format(now, 'yyyy-MM-dd');
+
+    const taskItems: DailyChecklistItem[] = userTasks.flatMap(task => {
+        let subtitle: string | undefined;
+        let sortTimestamp = now.getTime();
+        let shouldShowToday = true;
+        let isCompletedToday = task.completed;
+
+        if (task.recurrence) {
+            const rule = task.recurrence;
+            if (rule.type === 'specific_days' && rule.days) {
+                shouldShowToday = rule.days.includes(now.getDay());
+            } else if (rule.type === 'interval' && rule.interval && task.created_at) {
+                const createdDate = toTaskDate(task.created_at);
+                const diffDays = Math.floor(Math.abs(now.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24));
+                shouldShowToday = diffDays % rule.interval === 0;
+            }
+            if (shouldShowToday) {
+                isCompletedToday = task.completed_dates ? task.completed_dates.includes(todayStr) : false;
+            }
+        }
+        // A one-off task stays on the list until it is done (it is today's to-do), whatever
+        // its reminder day — the statistics count it the same way (taskStatsByDay).
+
+        if (!shouldShowToday) return [];
+
+        let slotTime: string | undefined;
+        if (task.reminder_time) {
+            const date = toTaskDate(task.reminder_time);
+            if (!isNaN(date.getTime())) {
+                sortTimestamp = date.getTime();
+                slotTime = format(date, 'HH:mm');
+                const tomorrow = new Date(now);
+                tomorrow.setDate(now.getDate() + 1);
+                if (format(date, 'yyyy-MM-dd') === todayStr) {
+                    subtitle = slotTime;
+                } else if (format(date, 'yyyy-MM-dd') === format(tomorrow, 'yyyy-MM-dd')) {
+                    subtitle = `${tomorrowLabel} ${slotTime}`.trim();
+                } else {
+                    subtitle = format(date, 'dd/MM HH:mm');
+                }
+            }
+        }
+
+        return [{
+            id: task.task_id,
+            type: 'custom' as const,
+            title: task.title,
+            subtitle,
+            completed: !!isCompletedToday,
+            icon: task.priority === 'high' ? '🔴' : task.priority === 'medium' ? '🟡' : '🟢',
+            priority: task.priority === 'high' ? 0 : task.priority === 'medium' ? 50 : 100,
+            slotTime,
+            reminderId: undefined,
+            sortTimestamp
+        }];
+    });
+
+    // Checklist items are for today: they sort on their slot time, else on "now".
+    const checklistWithSort = checklist.map(item => {
+        let time = now.getTime();
+        if (item.slotTime) {
+            const [h, m] = item.slotTime.split(':').map(Number);
+            const d = new Date(now);
+            d.setHours(h, m, 0, 0);
+            time = d.getTime();
+        }
+        return { ...item, sortTimestamp: time };
+    });
+
+    return [...checklistWithSort, ...taskItems]
+        .sort((a, b) => {
+            const timeA = a.sortTimestamp || 0;
+            const timeB = b.sortTimestamp || 0;
+            if (Math.abs(timeA - timeB) > 60000) return timeA - timeB;
+            return a.priority - b.priority;
+        })
+        .filter(item => !item.skipped);
+};
+
+/** Done / total for a "Ma Journée" list — the Home pill and the Tasks percentage. */
+export const myDayProgress = (items: DailyChecklistItem[]): { done: number; total: number } => ({
+    done: items.filter(item => item.completed
+        || (item.type === 'hydration' && item.current !== undefined && item.target !== undefined && item.current >= item.target)).length,
+    total: items.length,
+});
+
 /**
  * Clear old progress (keep only last 60 days)
  */

@@ -13,14 +13,48 @@
  * reported as "not finished" with a retry, and the next launch finishes it
  * (resumePendingDeletion) instead of opening the emptied account as if nothing happened.
  *
+ * The device marker alone was not enough: if she never signs in on that phone again her
+ * login survives, and on another phone she was taken to Onboarding inside the account she
+ * had asked to delete. So the request is also recorded on the server, in
+ * deletionRequests/{uid}, before anything is erased, and every device checks it at
+ * sign-in. It goes last, just before the Auth user (once that is gone nobody can pass the
+ * owner rule to remove it), and is put back if the Auth delete fails.
+ *
  * Kept free of React so the ordering is behaviourally tested (accountDeletion.test.ts).
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { purgeUserFirestoreData } from './gdprPurge';
+import { doc, getDoc, setDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
+import { purgeUserFirestoreData, PurgeIncompleteError } from './gdprPurge';
 import { DELETION_PENDING_KEY } from './storageKeys';
 import { createLogger } from '../utils/logger';
+import { withTimeout } from '../utils/withTimeout';
 
 const log = createLogger('accountDeletion');
+
+// Owner-only in firestore.rules: one document per uid, holding only when she asked.
+export const DELETION_REQUESTS_COLLECTION = 'deletionRequests';
+
+// A Firestore write offline neither resolves nor rejects; the marker must never leave the
+// deletion spinning, so each server step is bounded.
+const MARKER_TIMEOUT_MS = 8000;
+
+const requestRef = (db: any, uid: string) => doc(db, DELETION_REQUESTS_COLLECTION, uid);
+
+const recordServerRequest = (db: any, uid: string) =>
+    withTimeout(setDoc(requestRef(db, uid), { requestedAt: serverTimestamp() }), MARKER_TIMEOUT_MS, 'deletion request timed out');
+
+const removeServerRequest = (db: any, uid: string) =>
+    withTimeout(deleteDoc(requestRef(db, uid)), MARKER_TIMEOUT_MS, 'deletion request timed out');
+
+/** True when her deletion request is on the server — what another device sees at sign-in. */
+const hasServerRequest = async (db: any, uid: string): Promise<boolean> => {
+    try {
+        return (await withTimeout(getDoc(requestRef(db, uid)), MARKER_TIMEOUT_MS)).exists();
+    } catch (err) {
+        log.warn('Could not read the deletion request', err);
+        return false;
+    }
+};
 
 // Firebase treats a sign-in older than five minutes as too old for auth.delete(). One
 // minute of margin covers device clock skew and the time the purge itself takes.
@@ -71,17 +105,51 @@ const isRecentLogin = async (user: DeletableUser, now: number): Promise<boolean>
 };
 
 const purgeThenDeleteAuthUser = async (db: any, user: DeletableUser): Promise<void> => {
-    // Throws PurgeIncompleteError — the Auth user is then deliberately left in place.
-    await purgeUserFirestoreData(db, user.uid);
+    // Recorded on the server before anything is erased. If that fails nothing is erased
+    // either, and a retry starts over. Deployed rules that predate this collection refuse
+    // it: then the deletion still goes ahead with the device marker alone (as before), and
+    // Sentry is told, rather than blocking every deletion until the operator deploys.
+    try {
+        await recordServerRequest(db, user.uid);
+    } catch (err: any) {
+        if (err?.code !== 'permission-denied') {
+            log.warn('Could not record the deletion request on the server', err);
+            // Offline the write only timed out and is still queued. Queue its removal
+            // behind it (not awaited), so no request appears later for a deletion that
+            // never started.
+            removeServerRequest(db, user.uid).catch(() => {});
+            throw new PurgeIncompleteError([DELETION_REQUESTS_COLLECTION]);
+        }
+        log.error('Deletion request refused by Firestore rules — deploy firestore.rules', err);
+    }
+    try {
+        // Throws PurgeIncompleteError — the Auth user is then deliberately left in place.
+        await purgeUserFirestoreData(db, user.uid);
+    } catch (err) {
+        // The account is still usable (its profile is the last thing the purge removes), so
+        // it is no longer "only the login is left". The request is withdrawn; a retry
+        // records it again.
+        await removeServerRequest(db, user.uid).catch((e) => log.warn('Could not withdraw the deletion request', e));
+        throw err;
+    }
     // From here the account is empty. Remember that until the Auth user is gone.
     try {
         await AsyncStorage.setItem(DELETION_PENDING_KEY, user.uid);
     } catch (err) {
         log.warn('Could not record the pending deletion', err);
     }
+    // The last thing the uid can delete, so it goes just before the Auth user.
+    await removeServerRequest(db, user.uid).catch((e) => {
+        log.warn('Could not remove the deletion request before deleting the login', e);
+    });
     try {
         await user.delete();
     } catch (err: any) {
+        // Still signed in, so the owner rule still passes: put the request back for
+        // whichever device she signs in on next. Also when the removal above "failed":
+        // offline it only timed out and is still queued, and would otherwise reach the
+        // server later and erase the request while the login survives.
+        await recordServerRequest(db, user.uid).catch((e) => log.warn('Could not restore the deletion request', e));
         if (err?.code === 'auth/requires-recent-login') throw reauthRequired(true);
         throw authDeletePending(err);
     }
@@ -117,13 +185,19 @@ export const finishDeletionAfterReauth = async (
     await purgeThenDeleteAuthUser(db, user);
 };
 
-/** True when this device recorded a finished purge for `uid` whose Auth user still exists. */
-export const hasPendingDeletion = async (uid: string): Promise<boolean> => {
+/**
+ * True when `uid` asked for its deletion and only the Auth user is left: recorded on this
+ * device, or (with `db`) on the server, which is what a sign-in on another phone finds.
+ * Callers only ask for an account whose profile is missing — the purge removes the profile
+ * last, so a request next to an existing profile is an unfinished purge, not this.
+ */
+export const hasPendingDeletion = async (uid: string, db?: any): Promise<boolean> => {
     try {
-        return (await AsyncStorage.getItem(DELETION_PENDING_KEY)) === uid;
+        if ((await AsyncStorage.getItem(DELETION_PENDING_KEY)) === uid) return true;
     } catch {
-        return false;
+        // Fall through to the server.
     }
+    return db ? hasServerRequest(db, uid) : false;
 };
 
 /**
@@ -150,7 +224,7 @@ export const resumePendingDeletion = (db: any, user: DeletableUser): Promise<Res
     const existing = resumesInFlight.get(user.uid);
     if (existing) return existing;
     const run = (async (): Promise<ResumeResult> => {
-        if (!(await hasPendingDeletion(user.uid))) return 'none';
+        if (!(await hasPendingDeletion(user.uid, db))) return 'none';
         try {
             await deleteUserAccount(db, user);
             return 'deleted';
@@ -166,6 +240,17 @@ export const resumePendingDeletion = (db: any, user: DeletableUser): Promise<Res
     })().finally(() => resumesInFlight.delete(user.uid));
     resumesInFlight.set(user.uid, run);
     return run;
+};
+
+/**
+ * login()'s question: is this sign-in one that finishes a deletion? If the auth listener
+ * is already finishing it, its answer is the answer — by then it may have removed the
+ * very markers hasPendingDeletion reads.
+ */
+export const pendingDeletionAtSignIn = async (uid: string, db: any): Promise<boolean> => {
+    const inFlight = resumesInFlight.get(uid);
+    if (inFlight) return (await inFlight) !== 'none';
+    return hasPendingDeletion(uid, db);
 };
 
 /** The data is already erased and only the Auth user is left (see reauthRequired). */
@@ -187,6 +272,10 @@ export const isErasedButNotDeleted = (err: any): boolean =>
  * session so the reset can be retried.
  */
 export const eraseAccountData = async (db: any, user: DeletableUser): Promise<void> => {
+    // A reset leaves the account without a profile, which is what a pending deletion looks
+    // like at sign-in. A request left over from an earlier, abandoned deletion would then
+    // delete the account she chose to keep.
+    await removeServerRequest(db, user.uid).catch((e) => log.warn('Could not clear an old deletion request', e));
     await purgeUserFirestoreData(db, user.uid);
     if (!user.isAnonymous) return;
     try {

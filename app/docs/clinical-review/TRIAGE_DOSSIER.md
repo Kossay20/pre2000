@@ -21,7 +21,7 @@ indique où vit chaque texte, pour que votre correction soit appliquée exacteme
 là où il faut, sans interprétation.
 
 **Source de vérité :** `src/data/chatbot_data.ts (RED_FLAGS)`
-**Généré le :** 2026-08-25 par `scripts/generate-clinical-dossier.ts`
+**Généré le :** 2026-10-01 par `scripts/generate-clinical-dossier.ts`
 
 ---
 
@@ -50,7 +50,7 @@ classé trop haut, il envoie aux urgences une femme qui n'en avait pas besoin.**
 
 | # | Signe | Message envoyé à l'utilisatrice | Sources citées | OK / CORRIGER / RETIRER | Correction |
 |---|---|---|---|---|---|
-| 1 | **sang rouge vif**<br>`hemorragie_antepartum` | Ces signes peuvent indiquer une complication grave (placenta prævia, décollement placentaire, fausse couche tardive). Consultez immédiatement un médecin, une maternité ou les services d’urgence. Ne vous déplacez pas seule. | OMS 2024, ACOG 2023, NHS | | |
+| 1 | **sang rouge vif**<br>`hemorragie_antepartum` | Un saignement pendant la grossesse peut être le signe d'une complication grave. Consultez immédiatement un médecin, une maternité ou les services d’urgence. Ne vous déplacez pas seule. | OMS 2024, ACOG 2023, NHS | | |
 | 2 | **difficulté à respirer**<br>`essoufflement` | Ces signes peuvent indiquer une complication cardiaque ou pulmonaire grave (embolie pulmonaire). Appelez immédiatement les services d'urgence. | **⚠️ aucune** | | |
 | 3 | **mal-être**<br>`pensées suicidaires` | Si vous avez des pensées de vous faire du mal ou de faire du mal à votre bébé, il s'agit d'une urgence psychiatrique. Contactez immédiatement les services d'urgence ou un professionnel de santé mentale. | **⚠️ aucune** | | |
 | 4 | **Convulsions / éclampsie**<br>`perte de conscience` | Les convulsions ou une perte de conscience peuvent être un signe d'éclampsie (complication grave de la pré-éclampsie). Appelez immédiatement les services d'urgence. | **⚠️ aucune** | | |

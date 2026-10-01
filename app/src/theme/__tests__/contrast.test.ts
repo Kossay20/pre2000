@@ -66,6 +66,9 @@ describe('palette contrast — normal-size text pairs (AA 4.5:1)', () => {
         ['info on surfaceBlueTint', c.info, c.surfaceBlueTint],
         ['deepOrange900 on surfaceAmberTint', c.deepOrange900, c.surfaceAmberTint],
         ['deepOrange900 on white', c.deepOrange900, c.white],
+        ['green800 on surfaceGreenTint (supplement "safe" badge)', c.green800, c.surfaceGreenTint],
+        ['deepOrange900 on surfaceOrangeTint (supplement "with caution" badge)', c.deepOrange900, c.surfaceOrangeTint],
+        ['red800 on surfaceRose (supplement "avoid" badge)', c.red800, c.surfaceRose],
         ['text on the amber suggestions badge', c.text, over(c.amber500Alpha90, c.primaryStrong)],
         ['textSecondary on gradientPinkStart', c.textSecondary, c.gradientPinkStart],
     ])('%s', (_label, fg, bg) => {

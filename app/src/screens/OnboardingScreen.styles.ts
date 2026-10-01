@@ -48,6 +48,10 @@ export const styles = StyleSheet.create({
         textAlign: 'center',
         alignSelf: 'center',
     },
+    stepIcon: {
+        marginBottom: 16,
+        alignSelf: 'center',
+    },
     stepTitle: {
         fontSize: 26,
         fontWeight: '700',
@@ -358,6 +362,11 @@ export const styles = StyleSheet.create({
         shadowOpacity: 0.3,
         shadowRadius: 8,
         elevation: 6,
+    },
+    // Switched off: flat, like the shared Button's disabled state.
+    startButtonOff: {
+        shadowOpacity: 0,
+        elevation: 0,
     },
     startButtonGradient: {
         paddingVertical: 18,

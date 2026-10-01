@@ -4,6 +4,7 @@ import {
     clearAll,
     computeStats,
     formatDuration,
+    formatInterval,
     loadState,
     startContraction,
     stopContraction,
@@ -63,6 +64,14 @@ describe('contractionTimerService', () => {
         expect(stats.avgDurationMs).toBe(60_000);
         expect(stats.avgFrequencyMs).toBe(300_000);
         expect(stats.lastFrequencyMs).toBe(300_000);
+    });
+
+    it('shows no interval until there are two contractions', () => {
+        const one = computeStats([{ id: '1', startedAt: 1_000, endedAt: 61_000 }]);
+        expect(formatInterval(one.avgFrequencyMs, one.count)).toBe('—');
+        expect(formatInterval(one.lastFrequencyMs, one.count)).toBe('—');
+        expect(buildShareSummary(one, [])).toContain('Avg interval: —');
+        expect(formatInterval(300_000, 2)).toBe('5:00');
     });
 
     it('formatDuration formats m:ss', () => {

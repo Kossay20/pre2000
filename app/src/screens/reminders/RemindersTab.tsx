@@ -53,6 +53,7 @@ import { useTranslation } from 'react-i18next';
 import { Trilang } from '../../types/remindersV2';
 import { getLocalizedTrilang, formatTime } from '../../utils/i18nHelpers';
 import { theme } from '../../theme';
+import { switchThumbProps } from '../../utils/styleUtils';
 import { RtlAwareChevron } from '../../components/common/RtlAwareChevron';
 import { useScreenAnalytics } from '../../hooks/useScreenAnalytics';
 import { useFocusEffect } from '@react-navigation/native';
@@ -193,7 +194,7 @@ const EssentialsList: React.FC<EssentialsListProps> = ({
                                     value={isEnabled}
                                     onValueChange={(value) => onToggle(reminder, value)}
                                     trackColor={{ false: theme.colors.disabled, true: theme.colors.pinkAccentA100 }}
-                                    thumbColor={theme.colors.white}
+                                    {...switchThumbProps(theme.colors.white)}
                                     ios_backgroundColor={theme.colors.disabled}
                                     accessibilityRole="switch"
                                     accessibilityLabel={getLocalizedContent(reminder.title)}
@@ -508,7 +509,7 @@ export const RemindersTab = () => {
                 <View style={styles.header}>
                     <Text style={styles.headerTitle}>{t('common.myReminders')}</Text>
                     <Text style={styles.headerSubtitle}>
-                        {t('common.week')} {displayedAgeOf(pregnancyInfo).week} • {t('common.trimesterLabel', { trimester: profile.trimester })}
+                        {t('common.week')} {displayedAgeOf(pregnancyInfo).week} • {t('common.trimester_' + profile.trimester)}
                     </Text>
                 </View>
 

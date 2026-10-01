@@ -16,6 +16,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { RtlAwareChevron } from '../common/RtlAwareChevron';
 import { babyIllustrationSize, getContentWidth } from '../../utils/layout';
+import { pregnancyProgressPercent } from './BabyGrowthCard.helpers';
 
 const width = getContentWidth();
 
@@ -48,9 +49,6 @@ export const BabyGrowthCard = React.memo<BabyGrowthCardProps>(({
     // Get baby growth data for current week
     const monthData = getBabyGrowthForWeek(currentWeek);
 
-    // Calculate progression
-    const totalWeeks = 40;
-    const progressPercent = Math.min((currentWeek / totalWeeks) * 100, 100);
     // U-FIX-6: was `currentWeek * 7` which always overshot by `7 - dayInWeek` days.
     // E.g. week 10 day 3 displayed day 70 instead of day 66 (= (10-1)*7 + 3).
     // Falls back to legacy formula if currentDay isn't passed (no regression).
@@ -58,6 +56,7 @@ export const BabyGrowthCard = React.memo<BabyGrowthCardProps>(({
         ?? (currentDay != null
             ? Math.max(1, (currentWeek - 1) * 7 + currentDay)
             : currentWeek * 7);
+    const progressPercent = pregnancyProgressPercent(dayOfPregnancy);
 
     // Animation on mount/update
     useEffect(() => {

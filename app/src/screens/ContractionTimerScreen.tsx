@@ -28,6 +28,7 @@ import {
     clearAll,
     computeStats,
     formatDuration,
+    formatInterval,
     loadState,
     startContraction,
     stopContraction,
@@ -169,11 +170,11 @@ export const ContractionTimerScreen: React.FC = () => {
                             />
                             <StatBox
                                 label={t('cycle8.contractionTimer.avgFrequency')}
-                                value={formatDuration(stats.avgFrequencyMs)}
+                                value={formatInterval(stats.avgFrequencyMs, stats.count)}
                             />
                             <StatBox
                                 label={t('cycle8.contractionTimer.lastFrequency')}
-                                value={formatDuration(stats.lastFrequencyMs)}
+                                value={formatInterval(stats.lastFrequencyMs, stats.count)}
                             />
                         </View>
 

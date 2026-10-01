@@ -15,7 +15,8 @@ import { SectionHeader } from '../components/common/SectionHeader';
 import { useNavigation, useNavigationState, useRoute } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { getLocalizedContent } from '../utils/i18nHelpers';
-import { normalizeSupplementSafety } from '../utils/supplementSafety';
+import { normalizeSupplementSafety, SUPPLEMENT_SAFETY_LABEL_KEYS, SUPPLEMENT_SAFETY_TAG_COLORS } from '../utils/supplementSafety';
+import { formatSupplementSources } from '../utils/supplementSources';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
 import { isBookmarked, toggleBookmark, subscribeBookmarks } from '../services/bookmarkService';
 
@@ -167,24 +168,10 @@ export const SupplementDetailScreen = () => {
     }
 
     // Every safety lookup goes through the shared normaliser, so an accented or unknown token
-    // reads the same (caution) here as in the supplements list and its filter.
-    const getSafetyColor = (safety: string) => {
-        switch (normalizeSupplementSafety(safety)) {
-            case 'ok': return theme.colors.success;
-            case 'a_surveiller': return theme.colors.warning;
-            case 'deconseille': return theme.colors.error;
-            default: return theme.colors.secondary;
-        }
-    };
-
-    const getSafetyLabel = (safety: string) => {
-        switch (normalizeSupplementSafety(safety)) {
-            case 'ok': return t('common.supplementSafety.safe');
-            case 'a_surveiller': return t('common.supplementSafety.caution');
-            case 'deconseille': return t('common.supplementSafety.avoid');
-            default: return t('common.supplementSafety.unknown');
-        }
-    };
+    // reads the same (caution) here as in the supplements list and its filter. Label and
+    // colours come from the same tables the list uses.
+    const safety = normalizeSupplementSafety(supplement.pregnancy_safety);
+    const safetyColors = SUPPLEMENT_SAFETY_TAG_COLORS[safety];
 
     // task 10a — cross-linking. Resolve related articles (skip related_symptoms_ids:
     // there is no symptom screen). Section renders only when ≥1 id resolves.
@@ -233,7 +220,7 @@ export const SupplementDetailScreen = () => {
             </View>
 
             <View style={styles.header}>
-                <Tag label={getSafetyLabel(supplement.pregnancy_safety)} color={getSafetyColor(supplement.pregnancy_safety)} />
+                <Tag label={t(SUPPLEMENT_SAFETY_LABEL_KEYS[safety])} color={safetyColors.background} textColor={safetyColors.text} />
                 <Text style={[theme.typography.h1, styles.title] as any}>
                     {getLocalizedContent(supplement, 'name', i18n.language)}
                 </Text>
@@ -306,7 +293,7 @@ export const SupplementDetailScreen = () => {
             )}
 
             {supplement.sources && (
-                <Text style={[theme.typography.caption, styles.source]}>{`${t('common.source')} : ${supplement.sources}`}</Text>
+                <Text style={[theme.typography.caption, styles.source]}>{formatSupplementSources(supplement.sources, t, i18n.language)}</Text>
             )}
 
             {/* MEDICAL-DISCLAIMER FIX. This screen shows concrete dosages and a green

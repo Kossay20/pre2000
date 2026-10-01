@@ -19,7 +19,12 @@ export interface HospitalBagItem {
     label_tn: string;
     custom?: boolean;
     note?: string;
+    // Administrative papers are not the same everywhere: the wording for a profile
+    // country ('tunisia', 'france'), over the neutral labels above.
+    labels_by_country?: Record<string, Partial<Record<BagLabelKey, string>>>;
 }
+
+type BagLabelKey = 'label_fr' | 'label_en' | 'label_ar' | 'label_tn';
 
 export interface HospitalBagState {
     items: HospitalBagItem[];
@@ -35,6 +40,35 @@ const seedDefaults = (): HospitalBagItem[] =>
     (defaultData as HospitalBagItem[]).map((item) => ({ ...item, custom: false }));
 
 const serial = createSerialQueue();
+
+const LABEL_KEY: Record<string, BagLabelKey> = { fr: 'label_fr', ar: 'label_ar', tn: 'label_tn', en: 'label_en' };
+
+// The profile stores the onboarding value ('tunisia', 'france', … — COUNTRY_OPTIONS);
+// older profiles may hold an ISO code or the French name.
+const BAG_COUNTRY: Record<string, string> = {
+    tunisia: 'tunisia', tunisie: 'tunisia', tn: 'tunisia',
+    france: 'france', fr: 'france',
+};
+
+/**
+ * The label to show for an item, in `lang`, for the profile's country.
+ *
+ * The papers section listed "Carte d'identité (CIN)" and "Carte CNAM" — Tunisian
+ * documents — to everyone, a user in France included. Those items now carry a neutral
+ * label ("Pièce d'identité", "Carte d'assurance maladie") and a wording per country
+ * (Tunisia: CIN, CNAM; France: carte Vitale et mutuelle); any other country, or none,
+ * reads the neutral one. A default item is read from the list shipped with the app, not
+ * from the copy stored on the device, which still holds the wording it was seeded with.
+ */
+export const bagItemLabel = (item: HospitalBagItem, lang: string, country?: string | null): string => {
+    const source = item.custom
+        ? item
+        : (defaultData as HospitalBagItem[]).find((d) => d.id === item.id) ?? item;
+    const key = LABEL_KEY[(lang || '').split('-')[0]] ?? 'label_en';
+    const forCountry = source.labels_by_country?.[BAG_COUNTRY[(country ?? '').trim().toLowerCase()] ?? ''];
+    const pick = (k: BagLabelKey) => forCountry?.[k] || source[k];
+    return pick(key) || (key === 'label_tn' ? pick('label_ar') : '') || pick('label_en') || '';
+};
 
 // The device copy only. Callers inside `serial` use this; loadState() is the public read.
 const readState = async (): Promise<HospitalBagState> => {
@@ -108,6 +142,12 @@ const fromServer = (d: Record<string, unknown>): HospitalBagState | null => {
 const isSignedInAs = (uid: string) => auth.currentUser?.uid === uid;
 
 const bagDoc = (uid: string) => doc(db, 'hospitalBags', uid);
+
+/** 1 when this device holds a version of the list the server does not have yet, else 0. */
+export const countPendingBag = async (): Promise<number> => {
+    const state = await serial(readState);
+    return !state.synced && state.updatedAt !== undefined ? 1 : 0;
+};
 
 /** Send this device's version if the server does not have it yet. */
 export const pushPendingBag = async (uid: string): Promise<void> => {

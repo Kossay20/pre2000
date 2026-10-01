@@ -25,7 +25,11 @@ import {
   initializeTestEnvironment,
   RulesTestEnvironment,
 } from '@firebase/rules-unit-testing';
-import { doc, getDoc, setDoc, deleteDoc, collection, getDocs, query, where } from 'firebase/firestore';
+import { doc, getDoc, setDoc, deleteDoc, collection, getDocs, query, where, serverTimestamp } from 'firebase/firestore';
+
+// The purge's own list (src/context/gdprPurge.ts), repeated here because that module pulls
+// in the app's logger. gdprPurge.test.ts pins the rules and the purge to the same names.
+const legacySubCollections = ['weights', 'events', 'journal', 'chatbot_history'];
 
 const ALICE = 'alice-uid';
 const MALLORY = 'mallory-uid';
@@ -232,6 +236,62 @@ describe('user profiles', () => {
     await assertSucceeds(getDocs(collection(asAlice(), `userProfiles/${ALICE}/weights`)));
     await assertSucceeds(deleteDoc(doc(asAlice(), `userProfiles/${ALICE}/weights/w1`)));
     await assertFails(getDocs(collection(asMallory(), `userProfiles/${ALICE}/weights`)));
+  });
+
+  // A client cannot list a document's subcollections, so the purge sweeps a fixed list of
+  // names. The rules accept exactly that list under both parents: anything else could be
+  // written and then never erased.
+  it.each(['userProfiles', 'users'])('%s: every subcollection the purge sweeps is open to its owner', async (parent) => {
+    for (const sub of legacySubCollections) {
+      await assertSucceeds(setDoc(doc(asAlice(), `${parent}/${ALICE}/${sub}/d1`), { value: 1 }));
+      await assertSucceeds(getDocs(collection(asAlice(), `${parent}/${ALICE}/${sub}`)));
+      await assertSucceeds(deleteDoc(doc(asAlice(), `${parent}/${ALICE}/${sub}/d1`)));
+      await assertFails(getDocs(collection(asMallory(), `${parent}/${ALICE}/${sub}`)));
+    }
+  });
+
+  it.each(['userProfiles', 'users'])('%s: a subcollection the purge does not know is refused, even to the owner', async (parent) => {
+    await assertFails(setDoc(doc(asAlice(), `${parent}/${ALICE}/notes/n1`), { text: 'x' }));
+    await assertFails(getDocs(collection(asAlice(), `${parent}/${ALICE}/notes`)));
+    // The name that counts is the first segment under the user document, whatever follows.
+    await assertFails(setDoc(doc(asAlice(), `${parent}/${ALICE}/notes/n1/weights/w1`), { text: 'x' }));
+  });
+});
+
+describe('deletion requests (deletionRequests/{uid})', () => {
+  const request = () => ({ requestedAt: serverTimestamp() });
+
+  it('the owner can record, read, re-record and remove her own request', async () => {
+    await assertSucceeds(setDoc(doc(asAlice(), `deletionRequests/${ALICE}`), request()));
+    await assertSucceeds(getDoc(doc(asAlice(), `deletionRequests/${ALICE}`)));
+    await assertSucceeds(setDoc(doc(asAlice(), `deletionRequests/${ALICE}`), request()));
+    await assertSucceeds(deleteDoc(doc(asAlice(), `deletionRequests/${ALICE}`)));
+  });
+
+  it('reads as "absent" before one exists — every sign-in without a profile asks', async () => {
+    const snap = await assertSucceeds(getDoc(doc(asAlice(), `deletionRequests/${ALICE}`)));
+    expect(snap.exists()).toBe(false);
+  });
+
+  it('nobody else can file, see or withdraw it — that would delete or resurrect her account', async () => {
+    await assertFails(setDoc(doc(asMallory(), `deletionRequests/${ALICE}`), request()));
+    await assertFails(setDoc(doc(asVisitor(), `deletionRequests/${ALICE}`), request()));
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), `deletionRequests/${ALICE}`), { requestedAt: new Date() });
+    });
+    await assertFails(getDoc(doc(asMallory(), `deletionRequests/${ALICE}`)));
+    await assertFails(deleteDoc(doc(asMallory(), `deletionRequests/${ALICE}`)));
+    await assertFails(getDoc(doc(asVisitor(), `deletionRequests/${ALICE}`)));
+  });
+
+  it('holds the server time of the request and nothing else', async () => {
+    await assertFails(setDoc(doc(asAlice(), `deletionRequests/${ALICE}`), { requestedAt: 'yesterday' }));
+    await assertFails(setDoc(doc(asAlice(), `deletionRequests/${ALICE}`), { ...request(), note: 'x' }));
+    await assertFails(setDoc(doc(asAlice(), `deletionRequests/${ALICE}`), {}));
+  });
+
+  it('cannot be enumerated, not even by a signed-in user', async () => {
+    await assertFails(getDocs(collection(asAlice(), 'deletionRequests')));
   });
 });
 

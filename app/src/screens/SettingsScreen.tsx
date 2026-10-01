@@ -3,6 +3,7 @@ import { RtlAwareChevron } from '../components/common/RtlAwareChevron';
 const log = createLogger('SettingsScreen');
 import React, { useState, useEffect } from 'react';
 import { theme } from '../theme';
+import { switchThumbProps } from '../utils/styleUtils';
 import {
     View,
     Text,
@@ -179,7 +180,7 @@ export const SettingsScreen = () => {
                         value={babyMessageEnabled}
                         onValueChange={handleBabyMessageToggle}
                         trackColor={{ false: theme.colors.neutral300, true: theme.colors.accent }}
-                        thumbColor={babyMessageEnabled ? theme.colors.white : theme.colors.iosGroupedBackground}
+                        {...switchThumbProps(babyMessageEnabled ? theme.colors.white : theme.colors.iosGroupedBackground)}
                         accessibilityLabel={t('common.a11y.toggleBabyMessage')}
                         accessibilityRole="switch"
                         accessibilityState={{ checked: babyMessageEnabled }}
@@ -234,7 +235,7 @@ export const SettingsScreen = () => {
                 {/* The clinician framing travels with the switches. Without it a user
                     self-declares "Gestational diabetes" with no context, which is the
                     one thing this question must never ask her to do. */}
-                <Text style={styles.sectionCopy}>{t('common.medicalProfile.intro')}</Text>
+                <Text style={styles.sectionCopy}>{t('common.medicalProfile.settingsIntro')}</Text>
                 <Text style={styles.sectionCopy}>
                     {hasAnsweredMedicalProfile(user ?? undefined)
                         ? t('common.medicalProfile.settingsSubtitle')
@@ -269,7 +270,7 @@ export const SettingsScreen = () => {
                                     if (!res.ok) showAlert(t('common.error'), t('common.medicalProfile.syncWarning'));
                                 }}
                                 trackColor={{ false: theme.colors.neutral300, true: theme.colors.accent }}
-                                thumbColor={value ? theme.colors.white : theme.colors.iosGroupedBackground}
+                                {...switchThumbProps(value ? theme.colors.white : theme.colors.iosGroupedBackground)}
                                 accessibilityRole="switch"
                                 accessibilityLabel={t(`common.medicalProfile.${labelKey[key]}`)}
                                 accessibilityState={{ checked: value }}

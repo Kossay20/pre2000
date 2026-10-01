@@ -74,6 +74,10 @@ import {
     hasWeightThisWeek,
     getAllWeightEntries,
     latestWeighingPerDay,
+    weighingsOnDay,
+    gaugeDotPercent,
+    GAUGE_BAND_START_PCT,
+    GAUGE_BAND_END_PCT,
     saveWeightSetup,
     WeightEntry,
 } from '../weightService';
@@ -206,6 +210,11 @@ describe('getRecommendedWeightRange', () => {
         expect(r.targetGain.max).toBeCloseTo(16, 5);
         expect(r.min).toBeCloseTo(71.5, 5);
         expect(r.max).toBeCloseTo(76, 5);
+    });
+
+    it('past the due date (a weigh-in filed under week 41 or 42) keeps the term range', () => {
+        expect(getRecommendedWeightRange(60, 165, 41)).toEqual(getRecommendedWeightRange(60, 165, 40));
+        expect(getRecommendedWeightRange(60, 165, 42)).toEqual(getRecommendedWeightRange(60, 165, 40));
     });
 
     it('uses the correct category bounds for an obese mother at week 40', () => {
@@ -686,5 +695,73 @@ describe('saveWeightSetup', () => {
             setLocalProfile: jest.fn().mockRejectedValue(new Error('disk full')),
         });
         expect(result).toEqual({ ok: false, error: 'disk full' });
+    });
+});
+
+// ===========================================================================
+// weighingsOnDay — the "replace today's weighing?" list, shared by both entry forms (B-001)
+// ===========================================================================
+
+describe('weighingsOnDay', () => {
+    const at = (y: number, m: number, d: number, h: number) => new Date(y, m, d, h).toISOString();
+    const entry = (id: string, weight: number, date: string, source: WeightEntry['source']): WeightEntry =>
+        ({ id, user_id: 'u1', weight, date, week_of_pregnancy: 32, source });
+
+    it("returns the day's weighings from both sources, newest first, and nothing from other days", () => {
+        const tracker = entry('w1', 68.4, at(2026, 9, 1, 8), 'weight_entries');
+        const health = entry('h1', 69, at(2026, 9, 1, 19), 'healthMetrics');
+        const yesterday = entry('w0', 68, at(2026, 8, 30, 23), 'weight_entries');
+        expect(weighingsOnDay([tracker, yesterday, health], '2026-10-01').map((e) => e.id)).toEqual(['h1', 'w1']);
+        expect(weighingsOnDay([yesterday], '2026-10-01')).toEqual([]);
+    });
+
+    it('the day is the local day: 23:30 the evening before is not today', () => {
+        const lateYesterday = entry('w0', 68, new Date(2026, 8, 30, 23, 30).toISOString(), 'weight_entries');
+        const earlyToday = entry('w1', 68.2, new Date(2026, 9, 1, 0, 30).toISOString(), 'weight_entries');
+        expect(weighingsOnDay([lateYesterday, earlyToday], '2026-10-01').map((e) => e.id)).toEqual(['w1']);
+    });
+});
+
+// ===========================================================================
+// gaugeDotPercent — an in-range weight is drawn inside the green band (B-028)
+// ===========================================================================
+
+describe('gaugeDotPercent', () => {
+    it('the band edges are the range bounds', () => {
+        expect(gaugeDotPercent(68.2, 68.2, 71.9)).toBeCloseTo(GAUGE_BAND_START_PCT, 5);
+        expect(gaugeDotPercent(71.9, 68.2, 71.9)).toBeCloseTo(GAUGE_BAND_END_PCT, 5);
+    });
+
+    it('68.4 kg in a 68.2–71.9 range sits inside the band (it was drawn at 5 %, left of it)', () => {
+        const pct = gaugeDotPercent(68.4, 68.2, 71.9);
+        expect(pct).toBeGreaterThanOrEqual(GAUGE_BAND_START_PCT);
+        expect(pct).toBeLessThanOrEqual(GAUGE_BAND_END_PCT);
+        expect(pct).toBeCloseTo(10 + 80 * (0.2 / 3.7), 5);
+    });
+
+    it('every weight inside the range is inside the band, every weight outside is outside', () => {
+        for (let w = 68.2; w <= 71.9; w += 0.1) {
+            const pct = gaugeDotPercent(w, 68.2, 71.9);
+            expect(pct).toBeGreaterThanOrEqual(GAUGE_BAND_START_PCT - 1e-9);
+            expect(pct).toBeLessThanOrEqual(GAUGE_BAND_END_PCT + 1e-9);
+        }
+        expect(gaugeDotPercent(68.1, 68.2, 71.9)).toBeLessThan(GAUGE_BAND_START_PCT);
+        expect(gaugeDotPercent(72, 68.2, 71.9)).toBeGreaterThan(GAUGE_BAND_END_PCT);
+    });
+
+    it('stays on the bar far outside the range, and centres on a degenerate range', () => {
+        expect(gaugeDotPercent(40, 68.2, 71.9)).toBe(0);
+        expect(gaugeDotPercent(120, 68.2, 71.9)).toBe(100);
+        expect(gaugeDotPercent(60, 0, 0)).toBe(50);
+        expect(gaugeDotPercent(Number.NaN, 68.2, 71.9)).toBe(50);
+    });
+
+    it('the band the dot is mapped onto is the one the stylesheet draws', () => {
+        const fs = require('fs');
+        const path = require('path');
+        const css = fs.readFileSync(path.join(__dirname, '../../screens/WeightTrackerScreen.styles.ts'), 'utf8');
+        const band = css.slice(css.indexOf('gaugeRange: {'), css.indexOf('gaugeDot: {'));
+        expect(band).toContain(`left: '${GAUGE_BAND_START_PCT}%'`);
+        expect(band).toContain(`right: '${100 - GAUGE_BAND_END_PCT}%'`);
     });
 });

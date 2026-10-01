@@ -286,11 +286,17 @@ describe('logout flushes pending tracker syncs first, bounded', () => {
     it('logout pushes kick/contraction/bag records before signing out and wiping', () => {
         const auth = read('src/context/AuthContext.tsx');
         const logout = auth.slice(auth.indexOf('const logout = async'), auth.indexOf('const updateProfile'));
-        const flush = logout.indexOf('pushPendingSessions(uid), pushPendingContractions(uid), pushPendingBag(uid)');
+        // The flush (and the "N records would be lost" question) lives in trackerLogout,
+        // tested in services/__tests__/trackerLogout.test.ts. A "no" returns before the
+        // session is ended, signed out or wiped.
+        const flush = logout.indexOf('if (uid && !(await settleTrackersBeforeLogout(uid, options?.confirmUnsyncedLoss))) return;');
         expect(flush).toBeGreaterThan(-1);
+        expect(flush).toBeLessThan(logout.indexOf('sessionRef.current.end()'));
         expect(flush).toBeLessThan(logout.indexOf('await signOut(auth)'));
         expect(flush).toBeLessThan(logout.indexOf('await wipeLocalUserData()'));
-        expect(logout).toMatch(/settleWithin\([\s\S]*?3000/);
+        const settle = read('src/services/trackerLogout.ts');
+        expect(settle).toMatch(/pushPendingSessions\(uid\), pushPendingContractions\(uid\), pushPendingBag\(uid\)/);
+        expect(settle).toMatch(/LOGOUT_FLUSH_TIMEOUT_MS = 3000/);
     });
 
     it('PregnancyContext.setProfile surfaces a failed save to its callers', () => {

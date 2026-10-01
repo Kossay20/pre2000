@@ -84,7 +84,17 @@ export const LoginScreen = () => {
 
         await withLoading(async () => {
             try {
-                await retryOperation(() => login(email.trim(), password));
+                const outcome = await retryOperation(() => login(email.trim(), password));
+                if (outcome === 'deletion-pending') {
+                    // This account had asked to be deleted, and the sign-in was used to
+                    // finish that; AuthContext tells her how it went. Leaving the deleted
+                    // account's e-mail and password in the form read as "try again".
+                    setEmail('');
+                    setPassword('');
+                    setShowPassword(false);
+                    authLimiter.reset();
+                    return;
+                }
                 await analyticsService.logEvent('login', { method: 'email' });
                 await analyticsService.setUserId(auth.currentUser?.uid || null);
                 // Cycle 3 F404 : reset après succès (l'utilisatrice a légitimement

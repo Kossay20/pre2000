@@ -1,6 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { isRtlLang } from '../hooks/useRtl';
+import { htmlLangTag } from './htmlLang';
 import { createLogger } from '../utils/logger';
 
 const log = createLogger('LocaleDirectionProvider');
@@ -57,8 +58,12 @@ export const LocaleDirectionProvider: React.FC<{ children: React.ReactNode }> = 
 
     // `key` forces a remount on direction change so every memoised style object
     // is re-localised rather than kept from the previous direction.
+    // The provider derives its direction from `locale` whenever one is given and ignores
+    // `direction`. The raw key `tn` reads as Setswana, a left-to-right language, so the
+    // Tunisian screens kept every start/end margin on its LTR side (search icon glued to
+    // its placeholder, emoji glued to labels). `ar-TN` resolves to Arabic script, RTL.
     return (
-        <LocaleProvider key={direction} direction={direction} locale={i18n.language}>
+        <LocaleProvider key={direction} direction={direction} locale={htmlLangTag(i18n.language)}>
             {children}
         </LocaleProvider>
     );

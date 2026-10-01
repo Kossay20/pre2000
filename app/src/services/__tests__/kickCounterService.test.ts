@@ -4,6 +4,7 @@ import {
     countInLastHour,
     countToday,
     endSession,
+    idleSessionPrompt,
     loadState,
     recordKick,
     startSession,
@@ -105,5 +106,19 @@ describe('kickCounterService', () => {
         const active = { id: 'a', startedAt: today, endedAt: null, kicks: [{ timestamp: today }] };
         expect(countToday(history, active)).toBe(3);
         expect(countToday(history, null)).toBe(2);
+    });
+
+    it('says "no session yet" only before the first session', () => {
+        expect(idleSessionPrompt(0).title).toBe('cycle8.kickCounter.noSessionYet');
+        const afterOne = idleSessionPrompt(1);
+        expect(afterOne.title).toBe('cycle8.kickCounter.nextSessionTitle');
+        expect(afterOne.action).toBe('cycle8.kickCounter.newSession');
+        for (const lang of ['fr', 'en', 'ar', 'tn']) {
+            // eslint-disable-next-line @typescript-eslint/no-require-imports
+            const kick = require(`../../i18n/locales/${lang}/cycle8.json`).kickCounter;
+            for (const key of Object.values(afterOne)) {
+                expect(kick[key.split('.').pop() as string]).toBeTruthy();
+            }
+        }
     });
 });

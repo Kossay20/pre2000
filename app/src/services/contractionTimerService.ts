@@ -105,6 +105,10 @@ const flushPendingClear = async (uid: string, clearBefore: number): Promise<void
     });
 };
 
+/** How many contractions the server does not have yet — what a logout would erase. */
+export const countPendingContractions = async (): Promise<number> =>
+    (await serial(readState)).history.filter((c) => !c.synced).length;
+
 /** Send every contraction the server does not have yet. Safe to repeat: ids are stable. */
 export const pushPendingContractions = async (uid: string): Promise<void> => {
     const { history } = await serial(readState);
@@ -261,6 +265,13 @@ export const formatDuration = (ms: number): string => {
     return `${m}:${s.toString().padStart(2, '0')}`;
 };
 
+/**
+ * An interval between contractions needs two of them. With a single one the gap
+ * is unknown, and "0:00" read as back-to-back contractions.
+ */
+export const formatInterval = (ms: number, count: number): string =>
+    count < 2 ? '—' : formatDuration(ms);
+
 export interface ShareSummaryLabels {
     contractionsLabel: string;
     avgDurationLabel: string;
@@ -281,7 +292,7 @@ export const buildShareSummary = (
     const lines: string[] = [];
     lines.push(`${labels.contractionsLabel}: ${stats.count}`);
     lines.push(`${labels.avgDurationLabel}: ${formatDuration(stats.avgDurationMs)}`);
-    lines.push(`${labels.avgFrequencyLabel}: ${formatDuration(stats.avgFrequencyMs)}`);
+    lines.push(`${labels.avgFrequencyLabel}: ${formatInterval(stats.avgFrequencyMs, stats.count)}`);
     lines.push('');
     const last10 = [...history].slice(0, 10);
     last10.forEach((c, i) => {

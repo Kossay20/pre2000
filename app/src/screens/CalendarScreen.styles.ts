@@ -419,8 +419,7 @@ export const styles = StyleSheet.create({
         paddingVertical: 24,
         paddingHorizontal: 60,
     },
-    emptyEmoji: {
-        fontSize: 48,
+    emptyIcon: {
         marginBottom: 16,
     },
     emptyStateText: {

@@ -9,6 +9,7 @@ import fr from './locales/fr';
 import ar from './locales/ar';
 import tn from './locales/tn';
 import en from './locales/en';
+import { htmlLangTag } from './htmlLang';
 
 const LANGUAGE_DETECTOR = {
     type: 'languageDetector' as const,
@@ -112,7 +113,8 @@ const ensureRtlDirStyle = () => {
 const syncHtmlLangDir = (lng: string) => {
     if (typeof document === 'undefined') return;
     try {
-        document.documentElement.lang = lng;
+        // The key `tn` is Setswana as a language tag; the document declares ar-TN.
+        document.documentElement.lang = htmlLangTag(lng);
         document.documentElement.dir = (lng === 'ar' || lng === 'tn') ? 'rtl' : 'ltr';
         ensureRtlDirStyle();
     } catch (e) {

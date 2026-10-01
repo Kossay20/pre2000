@@ -27,7 +27,7 @@ export const HealthGlucoseModal: React.FC<HealthGlucoseModalProps> = ({
                     <Text style={styles.modalTitle}>🩸 {t('dashboard.glucose')}</Text>
                     <TextInput
                         style={styles.input}
-                        placeholder={t('dashboard.glucoseTarget', { defaultValue: '3.5 – 7.8 mmol/L' })}
+                        placeholder={t('dashboard.glucoseTarget')}
                         placeholderTextColor={theme.colors.neutral400}
                         keyboardType="decimal-pad"
                         value={glucoseInput}

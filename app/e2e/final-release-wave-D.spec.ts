@@ -589,6 +589,9 @@ test('D-settings: dev surfaces, medical flag, daily message, permissions, export
   await state(ctx, '13-privacy-from-settings');
   const terms = page.getByText('CGU', { exact: true }).first();
   note(testInfo, '13-terms-tab-role', String(await page.getByRole('tab', { name: 'CGU' }).count() + await page.getByRole('button', { name: 'CGU' }).count()));
+  // D-023: the three legal documents are a tab list with a selected tab, not bare divs.
+  await expect.soft(page.getByRole('tab', { name: 'CGU' }), '13: CGU is a tab').toHaveCount(1);
+  await expect.soft(page.getByRole('tab', { selected: true }), '13: exactly one tab is selected').toHaveCount(1);
   if (await terms.count()) {
     await terms.click();
     await expect.soft(page.getByText(/AVERTISSEMENT MÉDICAL/).first(), '13: Terms carry the medical disclaimer').toBeVisible({ timeout: 10_000 });
@@ -795,7 +798,7 @@ test('D-upgrade: real anonymous guest → account keeps uid, data and a complete
   await expect.soft(page.getByRole('button', { name: 'Appeler Sage-femme' }), '19 (HYP-D6): guest emergency contact lost on reload').toBeVisible({ timeout: 15_000 });
   await state(ctx, '19-guest-reload');
 
-  // 20 — upgrade from Profile → /create-account → "Compte créé ✅" → same uid + email.
+  // 20 — upgrade from Profile → /create-account → "Compte créé" → same uid + email.
   const email = newAccountEmail(WAVE, 'upgrade');
   await page.getByRole('button', { name: 'Créer un compte' }).first().click();
   await expect(page.getByTestId('register_email_input')).toBeVisible({ timeout: 20_000 });
@@ -812,7 +815,7 @@ test('D-upgrade: real anonymous guest → account keeps uid, data and a complete
   await page.getByTestId('register_password_input').fill(E2E_PASSWORD);
   await page.getByTestId('register_confirm_input').fill(E2E_PASSWORD);
   await page.getByTestId('register_submit_button').click();
-  await expect.soft(page.getByText('Compte créé ✅').first(), '20: upgrade toast').toBeVisible({ timeout: 20_000 });
+  await expect.soft(page.getByText('Compte créé', { exact: true }).first(), '20: upgrade toast').toBeVisible({ timeout: 20_000 });
   await page.waitForTimeout(2000);
   const upgraded = await page.evaluate(() => JSON.parse(localStorage.getItem('user_profile') || '{}'));
   const rec20 = await authLookup(guestUid);

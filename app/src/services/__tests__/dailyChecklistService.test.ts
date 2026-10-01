@@ -4,8 +4,8 @@
  * Tests the daily checklist generation and progress tracking
  */
 
-import { generateDailyChecklist, getHistoricalData } from '../dailyChecklistService';
-import { UserEvent } from '../../types';
+import { generateDailyChecklist, getHistoricalData, buildMyDayItems, myDayProgress } from '../dailyChecklistService';
+import { DailyChecklistItem, UserEvent, UserTask } from '../../types';
 import { format } from 'date-fns';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -322,5 +322,56 @@ describe('getHistoricalData completion rate (skipped excluded)', () => {
             { id: 'b', completed: false },
         ]);
         expect(rate).toBe(50);
+    });
+});
+
+// ============================================
+// TEST: "Ma Journée" — Home pill and Tasks tab count the same list
+// ============================================
+
+describe('buildMyDayItems / myDayProgress (B-008)', () => {
+    const now = new Date(2026, 9, 1, 15, 0, 0);
+    const checklist: DailyChecklistItem[] = [
+        { id: 'apt-e2e', type: 'appointment', title: 'RDV du jour E2E', subtitle: '09:00', completed: false, icon: '📅', priority: 1 },
+        { id: 'walk', type: 'reminder', title: 'Marche douce', slotTime: '10:00', completed: true, icon: '🚶', priority: 10 },
+    ];
+    const task = (overrides: Partial<UserTask>): UserTask => ({
+        task_id: 't1', user_id: 'u', title: 'Vitamines E2E', completed: false, priority: 'medium',
+        created_at: now, ...overrides,
+    } as UserTask);
+
+    test("today's appointment is counted: 1 done of 3 (the pill used to say 1/2)", () => {
+        const items = buildMyDayItems(checklist, [task({})], now);
+        expect(items.map(i => i.id).sort()).toEqual(['apt-e2e', 't1', 'walk']);
+        expect(myDayProgress(items)).toEqual({ done: 1, total: 3 });
+    });
+
+    test('skipped items leave both the list and the count', () => {
+        const items = buildMyDayItems([...checklist, { ...checklist[1], id: 'skip', skipped: true }], [], now);
+        expect(myDayProgress(items)).toEqual({ done: 1, total: 2 });
+    });
+
+    test('a recurring task counts only on its days, done from completed_dates', () => {
+        const wed = now.getDay();
+        const onDay = task({ task_id: 'r1', recurrence: { type: 'specific_days', days: [wed] } as any, completed_dates: ['2026-10-01'] });
+        const offDay = task({ task_id: 'r2', recurrence: { type: 'specific_days', days: [(wed + 1) % 7] } as any });
+        expect(myDayProgress(buildMyDayItems([], [onDay, offDay], now))).toEqual({ done: 1, total: 1 });
+    });
+
+    test('a filled hydration goal counts as done', () => {
+        const hyd: DailyChecklistItem = { id: 'h', type: 'hydration', title: 'Eau', completed: false, icon: '💧', priority: 5, current: 2, target: 2 };
+        expect(myDayProgress(buildMyDayItems([hyd], [], now))).toEqual({ done: 1, total: 1 });
+    });
+
+    test('Home and Tasks both go through the shared builder (no appointment filter on Home)', () => {
+        const fs = require('fs');
+        const path = require('path');
+        const read = (f: string) => fs.readFileSync(path.join(__dirname, '../../..', f), 'utf8');
+        const home = read('src/components/home/DailyRoutinesTracker.tsx');
+        const tasks = read('src/components/tasks/MyDaySection.tsx');
+        expect(home).toMatch(/myDayProgress\(buildMyDayItems\(checklist, userTasks\)\)/);
+        expect(home).not.toMatch(/type !== 'appointment'/);
+        expect(tasks).toMatch(/buildMyDayItems\(mergedReminders, userTasks/);
+        expect(tasks).toMatch(/myDayProgress\(items\)/);
     });
 });

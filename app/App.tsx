@@ -126,7 +126,7 @@ const ProfileSetupStack = ({ initialRouteName }: { initialRouteName: 'Onboarding
           title: t('common.screen.onboarding'),
           headerRight: () => (
             <TouchableOpacity
-              onPress={logout}
+              onPress={() => { void logout(); }}
               accessibilityRole="button"
               accessibilityLabel={t('profile.logout')}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -396,6 +396,9 @@ const AppContent = () => {
         PrivacyPolicy: 'privacy',
         Home: {
           screens: {
+            // Home is the root URL. Without a path the web address bar showed the
+            // internal route name (/HomeMain).
+            HomeMain: '',
             ArticleDetail: 'article/:articleId',
             SupplementDetail: 'supplement/:supplementId',
             WeekRecommendations: 'recommendations',

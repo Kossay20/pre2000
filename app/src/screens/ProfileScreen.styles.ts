@@ -10,6 +10,8 @@ export const styles = StyleSheet.create({
     header: {
         paddingTop: 60,
         paddingBottom: 32,
+        // Without an inset a long e-mail ran edge to edge on a 280pt screen.
+        paddingHorizontal: 16,
         alignItems: 'center',
     },
     profileCircle: {

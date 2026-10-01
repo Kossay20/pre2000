@@ -134,7 +134,7 @@ const COPY: Record<'fr' | 'ar' | 'en', Copy> = {
     weekLabel32: 'Semaine 32',
     invalidDate: 'Plus de 42 semaines depuis cette date : vérifiez la date saisie.',
     postTermNote: /la date prévue d'accouchement est passée/i,
-    countryHint: /Obligatoire : sert à afficher le bon numéro d'urgence/,
+    countryHint: /Obligatoire\s: sert à afficher le bon numéro d'urgence/,
     headerBack: 'Retour',
     emergencyFallbackNote: "112 est le numéro d'urgence international.",
     existingProfileTitle: 'Ce compte a déjà un profil',
@@ -408,6 +408,11 @@ const lmpDaysAgo = (days: number) => {
 };
 /** A-010: 43+0 SA — beyond 42+0, the one range onboarding must refuse. */
 const lmp43wAgo = () => lmpDaysAgo(43 * 7);
+/** Today's day button in the Calendar week strip (WeeklyStrip: format(date, 'EEEE dd MMMM', fr)), Paris time like waveUse. */
+const todayStripLabelFr = () => {
+  const part = (o: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', ...o }).format(new Date());
+  return `${part({ weekday: 'long' })} ${part({ day: '2-digit' })} ${part({ month: 'long' })}`;
+};
 /** A-010: 40+3 SA — past the due date, still a pregnancy: accepted, with a post-term note. */
 const lmp40w3dAgo = () => lmpDaysAgo(40 * 7 + 3);
 
@@ -1009,6 +1014,48 @@ test.describe('Wave A — fr', () => {
     r.dispose();
   });
 
+  // ─── A-030d: the same question answered "replace" ───────────────────────────
+  test('A-fr onboarding with an existing account email → "replace" overwrites the server profile and records consent (12y, A-023/A-030d)', async ({ page }, testInfo) => {
+    const r = rig(page, testInfo);
+    const c = COPY.fr;
+    const email = newAccountEmail('A', 'fr-existing-replace');
+    const acct = await createAccount(email, E2E_PASSWORD);
+    const seeded = await seedProfile(acct.uid, acct.idToken, { week: 20, firstName: 'Existante' });
+    const seededConsent = seeded.healthDataConsent as { at: string } | undefined;
+
+    await toAuthChoice(page, 'fr');
+    await page.getByTestId('auth_guest_button').click();
+    await onboardingSteps1to3(r, c, '12y-fr-existing-replace', { firstName: 'Nouvelle', age: '25-29', tickHypertension: false, tryInvalidDate: false });
+    await page.getByTestId('onboarding_step4_email').fill(email);
+    await page.getByTestId('onboarding_step4_password').fill(E2E_PASSWORD);
+    // On web the question is a window.confirm: OK = replace.
+    r.dialogs.next('accept');
+    const asked = r.dialogs.waitForNext(45_000);
+    await page.getByTestId('onboarding_step4_submit').click();
+    const dialog = await asked.catch(() => null);
+    r.note('12y-fr-existing-replace-dialog', dialog);
+    expect.soft(dialog?.message ?? '', 'A-023: the user is asked before her existing profile is replaced').toContain(c.existingProfileTitle);
+    await expect(page.getByRole('tablist').first()).toBeVisible({ timeout: 45_000 });
+    await expect.soft(page.getByText(`${c.week} 32`, { exact: true }).first(), 'A-030d: "replace" shows the onboarding week 32').toBeVisible({ timeout: 30_000 });
+    await expect.soft(page.getByTestId('health_consent_continue'), 'A-030d: no consent sheet after consenting on step 4').toHaveCount(0);
+    await r.snap('12y-fr-existing-replaced-home', { allowAuth400: true });
+    const after = await pollServerDoc(`userProfiles/${acct.uid}`, (d) => d?.firstName === 'Nouvelle');
+    const consent = after?.healthDataConsent as { version?: string; at?: string } | undefined;
+    r.note('12y-fr-existing-replace-server-truth', {
+      seededLmp: seeded.lmp,
+      serverLmp: after?.lmp,
+      firstName: after?.firstName,
+      healthDataConsent: { seeded: seededConsent ?? null, server: consent ?? null },
+      createdAt: { seeded: seeded.createdAt, server: after?.createdAt },
+    });
+    expect.soft(after && ymd(String(after.lmp)), 'A-030d: "replace" writes the onboarding lmp (today−31w)').toBe(lmpWeek(32));
+    expect.soft(after?.firstName, 'A-030d: "replace" writes the onboarding name').toBe('Nouvelle');
+    expect.soft(consent?.version, 'A-030d: the step-4 consent is recorded on the replaced profile').toBeTruthy();
+    expect.soft(consent?.at, 'A-030d: the consent record is the one given on step 4, not the seeded one').not.toBe(seededConsent?.at);
+    expect.soft(after?.createdAt, 'A-030d: the replaced profile keeps its createdAt').toBe(seeded.createdAt);
+    r.dispose();
+  });
+
   // ─── Onboarding skip → anonymous guest (14) ─────────────────────────────────
   test('A-fr onboarding step4 skip → guest with a real anonymous uid (14)', async ({ page }, testInfo) => {
     const r = rig(page, testInfo);
@@ -1051,12 +1098,50 @@ test.describe('Wave A — fr', () => {
     await expect.soft(fresh.getByText(/^Semaine (40|42)$/), '35 A-025: no off-by-one week label on Home').toHaveCount(0);
     r.note('35-fr-postterm-home', { lmp, server: await serverDoc(`userProfiles/${acct.uid}`) });
     await r.snap('35-fr-postterm-home-week41');
+    // A-025: the Calendar says the same week and opens on the week holding today.
+    await fresh.goto('/calendar', { waitUntil: 'load' });
+    await expect.soft(fresh.getByText('Semaine 41 de grossesse', { exact: true }).first(), '35 A-025: Calendar reads Semaine 41 de grossesse').toBeVisible({ timeout: 30_000 });
+    await expect.soft(fresh.getByText(/^Semaine (40|42) de grossesse$/), '35 A-025: no capped week on the Calendar').toHaveCount(0);
+    const today = todayStripLabelFr();
+    await expect.soft(fresh.getByRole('button', { name: today, exact: true }).first(), `35 A-025: today (${today}) is in the default week strip`).toBeVisible();
+    await r.snap('35-fr-postterm-calendar-week41');
     r.dispose();
     await fresh.context().close();
   });
 
   test('A-fr pre-consent profile → health-data consent sheet → Home (34, A-030a)', async ({ page, browser }, testInfo) => {
     await consentGate(page, browser, testInfo, 'fr');
+  });
+
+  // ─── A-030e: a legacy profile saved with no country ─────────────────────────
+  test('A-fr profile with no country → 112 international + "Indiquer mon pays" (36, A-030e)', async ({ browser }, testInfo) => {
+    const c = COPY.fr;
+    const email = newAccountEmail('A', 'fr-no-country');
+    const acct = await createAccount(email, E2E_PASSWORD);
+    await seedProfile(acct.uid, acct.idToken, { week: 32, firstName: 'SansPays', country: '' });
+    // A bare "fr" browser locale carries no region, so nothing stands in for the missing
+    // country: the call row must dial the 112 fallback, say so, and offer the fix.
+    const context = await browser.newContext({ baseURL: E2E_BASE_URL, ...waveUse('fr'), locale: 'fr' });
+    const page = await context.newPage();
+    await uiLogin(page, email, E2E_PASSWORD, 'fr');
+    const r = rig(page, testInfo);
+    await expect.soft(page.getByText(`${c.week} 32`, { exact: true }).first(), '36: Home loads for a profile with no country').toBeVisible({ timeout: 30_000 });
+    await expect.soft(page.getByTestId('health_consent_continue'), '36: no consent sheet (seeded with consent)').toHaveCount(0);
+    await r.snap('36-fr-no-country-home');
+    const number = await contractionEmergencyNumber(page);
+    expect.soft(number, '36: no country and no device region → 112').toBe('112');
+    await expect.soft(page.getByTestId('emergency_number_note'), '36: the 112 fallback is owned up to').toContainText(c.emergencyFallbackNote);
+    const setCountry = page.getByTestId('emergency_number_choose_country');
+    await expect.soft(setCountry, '36: a link to set the country').toBeVisible();
+    const overlap = await callRowOverlap(page);
+    expect.soft(overlap.overlapPx, `36: nothing runs under the call row (${overlap.culprit})`).toBeLessThanOrEqual(1);
+    r.note('36-fr-no-country', { number, overlap, server: await serverDoc(`userProfiles/${acct.uid}`) });
+    await r.snap('36-fr-no-country-contraction-112');
+    await setCountry.click();
+    await expect.soft(page, '36: the link opens the Profile, where the country is set').toHaveURL(/\/profile/, { timeout: 15_000 });
+    await r.snap('36-fr-no-country-set-country-profile');
+    r.dispose();
+    await context.close();
   });
 
   test('A-fr login: display, wrong pw, unknown user, rate limit, forgot pw, success (15-22)', async ({ page, browser }, testInfo) => {

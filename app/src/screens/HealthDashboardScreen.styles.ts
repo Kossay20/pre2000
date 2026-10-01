@@ -160,6 +160,16 @@ export const styles = StyleSheet.create({
         fontWeight: '600',
         color: theme.colors.text,
     },
+    historyValueColumn: {
+        flexShrink: 1,
+        alignItems: 'flex-start',
+    },
+    historyFlag: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: theme.colors.deepOrange900,
+        marginTop: 2,
+    },
     bpHistoryDate: {
         fontSize: 14,
         color: theme.colors.textMuted,

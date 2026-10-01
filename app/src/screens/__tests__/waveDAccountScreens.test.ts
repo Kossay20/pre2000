@@ -88,8 +88,9 @@ describe('D-017 / D-018 / D-019 / D-011 — deletion flow', () => {
     const modal = read('src/components/profile/ReauthDeleteModal.tsx');
 
     it('confirmations name what is erased and where to export first', () => {
-        expect(hook).toMatch(/t\('profile\.deleteAccountMsg', copyParams\)/);
-        expect(hook).toMatch(/'profile\.resetConfirmMsgGuest' : 'profile\.resetConfirmMsg', copyParams/);
+        expect(hook).toMatch(/const message = t\(key, copyParams\);/);
+        expect(hook).toMatch(/confirmMessage\('profile\.deleteAccountMsg'\)/);
+        expect(hook).toMatch(/confirmMessage\(user\?\.isGuest \? 'profile\.resetConfirmMsgGuest' : 'profile\.resetConfirmMsg'\)/);
         expect(hook).toMatch(/exportLabel: t\('common\.privacyData\.export'\)/);
     });
 
@@ -126,8 +127,162 @@ describe('D-011 — a pending deletion is never opened as a normal account', () 
 
     it('login() leaves a pending deletion to the listener instead of installing the placeholder', () => {
         const login = auth.slice(auth.indexOf('const login = async'), auth.indexOf('const loginAsGuest = async'));
-        const check = login.indexOf('hasPendingDeletion(userCredential.user.uid)');
+        // D-031: with `db`, so the request recorded on the server is found on a phone that
+        // has no device marker.
+        const check = login.indexOf('pendingDeletionAtSignIn(userCredential.user.uid, db)');
         expect(check).toBeGreaterThan(-1);
         expect(check).toBeLessThan(login.indexOf('installSessionProfile('));
+    });
+});
+
+const LOCALES = ['fr', 'en', 'ar', 'tn'] as const;
+const locale = (lang: string, ns: string) => JSON.parse(read(`src/i18n/locales/${lang}/${ns}.json`));
+
+describe('D-034 — a deletion finished at sign-in does not leave the deleted login in the form', () => {
+    const auth = read('src/context/AuthContext.tsx');
+    const screen = read('src/screens/LoginScreen.tsx');
+
+    it("login() reports 'deletion-pending' instead of resolving like a normal sign-in", () => {
+        const login = auth.slice(auth.indexOf('const login = async'), auth.indexOf('const loginAsGuest = async'));
+        expect(login).toMatch(/pendingDeletionAtSignIn\([^)]*\)\)\) \{[\s\S]*?return 'deletion-pending' as const;/);
+        expect(login).toMatch(/return 'signed-in' as const;/);
+    });
+
+    it('the Login form is emptied on that outcome, and no login is recorded in analytics', () => {
+        const handler = screen.slice(screen.indexOf('const handleLogin = async'), screen.indexOf('const handleForgotPassword'));
+        const branch = handler.slice(handler.indexOf("if (outcome === 'deletion-pending')"), handler.indexOf("analyticsService.logEvent('login'"));
+        expect(branch).toMatch(/setEmail\(''\);/);
+        expect(branch).toMatch(/setPassword\(''\);/);
+        expect(branch).toMatch(/return;/);
+    });
+
+    it('the listener confirms "Compte supprimé" once the deletion is done', () => {
+        expect(auth).toMatch(/if \(resume === 'deleted'\) \{\s*showAlert\(i18n\.t\('profile\.deleteDoneTitle'\), i18n\.t\('profile\.deleteDoneMsg'\)\);/);
+    });
+});
+
+describe('D-020 — the erase shows that it is running', () => {
+    const hook = read('src/hooks/useAccountDeletion.tsx');
+    const modal = read('src/components/profile/ReauthDeleteModal.tsx');
+
+    it('a blocking overlay is rendered with the reauth modal, so every caller gets it', () => {
+        expect(hook).toMatch(/<DeletionProgressModal visible=\{busy && !reauthVisible\} \/>/);
+        for (const caller of ['ProfileScreen', 'SettingsScreen', 'HealthDataConsentScreen']) {
+            expect(read(`src/screens/${caller}.tsx`)).toMatch(/\{reauthModal\}/);
+        }
+    });
+
+    it('the overlay is a modal that cannot be dismissed, with a spinner and a localized, announced label', () => {
+        const overlay = modal.slice(modal.indexOf('export const DeletionProgressModal'), modal.indexOf('const styles = StyleSheet.create'));
+        expect(overlay).toMatch(/<Modal visible=\{visible\} transparent animationType="none" onRequestClose=\{\(\) => \{\}\}>/);
+        expect(overlay).toMatch(/<ActivityIndicator/);
+        expect(overlay).toMatch(/accessibilityLabel=\{t\('profile\.deleteInProgress'\)\}/);
+        expect(overlay).toMatch(/accessibilityState=\{\{ busy: true \}\}/);
+        expect(overlay).toMatch(/\{t\('profile\.deleteInProgress'\)\}<\/Text>/);
+    });
+
+    it('the password prompt says so too while it erases', () => {
+        expect(modal).toMatch(/\{loading && \(\s*<Text[^>]*>\s*\{t\('profile\.deleteInProgress'\)\}/);
+    });
+
+    it.each(LOCALES)('%s has the label', (lang) => {
+        expect(locale(lang, 'profile').deleteInProgress).toEqual(expect.stringMatching(/\S/));
+    });
+});
+
+describe('D-018 — a forgotten password does not block the deletion on any platform', () => {
+    const hook = read('src/hooks/useAccountDeletion.tsx');
+    const modal = read('src/components/profile/ReauthDeleteModal.tsx');
+
+    it('the iOS prompt offers "Mot de passe oublié ?" as a third button', () => {
+        const prompt = hook.slice(hook.indexOf('Alert.prompt('), hook.indexOf("'secure-text'"));
+        expect(prompt).toMatch(/text: t\('forgotPassword'\),\s*onPress: \(\) => \{\s*sendPasswordReset\(\);/);
+        // Her data is already erased: closing the prompt must not leave her in the empty account.
+        expect(prompt).toMatch(/sendPasswordReset\(\);\s*if \(afterErase\) leaveErasedAccount\(\);/);
+    });
+
+    it('the Android / web prompt has a show-password toggle, like Login', () => {
+        expect(modal).toMatch(/secureTextEntry=\{!showPassword\}/);
+        expect(modal).toMatch(/accessibilityLabel=\{showPassword \? t\('hidePassword'\) : t\('showPassword'\)\}/);
+    });
+});
+
+describe('D-030 / D-035 — declining the health-data consent', () => {
+    const screen = read('src/screens/HealthDataConsentScreen.tsx');
+    const hook = read('src/hooks/useAccountDeletion.tsx');
+    const decline = screen.slice(screen.indexOf("t('onboarding.healthConsent.declineTitle')"));
+
+    it('offers the export on the sheet itself, through the same service and warning as Settings', () => {
+        expect(screen).toMatch(/import \{ exportUserData \} from '\.\.\/services\/dataExportService';/);
+        expect(screen).toMatch(/t\('export\.warningTitle'\),\s*t\('export\.warningMessage'\),/);
+        expect(screen).toMatch(/await exportUserData\(user, profile, t\);/);
+        expect(decline).toMatch(/testID="health_consent_export"/);
+    });
+
+    it('lists export, then logout, then the erase — the erase no longer the outlined, dominant button', () => {
+        const order = ['health_consent_export', 'health_consent_logout', 'health_consent_erase'].map((id) => decline.indexOf(`testID="${id}"`));
+        expect(order.every((i) => i > -1)).toBe(true);
+        expect([...order].sort((a, b) => a - b)).toEqual(order);
+        const erase = decline.slice(decline.lastIndexOf('<Button', order[2]), order[2]);
+        expect(erase).toMatch(/variant="ghost"/);
+        expect(erase).toMatch(/styles\.eraseText/);
+        const exportButton = decline.slice(decline.lastIndexOf('<Button', order[0]), order[0]);
+        expect(exportButton).toMatch(/variant="outline"/);
+    });
+
+    it('the confirmations point at this screen, not at an unreachable Settings', () => {
+        expect(screen).toMatch(/useAccountDeletion\(\{ exportOnThisScreen: true \}\)/);
+        expect(hook).toMatch(/if \(!opts\?\.exportOnThisScreen\) return message;/);
+        expect(hook).toMatch(/message\.slice\(0, message\.lastIndexOf\('\\n\\n'\)\)\}\\n\\n\$\{t\('profile\.exportFirstHere', copyParams\)\}/);
+    });
+
+    // The hook swaps the LAST paragraph, so the export advice must be exactly that one.
+    it.each(LOCALES)('%s: the export advice is the last paragraph of each confirmation', (lang) => {
+        const profile = locale(lang, 'profile');
+        for (const key of ['deleteAccountMsg', 'resetConfirmMsgGuest', 'resetConfirmMsg']) {
+            const paragraphs: string[] = profile[key].split('\n\n');
+            expect(paragraphs.length).toBeGreaterThan(1);
+            expect(paragraphs[paragraphs.length - 1]).toContain('{{settings}}');
+            expect(paragraphs[paragraphs.length - 1]).toContain('{{exportLabel}}');
+            for (const p of paragraphs.slice(0, -1)) expect(p).not.toContain('{{settings}}');
+        }
+        expect(profile.exportFirstHere).toContain('{{exportLabel}}');
+        expect(profile.exportFirstHere).not.toContain('{{settings}}');
+    });
+
+    it('says under "Se déconnecter" that signing out erases nothing, and how to erase', () => {
+        const note = decline.indexOf("t('onboarding.healthConsent.logoutNote', { deleteLabel: eraseLabel })");
+        expect(note).toBeGreaterThan(decline.indexOf('testID="health_consent_logout"'));
+        expect(note).toBeLessThan(decline.indexOf('testID="health_consent_erase"'));
+    });
+
+    it.each(LOCALES)('%s has the logout note, naming the delete action', (lang) => {
+        expect(locale(lang, 'onboarding').healthConsent.logoutNote).toContain('{{deleteLabel}}');
+    });
+});
+
+describe('D-023 — the legal documents are tabs', () => {
+    const screen = read('src/screens/PrivacyPolicyScreen.tsx');
+
+    it('a tablist of tabs, each exposing whether it is the selected one', () => {
+        expect(screen).toMatch(/style=\{styles\.tabContainer\} accessibilityRole="tablist"/);
+        expect(screen).toMatch(/accessibilityRole="tab"\s*accessibilityState=\{\{ selected: activeTab === tab \}\}/);
+    });
+});
+
+describe('D-022 / D-028 / D-033 — small leaks', () => {
+    it('the French profile says DDR, not the English "LMP"', () => {
+        const fr = locale('fr', 'profile');
+        expect(JSON.stringify(fr)).not.toContain('LMP');
+        expect(fr.lmpLabel).toContain('DDR');
+        expect(fr.dpaSubtext).toContain('DDR');
+    });
+
+    it('no reminder that is not an injection carries a syringe', () => {
+        expect(read('src/data/REMINDERS_V2.json')).not.toContain('💉');
+    });
+
+    it('Home is the root URL on web, not /HomeMain', () => {
+        expect(read('App.tsx')).toMatch(/Home: \{\s*screens: \{[^}]*HomeMain: '',/);
     });
 });

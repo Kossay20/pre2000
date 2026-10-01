@@ -5,6 +5,7 @@ import { KeywordEngine, SYNONYMS } from './chatbot/engines/KeywordEngine';
 import { vectorEngine, VectorEngine } from './chatbot/engines/VectorEngine';
 import i18n from '../i18n';
 import { getLocalizedContent } from '../utils/i18nHelpers';
+import forbiddenFoods from '../data/forbidden_foods.json';
 
 const log = createLogger('chatbotService');
 
@@ -306,16 +307,80 @@ const ensureEngineInitialized = async () => {
 
 // Suggestion chips whose label REPORTS the very symptom of their linked red flag (bleeding →
 // antepartum haemorrhage, baby not moving, strong abdominal pain, violent headache, fever, vision
-// problems). Other chips keep a linked flag only as a related warning — "How to handle
-// postpartum?" links to suicidal ideation, "I feel bloated" to facial swelling — and must not
-// raise an alert block on a tap. Which chip escalates is a clinical call: change it with review.
-const CHIPS_REPORTING_LINKED_RED_FLAG = new Set(['cs06', 'cs07', 'cs08', 'cs09', 'cs13', 'cs14']);
+// problems, swollen face/hands/feet). Other chips keep a linked flag only as a related warning —
+// "How to handle postpartum?" links to suicidal ideation — and must not raise an alert block on a
+// tap. cs19 used to read "I feel bloated", which reports nothing; it now names the swelling of its
+// pre-eclampsia flag in every language, so it escalates like the others. Which chip escalates is a
+// clinical call: change it with review.
+const CHIPS_REPORTING_LINKED_RED_FLAG = new Set(['cs06', 'cs07', 'cs08', 'cs09', 'cs13', 'cs14', 'cs19']);
 
 /** The suggestion whose label (in any language) is exactly the message, i.e. a tapped chip. */
 const findExactChip = (text: string, suggestions: ChatbotSuggestion[]): ChatbotSuggestion | undefined => {
     const typed = text.toLowerCase().trim();
     return suggestions.find(s =>
         [s.label_fr, s.label_ar, s.label_tn, s.label_en].some(l => !!l && l.toLowerCase() === typed));
+};
+
+// Words that carry no topic of their own. Once a negated symptom is removed from a message,
+// a remainder made only of these ("I am…", "I have…") is not a question to retrieve on.
+const SEMANTIC_FILLER_TOKENS = new Set([
+    'am', 'is', 'are', 'was', 'were', 'be', 'been', 'have', 'has', 'had', 'having',
+    'feel', 'feels', 'feeling', 'felt', 'get', 'got', 'do', 'does', 'did',
+    'the', 'and', 'but', 'my', 'any', 'what', 'which', 'this', 'that', 'with', 'for', 'you', 'your',
+    'ai', 'as', 'avons', 'avez', 'ont', 'eu', 'ressens', 'ressent', 'sens', 'sent', 'suis', 'est',
+    'les', 'des', 'une', 'mon', 'mes', 'que', 'qui', 'pour', 'avec', 'mais',
+    'لدي', 'عندي', 'أنا', 'انا', 'عندك',
+]);
+
+// "What foods to avoid?" — the chip, and the same question typed in fr / en / ar / tn.
+const FOODS_TO_AVOID_CHIP = 'cs05';
+const FOODS_TO_AVOID_LATIN = [
+    // "manger" / "eat" alone are left out on purpose: "que manger pour éviter les crampes" or
+    // "what can I eat to avoid nausea" ask for a remedy, not for the foods to avoid.
+    /(^|[^a-z])(aliments?|nourriture|plats?)(?![a-z]).*(^|[^a-z])(eviter|interdits?|deconseilles?|proscrits?)(?![a-z])/,
+    /(^|[^a-z])(eviter|interdits?|deconseilles?|proscrits?)(?![a-z]).*(^|[^a-z])(aliments?|nourriture|plats?)(?![a-z])/,
+    /(^|[^a-z])(eviter|interdit) de manger|ne (dois|doit|peux|peut) pas manger/,
+    /\bfoods?\b.*\b(avoid|forbidden|banned|unsafe|off-limits|not allowed)\b/,
+    /\b(avoid|forbidden|banned|unsafe|off-limits)\b.*\bfoods?\b/,
+    /\bavoid eating\b|\bshould(n't| not) eat\b/,
+];
+const FOODS_TO_AVOID_ARABIC = [
+    /(أطعمة|اطعمة|طعام|الأكل|الاكل|ماكلة).*(تجنب|ممنوع|محظور)/,
+    /(تجنب|ممنوع|محظور).*(أطعمة|اطعمة|طعام|الأكل|الاكل|ماكلة)/,
+    // Tunisian "ما ناكولش" / "ما ناكولهاش" — "what I must not eat".
+    /ما\s*ناكو?ل(ها)?ش/,
+];
+const isFoodsToAvoidQuestion = (text: string): boolean => {
+    const lower = text.toLowerCase();
+    // Accents are folded for the Latin patterns only: NFD would also split the hamza off
+    // Arabic letters (أ → ا + ٔ) and break the Arabic ones.
+    const latin = lower.normalize('NFD').replace(/[̀-ͯ]/g, '');
+    return FOODS_TO_AVOID_LATIN.some(re => re.test(latin)) || FOODS_TO_AVOID_ARABIC.some(re => re.test(lower));
+};
+
+const SEVERITY_RANK: Record<string, number> = { critical: 0, high: 1 };
+
+/**
+ * The foods the "Foods to avoid" screen marks as forbidden or to avoid, read from that
+ * screen's own data so the two can never disagree, plus a link to the full list (which
+ * also holds the foods to limit).
+ */
+const buildFoodsToAvoidResponse = async (suggestions: ChatbotSuggestion[]): Promise<ChatResponse> => {
+    const foods = (forbiddenFoods as { severity: string }[])
+        .filter(f => f.severity in SEVERITY_RANK)
+        .sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]);
+    const lines = foods.map(f => `• ${getLocalizedContent(f, 'name', i18n.language)}`);
+    const chip = suggestions.find(s => s.suggestion_id === FOODS_TO_AVOID_CHIP);
+    const articleIds = (chip?.linked_article_ids || '').split(',').map(id => id.trim()).filter(Boolean);
+    const allArticles = await getArticlesCached();
+    return {
+        type: 'suggestion',
+        message: `${i18n.t('common.chatResponse.foodsToAvoidIntro')}\n\n${lines.join('\n')}`,
+        articles: allArticles.filter(a => articleIds.includes(a.article_id)),
+        suggestions: chip ? [chip] : [],
+        screenLink: 'ForbiddenFoods',
+        matchScore: 100,
+    };
 };
 
 const buildRedFlagResponse = async (topFlag: RedFlag, matchScore: number): Promise<ChatResponse> => {
@@ -328,9 +393,11 @@ const buildRedFlagResponse = async (topFlag: RedFlag, matchScore: number): Promi
     // Build a more helpful red flag response
     let redFlagMessage = getLocalizedContent(topFlag, 'standard_message', i18n.language) || i18n.t('common.chatResponse.redFlagDefault');
 
-    // Add reassuring context based on severity
+    // Add context based on severity. An emergency message already says to go or call now, and
+    // the call button sits right under it: a closing "don't hesitate to contact your doctor…
+    // if needed" only softened that, so emergencies end on their own instruction.
     if (topFlag.severity?.toLowerCase() === 'emergency' || topFlag.severity?.toLowerCase() === 'critique') {
-        redFlagMessage = `🚨 ${redFlagMessage}\n\n${i18n.t('common.chatResponse.redFlagCritical')}`;
+        redFlagMessage = `🚨 ${redFlagMessage}`;
     } else if (topFlag.severity?.toLowerCase() === 'urgent_consult' || topFlag.severity?.toLowerCase() === 'élevé') {
         redFlagMessage = `⚠️ ${redFlagMessage}\n\n${i18n.t('common.chatResponse.redFlagHigh')}`;
     } else {
@@ -940,14 +1007,25 @@ export const _analyzeMessage = async (text: string): Promise<ChatResponse> => {
         return buildRedFlagResponse(matchedFlags[0].flag, matchedFlags[0].matchCount);
     }
 
+    // "What foods to avoid?" gets the foods themselves and a way to the full list. It used to
+    // fall through to the nutrition topic, whose reply ends "Here's what I know:" and then
+    // listed nothing. Asked only once no red flag fired, so a symptom in the same message
+    // still escalates first.
+    if (exactChip?.suggestion_id === FOODS_TO_AVOID_CHIP || isFoodsToAvoidQuestion(text)) {
+        return buildFoodsToAvoidResponse(suggestions);
+    }
+
     // 3. Check Suggestions (Topic-based)
     // BUG-03 FIX: removed !textIsArabic guard — Arabic users deserve suggestions too.
     // For Arabic-script input, we match directly on label_ar words instead of via positive[]
     const matchedSuggestions: { suggestion: ChatbotSuggestion; score: number; exact: boolean }[] = [];
 
-    // Extract raw Arabic tokens from input for direct AR label matching
+    // Extract raw Arabic tokens from input for direct AR label matching. A word the sentence
+    // negates is not something she asked about: "\u0644\u064A\u0633 \u0644\u062F\u064A \u0646\u0632\u064A\u0641" ("I have no bleeding") matched the
+    // bleeding chip on \u0646\u0632\u064A\u0641 and answered with the symptoms article.
+    const negatedWords = new Set(negative.map(w => w.toLowerCase()));
     const arabicTokens = textIsArabic
-        ? text.replace(/[^\u0600-\u06FF\s]/g, ' ').split(/\s+/).filter(w => w.length > 1)
+        ? text.replace(/[^\u0600-\u06FF\s]/g, ' ').split(/\s+/).filter(w => w.length > 1 && !negatedWords.has(w))
         : [];
 
     for (const suggestion of suggestions) {
@@ -1181,9 +1259,25 @@ export const _analyzeMessage = async (text: string): Promise<ChatResponse> => {
     }
 
     // 4. Semantic Search Fallback (using VectorEngine with CHUNKS)
-    if (vectorEngine.isReady()) {
+    // Retrieval never runs on a word the sentence negates: "I am not bleeding" came back with a
+    // breastfeeding article. The negated words and the negation itself are dropped from the
+    // query, and when nothing she actually asked about is left, there is nothing to retrieve.
+    let semanticQuery = text;
+    if (negative.length > 0) {
+        const negationCues = new Set(NEGATION_CUES);
+        semanticQuery = text
+            .split(/\s+/)
+            .filter(word => {
+                const bare = word.toLowerCase().replace(/[^\p{L}\p{N}']/gu, '');
+                return bare.length > 0 && !negatedWords.has(bare) && !negationCues.has(bare);
+            })
+            .join(' ');
+        const askedAbout = positive.filter(w => w.length >= 3 && !SEMANTIC_FILLER_TOKENS.has(w));
+        if (askedAbout.length === 0) semanticQuery = '';
+    }
+    if (semanticQuery && vectorEngine.isReady()) {
         log.info('🔎 Trying semantic search...');
-        const semanticResults = vectorEngine.search(text, 3);
+        const semanticResults = vectorEngine.search(semanticQuery, 3);
 
         if (semanticResults.length > 0 && semanticResults[0].score > 0.1) {
             log.info('✅ Semantic match found:', semanticResults[0]);

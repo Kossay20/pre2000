@@ -203,7 +203,18 @@ export const ProfileScreen = () => {
             t('profile.logoutConfirmMsg'),
             async () => {
                 try {
-                    await logout();
+                    // Kick sessions, contractions or the bag not yet sent (no signal) are
+                    // erased by the logout: she is told how many and may stay signed in.
+                    await logout({
+                        confirmUnsyncedLoss: (count) => new Promise<boolean>((resolve) => confirmAction(
+                            t('profile.logoutUnsyncedTitle'),
+                            t('profile.logoutUnsyncedMsg', { n: count }),
+                            () => resolve(true),
+                            () => resolve(false),
+                            t('common.cancel'),
+                            t('profile.logoutAnyway'),
+                        )),
+                    });
                 } catch (error) {
                     log.error('Logout error:', error);
                 }
@@ -267,7 +278,7 @@ export const ProfileScreen = () => {
                     <Text style={[styles.headerSubtitle, { fontWeight: 'bold' }]}>
                         {t('common.week')} {displayWeek || '—'}
                     </Text>
-                    <Text style={styles.headerSubtitle}>
+                    <Text style={styles.headerSubtitle} numberOfLines={1} ellipsizeMode="middle">
                         {/* GUEST-LABEL FIX: this read only the Firestore profile's `email`
                             field. A profile document written without that field — which is
                             what the guest-upgrade and cold-start bootstrap paths produce —

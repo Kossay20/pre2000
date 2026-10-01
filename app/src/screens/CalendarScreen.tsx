@@ -17,6 +17,9 @@ import {
     GeneratedEvent,
     groupEventsByDate,
     getWeekDates,
+    pregnancyWeekOfDate,
+    displayedCalendarWeek,
+    LAST_CALENDAR_WEEK,
     getLocalDateKey,
     countEventsInRange,
     distinctSuggestions,
@@ -24,6 +27,7 @@ import {
 } from '../services/calendarService';
 import { UserEvent, CombinedEvent } from '../types';
 import { theme } from '../theme';
+import { Ionicons } from '@expo/vector-icons';
 import { EventCard } from '../components/calendar/EventCard';
 import { WeeklyStrip } from '../components/calendar/WeeklyStrip';
 import { CalendarSkeleton } from '../components/calendar/CalendarSkeleton';
@@ -34,7 +38,6 @@ import { format, addDays, startOfWeek, addWeeks, subWeeks, isSameDay, subMonths,
 import { useTranslation } from 'react-i18next';
 import { useDateLocale } from '../hooks/useDateLocale';
 import { getLocalizedContent } from '../utils/i18nHelpers';
-import { calculateCurrentWeek } from '../utils/pregnancyCalculator';
 import { CalendarScreenNavigationProp } from '../types/navigation';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
 import { showAlert } from '../utils/alert';
@@ -52,7 +55,11 @@ export const CalendarScreen = () => {
     const dateLocale = useDateLocale();
 
     // State
-    const [currentWeek, setCurrentWeek] = useState(user?.currentWeek || 1);
+    // The pregnancy week the strip shows. It opens on the week holding TODAY (her local
+    // day), never on the profile's currentWeek: that is the content week, which stops at 40,
+    // so at 40+3 SA the strip showed a week in the past and today was off screen.
+    const [currentWeek, setCurrentWeek] = useState(() =>
+        user?.pregnancyStartDate ? pregnancyWeekOfDate(new Date(user.pregnancyStartDate)) : 1);
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [viewMode, setViewMode] = useState<ViewMode>('all');
     const [calendarView, setCalendarView] = useState<CalendarView>('week');
@@ -81,21 +88,11 @@ export const CalendarScreen = () => {
         }).start();
     }, []);
 
-    // Sync currentWeek with user profile when it changes
-    // Sync currentWeek with user profile when it changes
+    // A new LMP moves the strip back to the week holding today.
     useEffect(() => {
         if (user?.pregnancyStartDate) {
-            const today = new Date();
-            // FIX: Always default to TODAY on mount/update to prevent jumping back to start date
-            setSelectedDate(today);
-
-            // Calculate REAL current week based on Today
-            const realCurrentWeek = calculateCurrentWeek(new Date(user.pregnancyStartDate));
-
-            if (realCurrentWeek !== currentWeek) {
-                log.debug(`[CalendarScreen] 🔄 Auto-correcting week from ${currentWeek} to ${realCurrentWeek}`);
-                setCurrentWeek(realCurrentWeek);
-            }
+            setSelectedDate(new Date());
+            setCurrentWeek(pregnancyWeekOfDate(new Date(user.pregnancyStartDate)));
         }
     }, [user?.pregnancyStartDate]);
 
@@ -119,7 +116,7 @@ export const CalendarScreen = () => {
                 return;
             }
 
-            log.info(`Loading calendar data for user: ${effectiveUid ? 'found' : 'missing'} (week ${user?.currentWeek})`);
+            log.info(`Loading calendar data for user: ${effectiveUid ? 'found' : 'missing'}`);
 
             // Cycle 3 F202 : skip pregnancy templates pour TTC/Curious modes —
             // ces utilisatrices n'ont pas de RDV de grossesse (echo 12SA, etc.).
@@ -147,7 +144,7 @@ export const CalendarScreen = () => {
         } finally {
             setLoading(false);
         }
-    }, [user?.pregnancyStartDate, user?.uid, user?.isGuest, user?.currentWeek, user?.isTTC, user?.isCurious, t]);
+    }, [user?.pregnancyStartDate, user?.uid, user?.isGuest, user?.isTTC, user?.isCurious, t]);
 
     // Load initial data + reload when deps change
     useEffect(() => {
@@ -306,7 +303,8 @@ export const CalendarScreen = () => {
     }, [currentWeek, user?.pregnancyStartDate]);
 
     const handleNextWeek = useCallback(() => {
-        if (currentWeek < 40 && user?.pregnancyStartDate) {
+        // Past week 40 too: there are no suggestions there, but her own appointments are.
+        if (currentWeek < LAST_CALENDAR_WEEK && user?.pregnancyStartDate) {
             const newWeek = currentWeek + 1;
             setCurrentWeek(newWeek);
             const { start } = getWeekDates(new Date(user.pregnancyStartDate), newWeek);
@@ -321,13 +319,6 @@ export const CalendarScreen = () => {
     const handleNextMonth = useCallback(() => {
         setSelectedDate(prev => addMonths(prev, 1));
     }, []);
-
-    const handleToday = useCallback(() => {
-        if (user?.currentWeek) {
-            setCurrentWeek(user.currentWeek);
-            setSelectedDate(new Date());
-        }
-    }, [user?.currentWeek]);
 
     const handleEditEvent = useCallback((item: CombinedEvent) => {
         if (item.source === 'user') {
@@ -395,15 +386,15 @@ export const CalendarScreen = () => {
     // so the calendar nav chevrons did not mirror in Arabic/Tunisian on web).
     const isRTL = i18n.language === 'ar' || i18n.language === 'tn';
     const monthLabel = format(selectedDate, 'MMMM yyyy', { locale: dateLocale });
-    const weekLabel = t('calendar.weekOfPregnancy', { week: currentWeek });
+    const weekLabel = t('calendar.weekOfPregnancy', { week: displayedCalendarWeek(currentWeek) });
 
     const handlePressToday = useCallback(() => {
         const today = new Date();
         setSelectedDate(today);
-        if (user?.currentWeek) {
-            setCurrentWeek(user.currentWeek);
+        if (user?.pregnancyStartDate) {
+            setCurrentWeek(pregnancyWeekOfDate(new Date(user.pregnancyStartDate), today));
         }
-    }, [user?.currentWeek]);
+    }, [user?.pregnancyStartDate]);
 
     const handleSelectWeekView = useCallback(() => setCalendarView('week'), []);
     const handleSelectMonthView = useCallback(() => setCalendarView('month'), []);
@@ -416,7 +407,7 @@ export const CalendarScreen = () => {
     if (error) {
         return (
             <View style={styles.centerContainer}>
-                <Text style={{ fontSize: 48, marginBottom: 16 }}>📅</Text>
+                <Ionicons name="calendar-outline" size={48} color={theme.colors.textMuted} style={styles.emptyIcon} />
                 <Text style={styles.loadingText}>{error}</Text>
                 <TouchableOpacity
                     style={{ marginTop: 16, padding: 14, backgroundColor: theme.colors.accent, borderRadius: theme.borderRadius.m }}
@@ -568,7 +559,9 @@ export const CalendarScreen = () => {
                     contentContainerStyle={styles.listContent}
                     ListEmptyComponent={
                         <View style={styles.emptyState}>
-                            <Text style={styles.emptyEmoji}>📅</Text>
+                            {/* A drawn calendar, not the 📅 emoji: that glyph has a date printed
+                                on it ("JUL 17" on Apple), under an October header. */}
+                            <Ionicons name="calendar-outline" size={48} color={theme.colors.textMuted} style={styles.emptyIcon} />
                             <Text style={styles.emptyStateText}>{t('calendar.noEventsForDay')}</Text>
                             <Text style={styles.emptyStateSubtext}>{t('calendar.enjoyRest')}</Text>
                         </View>

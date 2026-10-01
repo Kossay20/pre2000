@@ -48,12 +48,17 @@ export const PrivacyPolicyScreen = () => {
             </View>
 
             {/* Tabs */}
-            <View style={styles.tabContainer}>
+            {/* A tab list with a selected tab, not three unlabelled buttons: a screen reader
+                otherwise could not tell which document was open. */}
+            <View style={styles.tabContainer} accessibilityRole="tablist">
                 {(['privacy', 'terms', 'cookies'] as const).map((tab) => (
                     <TouchableOpacity
                         key={tab}
                         style={[styles.tabButton, activeTab === tab && styles.tabButtonActive]}
                         onPress={() => setActiveTab(tab)}
+                        accessibilityRole="tab"
+                        accessibilityState={{ selected: activeTab === tab }}
+                        testID={`legal_tab_${tab}`}
                     >
                         <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
                             {t(`legalTerms.tab${tab.charAt(0).toUpperCase() + tab.slice(1)}`)}

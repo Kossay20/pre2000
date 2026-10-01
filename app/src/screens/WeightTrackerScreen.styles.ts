@@ -688,6 +688,9 @@ export const styles = StyleSheet.create({
         paddingHorizontal: 12,
         paddingVertical: 6,
         gap: 4,
+        // A chip is as wide as its text; a long tip ran past the card's right edge. Capped
+        // to the row, the text (flexShrink) wraps onto a second line instead.
+        maxWidth: '100%',
     },
     suggestionIcon: {
         fontSize: 16,

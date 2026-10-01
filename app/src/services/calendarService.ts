@@ -1,5 +1,4 @@
 import { theme } from '../theme';
-import { differenceInCalendarDays } from 'date-fns';
 /**
  * @fileoverview Calendar Service
  * Handles all calendar-related operations including:
@@ -15,8 +14,8 @@ import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { FIRESTORE_GUEST_TIMEOUT_MS, withTimeout } from '../utils/withTimeout';
 import { createLogger } from '../utils/logger';
-import { toLocalDateKey } from '../utils/localDate';
-import { calculateCurrentWeek } from '../utils/pregnancyCalculator';
+import { daysBetweenDateKeys, parseLocalDateKey, storedDateKey, toLocalDateKey } from '../utils/localDate';
+import { displayedPregnancyAge, MAX_GESTATION_DAYS } from '../utils/pregnancyCalculator';
 import { cancelRDVReminders } from './rdvNotificationService';
 import { CalendarTemplate } from '../types';
 import { rawTemplateImportance } from '../utils/calendarTemplateTags';
@@ -77,6 +76,20 @@ const getPriorityColor = (importance: string): string => {
     return PRIORITY_COLORS[key] || PRIORITY_COLORS['information'];
 };
 
+/**
+ * Local midnight of the LMP's calendar day plus `days` calendar days.
+ *
+ * Every pregnancy-week date in the calendar is counted from the LMP's CALENDAR day, the
+ * way calculatePregnancyWeek counts her week and day. A typed or seeded LMP is stored as
+ * UTC midnight, which is the evening before west of UTC; adding days to that instant in
+ * local time started "Semaine 32" on Tuesday in New York while Home called Wednesday
+ * day 1 of week 32. Building the date from its parts also keeps DST out of it.
+ */
+const lmpDayPlus = (lmpDate: Date, days: number, hours = 0, minutes = 0, seconds = 0, ms = 0): Date => {
+    const lmpDay = parseLocalDateKey(storedDateKey(new Date(lmpDate))) ?? new Date(NaN);
+    return new Date(lmpDay.getFullYear(), lmpDay.getMonth(), lmpDay.getDate() + days, hours, minutes, seconds, ms);
+};
+
 const calculateEventDate = (
     lmpDate: Date,
     targetWeek: number,
@@ -86,8 +99,7 @@ const calculateEventDate = (
     const dayOffset = recommendedDay - 1;
     const totalDays = weeksOffset + dayOffset;
 
-    const eventDate = new Date(lmpDate);
-    eventDate.setDate(lmpDate.getDate() + totalDays);
+    const eventDate = lmpDayPlus(lmpDate, totalDays);
 
     // NEW: If the generated event falls on a Sunday (0), push it to Monday (add 1 day)
     // Medical appointments and standard recommendations shouldn't happen on Sundays.
@@ -187,28 +199,50 @@ export const loadCalendarTemplates = async (): Promise<CalendarTemplate[]> => {
     }
 };
 
+/**
+ * Pregnancy week `weekNumber` as the calendar shows it: from local midnight of LMP day
+ * + 7·(n−1) to the last millisecond of LMP day + 7·(n−1) + 6 — the seven days Home counts
+ * as days 1..7 of that week.
+ */
 export const getWeekDates = (lmpDate: Date, weekNumber: number): { start: Date; end: Date } => {
-    const weekStart = new Date(lmpDate);
-    weekStart.setDate(lmpDate.getDate() + (weekNumber - 1) * 7);
-    // FIX: Set to start of day (00:00:00) to include events at any time
-    weekStart.setHours(0, 0, 0, 0);
-
-    const weekEnd = new Date(weekStart);
-    weekEnd.setDate(weekStart.getDate() + 6);
-    // FIX: Set to end of day (23:59:59) to include events at any time on the last day
-    weekEnd.setHours(23, 59, 59, 999);
-
-    return { start: weekStart, end: weekEnd };
+    const offset = (weekNumber - 1) * 7;
+    return {
+        start: lmpDayPlus(lmpDate, offset),
+        end: lmpDayPlus(lmpDate, offset + 6, 23, 59, 59, 999),
+    };
 };
 
 /**
- * "This week" wherever the app counts appointments in it: the pregnancy week in progress,
- * with the local-midnight boundaries the Calendar strip shows. Home's "N rendez-vous prévus
- * cette semaine" used the Sunday–Saturday week of a list capped at 3, so with four
- * appointments it said 3 while the Calendar said 4.
+ * The pregnancy week (1-based, LMP-aligned) whose seven days contain `date`'s local day.
+ * Not capped at the 40 weeks the content covers: at 40+3 SA today is in week 41, and the
+ * calendar has to show that week or today and this week's appointments are off screen.
+ * A date before the LMP is week 1.
+ */
+export const pregnancyWeekOfDate = (lmpDate: Date, date: Date = new Date()): number => {
+    const days = daysBetweenDateKeys(storedDateKey(new Date(lmpDate)), toLocalDateKey(date));
+    return Number.isFinite(days) && days > 0 ? Math.floor(days / 7) + 1 : 1;
+};
+
+/** The last week the calendar pages forward to: the one holding 42+0 SA, the last plausible day. */
+export const LAST_CALENDAR_WEEK = Math.floor(MAX_GESTATION_DAYS / 7) + 1;
+
+/**
+ * The week number the calendar prints for pregnancy week `weekNumber`, through the same
+ * displayedPregnancyAge as Home, Reminders and Profile, so the header cannot disagree
+ * with them ("Semaine 41" at 40+3 SA, not the content week 40).
+ */
+export const displayedCalendarWeek = (weekNumber: number): number =>
+    displayedPregnancyAge(Math.max(0, weekNumber - 1), 0).week;
+
+/**
+ * "This week" wherever the app counts appointments in it: the pregnancy week holding
+ * today, with the local-midnight boundaries the Calendar strip shows. Home's "N rendez-vous
+ * prévus cette semaine" used the Sunday–Saturday week of a list capped at 3, so with four
+ * appointments it said 3 while the Calendar said 4. It also used the content week, which
+ * stops at 40, so past the due date "this week" was a week in the past.
  */
 export const getCurrentPregnancyWeekRange = (lmpDate: Date): { start: Date; end: Date } =>
-    getWeekDates(lmpDate, calculateCurrentWeek(lmpDate));
+    getWeekDates(lmpDate, pregnancyWeekOfDate(lmpDate));
 
 /** How many events fall inside `range` (both ends inclusive). */
 export const countEventsInRange = (
@@ -254,14 +288,11 @@ export const getUpcomingAppointments = async (userId: string, limitCount: number
 /**
  * Calculate which week a given date falls into based on LMP
  */
-export const calculateWeekFromDate = (lmpDate: Date, eventDate: Date): number => {
-    // W3 #3: calendar-day diff is DST-safe. The previous raw (getTime diff)/86400000 floor drifted
-    // ±1 day across a spring-forward/fall-back boundary, so a persisted event.week could land one
-    // week off from the canonical calculatePregnancyWeek (which normalizes via UTC).
-    const diffDays = differenceInCalendarDays(eventDate, lmpDate);
-    const weeks = Math.floor(diffDays / 7) + 1;
-    return Math.max(1, Math.min(40, weeks));
-};
+export const calculateWeekFromDate = (lmpDate: Date, eventDate: Date): number =>
+    // Calendar days from the LMP's calendar day, like the strip and calculatePregnancyWeek
+    // (DST-safe, and a UTC-midnight LMP is not read as the evening before west of UTC). The
+    // stored event week is the content week, 1..40; the calendar finds events by date.
+    Math.min(40, pregnancyWeekOfDate(lmpDate, eventDate));
 
 /**
  * Load all user events for a specific user

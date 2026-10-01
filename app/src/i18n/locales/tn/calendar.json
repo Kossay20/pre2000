@@ -12,11 +12,11 @@
     "myAppointments": "المواعيد متاعي",
     "noEventsForDay": "ما فما شيء اليوم",
     "enjoyRest": "رتحي روحك! 💆‍♀️",
-    "addAppointment": "+ زيد موعد",
+    "addAppointment": "+ زيدي موعد",
     "guestModeTitle": "وضع الضيف",
-    "guestModeMessage": "لازم تعمل كونت بش تنجم تقيد مواعيدك.",
+    "guestModeMessage": "لازمك تعملي كونت باش تنجمي تقيّدي مواعيدك.",
     "deleteEventTitle": "فسخ الموعد",
-    "deleteEventMessage": "متأكدة تحب تفسخ هذا؟",
+    "deleteEventMessage": "متأكدة تحبّي تفسخي هذا؟",
     "cancel": "بطل",
     "delete": "فسخ",
     "error": "غلطة",
@@ -45,6 +45,6 @@
     "importance": {
         "essential": "ضروري",
         "recommended": "منصوح بيه",
-        "optional": "كيف تحب"
+        "optional": "كيف تحبّي"
     }
 }

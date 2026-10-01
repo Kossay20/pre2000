@@ -170,7 +170,7 @@ export const WeekRecommendationsScreen = () => {
                                 <View style={styles.content}>
                                     <Text style={[theme.typography.h3, styles.title] as any}>{getLocalizedContent(article, 'title', i18n.language)}</Text>
                                     <Text numberOfLines={2} style={[theme.typography.body, styles.summary]}>
-                                        {getLocalizedContent(article, 'summary', i18n.language) || t('common.seeMore')}
+                                        {getLocalizedContent(article, 'summary', i18n.language, { stripMarkdown: true }) || t('common.seeMore')}
                                     </Text>
                                 </View>
                             </Card>
