@@ -97,6 +97,8 @@ export const PrivacyPolicyScreen = () => {
                                     <Text style={styles.bulletItem}>• {t('privacy.usage.item2')}</Text>
                                     <Text style={styles.bulletItem}>• {t('privacy.usage.item3')}</Text>
                                 </View>
+                                {/* The consent asked on onboarding's last step (HealthDataConsentCheck). */}
+                                <Text style={styles.paragraph}>{t('privacy.usage.consent')}</Text>
                                 <Text style={[styles.paragraph, styles.highlightText]}>
                                     {t('privacy.usage.disclaimer')}
                                 </Text>

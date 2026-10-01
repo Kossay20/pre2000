@@ -3,7 +3,7 @@ import { createLogger } from '../../utils/logger';
 import { getShadowStyle } from '../../utils/styleUtils';
 const log = createLogger('TaskCard');
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
 import { usePregnancy } from '../../context/PregnancyContext';
 import { useTranslation } from 'react-i18next';
@@ -79,6 +79,9 @@ export const TaskCard: React.FC<TaskCardProps> = React.memo(({ task }) => {
             onPress={handleToggle}
             accessibilityRole="checkbox"
             accessibilityState={{ checked: completed }}
+            // react-native-web does not map accessibilityState.checked to aria-checked, so
+            // a screen reader heard every weekly task as an unchecked checkbox.
+            {...(Platform.OS === 'web' ? { 'aria-checked': completed } : {})}
             accessibilityLabel={getLocalizedContent(task, 'label', i18n.language) || t('tasks.suggestedTask')}
         >
             <View style={[styles.taskCheckbox, completed && styles.taskCheckboxCheckedContainer]}>

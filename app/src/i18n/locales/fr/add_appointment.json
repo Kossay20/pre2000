@@ -52,5 +52,8 @@
   "appointment_created": "Rendez-vous créé avec succès !",
   "guestBannerTitle": "Mode invité",
   "guestBannerMsg": "Vous pouvez remplir ce formulaire, mais l’enregistrement demande un compte. Vos infos seront conservées le temps de le créer.",
-  "draftRestored": "Votre rendez-vous a été restauré ✨"
+  "draftRestored": "Votre rendez-vous a été restauré ✨",
+  "notFoundTitle": "Rendez-vous introuvable",
+  "notFoundMsg": "Il a peut-être été supprimé, ou la connexion a été perdue.",
+  "backToCalendar": "Retour au calendrier"
 }

@@ -32,5 +32,7 @@
     },
     "noAppointments": "No appointments this week",
     "appointmentsThisWeek": "{{count}} appts this week",
-    "myAppointment": "My Appt"
+    "myAppointment": "My Appt",
+    "noSuggestionsWeek": "No suggestions to show for this week.",
+    "noSuggestionsMonth": "No suggestions to show for this month."
 }

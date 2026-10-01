@@ -10,6 +10,7 @@ import { useAuth } from '../../context/AuthContext';
 import { usePregnancy } from '../../context/PregnancyContext';
 import { generateDailyChecklist, loadDailyProgress } from '../../services/dailyChecklistService';
 import { getUserTasks } from '../../services/taskService';
+import { countEventsInRange, getCurrentPregnancyWeekRange } from '../../services/calendarService';
 import { isToday, isTomorrow, isThisWeek, format } from 'date-fns';
 import { RtlAwareChevron } from '../common/RtlAwareChevron';
 
@@ -23,7 +24,7 @@ export const DailyRoutinesTracker: React.FC<UnifiedDaySummaryProps> = ({
     const { t } = useTranslation();
     const navigation = useNavigation();
     const { user } = useAuth();
-    const { pregnancyInfo } = usePregnancy();
+    const { pregnancyInfo, profile } = usePregnancy();
 
     const [totalItems, setTotalItems] = useState(0);
     const [completedItems, setCompletedItems] = useState(0);
@@ -127,7 +128,15 @@ export const DailyRoutinesTracker: React.FC<UnifiedDaySummaryProps> = ({
     today.setHours(0, 0, 0, 0); // start of day
 
     const upcomingAppointments = appointments.filter(app => new Date(app.date) >= today);
-    const thisWeekAppointments = upcomingAppointments.filter(app => isThisWeek(new Date(app.date)));
+    // "Cette semaine" is the pregnancy week the Calendar shows and counts (same range, same
+    // counter), so the two numbers cannot disagree. `appointments` must be the uncapped
+    // upcoming list — HomeScreen used to pass the 3 it displays. Without a pregnancy date
+    // (TTC / curious) it falls back to the calendar week.
+    const lmp = user?.pregnancyStartDate || profile?.lmp;
+    const lmpDate = lmp ? new Date(lmp) : null;
+    const thisWeekCount = lmpDate && !isNaN(lmpDate.getTime())
+        ? countEventsInRange(upcomingAppointments, getCurrentPregnancyWeekRange(lmpDate))
+        : upcomingAppointments.filter(app => isThisWeek(new Date(app.date))).length;
 
     let appointmentMessage = null;
     let appointmentPriority: 'high' | 'medium' | 'low' = 'low';
@@ -139,8 +148,8 @@ export const DailyRoutinesTracker: React.FC<UnifiedDaySummaryProps> = ({
     } else if (tomorrowAppointments.length > 0) {
         appointmentMessage = t('home.reminders.appointmentsTomorrow', { count: tomorrowAppointments.length });
         appointmentPriority = 'medium';
-    } else if (thisWeekAppointments.length > 0) {
-        appointmentMessage = t('home.reminders.appointmentsWeek', { count: thisWeekAppointments.length });
+    } else if (thisWeekCount > 0) {
+        appointmentMessage = t('home.reminders.appointmentsWeek', { count: thisWeekCount });
         appointmentPriority = 'low';
     }
 

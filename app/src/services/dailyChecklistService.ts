@@ -10,8 +10,9 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { format } from 'date-fns';
-import { DailyChecklistItem, UserEvent } from '../types';
+import { DailyChecklistItem, UserEvent, UserTask } from '../types';
 import { createLogger } from '../utils/logger';
+import { isOnLocalDay, toLocalDateKey } from '../utils/localDate';
 import {
     getRemindersForTasksTab,
     loadUserSettings,
@@ -46,13 +47,12 @@ export const generateDailyChecklist = async (
     log.info('Generating daily checklist', { pregnancyWeek, userId: userId || 'guest' });
 
     const items: DailyChecklistItem[] = [];
-    const today = new Date();
-    const todayStr = format(today, 'yyyy-MM-dd');
+    const todayStr = toLocalDateKey();
 
-    // 1. Appointments for today
-    const todayAppointments = userEvents.filter(event =>
-        event.date.startsWith(todayStr)
-    );
+    // 1. Appointments for today. event.date is a UTC ISO instant: comparing its first ten
+    // characters with the local day dropped an appointment whose UTC day differs (an
+    // evening one in New York, a morning one east of UTC+12).
+    const todayAppointments = userEvents.filter(event => isOnLocalDay(event.date, todayStr));
 
     log.debug(`Found ${todayAppointments.length} appointments for today`);
 
@@ -283,10 +283,38 @@ export const cleanupOldProgress = async () => {
 };
 
 /**
+ * Per local day, the user's own tasks as [done, total] for the statistics: a one-off task
+ * counts on the day it was completed, a recurring one on each day in completed_dates, and
+ * today also carries the one-off tasks still open (they are on today's list).
+ */
+export const taskStatsByDay = (tasks: UserTask[], todayStr: string = toLocalDateKey()): Record<string, [number, number]> => {
+    const byDay: Record<string, [number, number]> = {};
+    const add = (day: string, done: boolean) => {
+        const entry = byDay[day] ?? (byDay[day] = [0, 0]);
+        if (done) entry[0] += 1;
+        entry[1] += 1;
+    };
+    for (const task of tasks) {
+        if (task.recurrence) {
+            for (const day of task.completed_dates ?? []) add(day, true);
+        } else if (task.completed) {
+            const at = task.completed_at ? new Date(task.completed_at as any) : null;
+            add(at && !isNaN(at.getTime()) ? toLocalDateKey(at) : todayStr, true);
+        } else {
+            add(todayStr, false);
+        }
+    }
+    return byDay;
+};
+
+/**
  * Get historical data for statistics
  * @param days Number of days to look back (default 30)
+ * @param tasks The user's own tasks (server-backed). The checklist progress kept on the
+ *   device only covers reminders and appointments, so completing a task still showed
+ *   "Pas encore de données" — and a fresh install showed nothing at all.
  */
-export const getHistoricalData = async (days: number = 30) => {
+export const getHistoricalData = async (days: number = 30, tasks: UserTask[] = []) => {
     try {
         const keys = await AsyncStorage.getAllKeys();
         const checklistKeys = keys.filter(k => k.startsWith(DAILY_CHECKLIST_KEY_PREFIX)).sort();
@@ -322,20 +350,28 @@ export const getHistoricalData = async (days: number = 30) => {
             log.error('Error loading real water intake for stats:', waterErr);
         }
 
+        const checklistByDay: Record<string, any[]> = {};
         for (const key of relevantKeys) {
-            const dateStr = key.replace(DAILY_CHECKLIST_KEY_PREFIX, '');
             const dataStr = await AsyncStorage.getItem(key);
-            if (!dataStr) continue;
+            if (dataStr) checklistByDay[key.replace(DAILY_CHECKLIST_KEY_PREFIX, '')] = JSON.parse(dataStr);
+        }
+        const tasksByDay = taskStatsByDay(tasks, todayStr);
+        const allDays = new Set([
+            ...Object.keys(checklistByDay),
+            ...Object.keys(tasksByDay).filter((day) => day >= cutoffStr && day <= todayStr),
+        ]);
 
-            const items = JSON.parse(dataStr);
+        for (const dateStr of [...allDays].sort()) {
+            const items = checklistByDay[dateStr] ?? [];
+            const [tasksDone, tasksTotal] = tasksByDay[dateStr] ?? [0, 0];
 
             // Calculate daily stats
             // F-HS-03 FIX: exclude SKIPPED tasks from both numerator and denominator.
             // The Tasks UI hides skipped items, so counting them in the denominator
             // under-reported the completion rate (a skipped task is not a missed task).
             const active = items.filter((i: any) => !i.skipped);
-            const total = active.length;
-            const completed = active.filter((i: any) => i.completed).length;
+            const total = active.length + tasksTotal;
+            const completed = active.filter((i: any) => i.completed).length + tasksDone;
             const rate = total > 0 ? (completed / total) * 100 : 0;
 
             // F-HS-02-REGR: REAL water (liters) from hydrationService for today only.

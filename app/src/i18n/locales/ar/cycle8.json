@@ -1,4 +1,5 @@
 {
+  "localOnlyNote": "يبقى هذا السجل على هذا الهاتف فقط إلى أن تنشئي حساباً.",
   "kickCounter": {
     "title": "عداد ركلات الجنين",
     "subtitle": "احسبي حركات جنينك على مدى ساعة.",
@@ -9,6 +10,10 @@
     "startSession": "بدء جلسة",
     "endSession": "إنهاء الجلسة",
     "cancelSession": "إلغاء",
+    "cancelConfirmTitle": "إلغاء هذه الجلسة؟",
+    "cancelConfirmMsg": "لن تُحفظ الحركات التي عددتِها في هذه الجلسة.",
+    "keepCounting": "مواصلة العدّ",
+    "discardSession": "إلغاء الجلسة",
     "noSessionYet": "لا توجد جلسة بعد",
     "noSessionSub": "ابدئي بعد حركات جنينك.",
     "history": "السجل",

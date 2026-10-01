@@ -37,11 +37,12 @@ import { getUpcomingAppointments } from '../services/calendarService';
 import { getTipForDay } from '../services/tipsService'; // ANTIGRAVITY
 import { getMessageForDay } from '../services/babyMessageService'; // BABY MESSAGES
 import { Article, Supplement, UserEvent, Tip, BabyMessage } from '../types';
-import { format, addDays, differenceInCalendarDays } from 'date-fns';
+import { format, differenceInCalendarDays } from 'date-fns';
 import { useTranslation } from 'react-i18next';
 import { getLocalizedContent } from '../utils/i18nHelpers';
 import { fetalLengthLabelKey, formatFetalComparison, formatFetalLength, formatFetalWeight, getFetalGrowth } from '../utils/fetalGrowth';
 import { trimesterFromWeek } from '../utils/pregnancyCalculator';
+import { quickAddDateKey } from '../utils/appointmentDate';
 import { formatGestationalAge } from '../utils/gestationalAge';
 import { getReducedMotionSync } from '../hooks/usePrefersReducedMotion';
 import { useRtl } from '../hooks/useRtl';
@@ -200,8 +201,9 @@ export const HomeScreen = () => {
         useCallback(() => {
             const fetchAppointmentsAndTasks = async () => {
                 if (user?.uid) {
+                    // Uncapped: the list below shows 3, but the "this week" pill counts them all.
                     const [apps, userTasks] = await Promise.all([
-                        getUpcomingAppointments(user.uid),
+                        getUpcomingAppointments(user.uid, Number.POSITIVE_INFINITY),
                         getUserTasks(user.uid),
                     ]);
                     setAppointments(apps);
@@ -591,15 +593,13 @@ export const HomeScreen = () => {
                             </TouchableOpacity>
                             <TouchableOpacity
                                 onPress={() => {
-                                    let targetDate = new Date();
-                                    if (profile?.lmp && currentWeekNumber) {
-                                        const dayOffset = (overrideDay || currentDay || 1) - 1;
-                                        const weekOffset = (currentWeekNumber - 1) * 7;
-                                        targetDate = addDays(new Date(profile.lmp), weekOffset + dayOffset);
-                                    }
+                                    // `initial: false` keeps CalendarMain under the form: with the
+                                    // form as the stack's only route, Save's goBack() left the
+                                    // Calendar tab stuck on a stale "Nouveau Rendez-vous" form.
                                     navigation.navigate('Calendrier', {
                                         screen: 'AddAppointment',
-                                        params: { selectedDate: targetDate.toISOString() }
+                                        params: { selectedDate: quickAddDateKey(currentWeekNumber, pregnancyInfo?.week) },
+                                        initial: false,
                                     });
                                 }}
                                 activeOpacity={0.85}

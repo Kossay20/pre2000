@@ -209,6 +209,8 @@ const GUEST_PROFILE = {
   ageRange: '25-29',
   isFirstPregnancy: true,
   isGuest: true,
+  // Recorded by onboarding's last step; without it the app opens on the consent sheet.
+  healthDataConsent: { version: '2026-09-30', at: '2026-09-30T08:00:00.000Z' },
 };
 
 /** A due date that puts the fixture profile in a visually rich mid-pregnancy week. */

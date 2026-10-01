@@ -72,6 +72,8 @@ import {
     deleteWeightEntry,
     getLatestWeight,
     hasWeightThisWeek,
+    getAllWeightEntries,
+    saveWeightSetup,
     WeightEntry,
 } from '../weightService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -469,6 +471,51 @@ describe('deleteWeightEntry', () => {
 });
 
 // ==========================================================================
+// getAllWeightEntries — one weight history for the tracker and the dashboard
+// ==========================================================================
+
+describe('getAllWeightEntries', () => {
+    const snapshotFor = (name: string) =>
+        name === 'weight_entries'
+            ? makeSnapshot([
+                { id: 'w1', user_id: 'u1', weight: 68.4, date: '2026-09-30T10:00:00.000Z', week_of_pregnancy: 32 },
+            ])
+            : ({
+                docs: [
+                    { id: 'h1', data: () => ({ user_id: 'u1', type: 'weight', value: 69, date: '2026-09-30T12:00:00.000Z', week: 32 }) },
+                    { id: 'h2', data: () => ({ user_id: 'u1', type: 'weight', value: 'corrupt', date: '2026-09-29T12:00:00.000Z' }) },
+                ],
+            });
+
+    it('includes the weighings logged from the Health dashboard, newest first', async () => {
+        // A weight entered on Health (healthMetrics) never reached "Mon Poids", so the two
+        // screens disagreed on her latest weight.
+        mockGetDocs.mockImplementation(((q: any) => Promise.resolve(snapshotFor(q.__query[0].__collection))) as never);
+        const all = await getAllWeightEntries('u1');
+        expect(all.map((e) => [e.id, e.weight, e.source])).toEqual([
+            ['h1', 69, 'healthMetrics'],
+            ['w1', 68.4, 'weight_entries'],
+        ]);
+        expect(all[0].week_of_pregnancy).toBe(32);
+        mockGetDocs.mockReset();
+    });
+
+    it('a guest has only the device copy', async () => {
+        memStore['@weight_entries_guest_x'] = JSON.stringify([
+            { id: 'g1', user_id: 'guest_x', weight: 60, date: '2026-01-01T00:00:00.000Z', week_of_pregnancy: 5 },
+        ]);
+        expect((await getAllWeightEntries('guest_x')).map((e) => e.id)).toEqual(['g1']);
+        expect(mockGetDocs).not.toHaveBeenCalled();
+    });
+
+    it('deletes a dashboard weighing from its own collection', async () => {
+        mockDeleteDoc.mockResolvedValueOnce(undefined as never);
+        await deleteWeightEntry('u1', 'h1', 'healthMetrics');
+        expect(doc).toHaveBeenCalledWith({}, 'healthMetrics', 'h1');
+    });
+});
+
+// ==========================================================================
 // getLatestWeight
 // ==========================================================================
 
@@ -515,5 +562,75 @@ describe('hasWeightThisWeek', () => {
         ]);
         const has = await hasWeightThisWeek('guest_old');
         expect(has).toBe(false);
+    });
+});
+
+// ==========================================================================
+// saveWeightSetup — the setup must reach where the profile lives
+// ==========================================================================
+
+describe('saveWeightSetup', () => {
+    const contacts = [{ id: 'c1', name: 'Sami', phone: '+216 20 000 000' }];
+
+    it('signed in: writes height and pre-pregnancy weight to the account profile', async () => {
+        const updateAccountProfile = jest.fn().mockResolvedValue({ ok: true });
+        const setLocalProfile = jest.fn();
+        const result = await saveWeightSetup({
+            profile: { firstName: 'Amira', country: 'France' },
+            prePregnancyWeight: 60,
+            height: 165,
+            signedIn: true,
+            updateAccountProfile,
+            setLocalProfile,
+        });
+        expect(result).toEqual({ ok: true });
+        expect(updateAccountProfile).toHaveBeenCalledWith({ prePregnancyWeight: 60, height: 165 });
+        // PregnancyContext.setProfile only updates memory for an account.
+        expect(setLocalProfile).not.toHaveBeenCalled();
+    });
+
+    it('signed in: reports a refused write instead of claiming success', async () => {
+        const result = await saveWeightSetup({
+            profile: null,
+            prePregnancyWeight: 60,
+            height: 165,
+            signedIn: true,
+            updateAccountProfile: jest.fn().mockResolvedValue({ ok: false, error: 'permission-denied' }),
+            setLocalProfile: jest.fn(),
+        });
+        expect(result).toEqual({ ok: false, error: 'permission-denied' });
+    });
+
+    it("guest: saves on the device and keeps the profile's other fields", async () => {
+        const setLocalProfile = jest.fn().mockResolvedValue(undefined);
+        const result = await saveWeightSetup({
+            profile: { firstName: 'Amira', country: 'Tunisie', lmp: '2026-02-10', emergencyContacts: contacts },
+            prePregnancyWeight: 58.5,
+            height: 160,
+            signedIn: false,
+            updateAccountProfile: jest.fn(),
+            setLocalProfile,
+        });
+        expect(result).toEqual({ ok: true });
+        expect(setLocalProfile).toHaveBeenCalledWith({
+            firstName: 'Amira',
+            country: 'Tunisie',
+            lmp: '2026-02-10',
+            emergencyContacts: contacts,
+            prePregnancyWeight: 58.5,
+            height: 160,
+        });
+    });
+
+    it('guest: a failed device write is a failure', async () => {
+        const result = await saveWeightSetup({
+            profile: null,
+            prePregnancyWeight: 60,
+            height: 165,
+            signedIn: false,
+            updateAccountProfile: jest.fn(),
+            setLocalProfile: jest.fn().mockRejectedValue(new Error('disk full')),
+        });
+        expect(result).toEqual({ ok: false, error: 'disk full' });
     });
 });

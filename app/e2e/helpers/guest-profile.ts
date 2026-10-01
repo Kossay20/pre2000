@@ -23,5 +23,7 @@ export function buildGuestProfile(week = 13, now: Date = new Date()) {
     ageRange: '25-29',
     isFirstPregnancy: true,
     isGuest: true,
+    // Recorded by onboarding's last step; without it the app opens on the consent sheet.
+    healthDataConsent: { version: '2026-09-30', at: now.toISOString() },
   } as const;
 }

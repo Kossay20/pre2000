@@ -282,6 +282,9 @@ export interface UserProfile {
     hasHypertension?: boolean;
     isTwinPregnancy?: boolean;
     medicalProfileAnsweredAt?: string;   // ISO — set even when every answer was skipped
+    // Explicit consent to the processing of pregnancy/health data, given on the step
+    // that first saves the profile. See utils/healthDataConsent.ts.
+    healthDataConsent?: { version: string; at: string };
     // TTC-FIX: Trying-To-Conceive mode flag + cycle data.
     // When isTTC === true, currentWeek is forced to 0 and the user is NOT pregnant —
     // downstream UI must check isTTC and avoid rendering pregnancy-week content.

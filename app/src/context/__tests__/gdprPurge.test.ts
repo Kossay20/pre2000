@@ -66,7 +66,22 @@ describe('purgeUserFirestoreData (GDPR Art. 17)', () => {
     expect(deleteDoc).toHaveBeenCalledWith({ path: `userProfiles/${UID}` });
   });
 
-  it('queries EVERY one of the 9 top-level collections by user_id === uid', async () => {
+  it('covers every per-user collection firestore.rules declares, tracker history included', () => {
+    // A collection the rules let a user write but the purge does not know about survives
+    // "delete my account". Static content (write: if false) and the profile parents, which
+    // are deleted by id, are the only exceptions.
+    const fs = jest.requireActual('fs');
+    const path = jest.requireActual('path');
+    const rules: string = fs.readFileSync(path.resolve(__dirname, '../../../firestore.rules'), 'utf8');
+    const declared = [...rules.matchAll(/^\s*match \/([A-Za-z0-9_]+)\/\{[^}]+\}\s*\{(.*)$/gm)]
+      .filter((m) => !/allow write: if false/.test(m[2]))
+      .map((m) => m[1])
+      .filter((name) => !(legacyParentCollections as readonly string[]).includes(name));
+    expect(declared).toEqual(expect.arrayContaining(['kickSessions', 'contractions', 'hospitalBags']));
+    expect([...topLevelCollectionsToDelete].sort()).toEqual(expect.arrayContaining(declared.sort()));
+  });
+
+  it('queries EVERY one of the top-level collections by user_id === uid', async () => {
     await purgeUserFirestoreData({}, UID);
     for (const col of topLevelCollectionsToDelete) {
       expect(queriedByUserId[col]).toBe(UID);

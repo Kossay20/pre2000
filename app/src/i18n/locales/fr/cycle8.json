@@ -1,4 +1,5 @@
 {
+  "localOnlyNote": "Cet historique reste sur ce téléphone tant que vous n'avez pas créé de compte.",
   "kickCounter": {
     "title": "Compteur de coups de bébé",
     "subtitle": "Comptez les mouvements de votre bébé sur 1 heure.",
@@ -9,6 +10,10 @@
     "startSession": "Commencer une session",
     "endSession": "Terminer la session",
     "cancelSession": "Annuler",
+    "cancelConfirmTitle": "Annuler cette session ?",
+    "cancelConfirmMsg": "Les mouvements comptés dans cette session ne seront pas enregistrés.",
+    "keepCounting": "Continuer à compter",
+    "discardSession": "Annuler la session",
     "noSessionYet": "Pas encore de session",
     "noSessionSub": "Commencez à compter les mouvements de votre bébé.",
     "history": "Historique",

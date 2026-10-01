@@ -25,6 +25,8 @@ import { RtlAwareChevron } from '../components/common/RtlAwareChevron';
 import { medicalFlagsFromAnswers } from '../utils/medicalFlags';
 import { Button } from '../components/common/Button';
 import { ErrorMessage } from '../components/common/ErrorMessage';
+import { HealthDataConsentCheck } from '../components/common/HealthDataConsentCheck';
+import { recordHealthDataConsent } from '../utils/healthDataConsent';
 import { format, subDays } from 'date-fns';
 import { useTranslation } from 'react-i18next';
 import { analytics, auth, db } from '../config/firebase';
@@ -128,6 +130,11 @@ export const OnboardingScreen = () => {
     // The region effect below fills it in when the device region is one we know.
     const [country, setCountry] = useState('');
     const [ageRange, setAgeRange] = useState<string>('');
+
+    // Explicit consent to the processing of her pregnancy/health data, asked on the last
+    // step of every flow — the step that first saves the profile. Unticked until she ticks
+    // it; no save button works without it.
+    const [healthConsent, setHealthConsent] = useState(false);
 
     // Account creation (required at the end)
     const [email, setEmail] = useState('');
@@ -255,6 +262,7 @@ export const OnboardingScreen = () => {
     };
 
     const handleFinish = async (createAccount: boolean = false) => {
+        if (!healthConsent) return;
         setError('');
         const lmpDate = getLmpDate();
 
@@ -337,7 +345,7 @@ export const OnboardingScreen = () => {
                         { hasGestationalDiabetes, hasHypertension, isTwinPregnancy },
                         new Date().toISOString(),
                     ),
-                    { replaceExisting },
+                    { replaceExisting, healthDataConsent: recordHealthDataConsent() },
                 ));
 
                 log.debug('[Onboarding] ✅ Profile created successfully!');
@@ -823,6 +831,14 @@ export const OnboardingScreen = () => {
                             </View>
                         )}
 
+                        {/* Asked here, on the step that saves the profile, whichever way she
+                            saves it (account, signed-in, guest). */}
+                        <HealthDataConsentCheck
+                            checked={healthConsent}
+                            onToggle={() => setHealthConsent(!healthConsent)}
+                            disabled={loading}
+                        />
+
                         {error ? <ErrorMessage message={error} /> : null}
 
                         {/* Create account button - REQUIRED */}
@@ -836,7 +852,7 @@ export const OnboardingScreen = () => {
                         <TouchableOpacity
                             style={styles.startButton}
                             onPress={() => handleFinish(!!(!user && canCreateAccount))}
-                            disabled={loading || (!user && !canCreateAccount)}
+                            disabled={loading || !healthConsent || (!user && !canCreateAccount)}
                             accessibilityRole="button"
                             accessibilityLabel={
                                 loading
@@ -845,11 +861,11 @@ export const OnboardingScreen = () => {
                                         ? t('onboarding.step4.finalizeProfile')
                                         : t('onboarding.step4.start')
                             }
-                            accessibilityState={{ disabled: loading || (!user && !canCreateAccount), busy: loading }}
+                            accessibilityState={{ disabled: loading || !healthConsent || (!user && !canCreateAccount), busy: loading }}
                             testID="onboarding_step4_submit"
                         >
                             <LinearGradient
-                                colors={loading || (!user && !canCreateAccount)
+                                colors={loading || !healthConsent || (!user && !canCreateAccount)
                                     ? [theme.colors.neutral300, theme.colors.gray500]
                                     : [theme.colors.primaryStrong, theme.colors.accent]}
                                 start={{ x: 0, y: 0 }}
@@ -871,12 +887,12 @@ export const OnboardingScreen = () => {
                             already finishes it under her account. */}
                         {!user && (
                             <TouchableOpacity
-                                style={[styles.skipAccountButton, loading && styles.startButtonDisabled]}
+                                style={[styles.skipAccountButton, (loading || !healthConsent) && styles.startButtonDisabled]}
                                 onPress={() => handleFinish(false)}
-                                disabled={loading}
+                                disabled={loading || !healthConsent}
                                 accessibilityRole="button"
                                 accessibilityLabel={t('onboarding.step4.skipAccount')}
-                                accessibilityState={{ disabled: loading }}
+                                accessibilityState={{ disabled: loading || !healthConsent }}
                                 testID="onboarding_step4_skip"
                             >
                                 <Text style={styles.skipAccountText}>{t('onboarding.step4.skipAccount')}</Text>
@@ -1075,6 +1091,14 @@ export const OnboardingScreen = () => {
                             </View>
                         )}
 
+                        {/* Asked here, on the step that saves the profile, whichever way she
+                            saves it (account, signed-in, guest). */}
+                        <HealthDataConsentCheck
+                            checked={healthConsent}
+                            onToggle={() => setHealthConsent(!healthConsent)}
+                            disabled={loading}
+                        />
+
                         {error ? <ErrorMessage message={error} /> : null}
 
                         {/* C14-FIX: enforce 10 chars + 1 digit + 1 uppercase (post-C9 policy, same as RegisterScreen + handleFinish step 4) */}
@@ -1084,12 +1108,12 @@ export const OnboardingScreen = () => {
                         <TouchableOpacity
                             style={styles.startButton}
                             onPress={() => handleFinishTTC(!user)}
-                            disabled={loading || (!user && !(email.trim().length > 0 && password.length >= 10 && /\d/.test(password) && /[A-Z]/.test(password)))}
+                            disabled={loading || !healthConsent || (!user && !(email.trim().length > 0 && password.length >= 10 && /\d/.test(password) && /[A-Z]/.test(password)))}
                             accessibilityRole="button"
                             accessibilityLabel={loading ? t('onboarding.step4.creatingAccount') : t('onboarding.step3Ttc.start')}
                         >
                             <LinearGradient
-                                colors={loading || (!user && !(email.trim().length > 0 && password.length >= 10 && /\d/.test(password) && /[A-Z]/.test(password)))
+                                colors={loading || !healthConsent || (!user && !(email.trim().length > 0 && password.length >= 10 && /\d/.test(password) && /[A-Z]/.test(password)))
                                     ? [theme.colors.neutral300, theme.colors.gray500]
                                     : [theme.colors.primaryStrong, theme.colors.accent]}
                                 start={{ x: 0, y: 0 }}
@@ -1104,11 +1128,12 @@ export const OnboardingScreen = () => {
 
                         {!user && (
                             <TouchableOpacity
-                                style={styles.skipAccountButton}
+                                style={[styles.skipAccountButton, (loading || !healthConsent) && styles.startButtonDisabled]}
                                 onPress={() => handleFinishTTC(false)}
-                                disabled={loading}
+                                disabled={loading || !healthConsent}
                                 accessibilityRole="button"
                                 accessibilityLabel={t('onboarding.step4.skipAccount')}
+                                accessibilityState={{ disabled: loading || !healthConsent }}
                             >
                                 <Text style={styles.skipAccountText}>{t('onboarding.step4.skipAccount')}</Text>
                             </TouchableOpacity>
@@ -1232,17 +1257,24 @@ export const OnboardingScreen = () => {
 
                     <View style={styles.divider} />
 
+                    <HealthDataConsentCheck
+                        checked={healthConsent}
+                        onToggle={() => setHealthConsent(!healthConsent)}
+                        disabled={loading}
+                    />
+
                     {error ? <ErrorMessage message={error} /> : null}
 
                     <TouchableOpacity
                         style={styles.startButton}
                         onPress={() => handleFinishCurious()}
-                        disabled={loading}
+                        disabled={loading || !healthConsent}
                         accessibilityRole="button"
                         accessibilityLabel={loading ? t('home.loadingData') : t('onboarding.discover')}
+                        accessibilityState={{ disabled: loading || !healthConsent, busy: loading }}
                     >
                         <LinearGradient
-                            colors={loading ? [theme.colors.neutral300, theme.colors.gray500] : [theme.colors.primaryStrong, theme.colors.accent]}
+                            colors={loading || !healthConsent ? [theme.colors.neutral300, theme.colors.gray500] : [theme.colors.primaryStrong, theme.colors.accent]}
                             start={{ x: 0, y: 0 }}
                             end={{ x: 1, y: 0 }}
                             style={styles.startButtonGradient}
@@ -1287,6 +1319,7 @@ export const OnboardingScreen = () => {
     // path "I'm pregnant!" that promotes the TTC profile to a full pregnancy profile
     // by reusing the stored lastPeriodDate as the LMP.
     const handleFinishTTC = async (createAccount: boolean = false) => {
+        if (!healthConsent) return;
         setError('');
 
         // C14-FIX: same validateProfile gate as handleFinish (was missing, F18 partial gap).
@@ -1371,7 +1404,7 @@ export const OnboardingScreen = () => {
                     { isTTC: true, cycleLength },
                     undefined, // curiousOptions
                     undefined, // medicalFlags
-                    { replaceExisting },
+                    { replaceExisting, healthDataConsent: recordHealthDataConsent() },
                 ));
 
                 analytics.then(a => a && logEvent(a, 'onboarding_ttc_complete', {
@@ -1388,6 +1421,7 @@ export const OnboardingScreen = () => {
     };
 
     const handleFinishCurious = async () => {
+        if (!healthConsent) return;
         setError('');
 
         // C14-FIX: validate the explore-week derived LMP before going further (F18 partial gap).
@@ -1426,7 +1460,9 @@ export const OnboardingScreen = () => {
                     undefined,
                     // Cycle 3 F201 : passe le marker isCurious + exploreWeek pour
                     // que les screens puissent garder ce mode (cf. F212 banner Wave C).
-                    { isCurious: true, exploreWeek }
+                    { isCurious: true, exploreWeek },
+                    undefined, // medicalFlags
+                    { healthDataConsent: recordHealthDataConsent() },
                 ));
 
                 analytics.then(a => a && logEvent(a, 'onboarding_curious_complete', {

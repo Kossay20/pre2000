@@ -667,7 +667,19 @@ async function onboardingSteps1to3(
   await expect
     .soft(page.getByText(/(Étape|Step|الخطوة) \d/), `${prefix} step4: stepper must be hidden on the last step`)
     .toHaveCount(0);
+  // Health-data consent: unticked, and the button that saves the profile waits for it.
+  const save = page.getByTestId(opts.signedIn ? 'onboarding_step4_submit' : 'onboarding_step4_skip');
+  await expect.soft(save, `${prefix} step4: saving is disabled until the health-data consent is ticked`).toBeDisabled();
+  await tickHealthConsent(page);
   return { countrySel, navLang };
+}
+
+/** Tick onboarding's health-data consent (navigation step only). */
+async function tickHealthConsent(page: Page) {
+  const consent = page.getByTestId('health_consent_checkbox');
+  await expect(consent).toHaveAttribute('aria-checked', 'false', { timeout: 15_000 });
+  await consent.click();
+  await expect(consent).toHaveAttribute('aria-checked', 'true');
 }
 
 async function waitForLanding(page: Page, c: Copy) {
@@ -1347,6 +1359,7 @@ test.describe('Wave A — en smoke', () => {
     // 33 — finish as guest without touching the country; read the dialled number.
     await page.getByRole('button', { name: c.onbContinue, exact: true }).last().click();
     await expect(page.getByTestId('onboarding_step4_skip')).toBeVisible({ timeout: 15_000 });
+    await tickHealthConsent(page);
     await page.getByTestId('onboarding_step4_skip').click();
     await expect(page.getByRole('tablist').first()).toBeVisible({ timeout: 45_000 });
     const ls = await localProfile(page);

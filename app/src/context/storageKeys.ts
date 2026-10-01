@@ -36,11 +36,14 @@ export const PRIVATE_STORAGE_KEYS = [
                                          // survived logout + delete + leaked across users (GDPR Art. 17).
     '@pending_appointment_draft',        // guest's unsaved appointment (title, place, notes) kept
                                          // across sign-up — an erase must not leave it behind
-    '@account_deletion_pending_v1',      // uid whose data was purged but whose Auth user still
-                                         // exists (accountDeletion.ts) — cleared with the rest
 ] as const;
 
-/** Set by accountDeletion.ts between a clean purge and the Auth user's deletion. */
+/**
+ * Set by accountDeletion.ts between a clean purge and the Auth user's deletion, cleared once
+ * the Auth user is gone. Deliberately NOT in PRIVATE_STORAGE_KEYS: it holds only a uid, and it
+ * is the one record that the account she asked to delete is already emptied. A logout used to
+ * wipe it, and the next sign-in then opened the emptied account as if nothing had happened.
+ */
 export const DELETION_PENDING_KEY = '@account_deletion_pending_v1';
 
 /**

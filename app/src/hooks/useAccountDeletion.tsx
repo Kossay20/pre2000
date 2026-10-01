@@ -2,10 +2,12 @@ import React, { useState } from 'react';
 import { Alert, Linking, Platform } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
-import { classifyDeletionFailure } from '../context/accountDeletion';
+import { classifyDeletionFailure, isErasedButNotDeleted } from '../context/accountDeletion';
+import { sendPasswordResetEmail } from 'firebase/auth';
+import { auth } from '../config/firebase';
 import { showAlert } from '../utils/alert';
 import { confirmAction } from '../utils/uiUtils';
-import { getFirebaseErrorMessage, isUserInputError } from '../utils/firebaseErrors';
+import { getFirebaseErrorMessage, isExpectedAuthError } from '../utils/firebaseErrors';
 import { ReauthDeleteModal } from '../components/profile/ReauthDeleteModal';
 import { createLogger } from '../utils/logger';
 import { SUPPORT_EMAIL } from '../config/contact';
@@ -25,21 +27,52 @@ const log = createLogger('useAccountDeletion');
  */
 export const useAccountDeletion = () => {
     const { t } = useTranslation();
-    const { deleteAccount, reauthenticateAndDelete, resetProfile } = useAuth();
+    const { user, deleteAccount, reauthenticateAndDelete, resetProfile, logout, firebaseUser } = useAuth();
+    // The confirmations name what is erased and where to export it first.
+    const copyParams = {
+        settings: t('common.settings'),
+        exportLabel: t('common.privacyData.export'),
+        deleteLabel: t('profile.deleteAccount'),
+    };
     const [busy, setBusy] = useState(false);
     const [reauthVisible, setReauthVisible] = useState(false);
     const [reauthPassword, setReauthPassword] = useState('');
     const [reauthLoading, setReauthLoading] = useState(false);
+    // Set when Firebase refused the Auth delete AFTER her data was erased. The account is
+    // then an empty shell: the prompt says so, and cancelling signs her out instead of
+    // leaving her in it (the next sign-in finishes the deletion — see accountDeletion.ts).
+    const [erasedPending, setErasedPending] = useState(false);
+
+    const leaveErasedAccount = () => {
+        setErasedPending(false);
+        logout().catch((e) => log.warn('Sign-out after an unfinished deletion failed:', e));
+    };
 
     const closeReauth = () => {
         setReauthVisible(false);
         setReauthPassword('');
+        if (erasedPending) leaveErasedAccount();
+    };
+
+    const showDeleted = () => {
+        // A deletion used to end on the same language screen as a plain logout, so she could
+        // not tell that her account and data were actually gone.
+        showAlert(t('profile.deleteDoneTitle'), t('profile.deleteDoneMsg'));
     };
 
     const showIncomplete = () => {
         // The account still exists and part of its data is left: offer to run it again.
         showAlert(t('profile.deleteIncompleteTitle'), t('profile.deleteIncompleteMsg'), [
             { text: t('common.cancel'), style: 'cancel' },
+            { text: t('common.retry'), onPress: () => { runDelete(); } },
+        ]);
+    };
+
+    const showErasedRetry = () => {
+        // Everything is erased; only the Auth user is left. Retry now, or sign out and let
+        // the next sign-in finish it — never stay in the emptied account.
+        showAlert(t('profile.deletePendingTitle'), t('profile.deletePendingRetryMsg'), [
+            { text: t('profile.logout'), style: 'cancel', onPress: leaveErasedAccount },
             { text: t('common.retry'), onPress: () => { runDelete(); } },
         ]);
     };
@@ -56,15 +89,21 @@ export const useAccountDeletion = () => {
         ]);
     };
 
-    const promptPassword = () => {
+    const promptPassword = (afterErase: boolean) => {
+        setErasedPending(afterErase);
+        const message = afterErase ? t('profile.reauthFinishMessage') : t('profile.reauthMessage');
         if (Platform.OS === 'ios') {
             Alert.prompt(
                 t('profile.reauthTitle'),
-                t('profile.reauthMessage'),
+                message,
                 [
-                    { text: t('common.cancel'), style: 'cancel' },
                     {
-                        text: t('common.confirm'),
+                        text: t('common.cancel'),
+                        style: 'cancel',
+                        onPress: () => { if (afterErase) leaveErasedAccount(); },
+                    },
+                    {
+                        text: t('common.deleteForever'),
                         style: 'destructive',
                         onPress: (password?: string) => { runReauthAndDelete(password ?? ''); },
                     },
@@ -77,14 +116,32 @@ export const useAccountDeletion = () => {
         }
     };
 
+    // "Mot de passe oublié ?" from the password prompt: without it, a user who no longer
+    // knows her password could not delete her account from the app.
+    const sendPasswordReset = async () => {
+        const email = firebaseUser?.email;
+        if (!email) return;
+        try {
+            await sendPasswordResetEmail(auth, email);
+        } catch (error) {
+            (isExpectedAuthError(error) ? log.warn : log.error)('Password reset from the delete prompt failed:', error);
+        }
+        // Same answer whatever happened, as on the Login screen.
+        showAlert(t('forgotPassword'), t('resetEmailSent'));
+    };
+
     const runDelete = async () => {
         try {
             setBusy(true);
             await deleteAccount();
+            setErasedPending(false);
+            showDeleted();
         } catch (error: any) {
             const kind = classifyDeletionFailure(error);
-            // A too-old session is caught before anything is erased: ask for the password.
-            if (kind === 'reauth') promptPassword();
+            // A too-old session is normally caught before anything is erased: ask for the
+            // password. If Firebase refused only after the erase, the prompt says so.
+            if (kind === 'reauth') promptPassword(isErasedButNotDeleted(error));
+            else if (isErasedButNotDeleted(error)) showErasedRetry();
             else if (kind === 'incomplete') showIncomplete();
             else if (kind === 'blocked') showBlocked();
             else {
@@ -105,18 +162,27 @@ export const useAccountDeletion = () => {
             setReauthLoading(true);
             setBusy(true);
             await reauthenticateAndDelete(password);
-            closeReauth();
+            setErasedPending(false);
+            setReauthVisible(false);
+            setReauthPassword('');
+            showDeleted();
         } catch (error: any) {
-            log.error('Reauthenticate-and-delete error:', error);
+            // A mistyped password is answered on screen below; only a real fault is an error.
+            (isExpectedAuthError(error) ? log.warn : log.error)('Reauthenticate-and-delete error:', error);
             const kind = classifyDeletionFailure(error);
-            if (kind === 'incomplete') {
+            if (isErasedButNotDeleted(error)) {
+                setReauthVisible(false);
+                setReauthPassword('');
+                showErasedRetry();
+            } else if (kind === 'incomplete') {
                 // Reauth succeeded, so a retry through deleteAccount no longer needs the password.
                 closeReauth();
                 showIncomplete();
             } else if (kind === 'blocked') {
                 closeReauth();
                 showBlocked();
-            } else if (isUserInputError(error)) {
+            } else if (isExpectedAuthError(error)) {
+                // Wrong password, too many attempts, no connection: each has its own message.
                 showAlert(t('common.error'), t(getFirebaseErrorMessage(error)));
             } else {
                 showAlert(t('common.error'), t('profile.deleteAccountError'));
@@ -130,11 +196,11 @@ export const useAccountDeletion = () => {
     const requestDeleteAccount = () => {
         confirmAction(
             t('profile.deleteAccountTitle'),
-            t('profile.deleteAccountMsg'),
+            t('profile.deleteAccountMsg', copyParams),
             () => { runDelete(); },
             undefined,
             t('common.cancel'),
-            t('common.delete'),
+            t('common.deleteForever'),
         );
     };
 
@@ -163,7 +229,8 @@ export const useAccountDeletion = () => {
     const requestResetProfile = () => {
         confirmAction(
             t('profile.resetConfirmTitle'),
-            t('profile.resetConfirmMsg'),
+            // A guest has no account to keep: her reset erases the only copy.
+            t(user?.isGuest ? 'profile.resetConfirmMsgGuest' : 'profile.resetConfirmMsg', copyParams),
             () => { runReset(); },
             undefined,
             t('common.cancel'),
@@ -177,8 +244,10 @@ export const useAccountDeletion = () => {
             password={reauthPassword}
             loading={reauthLoading}
             onChangePassword={setReauthPassword}
+            message={erasedPending ? t('profile.reauthFinishMessage') : t('profile.reauthMessage')}
             onCancel={closeReauth}
             onConfirm={() => { runReauthAndDelete(reauthPassword); }}
+            onForgotPassword={firebaseUser?.email ? () => { sendPasswordReset(); } : undefined}
         />
     );
 

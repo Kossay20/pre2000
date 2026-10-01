@@ -32,5 +32,7 @@
     },
     "noAppointments": "لا توجد مواعيد هذا الأسبوع",
     "appointmentsThisWeek": "{{count}} مواعيد هذا الأسبوع",
-    "myAppointment": "ميعادي"
+    "myAppointment": "ميعادي",
+    "noSuggestionsWeek": "لا توجد اقتراحات لعرضها لهذا الأسبوع.",
+    "noSuggestionsMonth": "لا توجد اقتراحات لعرضها لهذا الشهر."
 }

@@ -15,6 +15,7 @@ import { loadUserEvents } from './calendarService';
 import { loadTaskStatusesAuth } from './reminderPersistence';
 import { getWeightHistory as getWeightHistoryV2 } from './weightService';
 import { createLogger } from '../utils/logger';
+import { toLocalDateKey } from '../utils/localDate';
 
 // Create scoped logger for this service
 const log = createLogger('HealthService');
@@ -222,7 +223,9 @@ export const saveDailySymptoms = async (
         log.warn('[HealthService] Guest user blocked from symptoms write');
         return 'guest_blocked';
     }
-    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    // The LOCAL day the user is logging for. The UTC day filed an evening entry in New York
+    // (or a morning one east of UTC+12) under the wrong date.
+    const today = toLocalDateKey(); // YYYY-MM-DD
     // C10/F13: deterministic doc ID eliminates the query→addDoc race window
     // (two concurrent writes for the same day previously could produce 2 docs).
     // Firestore rule constrains logId to `${auth.uid}_YYYY-MM-DD` to prevent
@@ -249,7 +252,7 @@ export const getDailySymptoms = async (userId: string, dateStr?: string): Promis
     if (!userId || userId.startsWith('guest_')) {
         return null;
     }
-    const targetDate = dateStr || new Date().toISOString().split('T')[0];
+    const targetDate = dateStr || toLocalDateKey();
     try {
         const q = query(
             collection(db, 'symptomsLog'),
@@ -273,7 +276,7 @@ export const getSymptomsHistory = async (userId: string, limitDays = 30): Promis
     try {
         const since = new Date();
         since.setDate(since.getDate() - limitDays);
-        const sinceStr = since.toISOString().split('T')[0];
+        const sinceStr = toLocalDateKey(since);
         const q = query(
             collection(db, 'symptomsLog'),
             where('user_id', '==', userId),

@@ -52,5 +52,8 @@
   "appointment_created": "Appointment created successfully!",
   "guestBannerTitle": "Guest mode",
   "guestBannerMsg": "You can fill in this form, but saving requires an account. Your details are kept while you create one.",
-  "draftRestored": "Your appointment has been restored ✨"
+  "draftRestored": "Your appointment has been restored ✨",
+  "notFoundTitle": "Appointment not found",
+  "notFoundMsg": "It may have been deleted, or the connection was lost.",
+  "backToCalendar": "Back to calendar"
 }

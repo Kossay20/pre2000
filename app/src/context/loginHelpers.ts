@@ -160,6 +160,12 @@ export const toServerProfile = (profile: UserProfile, now: string): Record<strin
         'isTTC', 'cycleLength', 'ovulationDate', 'fertileWindowStart', 'fertileWindowEnd',
         'isCurious', 'exploreWeek',
         'hasGestationalDiabetes', 'hasHypertension', 'isTwinPregnancy', 'medicalProfileAnsweredAt',
+        // The consent she gave as a guest is the consent the account runs on; left out, the
+        // account's first cold start would ask her again.
+        'healthDataConsent',
+        // A guest's emergency contacts and WeightTracker setup: a signed-in account keeps
+        // them in this document, so an upgrade that left them out lost them on any other device.
+        'emergencyContacts', 'height', 'prePregnancyWeight',
     ];
     for (const key of optional) {
         if (profile[key] !== undefined) data[key] = profile[key];

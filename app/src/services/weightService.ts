@@ -28,6 +28,9 @@ export interface WeightEntry {
     date: string; // ISO
     week_of_pregnancy: number;
     notes?: string;
+    // Which collection holds it: the tracker's own `weight_entries` (the default), or a
+    // weighing logged from the Health dashboard in `healthMetrics`. Deleting needs it.
+    source?: 'weight_entries' | 'healthMetrics';
 }
 
 export interface BMICategory {
@@ -225,16 +228,64 @@ export const getWeightHistory = async (userId: string): Promise<WeightEntry[]> =
 };
 
 /**
- * Delete a weight entry
+ * Weighings logged from the Health dashboard, which writes them to `healthMetrics`.
  */
-export const deleteWeightEntry = async (userId: string, entryId: string): Promise<void> => {
+const getDashboardWeights = async (userId: string): Promise<WeightEntry[]> => {
+    try {
+        const q = query(
+            collection(db, 'healthMetrics'),
+            where('user_id', '==', userId),
+            where('type', '==', 'weight')
+        );
+        const snapshot = await getDocs(q);
+        return snapshot.docs
+            .map(d => ({ id: d.id, data: d.data() as Record<string, unknown> }))
+            .filter(({ data }) => typeof data.value === 'number' && typeof data.date === 'string')
+            .map(({ id, data }) => ({
+                id,
+                user_id: userId,
+                weight: data.value as number,
+                date: data.date as string,
+                week_of_pregnancy: typeof data.week === 'number' ? data.week : 0,
+                notes: typeof data.notes === 'string' ? data.notes : undefined,
+                source: 'healthMetrics' as const,
+            }));
+    } catch (error) {
+        log.error('Error getting dashboard weights:', error);
+        return [];
+    }
+};
+
+/**
+ * Every weighing she logged, newest first: the tracker's own entries and the ones added
+ * from the Health dashboard. The dashboard already showed both, but the tracker read only
+ * its own collection, so a weight entered on Health never appeared in "Mon Poids" and the
+ * two screens disagreed on her latest weight. The tracker, its gain and the PDF read this.
+ */
+export const getAllWeightEntries = async (userId: string): Promise<WeightEntry[]> => {
+    if (userId.startsWith('guest')) return getWeightHistory(userId);
+    const [own, dashboard] = await Promise.all([getWeightHistory(userId), getDashboardWeights(userId)]);
+    return [...own.map(e => ({ ...e, source: 'weight_entries' as const })), ...dashboard].sort(
+        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+    );
+};
+
+/**
+ * Delete a weight entry. `source` routes a dashboard weighing (from getAllWeightEntries)
+ * to its own collection.
+ */
+export const deleteWeightEntry = async (
+    userId: string,
+    entryId: string,
+    source: WeightEntry['source'] = 'weight_entries',
+): Promise<void> => {
     try {
         if (userId.startsWith('guest')) {
             const existing = await getWeightHistory(userId);
             const filtered = existing.filter(e => e.id !== entryId);
             await AsyncStorage.setItem(getStorageKey(userId), JSON.stringify(filtered));
         } else {
-            await deleteDoc(doc(db, WEIGHT_COLLECTION, entryId));
+            await deleteDoc(doc(db, source === 'healthMetrics' ? 'healthMetrics' : WEIGHT_COLLECTION, entryId));
         }
         log.info('Weight entry deleted:', entryId);
     } catch (error) {
@@ -264,4 +315,51 @@ export const hasWeightThisWeek = async (userId: string): Promise<boolean> => {
     startOfWeek.setHours(0, 0, 0, 0);
 
     return history.some(entry => new Date(entry.date) >= startOfWeek);
+};
+
+// ============================================
+// SETUP (pre-pregnancy weight + height)
+// ============================================
+
+export type WeightSetupResult = { ok: true } | { ok: false; error: string };
+
+/**
+ * Save the WeightTracker setup where the profile lives.
+ *
+ * For an account that is the server profile. The screen used to hand the values to
+ * PregnancyContext.setProfile, which for a signed-in user only updates memory (it forwards
+ * emergency contacts and nothing else), and then said "Configuration enregistrée": after a
+ * reload, or on another phone, the setup card came back and hid her weight history. The
+ * account profile is written through AuthContext.updateProfile, and PregnancyContext picks
+ * the new values up from it.
+ *
+ * A guest's profile is the device copy. Her other fields — emergency contacts included —
+ * are kept; the previous code rebuilt the profile from five fields and dropped them.
+ */
+export const saveWeightSetup = async <P extends object>({
+    profile,
+    prePregnancyWeight,
+    height,
+    signedIn,
+    updateAccountProfile,
+    setLocalProfile,
+}: {
+    profile: P | null;
+    prePregnancyWeight: number;
+    height: number;
+    signedIn: boolean;
+    updateAccountProfile: (data: { prePregnancyWeight: number; height: number }) => Promise<WeightSetupResult>;
+    setLocalProfile: (profile: P & { prePregnancyWeight: number; height: number }) => Promise<void>;
+}): Promise<WeightSetupResult> => {
+    if (signedIn) {
+        return updateAccountProfile({ prePregnancyWeight, height });
+    }
+    const merged = { firstName: '', country: '', ...(profile ?? {}), prePregnancyWeight, height };
+    const clean = Object.fromEntries(Object.entries(merged).filter(([, v]) => v !== undefined));
+    try {
+        await setLocalProfile(clean as P & { prePregnancyWeight: number; height: number });
+        return { ok: true };
+    } catch (error: any) {
+        return { ok: false, error: error?.message || 'Local save failed' };
+    }
 };

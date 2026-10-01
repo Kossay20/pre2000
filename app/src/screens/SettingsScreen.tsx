@@ -38,7 +38,7 @@ import { useDateLocale } from '../hooks/useDateLocale';
 import { requestNotificationsAndResync } from '../services/notificationPermissionFlow';
 import { sendTestNotification, getScheduledNotifications } from '../services/rdvNotificationService';
 import { generateAndSharePDF } from '../services/pdfExportService';
-import { getWeightHistory } from '../services/weightService';
+import { getAllWeightEntries } from '../services/weightService';
 import { getAppointments } from '../services/appointmentService';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
 import { useAccountDeletion } from '../hooks/useAccountDeletion';
@@ -61,6 +61,9 @@ export const SettingsScreen = () => {
     const [babyMessageEnabled, setBabyMessageEnabled] = useState(true);
     const [babyMessageHour, setBabyMessageHour] = useState(10);
     const [loading, setLoading] = useState(true);
+    // The PDF export's own busy flag. It used to share `loading`, which swaps the whole
+    // screen for the skeleton — Settings vanished for the length of the export.
+    const [pdfExporting, setPdfExporting] = useState(false);
 
     log.debug('[SettingsScreen] Rendering...');
 
@@ -306,11 +309,12 @@ export const SettingsScreen = () => {
                             alert(t('common.permissionsGranted'));
                         } else {
                             // On iOS, if permission is already denied, we must open settings.
-                            // showAlert fires the confirm callback on web too (window.confirm).
+                            // A browser has no app settings page (react-native-web's Linking
+                            // has no openSettings, so the button threw): inform only there.
                             showAlert(
                                 t('common.permissionsDenied'),
                                 t('common.permissionsDeniedMsg'),
-                                [
+                                Platform.OS === 'web' ? undefined : [
                                     { text: t('common.cancel'), style: "cancel" },
                                     {
                                         text: t('common.openSettings'),
@@ -388,17 +392,19 @@ export const SettingsScreen = () => {
                     accessibilityRole="button"
                     accessibilityLabel={t('common.privacyData.exportPDF')}
                     accessibilityHint={t('common.privacyData.exportPDFDesc')}
-                    accessibilityState={{ disabled: loading, busy: loading }}
+                    accessibilityState={{ disabled: pdfExporting, busy: pdfExporting }}
+                    disabled={pdfExporting}
                     onPress={async () => {
                         try {
-                            setLoading(true);
+                            setPdfExporting(true);
                             const userId = auth.currentUser?.uid;
                             if (!userId) {
                                 showAlert(t('common.error'), t('common.loginRequired'));
                                 return;
                             }
 
-                            const weightHistoryData = await getWeightHistory(userId);
+                            // Health-dashboard weighings included, as on the tracker.
+                            const weightHistoryData = await getAllWeightEntries(userId);
                             const appointmentsData = await getAppointments();
 
                             // P3.6 FIX: pass the real Profile (firstName, lmp, country) — was passing
@@ -417,7 +423,7 @@ export const SettingsScreen = () => {
                             logger.error("SettingsScreen", "PDF Export Error", e);
                             showAlert(t('common.error'), t('export.errorMessage') || t('common.error'));
                         } finally {
-                            setLoading(false);
+                            setPdfExporting(false);
                         }
                     }}
                 >
@@ -430,6 +436,7 @@ export const SettingsScreen = () => {
                             </Text>
                         </View>
                     </View>
+                    {pdfExporting && <ActivityIndicator color={theme.colors.accent} />}
                 </TouchableOpacity>
 
                 <TouchableOpacity

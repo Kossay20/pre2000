@@ -124,5 +124,14 @@
     "message": "This account already has a pregnancy profile. Replace it with the answers you just entered?",
     "keep": "Keep my profile",
     "replace": "Replace"
+  },
+  "healthConsent": {
+    "label": "I agree that Mama & Bébé uses my pregnancy and health data to give me the app's tracking, tips and reminders.",
+    "hint": "Required to save your profile. You can withdraw your agreement at any time by erasing your data.",
+    "policyLink": "Read the privacy policy",
+    "sheetTitle": "Your health data",
+    "sheetText": "Mama & Bébé needs your agreement to keep using your pregnancy and health data. Tick the box to continue, or choose below not to agree.",
+    "declineTitle": "Don't want to agree?",
+    "saveError": "Your agreement could not be saved. Check your connection and try again."
   }
 }

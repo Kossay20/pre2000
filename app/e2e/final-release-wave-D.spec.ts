@@ -61,21 +61,29 @@ test.afterEach(async ({}, testInfo) => {
 const WAVE = 'D';
 const DOCS = `${FIRESTORE_EMULATOR}/v1/projects/${PROJECT_ID}/databases/(default)/documents`;
 
-/** The 9 top-level collections the app writes with a `user_id` field (gdprPurge.ts). */
-const USER_COLLECTIONS = [
-  'userEvents',
-  'userTasks',
-  'healthMetrics',
-  'weight_entries',
-  'glucoseMetrics',
-  'symptomsLog',
-  'userReminderSettings',
-  'userTaskStatuses',
-  'reminder_settings_v2',
-] as const;
+/**
+ * Every top-level collection a user can write, read from firestore.rules itself — not copied
+ * from gdprPurge's own list, which would make the purge its own oracle (a collection missing
+ * from both would pass). users/ and userProfiles/ are covered by LEGACY_DOCS + the profile.
+ */
+const USER_COLLECTIONS: string[] = (() => {
+  const rules = fs.readFileSync(path.resolve(__dirname, '..', 'firestore.rules'), 'utf8');
+  const names = [...rules.matchAll(/^ {4}match \/(\w+)\/\{\w+\} \{(.*)$/gm)]
+    .filter(([, , rest]) => !/allow write: if false/.test(rest))
+    .map(([, name]) => name)
+    .filter((n) => n !== 'users' && n !== 'userProfiles');
+  if (names.length < 9) throw new Error(`firestore.rules parse found only ${names.length} user collections`);
+  return names;
+})();
 
-/** Legacy nested docs the purge must also sweep. */
-const LEGACY_DOCS = (uid: string) => [`userProfiles/${uid}/weights/seed-d`, `users/${uid}/journal/seed-d`, `users/${uid}`];
+/** Legacy nested docs the purge must also sweep (users/{uid}/events is still written by DemoDataService). */
+const LEGACY_DOCS = (uid: string) => [
+  `userProfiles/${uid}/weights/seed-d`,
+  `userProfiles/${uid}/chatbot_history/seed-d`,
+  `users/${uid}/journal/seed-d`,
+  `users/${uid}/events/seed-d`,
+  `users/${uid}`,
+];
 
 // ── Recorder plumbing ─────────────────────────────────────────────────────────
 
@@ -205,10 +213,16 @@ async function seedEverything(uid: string) {
     userTaskStatuses: { user_id: uid, taskId: 'seed-d', completed: true, updatedAt: iso },
     reminder_settings_v2: { user_id: uid, reminders: {}, updatedAt: iso },
   };
-  for (const [col, data] of Object.entries(docs)) await ownerWrite(`${col}/seed-d-${uid}`, data);
+  // A collection the rules allow but this realistic map does not know yet still gets a
+  // user-owned document, so the purge is tested against every collection that exists.
+  for (const col of USER_COLLECTIONS) {
+    await ownerWrite(`${col}/seed-d-${uid}`, docs[col] ?? { user_id: uid, seed: 'D', createdAt: iso, updatedAt: iso });
+  }
   await ownerWrite(`users/${uid}`, { legacy: true });
   await ownerWrite(`userProfiles/${uid}/weights/seed-d`, { weight: 60, date: iso });
+  await ownerWrite(`userProfiles/${uid}/chatbot_history/seed-d`, { text: 'seed', date: iso });
   await ownerWrite(`users/${uid}/journal/seed-d`, { text: 'seed', date: iso });
+  await ownerWrite(`users/${uid}/events/seed-d`, { title: 'seed', date: iso });
 }
 
 type ServerFootprint = { profile: boolean; counts: Record<string, number>; legacy: Record<string, boolean>; auth: boolean };
@@ -251,11 +265,13 @@ async function newSeededAccount(scenario: string, fields: Record<string, unknown
  *     backend does) until the page re-authenticates (`accounts:signInWithPassword`).
  * Call after login; requires `page.clock.install()` before the first navigation.
  */
-async function makeSessionStale(page: Page) {
+async function makeSessionStale(page: Page, opts: { waitMs?: number; shiftClock?: boolean } = {}) {
   let reauthenticated = false;
   const refusals: string[] = [];
-  page.on('request', (r) => {
-    if (/accounts:signInWithPassword/.test(r.url())) reauthenticated = true;
+  // Only a password the server ACCEPTED makes the session recent again — a wrong password
+  // (400) must leave the simulation stale, or everything after 29b proves nothing.
+  page.on('response', (r) => {
+    if (/accounts:signInWithPassword/.test(r.url()) && r.request().method() === 'POST' && r.status() === 200) reauthenticated = true;
   });
   const cors = {
     'Access-Control-Allow-Origin': '*',
@@ -278,11 +294,12 @@ async function makeSessionStale(page: Page) {
       }),
     });
   });
-  await page.clock.setSystemTime(new Date(Date.now() + 10 * 60_000));
+  if (opts.shiftClock !== false) await page.clock.setSystemTime(new Date(Date.now() + 10 * 60_000));
   // 3. a build that measures the sign-in age on the SERVER clock (fresh token issuedAtTime
   //    vs authTime) cannot be fooled by the browser clock: let the session really age past
   //    Firebase's 5-minute window on the emulator clock, so every signal is consistent.
-  const waitMs = Number(process.env.WAVE_D_STALE_WAIT_MS ?? 310_000);
+  //    waitMs 0 = the client pre-check passes and only the server refuses, AFTER the purge.
+  const waitMs = opts.waitMs ?? Number(process.env.WAVE_D_STALE_WAIT_MS ?? 310_000);
   if (waitMs > 0) await page.waitForTimeout(waitMs);
   return { refusals };
 }
@@ -622,8 +639,10 @@ test('D-lang: live switch fr→ar→tn→fr, /language deep link, persistence', 
   await expect.soft(page.getByRole('textbox', { name: 'الاسم الأول' }), '14: Profile form in Arabic').toBeVisible();
   expect.soft(/[؀-ۿ]/.test(ar.title), `14: document.title in Arabic ("${ar.title}")`).toBe(true);
   await state(ctx, '14-language-live-ar');
-  await page.getByRole('tab').first().click();
-  await expect(page.getByRole('tablist').first()).toBeVisible();
+  // Home itself, proven by a Home-only element — Profile also prints the week.
+  await page.goto('/', { waitUntil: 'load' });
+  await expect(page.getByTestId('home_quick_search')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole('textbox', { name: 'الاسم الأول' })).toHaveCount(0);
   await page.waitForTimeout(1500);
   const homeAr = await page.locator('body').innerText();
   expect.soft(/Semaine 32/.test(homeAr), '14: Home still shows the French "Semaine 32"').toBe(false);
@@ -706,6 +725,11 @@ test('D-upgrade: real anonymous guest → account keeps uid, data and a complete
   await page.getByRole('button', { name: 'France', exact: true }).click();
   await page.getByRole('button', { name: /Oui, c'est tout nouveau/ }).click();
   await page.getByRole('button', { name: 'Continuer', exact: true }).click();
+  // Health-data consent: the step-4 save stays disabled until it is ticked.
+  const consent = page.getByTestId('health_consent_checkbox');
+  await expect(consent).toHaveAttribute('aria-checked', 'false', { timeout: 15_000 });
+  await consent.click();
+  await expect(consent).toHaveAttribute('aria-checked', 'true');
   await page.getByTestId('onboarding_step4_skip').click({ timeout: 20_000 });
   await expect(page.getByRole('tablist').first()).toBeVisible({ timeout: 45_000 });
   await expect.soft(page.getByText('Semaine 32', { exact: true }).first()).toBeVisible({ timeout: 20_000 });
@@ -913,7 +937,7 @@ test('D-delete-A: cancel keeps everything; confirm leaves zero server data and n
   const acct = await newSeededAccount('delete-a', { firstName: 'Dalia', lastName: 'Delete' });
   await seedEverything(acct.uid);
   const seeded = await footprint(acct.uid);
-  expect(totalDocs(seeded), 'seed: every collection + legacy + profile').toBe(USER_COLLECTIONS.length + 3 + 1);
+  expect(totalDocs(seeded), 'seed: every collection + legacy + profile').toBe(USER_COLLECTIONS.length + LEGACY_DOCS(acct.uid).length + 1);
   const ctx = instrument(page, testInfo);
   await uiLogin(page, acct.email, acct.password, 'fr');
   await openProfile(page);
@@ -996,6 +1020,7 @@ test('D-reauth: wrong password → localized error; right password completes the
   test.setTimeout(720_000);
   const acct = await newSeededAccount('reauth', { firstName: 'Rim', lastName: 'Reauth' });
   await seedEverything(acct.uid);
+  const seeded = await footprint(acct.uid);
   const ctx = instrument(page, testInfo);
   await page.clock.install();
   await uiLogin(page, acct.email, acct.password, 'fr');
@@ -1012,11 +1037,12 @@ test('D-reauth: wrong password → localized error; right password completes the
 
   // Wrong password → a French error, prompt stays, nothing deleted.
   await field.fill('Wrong-Passw0rd9');
-  const dWrong = await clickForDialog(ctx, () => page.getByRole('button', { name: 'Confirmer', exact: true }).last().click());
+  const dWrong = await clickForDialog(ctx, () => page.getByRole('button', { name: 'Supprimer définitivement', exact: true }).last().click());
   note(testInfo, '29-wrong-password', JSON.stringify(dWrong?.message ?? null));
   expect.soft(dWrong?.message ?? '(no dialog)', '29: wrong password shows an error').toMatch(/Erreur|incorrect|mot de passe/i);
   expect.soft(dWrong?.message ?? '', '29: error is localized, no raw Firebase code').not.toMatch(/auth\/|Firebase|INVALID_/);
   expect.soft(await authAccountExists(acct.uid), '29: wrong password must not delete the account').toBe(true);
+  expect.soft(await footprint(acct.uid), '29: wrong password must not erase any data').toEqual(seeded);
   await state(ctx, '29b-reauth-wrong-password', [/status of 400/]);
 
   // Right password → deletion completes.
@@ -1025,7 +1051,7 @@ test('D-reauth: wrong password → localized error; right password completes the
     await expect(field).toBeVisible({ timeout: 20_000 });
   }
   await field.fill(acct.password);
-  await page.getByRole('button', { name: 'Confirmer', exact: true }).last().click();
+  await page.getByRole('button', { name: 'Supprimer définitivement', exact: true }).last().click();
   await page.waitForURL((u) => onAuthSurface(u.pathname), { timeout: 30_000 }).catch(() => {});
   const after = await pollServer(() => footprint(acct.uid), (f) => totalDocs(f) === 0 && !f.auth, 20_000);
   note(testInfo, '29-footprint', JSON.stringify(after));
@@ -1034,6 +1060,74 @@ test('D-reauth: wrong password → localized error; right password completes the
   expect.soft(onAuthSurface(new URL(page.url()).pathname), `29: lands on an auth surface (${page.url()})`).toBe(true);
   expect.soft(privateKeysIn(await localKeys(page)), '29: private keys left').toEqual([]);
   await state(ctx, '29c-reauth-delete-complete');
+});
+
+// D-011: the server refuses the Auth delete only AFTER the purge (no client-side wait, so the
+// pre-check passes). The emptied account must never be left open: the prompt says the data is
+// gone, cancelling signs out, and the next sign-in finishes the deletion.
+test('D-reauth-after-purge: a refusal after the erase never leaves an emptied account signed in', async ({ page }, testInfo) => {
+  const acct = await newSeededAccount('reauth-late', { firstName: 'Lina', lastName: 'Late' });
+  await seedEverything(acct.uid);
+  const ctx = instrument(page, testInfo);
+  await uiLogin(page, acct.email, acct.password, 'fr');
+  await openProfile(page);
+  const stale = await makeSessionStale(page, { waitMs: 0, shiftClock: false });
+
+  // 35 — delete → purge → accounts:delete refused → "finish" prompt.
+  await clickForDialog(ctx, () => page.getByRole('button', { name: 'Supprimer le compte' }).click());
+  await expect(reauthField(page), '35: finish-deletion prompt').toBeVisible({ timeout: 30_000 });
+  expect(stale.refusals.length, '35: the forced CREDENTIAL_TOO_OLD refusal actually fired').toBeGreaterThan(0);
+  await expect.soft(page.getByText(/Vos données ont déjà été effacées/).first(), '35: the prompt says the data is already erased').toBeVisible();
+  const after35 = await footprint(acct.uid);
+  note(testInfo, '35-footprint', JSON.stringify({ refusals: stale.refusals.length, after35 }));
+  expect.soft(totalDocs(after35), '35: data erased before the refusal').toBe(0);
+  expect.soft(after35.auth, '35: the Auth user is what is left').toBe(true);
+  await state(ctx, '35-delete-refused-after-purge', [/status of 400/]);
+
+  // 35b — cancel → signed out (not the emptied account), marker kept for the next sign-in.
+  await page.getByRole('button', { name: 'Annuler', exact: true }).last().click();
+  await page.waitForURL((u) => onAuthSurface(u.pathname), { timeout: 20_000 }).catch(() => {});
+  await page.waitForTimeout(1500);
+  await expect.soft(page.getByRole('tablist'), '35b: cancel left the emptied account open').toHaveCount(0);
+  const marker = await page.evaluate(() => localStorage.getItem('@account_deletion_pending_v1'));
+  expect.soft(marker, '35b: pending-deletion marker survives the logout').toBe(acct.uid);
+  await state(ctx, '35b-cancel-signs-out');
+
+  // 35c — sign in again → the deletion finishes and says so.
+  await page.goto('/login', { waitUntil: 'load' });
+  await page.getByTestId('login_email_input').fill(acct.email, { timeout: 30_000 });
+  await page.getByTestId('login_password_input').fill(acct.password);
+  const done = await clickForDialog(ctx, () => page.getByTestId('login_submit_button').click(), 30_000);
+  note(testInfo, '35c-dialog', JSON.stringify(done?.message ?? null));
+  expect.soft(done?.message ?? '(no dialog)', '35c: deletion confirmed').toMatch(/^Compte supprimé/);
+  const after = await pollServer(() => footprint(acct.uid), (f) => totalDocs(f) === 0 && !f.auth, 20_000);
+  expect.soft(after.auth, '35c: auth user deleted on the next sign-in').toBe(false);
+  expect.soft(totalDocs(after), '35c: server docs').toBe(0);
+  await expect.soft(page.getByRole('tablist')).toHaveCount(0);
+  expect.soft(await page.evaluate(() => localStorage.getItem('@account_deletion_pending_v1')), '35c: marker cleared').toBeNull();
+  await state(ctx, '35c-deletion-finished-on-sign-in');
+});
+
+// The second deletion entry point named by the privacy policy: Settings → Data & Privacy.
+test('D-delete-settings: deleting from Settings erases everything and confirms it', async ({ page }, testInfo) => {
+  const acct = await newSeededAccount('delete-settings', { firstName: 'Sana', lastName: 'Settings' });
+  await seedEverything(acct.uid);
+  const ctx = instrument(page, testInfo);
+  await uiLogin(page, acct.email, acct.password, 'fr');
+  await openSettings(page);
+  const row = page.getByRole('button', { name: 'Supprimer mon compte' }).first();
+  await row.scrollIntoViewIfNeeded();
+  const confirm = await clickForDialog(ctx, () => row.click());
+  expect.soft(confirm?.message ?? '(no dialog)', '36: confirm names what is erased and offers the export').toMatch(/irréversible[\s\S]*Exporter mes données/);
+  const doneDialog = await ctx.dialogs.waitForNext(30_000).catch(() => null);
+  note(testInfo, '36-done', JSON.stringify(doneDialog?.message ?? null));
+  expect.soft(doneDialog?.message ?? '(no dialog)', '36: a finished deletion is confirmed (not just a logout)').toMatch(/^Compte supprimé/);
+  const after = await pollServer(() => footprint(acct.uid), (f) => totalDocs(f) === 0 && !f.auth, 20_000);
+  note(testInfo, '36-footprint', JSON.stringify(after));
+  expect.soft(totalDocs(after), '36: server docs left').toBe(0);
+  expect.soft(after.auth, '36: auth user left').toBe(false);
+  expect.soft(privateKeysIn(await localKeys(page)), '36: private keys left').toEqual([]);
+  await state(ctx, '36-delete-from-settings');
 });
 
 // ══════════════════════════════════════════════════════════════════════════════

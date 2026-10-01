@@ -59,6 +59,19 @@ export const TasksTab = () => {
     // read that param here on focus, flash the row, then clear the param so re-focusing
     // the tab manually doesn't re-trigger the highlight.
     const highlightIdParam = (route.params as { highlightId?: string } | undefined)?.highlightId;
+    // Home's "+ Tâche" quick action lands here with action='add': open the new-task modal,
+    // then clear the param so coming back to the tab later does not reopen it.
+    const actionParam = (route.params as { action?: string } | undefined)?.action;
+
+    useFocusEffect(
+        React.useCallback(() => {
+            if (actionParam === 'add') {
+                setEditingTask(undefined);
+                setShowAddModal(true);
+                navigation.setParams({ action: undefined } as never);
+            }
+        }, [actionParam])
+    );
 
     useFocusEffect(
         React.useCallback(() => {

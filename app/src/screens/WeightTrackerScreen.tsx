@@ -26,8 +26,9 @@ import { styles } from './WeightTrackerScreen.styles';
 import {
     WeightEntry,
     saveWeightEntry,
-    getWeightHistory,
+    getAllWeightEntries,
     deleteWeightEntry,
+    saveWeightSetup,
     getRecommendedWeightRange,
     evaluateWeightStatus,
     calculateBMICategory,
@@ -49,7 +50,7 @@ export const WeightTrackerScreen = () => {
     useScreenAnalytics('WeightTrackerScreen');
     const { t } = useTranslation(); // Initialize t
     const navigation = useNavigation();
-    const { user } = useAuth();
+    const { user, updateProfile: updateAccountProfile } = useAuth();
     const { pregnancyInfo, profile, setProfile } = usePregnancy();
     const dateLocale = useDateLocale();
 
@@ -116,7 +117,8 @@ export const WeightTrackerScreen = () => {
                 setLoading(false);
                 return;
             }
-            const history = await getWeightHistory(userId);
+            // Health-dashboard weighings included, so both screens show the same history.
+            const history = await getAllWeightEntries(userId);
             if (isMounted) setWeightHistory(history);
         } catch (error) {
             log.error('Error loading weight history:', error);
@@ -186,7 +188,7 @@ export const WeightTrackerScreen = () => {
                     try {
                         const userId = user?.uid;
                         if (!userId) return;
-                        await deleteWeightEntry(userId, existingToday.id!);
+                        await deleteWeightEntry(userId, existingToday.id!, existingToday.source);
                         await saveAndConfirm(weight);
                     } catch (error) {
                         log.error('Error replacing entry:', error);
@@ -285,26 +287,21 @@ export const WeightTrackerScreen = () => {
 
         setSavingSetup(true);
         try {
-            // P0.4: Create profile even if currently null
-            const baseProfile = (profile || {}) as Partial<typeof profile>;
-
-            // Update profile with pre-pregnancy data
-            const updatedProfile = {
-                firstName: baseProfile?.firstName || '',
-                lastName: baseProfile?.lastName || '',
-                country: baseProfile?.country || '',
-                lmp: baseProfile?.lmp,
-                dpa: baseProfile?.dpa,
+            // P0.4: works even while the profile is still null.
+            const result = await saveWeightSetup({
+                profile,
                 prePregnancyWeight: weight,
                 height: heightNum,
-            };
-
-            // Remove undefined values (Firebase doesn't accept undefined)
-            const cleanProfile = Object.fromEntries(
-                Object.entries(updatedProfile).filter(([_, v]) => v !== undefined)
-            );
-
-            await setProfile(cleanProfile as any); // P0.4: Allow setting profile even if initially null
+                signedIn: !!user && !user.isGuest,
+                updateAccountProfile,
+                setLocalProfile: setProfile,
+            });
+            if (!result.ok) {
+                // The card stays open with her values, so she can simply try again.
+                log.error('Weight setup not saved:', result.error);
+                showAlert(t('common.error'), t('weight.setupSaveFailed'));
+                return;
+            }
             setShowSetup(false);
             showAlert(t('common.configSaved'), t('common.configSavedMsg'));
         } catch (error) {
@@ -315,7 +312,7 @@ export const WeightTrackerScreen = () => {
         }
     };
 
-    const handleDeleteEntry = (entryId: string) => {
+    const handleDeleteEntry = (entry: WeightEntry) => {
         confirmAction(
             t('weight.resetConfirmTitle'),
             t('weight.resetConfirmMsg'),
@@ -323,7 +320,7 @@ export const WeightTrackerScreen = () => {
                 try {
                     const userId = user?.uid;
                     if (!userId) return;
-                    await deleteWeightEntry(userId, entryId!);
+                    await deleteWeightEntry(userId, entry.id!, entry.source);
                     await loadData();
                     showAlert(t('weight.resetDoneTitle'), t('weight.resetDoneMsg'));
                 } catch (error) {
@@ -367,8 +364,8 @@ export const WeightTrackerScreen = () => {
             async () => {
                 const userId = user?.uid;
                 if (!userId) return;
-                const history = await getWeightHistory(userId);
-                for (const e of history) await deleteWeightEntry(userId, e.id!);
+                const history = await getAllWeightEntries(userId);
+                for (const e of history) await deleteWeightEntry(userId, e.id!, e.source);
                 await loadData();
             },
             undefined,
@@ -678,7 +675,7 @@ export const WeightTrackerScreen = () => {
                             weightHistory.slice(0, 10).map((entry: WeightEntry) => {
                                 const entryStatus = evaluateWeightStatus(entry.weight, prePregnancyWeight, height, entry.week_of_pregnancy);
                                 return (
-                                    <View key={entry.id} style={styles.historyItem}>
+                                    <View key={`${entry.source ?? 'weight_entries'}-${entry.id}`} style={styles.historyItem}>
                                         <View style={styles.historyLeft}>
                                             <Text style={styles.historyWeight}>{entry.weight} {t('common.kg')}</Text>
                                             <Text style={styles.historyDate}>
@@ -697,7 +694,7 @@ export const WeightTrackerScreen = () => {
                                             </View>
                                             <TouchableOpacity
                                                 style={styles.deleteButton}
-                                                onPress={() => handleDeleteEntry(entry.id!)}
+                                                onPress={() => handleDeleteEntry(entry)}
                                                 accessibilityRole="button"
                                                 accessibilityLabel={t('a11y.deleteWeight')}
                                                 accessibilityHint={`${entry.weight} ${t('common.kg')}, ${format(new Date(entry.date), 'dd MMM yyyy', { locale: dateLocale })}`}

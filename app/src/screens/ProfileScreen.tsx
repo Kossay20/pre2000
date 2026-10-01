@@ -1,6 +1,6 @@
 import { createLogger } from '../utils/logger';
 const log = createLogger('ProfileScreen');
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { showAlert } from '../utils/alert';
@@ -30,6 +30,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
 import { useAccountDeletion } from '../hooks/useAccountDeletion';
 import { validateProfile } from '../utils/validation';
+import { changedFormFields } from '../context/profileSync';
 
 // Same physical bounds WeightTrackerScreen enforces (see its handleSetup), so the
 // two screens cannot disagree about what a plausible height/weight is.
@@ -69,18 +70,22 @@ export const ProfileScreen = () => {
         profile?.prePregnancyWeight ? String(profile.prePregnancyWeight) : ''
     );
 
-    // Update local state when profile changes
+    // Update local state when the stored profile changes — only the fields that changed.
+    // Adding an emergency contact publishes a new profile object with the same name, and
+    // re-syncing every field on that wiped whatever she had typed and not saved yet.
+    const syncedProfileRef = useRef(profile);
     useEffect(() => {
-        if (profile) {
-            setFirstName(profile.firstName || '');
-            setLastName(profile.lastName || '');
-            setCountry(profile.country || '');
-            if (profile.lmp) {
-                setLmp(new Date(profile.lmp));
-            }
-            // PROFILE-FIX: Sync physical fields from profile
-            if (profile.height) setHeight(String(profile.height));
-            if (profile.prePregnancyWeight) setPrePregnancyWeight(String(profile.prePregnancyWeight));
+        if (!profile) return;
+        const changed = changedFormFields(syncedProfileRef.current, profile);
+        syncedProfileRef.current = profile;
+        if (changed.includes('firstName')) setFirstName(profile.firstName || '');
+        if (changed.includes('lastName')) setLastName(profile.lastName || '');
+        if (changed.includes('country')) setCountry(profile.country || '');
+        if (changed.includes('lmp') && profile.lmp) setLmp(new Date(profile.lmp));
+        // PROFILE-FIX: Sync physical fields from profile
+        if (changed.includes('height') && profile.height) setHeight(String(profile.height));
+        if (changed.includes('prePregnancyWeight') && profile.prePregnancyWeight) {
+            setPrePregnancyWeight(String(profile.prePregnancyWeight));
         }
     }, [profile]);
 
@@ -153,11 +158,10 @@ export const ProfileScreen = () => {
                 ...(isFinite(weightNum) && weightNum > 0 ? { prePregnancyWeight: weightNum } : {}),
             };
 
-            // 1. Update PregnancyContext (local state + guest AsyncStorage)
-            await setProfile(profilePayload);
-
-            // 2. Sync to AuthContext + Firestore (single write, no duplication)
-            await updateProfile({
+            // 1. AuthContext + Firestore first (single write). An emptied last name goes out
+            // as `undefined`, which updateProfile clears on the server. Its result decides
+            // what she is told: "Succès" only when the account really holds the edit.
+            const result = await updateProfile({
                 firstName: firstName.trim(),
                 lastName: lastName.trim() || undefined,
                 country,
@@ -169,6 +173,17 @@ export const ProfileScreen = () => {
                 ...(isFinite(heightNum) && heightNum > 0 ? { height: heightNum } : {}),
                 ...(isFinite(weightNum) && weightNum > 0 ? { prePregnancyWeight: weightNum } : {}),
             });
+            if (!result.ok) {
+                log.warn('Profile not saved:', result.error);
+                showAlert(t('common.error'), t('profile.errorUpdate'));
+                return;
+            }
+
+            // 2. A guest's device-only copy ('guestProfile', read by WeightTracker). For an
+            // account PregnancyContext re-derives the profile from the updated user.
+            if (!user || user.isGuest) {
+                await setProfile({ ...profilePayload, emergencyContacts: profile?.emergencyContacts });
+            }
 
             showAlert(t('common.success'), t('profile.successUpdate'));
         } catch (error) {
@@ -398,6 +413,10 @@ export const ProfileScreen = () => {
                         </View>
                     </View>
 
+                    {/* Emergency Contacts — a safety feature, so near the top: it used to sit
+                        at the very bottom, below logout / reset / delete. */}
+                    <EmergencyContactsSection />
+
                     {/* Section 2: Tableaux de bord */}
                     <Text style={[styles.sectionTitle, { marginTop: 24 }]}>{t('common.dashboard')}</Text>
                     <View style={styles.menuSection}>
@@ -472,6 +491,18 @@ export const ProfileScreen = () => {
                         </TouchableOpacity>
                     </View>
 
+                    {/* User Type Badge */}
+                    <View style={styles.userTypeBadge}>
+                        <Text style={styles.userTypeText}>
+                            {user?.isGuest ? t('profile.guestMode') : t('profile.secureAccount')}
+                        </Text>
+                        <Text style={styles.userTypeSubtext}>
+                            {user?.isGuest
+                                ? t('profile.guestData')
+                                : t('profile.cloudData')}
+                        </Text>
+                    </View>
+
                     {/* Section 5: Zone de danger -> Sécurité */}
                     <Text style={[styles.sectionTitle, { marginTop: 24, color: theme.colors.error }]}>{t('common.dangerZone')}</Text>
                     <View style={styles.menuSection}>
@@ -483,8 +514,10 @@ export const ProfileScreen = () => {
                             accessibilityHint={t('a11y.logoutHint')}
                         >
                             <View style={styles.menuRowLeft}>
-                                <Ionicons name="log-out-outline" size={24} color={theme.colors.red700} style={styles.menuIcon} />
-                                <Text style={[styles.menuLabel, { color: theme.colors.error }]}>{t('profile.logout')}</Text>
+                                {/* Signing out erases nothing: neutral, so the red is left to the
+                                    rows that do (reset, delete). */}
+                                <Ionicons name="log-out-outline" size={24} color={theme.colors.textSecondary} style={styles.menuIcon} />
+                                <Text style={styles.menuLabel}>{t('profile.logout')}</Text>
                             </View>
                         </TouchableOpacity>
 
@@ -518,20 +551,6 @@ export const ProfileScreen = () => {
                         )}
                     </View>
 
-                    {/* User Type Badge */}
-                    <View style={styles.userTypeBadge}>
-                        <Text style={styles.userTypeText}>
-                            {user?.isGuest ? t('profile.guestMode') : t('profile.secureAccount')}
-                        </Text>
-                        <Text style={styles.userTypeSubtext}>
-                            {user?.isGuest
-                                ? t('profile.guestData')
-                                : t('profile.cloudData')}
-                        </Text>
-                    </View>
-
-                    {/* Emergency Contacts */}
-                    <EmergencyContactsSection />
 
                 </View>
             </ScrollView>

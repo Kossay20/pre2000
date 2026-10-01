@@ -173,7 +173,7 @@
   "testNotificationsFailed": "Échec de l'envoi. Vérifie les permissions.",
   "reminderInfo": "Les rappels santé se configurent dans l'onglet \"Rappels\"",
   "legal": "Légal & Support",
-  "dangerZone": "Zone de sécurité",
+  "dangerZone": "Zone de danger",
   "dashboard": "Tableaux de bord",
   "preferences": "Préférences",
   "privacyPolicy": "Politique de Confidentialité",
@@ -386,7 +386,8 @@
       "item1": "vous fournir le suivi de grossesse et programmer vos rappels sur votre téléphone ;",
       "item2": "synchroniser vos données entre vos appareils lorsque vous êtes connectée ;",
       "item3": "corriger les erreurs de l'application grâce aux rapports techniques.",
-      "disclaimer": "Nous ne vendons ni ne louons vos données, et nous ne les utilisons ni pour de la publicité ni pour du profilage."
+      "disclaimer": "Nous ne vendons ni ne louons vos données, et nous ne les utilisons ni pour de la publicité ni pour du profilage.",
+      "consent": "Nous traitons vos données de grossesse et de santé avec votre accord explicite : avant d'enregistrer votre profil, l'application vous demande de cocher une case qui l'autorise à les utiliser pour vous fournir ses fonctionnalités. Sans cet accord, votre profil n'est pas enregistré. La date de votre accord et la version de cette politique sont conservées avec votre profil."
     },
     "processors": {
       "title": "4. Prestataires",
@@ -418,7 +419,7 @@
       "deletion": "Effacement :",
       "deletionDesc": "« {{profile}} » → « {{dangerZone}} » → « {{deleteFromProfile}} », ou « {{settings}} » → « {{dataSection}} » → « {{deleteFromSettings}} ». La suppression est immédiate et définitive : votre compte, les données enregistrées sur nos serveurs et la copie locale sur votre téléphone.",
       "consent": "Retrait du consentement :",
-      "consentDesc": "le suivi médical déclaré se désactive à tout moment dans « {{settings}} » → « {{medical}} », sans supprimer le reste de votre compte."
+      "consentDesc": "vous pouvez retirer à tout moment l'accord donné à la création de votre profil en effaçant vos données : « {{settings}} » → « {{dataSection}} » → « {{deleteFromSettings}} » avec un compte, ou « {{eraseGuest}} » sans compte. Le suivi médical déclaré se désactive à part dans « {{settings}} » → « {{medical}} », sans supprimer le reste de votre compte."
     },
     "contact": {
       "title": "8. Contact",

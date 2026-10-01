@@ -7,6 +7,11 @@ import {
     toggleItem,
 } from '../hospitalBagService';
 
+// The service syncs signed-in history to Firestore; these tests cover the device side
+// (no uid), and trackerHistorySync.test.ts the server side.
+jest.mock('../../config/firebase', () => ({ db: {}, auth: { currentUser: null } }));
+jest.mock('firebase/firestore', () => require('../../testing/fakeFirestore').fakeFirestoreModule);
+
 jest.mock('@react-native-async-storage/async-storage', () => {
     const store: Record<string, string> = {};
     return {

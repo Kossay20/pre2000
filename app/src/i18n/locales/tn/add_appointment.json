@@ -52,5 +52,8 @@
   "appointment_created": "الموعد تسجّل بنجاح!",
   "guestBannerTitle": "وضع الضيف",
   "guestBannerMsg": "تنجم تعمّر هذا الفورمولار، أما باش تسجّل يلزمك كونت. بياناتك باش تتحفظ وقت ما تعمل الكونت.",
-  "draftRestored": "موعدك رجع كيما كان ✨"
+  "draftRestored": "موعدك رجع كيما كان ✨",
+  "notFoundTitle": "الموعد مش موجود",
+  "notFoundMsg": "يمكن تفسخ، ولا الكونيكسيون تقصّت.",
+  "backToCalendar": "ارجع للتقويم"
 }

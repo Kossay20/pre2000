@@ -61,8 +61,12 @@ jest.mock('expo-sharing', () => ({
 jest.mock('expo-file-system/legacy', () => ({
     cacheDirectory: 'file:///cache/',
     writeAsStringAsync: jest.fn(),
+    deleteAsync: jest.fn(() => Promise.resolve()),
     EncodingType: { UTF8: 'utf8' },
 }));
+jest.mock('../hydrationService', () => ({ loadHydrationData: jest.fn(() => Promise.resolve({ goal: 2000, entries: [] })) }));
+jest.mock('../ramadanService', () => ({ loadState: jest.fn(() => Promise.resolve({ days: [] })) }));
+jest.mock('../../config/featureFlags', () => ({ RAMADAN_GUIDANCE_CLINICALLY_REVIEWED: false }));
 
 // Sibling services — each returns a controllable jest.fn().
 jest.mock('../weightService', () => ({ getWeightHistory: jest.fn() }));
@@ -251,7 +255,7 @@ describe('generateExportData — authenticated user', () => {
         expect(data.profile.dueDate).toBe('2026-09-01');
         expect(data.metadata.appVersion).toBe('1.0.0');
         expect(data.metadata.platform).toBe('ios');
-        expect(data.metadata.schemaVersion).toBe(5);
+        expect(data.metadata.schemaVersion).toBe(6);
         expect(typeof data.metadata.exportedAt).toBe('string');
         expect(new Date(data.metadata.exportedAt).toISOString()).toBe(data.metadata.exportedAt);
     });
@@ -277,7 +281,15 @@ describe('generateExportData — authenticated user', () => {
             contractionTimer: { contractions: [{ id: 'c1' }] },
             hospitalBag: { checked: { item1: true } },
             bookmarks: [{ id: 'b1', type: 'article' }],
+            hydration: { goal: 2000, entries: [] },
         });
+    });
+
+    test('reads the tool histories for the account, so what is only on the server is exported too', async () => {
+        await generateExportData(authUser, profile);
+        expect(mLoadKick).toHaveBeenCalledWith('uidAAAA1234567890');
+        expect(mLoadContraction).toHaveBeenCalledWith('uidAAAA1234567890');
+        expect(mLoadHospitalBag).toHaveBeenCalledWith('uidAAAA1234567890');
     });
 });
 
@@ -386,6 +398,7 @@ describe('generateExportData — resilience via Promise.allSettled / unwrap', ()
         mLoadContraction.mockRejectedValue(new Error('x'));
         mLoadHospitalBag.mockRejectedValue(new Error('x'));
         mGetBookmarks.mockRejectedValue(new Error('x'));
+        (jest.requireMock('../hydrationService').loadHydrationData as jest.Mock).mockRejectedValueOnce(new Error('x'));
 
         const data = await generateExportData(authUser, profile);
 
@@ -400,9 +413,9 @@ describe('generateExportData — resilience via Promise.allSettled / unwrap', ()
         });
         expect(data.reminders).toEqual({ settingsV1: {}, taskStatuses: {}, settingsV2: {} });
         // W8: tool histories fall back cleanly (objects → {}, bookmarks → []).
-        expect(data.tools).toEqual({ kickCounter: {}, contractionTimer: {}, hospitalBag: {}, bookmarks: [] });
+        expect(data.tools).toEqual({ kickCounter: {}, contractionTimer: {}, hospitalBag: {}, bookmarks: [], hydration: {} });
         // Envelope metadata still present.
-        expect(data.metadata.schemaVersion).toBe(5);
+        expect(data.metadata.schemaVersion).toBe(6);
     });
 });
 
@@ -434,7 +447,7 @@ describe('exportUserData', () => {
 
         // Contents are valid pretty-printed JSON of the export.
         const parsed = JSON.parse(contents);
-        expect(parsed.metadata.schemaVersion).toBe(5);
+        expect(parsed.metadata.schemaVersion).toBe(6);
         expect(parsed.profile.name).toBe('Lina');
         // pretty-printed (indent of 2) → contains newlines.
         expect(contents).toContain('\n');
@@ -445,6 +458,15 @@ describe('exportUserData', () => {
             UTI: 'public.json',
         });
         expect(mockAlert).not.toHaveBeenCalled();
+        // The plaintext record does not stay behind in the app's cache.
+        expect(FileSystem.deleteAsync).toHaveBeenCalledWith(uri, { idempotent: true });
+    });
+
+    test('exports hydration, and no Ramadan log while its screen is unreachable', async () => {
+        await exportUserData(authUser, profile, t);
+        const parsed = JSON.parse(mockWriteAsString.mock.calls[0][1]);
+        expect(parsed.tools.hydration).toEqual({ goal: 2000, entries: [] });
+        expect(parsed.tools).not.toHaveProperty('ramadan');
     });
 
     test('does NOT leak the raw UID into the written file (anonymized)', async () => {
@@ -496,5 +518,33 @@ describe('exportUserData', () => {
         const uri = mockWriteAsString.mock.calls[0][0];
         const expectedStamp = new Date().toISOString().split('T')[0];
         expect(uri).toBe(`file:///cache/mama-bebe-export-${expectedStamp}.json`);
+    });
+
+    test('web: downloads the JSON through the browser instead of failing silently', async () => {
+        const { Platform } = jest.requireMock('react-native');
+        const link: any = { click: jest.fn(), remove: jest.fn() };
+        const g = global as any;
+        const saved = { document: g.document, create: URL.createObjectURL, revoke: URL.revokeObjectURL };
+        g.document = { createElement: jest.fn(() => link), body: { appendChild: jest.fn() } };
+        URL.createObjectURL = jest.fn(() => 'blob:export');
+        URL.revokeObjectURL = jest.fn();
+        jest.useFakeTimers();
+        Platform.OS = 'web';
+        try {
+            await exportUserData(authUser, profile, t);
+            expect(link.download).toMatch(/^mama-bebe-export-\d{4}-\d{2}-\d{2}\.json$/);
+            expect(link.href).toBe('blob:export');
+            expect(link.click).toHaveBeenCalledTimes(1);
+            expect(mockWriteAsString).not.toHaveBeenCalled();
+            expect(mockShareAsync).not.toHaveBeenCalled();
+            expect(mockAlert).not.toHaveBeenCalled();
+        } finally {
+            Platform.OS = 'ios';
+            jest.runOnlyPendingTimers();
+            jest.useRealTimers();
+            g.document = saved.document;
+            URL.createObjectURL = saved.create;
+            URL.revokeObjectURL = saved.revoke;
+        }
     });
 });

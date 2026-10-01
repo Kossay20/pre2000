@@ -32,5 +32,7 @@
     },
     "noAppointments": "ما عندكش مواعيد الأسبوع هذا",
     "appointmentsThisWeek": "{{count}} مواعيد الأسبوع هذا",
-    "myAppointment": "الموعد متاعي"
+    "myAppointment": "الموعد متاعي",
+    "noSuggestionsWeek": "ما فماش اقتراحات باش تتعرض للأسبوع هذا.",
+    "noSuggestionsMonth": "ما فماش اقتراحات باش تتعرض للشهر هذا."
 }

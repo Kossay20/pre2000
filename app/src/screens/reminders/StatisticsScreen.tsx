@@ -5,6 +5,7 @@ import { useNavigation } from '@react-navigation/native';
 import { theme } from '../../theme';
 import { hexToRgba } from '../../utils/styleUtils';
 import { getHistoricalData } from '../../services/dailyChecklistService';
+import { getUserTasks } from '../../services/taskService';
 // F5: use getEssentialReminders (already filters rem_hyd_water + sorts by essential_rank)
 import { getReminderCompletions, calculateStreak, getEssentialReminders } from '../../services/remindersV2Service';
 import { getLocalizedTrilang } from '../../utils/i18nHelpers';
@@ -54,15 +55,17 @@ export const StatisticsScreen = () => {
         setLoading(true);
         try {
             const days = timeRange === 'week' ? 7 : 30;
-            // Checklist historical data (completion rates, hydration, vitamins)
-            const stats = await getHistoricalData(days);
+            const userId = user?.isGuest ? undefined : user?.uid;
+            // Checklist historical data (completion rates, hydration, vitamins), with the
+            // user's own tasks folded in — they live on the server, not in the checklist.
+            const tasks = userId ? await getUserTasks(userId) : [];
+            const stats = await getHistoricalData(days, tasks);
             setData(stats);
 
             // F5: align KEY_REMINDERS with the actual catalogue shown in UI.
             // Was hardcoded list including `rem_hyd_water` which is filtered out
             // everywhere else → user saw a badge for a reminder that doesn't exist.
             // Now derived from `getEssentialReminders` (rank-sorted, water excluded).
-            const userId = user?.isGuest ? undefined : user?.uid;
             const essentials = getEssentialReminders().slice(0, 4); // top 4 by essential_rank
 
             let globalMax = 0;

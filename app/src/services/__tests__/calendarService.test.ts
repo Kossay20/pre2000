@@ -54,8 +54,10 @@ jest.mock('firebase/firestore', () => ({
     orderBy: jest.fn((field: string) => ({ __type: 'orderBy', field })),
     limit: jest.fn((n: number) => ({ __type: 'limit', n })),
     getDocs: jest.fn(),
+    getDoc: jest.fn(),
     setDoc: jest.fn().mockResolvedValue(undefined),
     deleteDoc: jest.fn().mockResolvedValue(undefined),
+    deleteField: jest.fn(() => ({ __type: 'deleteField' })),
 }));
 
 // --- Imports (after mocks) ------------------------------------------------
@@ -77,9 +79,12 @@ import {
     getLocalDateKey,
     groupEventsByDate,
     GeneratedEvent,
+    getUserEvent,
+    getCurrentPregnancyWeekRange,
+    countEventsInRange,
 } from '../calendarService';
 import { theme } from '../../theme';
-import { collection, getDocs, doc, setDoc, deleteDoc, where } from 'firebase/firestore';
+import { collection, getDocs, getDoc, doc, setDoc, deleteDoc, where } from 'firebase/firestore';
 import { cancelRDVReminders } from '../rdvNotificationService';
 import type { CalendarTemplate, UserEvent, CombinedEvent } from '../../types';
 
@@ -688,6 +693,17 @@ describe('updateUserEvent', () => {
         expect(options).toEqual({ merge: true });
     });
 
+    test('null clears a field on the server (deleteField), so emptied notes do not survive the merge', async () => {
+        await updateUserEvent('evt_1', { title: 'Écho', notes: null, location: null });
+        const [, payload, options] = mockedSetDoc.mock.calls[0];
+        expect(payload).toEqual({
+            title: 'Écho',
+            notes: { __type: 'deleteField' },
+            location: { __type: 'deleteField' },
+        });
+        expect(options).toEqual({ merge: true });
+    });
+
     test('offline: an unacknowledged update resolves as queued', async () => {
         mockedSetDoc.mockReturnValueOnce(new Promise<void>(() => {}));
         await expect(updateUserEvent('evt_1', { title: 'x' }, { ackTimeoutMs: 10 })).resolves.toEqual({ pendingSync: true });
@@ -836,5 +852,67 @@ describe('groupEventsByDate', () => {
         expect(Object.keys(grouped).sort()).toEqual(['2026-06-10', '2026-06-11']);
         expect(grouped['2026-06-10'].map((e) => e.id)).toEqual(['a', 'b']);
         expect(grouped['2026-06-11'].map((e) => e.id)).toEqual(['c']);
+    });
+});
+
+// ===========================================================================
+// getUserEvent — the edit form reads the event by id
+// ===========================================================================
+
+describe('getUserEvent', () => {
+    const mockedGetDoc = getDoc as jest.MockedFunction<typeof getDoc>;
+
+    test('returns the stored event, location and notes included', async () => {
+        const stored = makeUserEvent({ event_id: 'evt_7', location: 'Clinique', notes: 'Jeûner' });
+        mockedGetDoc.mockResolvedValueOnce({ exists: () => true, data: () => stored } as never);
+        await expect(getUserEvent('evt_7')).resolves.toEqual(stored);
+        expect((doc as jest.Mock).mock.calls[0].slice(1)).toEqual(['userEvents', 'evt_7']);
+    });
+
+    test('returns null for a deleted event, an unreadable one, or no id', async () => {
+        mockedGetDoc.mockResolvedValueOnce({ exists: () => false, data: () => undefined } as never);
+        await expect(getUserEvent('gone')).resolves.toBeNull();
+        mockedGetDoc.mockRejectedValueOnce(Object.assign(new Error('denied'), { code: 'permission-denied' }));
+        await expect(getUserEvent('not_mine')).resolves.toBeNull();
+        await expect(getUserEvent('')).resolves.toBeNull();
+    });
+});
+
+// ===========================================================================
+// "This week" — one range and one counter for the Calendar and the Home pill
+// ===========================================================================
+
+describe('getCurrentPregnancyWeekRange + countEventsInRange', () => {
+    afterEach(() => jest.useRealTimers());
+
+    test('four appointments later this week count as 4 on both surfaces, whatever Home displays', () => {
+        // Wednesday 30 Sept 2026, 10:00 local; LMP 31 weeks earlier → pregnancy week 32
+        // starts today and ends next Tuesday.
+        jest.useFakeTimers({ now: new Date(2026, 8, 30, 10, 0) });
+        const lmp = new Date(2026, 1, 25);
+        const saturday = [9, 10, 11, 12].map((h) => makeUserEvent({
+            event_id: `e${h}`,
+            date: new Date(2026, 9, 3, h, 0).toISOString(),
+        }));
+        const range = getCurrentPregnancyWeekRange(lmp);
+        expect(getLocalDateKey(range.start)).toBe('2026-09-30');
+        expect(getLocalDateKey(range.end)).toBe('2026-10-06');
+
+        // Calendar: all user events in the displayed week (getWeekDates of the real week).
+        const calendarCount = countEventsInRange(saturday, getWeekDates(lmp, 32));
+        // Home: the uncapped upcoming list, same range. Showing only 3 must not change it.
+        const homeCount = countEventsInRange(saturday, range);
+        expect(calendarCount).toBe(4);
+        expect(homeCount).toBe(calendarCount);
+        expect(countEventsInRange(saturday.slice(0, 3), range)).toBe(3); // the old capped input
+    });
+
+    test('an appointment the day after the week ends is not "this week"', () => {
+        jest.useFakeTimers({ now: new Date(2026, 8, 30, 10, 0) });
+        const range = getCurrentPregnancyWeekRange(new Date(2026, 1, 25));
+        const nextWeek = makeUserEvent({ date: new Date(2026, 9, 7, 0, 0).toISOString() });
+        const lastMinute = makeUserEvent({ date: new Date(2026, 9, 6, 23, 59).toISOString() });
+        expect(countEventsInRange([nextWeek], range)).toBe(0);
+        expect(countEventsInRange([lastMinute], range)).toBe(1);
     });
 });

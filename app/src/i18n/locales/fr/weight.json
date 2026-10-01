@@ -64,6 +64,7 @@
     "savedTitle": "✅ Enregistré !",
     "savedMsg": "Votre poids a été ajouté. Bonne continuation ! 💚",
     "errorSave": "Impossible d'enregistrer le poids.",
+    "setupSaveFailed": "Vos informations n'ont pas pu être enregistrées sur votre compte. Vérifiez votre connexion et réessayez.",
     "noData": "Aucune pesée enregistrée",
     "invalidHeight": "Veuillez entrer une taille valide (100-250 cm)",
     "resetConfirmTitle": "Supprimer ?",

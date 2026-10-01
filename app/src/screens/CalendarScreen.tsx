@@ -18,6 +18,7 @@ import {
     groupEventsByDate,
     getWeekDates,
     getLocalDateKey,
+    countEventsInRange,
 } from '../services/calendarService';
 import { UserEvent, CombinedEvent } from '../types';
 import { theme } from '../theme';
@@ -218,22 +219,22 @@ export const CalendarScreen = () => {
                 week: event.week,
                 source: 'user' as const,
                 category: event.category, // CAL-04: carry Medical/Personal so edit re-opens with it + card can show it
+                // The week list carried these and the month list did not, so the month card
+                // had no address.
+                location: event.location,
+                notes: event.notes,
             });
         });
 
         return grouped;
     }, [allTemplateEvents, userEvents, i18n.language]);
 
-    // Count only USER events this week (not suggestions) - use date range for accuracy
-    const eventsThisWeekCount = useMemo(() => {
-        const { start, end } = weekDates;
-        // Count user events that fall within this week's date range
-        const count = userEvents.filter(e => {
-            const eventDate = new Date(e.date);
-            return eventDate >= start && eventDate <= end;
-        }).length;
-        return count;
-    }, [userEvents, weekDates]);
+    // Count only USER events this week (not suggestions). Same counter and, for the current
+    // week, the same range (getCurrentPregnancyWeekRange) as Home's "this week" pill.
+    const eventsThisWeekCount = useMemo(
+        () => countEventsInRange(userEvents, weekDates),
+        [userEvents, weekDates],
+    );
 
     // Count suggestions for this week
     const suggestionsThisWeekCount = useMemo(() => {
@@ -369,7 +370,9 @@ export const CalendarScreen = () => {
 
     const handleEditEvent = useCallback((item: CombinedEvent) => {
         if (item.source === 'user') {
-            navigation.navigate('AddAppointment', { event: item });
+            // Only the id: the form reads the event from the server, so a web reload of the
+            // edit URL still has it (an object param does not survive the URL).
+            navigation.navigate('AddAppointment', { eventId: item.id });
         }
     }, [navigation]);
 
@@ -540,6 +543,25 @@ export const CalendarScreen = () => {
                                 />
                             )}
 
+                            {/* Suggestions opened with nothing to show: say so. The panel used to
+                                render nothing at all, so the button looked broken. */}
+                            {showSuggestions && (calendarView === 'week' ? weekSuggestions : monthSuggestions).length === 0 && (
+                                <View style={styles.suggestionsSection}>
+                                    <View style={styles.suggestionsSectionHeader}>
+                                        <Text style={styles.suggestionsSectionTitle} accessibilityLiveRegion="polite">
+                                            💡 {calendarView === 'week' ? t('calendar.noSuggestionsWeek') : t('calendar.noSuggestionsMonth')}
+                                        </Text>
+                                        <TouchableOpacity
+                                            onPress={() => setShowSuggestions(false)}
+                                            accessibilityRole="button"
+                                            accessibilityLabel={t('a11y.close')}
+                                        >
+                                            <Text style={styles.suggestionsSectionClose}>✕</Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                </View>
+                            )}
+
                             {/* Suggestions Section (Collapsible) - Moved inside ListHeaderComponent */}
                             {showSuggestions && (
                                 (calendarView === 'week' && weekSuggestions.length > 0) ||
@@ -595,7 +617,7 @@ export const CalendarScreen = () => {
 
             <TouchableOpacity
                 style={styles.fab}
-                onPress={() => navigation.navigate('AddAppointment', { selectedDate: selectedDate.toISOString() })}
+                onPress={() => navigation.navigate('AddAppointment', { selectedDate: getLocalDateKey(selectedDate) })}
                 accessibilityRole="button"
                 accessibilityLabel={t('a11y.addAppointment')}
                 accessibilityHint={t('a11y.addAppointmentHint')}

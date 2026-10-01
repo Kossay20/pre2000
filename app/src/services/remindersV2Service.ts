@@ -6,6 +6,7 @@
  */
 
 import { createLogger } from '../utils/logger';
+import { parseLocalDateKey, toLocalDateKey } from '../utils/localDate';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { doc, getDoc, setDoc, collection, query, where, getDocs, deleteDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
@@ -439,7 +440,9 @@ export async function markReminderAsCompleted(
     log.info(`Marking reminder ${reminderId} as ${completed ? 'completed' : 'incomplete'}`);
 
     try {
-        const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+        // The LOCAL day (YYYY-MM-DD): the UTC day credited an evening completion in New York
+        // to tomorrow, and the streak then broke.
+        const today = toLocalDateKey();
         const storageKey = userId && !userId.startsWith('guest_')
             ? `${COMPLETION_STORAGE_KEY}_${userId}`
             : COMPLETION_STORAGE_KEY;
@@ -509,7 +512,9 @@ export function calculateStreak(completionDates: string[]): number {
     // Normalize input dates to midnight-day timestamps and dedupe via Set.
     const dayStamps = new Set<number>();
     for (const dateStr of completionDates) {
-        const d = new Date(dateStr);
+        // A bare YYYY-MM-DD is a local day; new Date() would read it as UTC midnight, which
+        // is the previous local day west of UTC.
+        const d = parseLocalDateKey(dateStr) ?? new Date(dateStr);
         if (Number.isNaN(d.getTime())) continue;
         d.setHours(0, 0, 0, 0);
         dayStamps.add(d.getTime());

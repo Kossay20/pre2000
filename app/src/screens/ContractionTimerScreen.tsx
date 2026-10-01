@@ -37,6 +37,8 @@ export const ContractionTimerScreen: React.FC = () => {
     useScreenAnalytics('ContractionTimerScreen');
     const { t } = useTranslation();
     const { user } = useAuth();
+    // A signed-in account keeps this history on the server too; a guest's stays here.
+    const syncUid = user && !user.isGuest ? user.uid : null;
     const emergencyContact = resolveEmergencyContact(user?.country, getDeviceRegionCode());
     const emergencyNumber = emergencyContact.number;
     const [state, setState] = useState<ContractionTimerState>({ activeStartedAt: null, history: [] });
@@ -46,13 +48,13 @@ export const ContractionTimerScreen: React.FC = () => {
     useFocusEffect(
         useCallback(() => {
             let alive = true;
-            loadState().then((s) => {
+            loadState(syncUid).then((s) => {
                 if (alive) setState(s);
             });
             return () => {
                 alive = false;
             };
-        }, []),
+        }, [syncUid]),
     );
 
     useEffect(() => {
@@ -72,23 +74,23 @@ export const ContractionTimerScreen: React.FC = () => {
     }, []);
 
     const onStop = useCallback(async () => {
-        const next = await stopContraction();
+        const next = await stopContraction(syncUid);
         setState(next);
-    }, []);
+    }, [syncUid]);
 
     const onClear = useCallback(() => {
         confirmAction(
             t('cycle8.contractionTimer.clearConfirmTitle'),
             t('cycle8.contractionTimer.clearConfirmMsg'),
             async () => {
-                const next = await clearAll();
+                const next = await clearAll(syncUid);
                 setState(next);
             },
             undefined,
             t('common.cancel', { defaultValue: 'Annuler' }),
             t('cycle8.contractionTimer.clear'),
         );
-    }, [t]);
+    }, [t, syncUid]);
 
     const stats = computeStats(state.history);
 
@@ -219,6 +221,7 @@ export const ContractionTimerScreen: React.FC = () => {
                 )}
                 <EmergencyNumberNote source={emergencyContact.source} />
 
+                {!syncUid && <Text style={styles.localNote}>{t('cycle8.localOnlyNote')}</Text>}
                 <Text style={styles.disclaimer}>{t('cycle8.contractionTimer.disclaimer')}</Text>
             </ScrollView>
         </SafeAreaView>
@@ -273,6 +276,12 @@ const styles = StyleSheet.create({
     actionRow: { flexDirection: 'row', justifyContent: 'center', marginTop: theme.spacing.l },
     callRow: { padding: theme.spacing.m, alignItems: 'center', marginTop: theme.spacing.xl },
     callText: { ...theme.typography.body, color: theme.colors.accent, fontWeight: '600' },
+    localNote: {
+        ...theme.typography.caption,
+        color: theme.colors.textLight,
+        marginTop: theme.spacing.l,
+        textAlign: 'center',
+    },
     disclaimer: {
         ...theme.typography.caption,
         color: theme.colors.textLight,

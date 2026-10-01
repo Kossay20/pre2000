@@ -31,6 +31,8 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import './src/i18n'; // Initialize i18n
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { needsProfileSetup } from './src/context/loginHelpers';
+import { needsHealthDataConsent } from './src/utils/healthDataConsent';
+import { HealthDataConsentScreen } from './src/screens/HealthDataConsentScreen';
 import { localizedHeaderBack } from './src/navigation/headerBack';
 import { PregnancyProvider, usePregnancy } from './src/context/PregnancyContext';
 import { theme } from './src/theme';
@@ -105,11 +107,14 @@ const AuthStack = () => {
 // or an account that reaches the app without a userProfiles document — a new device,
 // an older build, a partial document. Onboarding is the only way forward, so it is the
 // only screen, with sign-out as the way out for someone on the wrong account.
-const ProfileSetupStack = () => {
+// A finished profile saved before the app asked for consent to process health data
+// (needsHealthDataConsent) starts on that question instead, and cannot reach Home
+// without answering it. Both can open the privacy policy they are asked to accept.
+const ProfileSetupStack = ({ initialRouteName }: { initialRouteName: 'Onboarding' | 'HealthDataConsent' }) => {
   const { t } = useTranslation();
   const { logout } = useAuth();
   return (
-    <Stack.Navigator screenOptions={{
+    <Stack.Navigator initialRouteName={initialRouteName} screenOptions={{
       headerStyle: { backgroundColor: theme.colors.background },
       headerTintColor: theme.colors.text,
       ...localizedHeaderBack(t),
@@ -133,6 +138,12 @@ const ProfileSetupStack = () => {
           ),
         }}
       />
+      <Stack.Screen
+        name="HealthDataConsent"
+        component={HealthDataConsentScreen}
+        options={{ title: t('onboarding.healthConsent.sheetTitle'), headerBackVisible: false, gestureEnabled: false }}
+      />
+      <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} options={{ headerShown: true, title: t('common.screen.legalNotice') }} />
     </Stack.Navigator>
   );
 };
@@ -405,6 +416,9 @@ const AppContent = () => {
           }
         },
         Calendrier: {
+          // A reloaded /appointment/add?eventId=… keeps the Calendar under the form, so
+          // Save / back return to it instead of leaving the form as the tab's only screen.
+          initialRouteName: 'CalendarMain' as const,
           screens: {
             CalendarMain: 'calendar',
             AddAppointment: 'appointment/add',
@@ -489,7 +503,14 @@ const AppContent = () => {
       }}
       ref={navigationRef}
     >
-      {user ? (needsProfileSetup(user) ? <ProfileSetupStack /> : <MainTabs />) : <AuthStack />}
+      {user
+        ? (needsProfileSetup(user) || needsHealthDataConsent(user)
+          ? <ProfileSetupStack
+              key={needsProfileSetup(user) ? 'setup' : 'consent'}
+              initialRouteName={needsProfileSetup(user) ? 'Onboarding' : 'HealthDataConsent'}
+            />
+          : <MainTabs />)
+        : <AuthStack />}
     </NavigationContainer>
   );
 };

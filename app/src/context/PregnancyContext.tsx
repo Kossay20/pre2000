@@ -8,6 +8,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from './AuthContext';
 import { calculatePregnancyWeek } from '../utils/pregnancyCalculator';
 import { calculateCycleDay } from '../utils/fertility';
+import { guestLocalFields } from './profileSync';
 // R3 FIX: EmergencyContact is now defined in types/ so it can be referenced by
 // UserProfile without a circular import. Re-exported here for backward compat
 // (existing imports `import { EmergencyContact } from '../context/PregnancyContext'`
@@ -109,20 +110,17 @@ export const PregnancyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                         // present on the AuthContext user object. Without merging them here
                         // the WeightTracker setup gate (profile.height/prePregnancyWeight)
                         // re-triggers on every reload and Profile inputs come back empty.
+                        // The same holds for a guest's emergency contacts, which vanished
+                        // from Profile on every reload.
                         if (user.isGuest) {
                             try {
                                 const storedGuest = await AsyncStorage.getItem('guestProfile');
-                                if (storedGuest) {
-                                    const guestData = JSON.parse(storedGuest) as Profile;
-                                    if (guestData.prePregnancyWeight !== undefined && profileData.prePregnancyWeight === undefined) {
-                                        profileData.prePregnancyWeight = guestData.prePregnancyWeight;
-                                    }
-                                    if (guestData.height !== undefined && profileData.height === undefined) {
-                                        profileData.height = guestData.height;
-                                    }
-                                }
+                                Object.assign(
+                                    profileData,
+                                    guestLocalFields(profileData, storedGuest ? (JSON.parse(storedGuest) as Profile) : null),
+                                );
                             } catch (mergeErr) {
-                                log.warn('[PregnancyContext] ⚠️ Failed to merge guestProfile physical data', mergeErr);
+                                log.warn('[PregnancyContext] ⚠️ Failed to merge guestProfile data', mergeErr);
                             }
                         }
                         setProfileState(profileData);
@@ -298,11 +296,10 @@ export const PregnancyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                 // to AuthContext.updateProfile so it survives app restart.
                 // Without this the contacts were memory-only and lost on cold start.
                 if (Array.isArray(p.emergencyContacts)) {
-                    try {
-                        await updateAuthProfile({ emergencyContacts: p.emergencyContacts });
-                    } catch (e) {
-                        log.warn('[PregnancyContext] ⚠️ Failed to persist emergencyContacts to Firestore:', e);
-                    }
+                    // updateProfile reports failure instead of throwing; a contact the
+                    // account never received must not look saved.
+                    const res = await updateAuthProfile({ emergencyContacts: p.emergencyContacts });
+                    if (!res.ok) throw new Error(`emergencyContacts not saved: ${res.error}`);
                 }
             }
             // For auth users: also update in-memory state. AuthContext owns Firestore for the rest.
@@ -310,6 +307,9 @@ export const PregnancyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             computeInfo(p);
         } catch (e) {
             log.error('[PregnancyContext] ❌ Error setting profile', e);
+            // Rethrown: callers (WeightTracker setup, emergency contacts, a guest's Profile
+            // save) tell her it was not saved. Swallowing it let those report success.
+            throw e;
         } finally {
             setLoading(false);
         }

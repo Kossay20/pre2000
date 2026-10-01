@@ -93,6 +93,32 @@ export const styles = StyleSheet.create({
         color: theme.colors.textLight,
         marginTop: theme.spacing.xs,
     },
+    fieldError: {
+        fontSize: 12,
+        fontWeight: '600' as const,
+        color: theme.colors.error,
+        marginTop: theme.spacing.xs,
+    },
+    // Shown while an edited appointment loads, or when it no longer exists.
+    centerState: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: theme.spacing.l,
+        gap: theme.spacing.m,
+        backgroundColor: theme.colors.background,
+    },
+    centerStateTitle: {
+        fontSize: 18,
+        fontWeight: '700' as const,
+        color: theme.colors.text,
+        textAlign: 'center',
+    },
+    centerStateMsg: {
+        ...theme.typography.body,
+        color: theme.colors.textSecondary,
+        textAlign: 'center',
+    },
     actions: {
         flexDirection: 'row',
         gap: theme.spacing.m,

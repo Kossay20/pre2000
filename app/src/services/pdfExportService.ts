@@ -1,7 +1,9 @@
 import { theme } from '../theme';
 import * as Print from 'expo-print';
+import { Platform } from 'react-native';
 import * as Sharing from 'expo-sharing';
 import { shareAsync } from 'expo-sharing';
+import * as FileSystem from 'expo-file-system/legacy';
 import { format } from 'date-fns';
 import { Locale } from 'date-fns';
 import { TFunction } from 'i18next';
@@ -326,10 +328,41 @@ const generateHTML = (data: JournalData, t: TFunction, locale: Locale, langCode:
     `;
 };
 
+/**
+ * Web: expo-print's printToFileAsync prints the current page and resolves to nothing, so the
+ * export crashed on `{ uri }` and the user got an error. Print the journal itself from a
+ * hidden frame instead — the browser's print dialog offers "Save as PDF".
+ */
+const printJournalOnWeb = async (html: string) => {
+    const frame = document.createElement('iframe');
+    frame.setAttribute('aria-hidden', 'true');
+    frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
+    document.body.appendChild(frame);
+    const win = frame.contentWindow;
+    if (!win) {
+        frame.remove();
+        throw new Error('Print frame unavailable');
+    }
+    win.document.open();
+    win.document.write(html);
+    win.document.close();
+    // Let the frame lay the journal out before the dialog snapshots it.
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    const cleanup = () => frame.remove();
+    win.addEventListener('afterprint', cleanup, { once: true });
+    setTimeout(cleanup, 60_000);
+    win.focus();
+    win.print();
+};
+
 export const generateAndSharePDF = async (data: JournalData, t: TFunction, locale: Locale, fileName: string = 'Journal_Grossesse.pdf', langCode: string = 'fr') => {
     try {
         log.info('Generating PDF with premium design...');
         const html = generateHTML(data, t, locale, langCode);
+        if (Platform.OS === 'web') {
+            await printJournalOnWeb(html);
+            return;
+        }
         const { uri } = await Print.printToFileAsync({
             html,
             base64: false
@@ -339,10 +372,18 @@ export const generateAndSharePDF = async (data: JournalData, t: TFunction, local
 
         // P3.5 FIX: was `if (await shareAsync)` which awaits the function reference (always truthy)
         // → "sharing not available" branch was dead. Use the SDK availability probe.
-        if (await Sharing.isAvailableAsync()) {
-            await shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf', dialogTitle: fileName });
-        } else {
-            log.warn('Sharing is not available on this platform');
+        try {
+            if (await Sharing.isAvailableAsync()) {
+                await shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf', dialogTitle: fileName });
+            } else {
+                log.warn('Sharing is not available on this platform');
+            }
+        } finally {
+            // The journal is health data; the share sheet has its own copy by now, and the
+            // generated file otherwise stayed on the phone indefinitely.
+            await FileSystem.deleteAsync(uri, { idempotent: true }).catch((e: unknown) =>
+                log.warn('Could not remove the temporary PDF', e),
+            );
         }
 
     } catch (error) {

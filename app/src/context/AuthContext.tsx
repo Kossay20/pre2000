@@ -15,12 +15,20 @@ import {
     User as FirebaseUser
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, deleteField } from 'firebase/firestore';
-import { deleteUserAccount, finishDeletionAfterReauth, eraseAccountData, resumePendingDeletion } from './accountDeletion';
+import { deleteUserAccount, finishDeletionAfterReauth, eraseAccountData, resumePendingDeletion, hasPendingDeletion, classifyDeletionFailure } from './accountDeletion';
+import { showAlert } from '../utils/alert';
+import { commitProfileUpdate, createSessionEpoch, installSessionProfile, guestLocalFields, accountLocaleToApply } from './profileSync';
+import { changeLanguage as applyLanguage } from '../i18n/rtl';
+import i18n from '../i18n';
 import { db, auth } from '../config/firebase';
 import { UserProfile } from '../types';
 import { calculateCurrentWeek } from '../utils/pregnancyCalculator';
 import { calculateFertileWindow } from '../utils/fertility';
 import { migrateAllGuestDataToAuth } from '../services/reminderPersistence';
+import { pushPendingSessions } from '../services/kickCounterService';
+import { pushPendingContractions } from '../services/contractionTimerService';
+import { pushPendingBag } from '../services/hospitalBagService';
+import { settleWithin } from '../services/trackerSync';
 import { isExpectedAuthError } from '../utils/firebaseErrors';
 
 // Logout, resetProfile and deleteAccount all erase the device through one function:
@@ -28,6 +36,7 @@ import { isExpectedAuthError } from '../utils/firebaseErrors';
 // and the content cache. localWipe.test.ts checks it against every key the app writes.
 import { wipeLocalUserData } from './localWipe';
 import { MedicalFlags, sanitizeMedicalFlags } from '../utils/medicalFlags';
+import { isValidHealthDataConsent, HealthDataConsent } from '../utils/healthDataConsent';
 
 
 // Re-export pure helper extracted to ./loginHelpers so it can be unit-tested
@@ -72,13 +81,14 @@ interface AuthContextType {
         // The user was asked and chose to replace the profile this account already
         // has with the answers she just gave (Onboarding's email-already-in-use path).
         // Without it an existing profile is kept — never overwritten silently.
-        opts?: { replaceExisting?: boolean },
+        // `healthDataConsent`: the consent ticked on onboarding's last step, saved with
+        // the profile (see utils/healthDataConsent.ts).
+        opts?: { replaceExisting?: boolean; healthDataConsent?: HealthDataConsent },
     ) => Promise<void>;
     logout: () => Promise<void>;
-    // MA6-FIX: updateProfile now reports success/failure explicitly so callers
-    // can surface a warning when cloud sync fails. Local AsyncStorage write is
-    // attempted first; the function never throws (preserves the historical
-    // non-disruptive behavior of profile saves).
+    // Reports success/failure explicitly and never throws. The server is written first and
+    // the device only once it accepted the edit, so `ok: false` means nothing changed
+    // anywhere. A field passed as `undefined` is cleared (see profileSync.splitProfileUpdate).
     updateProfile: (
         data: Partial<UserProfile>,
     ) => Promise<{ ok: true } | { ok: false, error: string }>;
@@ -109,6 +119,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // login() install nothing; whoever set it clears it once the real profile is in
     // place (loginAsGuest, upgradeGuest).
     const profileSetupPendingRef = useRef(false);
+    // Ended by logout / reset / deletion before they sign out and wipe the device, so a
+    // profile read or write still in flight cannot put the signed-out user back.
+    const sessionRef = useRef(createSessionEpoch());
 
     useEffect(() => {
         // 1. Try to restore from AsyncStorage first (fastest)
@@ -145,6 +158,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             // is already attached to the right account.
             logger.setUser(fbUser ? fbUser.uid : null);
             if (fbUser) {
+                // A cold start paints from the cached profile before this read returns, so
+                // the user can log out while it is still in flight. Its result only counts if
+                // the session it was read for is still the signed-in one.
+                const sessionToken = sessionRef.current.current();
+                const stillSignedIn = () =>
+                    sessionRef.current.isCurrent(sessionToken) && auth.currentUser?.uid === fbUser.uid;
+                const persistProfile = (p: UserProfile) => AsyncStorage.setItem('user_profile', JSON.stringify(p));
                 // Load profile from Firestore for authenticated users
                 try {
                     const docSnap = await getDoc(doc(db, 'userProfiles', fbUser.uid));
@@ -154,6 +174,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         // is kept or replaced, and installing either one here would swap
                         // the navigator out from under that question.
                         log.debug('[AuthContext] Session restored while a caller is writing the profile — left to the caller');
+                        setLoading(false);
+                        return;
+                    }
+                    if (!stillSignedIn()) {
+                        log.debug('[AuthContext] Profile read finished after the session ended — dropped');
                         setLoading(false);
                         return;
                     }
@@ -176,22 +201,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                                 log.debug(`[AuthContext] 🔄 Updating current week from ${profile.currentWeek} to ${calculatedWeek}`);
                                 profile.currentWeek = calculatedWeek;
                                 // Update in Firestore silently
-                                setDoc(doc(db, 'userProfiles', fbUser.uid), { currentWeek: calculatedWeek }, { merge: true });
+                                setDoc(doc(db, 'userProfiles', fbUser.uid), { currentWeek: calculatedWeek }, { merge: true })
+                                    .catch((e) => log.warn('[AuthContext] Could not store the recomputed week:', e));
                             }
                         }
 
-                        setUser(profile);
-                        await AsyncStorage.setItem('user_profile', JSON.stringify(profile));
+                        await installSessionProfile(stillSignedIn, profile, setUser, persistProfile);
                     } else {
                         // A deletion that erased everything but could not delete the Auth
                         // user is finished here, instead of opening the emptied account as
                         // if nothing had happened (see accountDeletion.resumePendingDeletion).
-                        if (await resumePendingDeletion(db, fbUser)) {
+                        // When it cannot be finished now (the sign-in is too old, or offline),
+                        // she is signed out rather than shown the emptied account: signing in
+                        // again finishes it, since the marker survives the logout.
+                        const resume = await resumePendingDeletion(db, fbUser);
+                        if (resume !== 'none') {
+                            sessionRef.current.end();
+                            if (resume !== 'deleted') await signOut(auth).catch(() => {});
                             await wipeLocalUserData();
                             setUser(null);
                             setFirebaseUser(null);
                             logger.setUser(null);
                             setLoading(false);
+                            if (resume === 'deleted') {
+                                showAlert(i18n.t('profile.deleteDoneTitle'), i18n.t('profile.deleteDoneMsg'));
+                            } else {
+                                showAlert(i18n.t('profile.deletePendingTitle'), i18n.t('profile.deletePendingSignInMsg'));
+                            }
                             return;
                         }
                         // R4 FIX: parité avec login() — si une session Firebase existe
@@ -220,8 +256,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                             return;
                         }
                         const { profile, isMinimal } = resolved;
-                        setUser(profile);
-                        await AsyncStorage.setItem('user_profile', JSON.stringify(profile));
+                        if (!(await installSessionProfile(stillSignedIn, profile, setUser, persistProfile))) {
+                            setLoading(false);
+                            return;
+                        }
                         if (isMinimal) {
                             log.warn('[AuthContext] ⚠️ Cold-start: Firestore profile missing — bootstrapped minimal profile');
                             // Note: guest data migration is intentionally NOT triggered here
@@ -229,7 +267,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         }
                     }
                 } catch (error) {
-                    log.error('Failed to load user profile:', error);
+                    // Logging out while this read is in flight signs the request out from
+                    // under it, and the rules then refuse it (permission-denied on
+                    // userProfiles). That is the logout working, not a fault.
+                    if (!stillSignedIn()) {
+                        log.debug('[AuthContext] Profile read refused after the session ended — ignored');
+                    } else {
+                        log.error('Failed to load user profile:', error);
+                    }
                 }
             }
             // Don't load guest profile automatically - let user go through auth flow
@@ -313,8 +358,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 log.warn('[AuthContext] ⚠️ Guest data migration failed (non-blocking):', migrationError);
             }
             if (guestProfile) {
+                // A guest's emergency contacts and WeightTracker setup live in the
+                // 'guestProfile' entry, not on the auth profile; fold them in so they reach
+                // the account's server profile below.
+                let guestLocal = {};
+                try {
+                    const raw = await AsyncStorage.getItem('guestProfile');
+                    guestLocal = guestLocalFields(guestProfile, raw ? JSON.parse(raw) : null);
+                } catch (readError) {
+                    log.warn('[AuthContext] ⚠️ Could not read the guest-only profile fields:', readError);
+                }
                 const promoted: UserProfile = {
                     ...guestProfile,
+                    ...guestLocal,
                     isGuest: false,
                     uid: upgraded.uid,
                     email: upgraded.email ?? guestProfile.email,
@@ -361,11 +417,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             // Onboarding — where an account without a profile belongs — unless
             // Onboarding is the caller and is about to write it (resolveSessionProfile
             // returns null). Funneled through loginHelpers for unit-testability.)
+            const sessionToken = sessionRef.current.current();
             const docSnap = await getDoc(doc(db, 'userProfiles', userCredential.user.uid));
             const resolved = resolveSessionProfile(docSnap, userCredential.user, null, !!opts?.profileFollows);
+            if (resolved?.isMinimal && (await hasPendingDeletion(userCredential.user.uid))) {
+                // She asked for this account to be deleted and its data is already erased.
+                // The auth listener, which fires for this same sign-in, finishes the deletion
+                // (this fresh sign-in is recent enough) and tells her; installing the empty
+                // placeholder here would send her to onboarding instead.
+                log.info('[AuthContext] Sign-in to an account with a pending deletion — left to the listener');
+                return;
+            }
             if (resolved) {
-                setUser(resolved.profile);
-                await AsyncStorage.setItem('user_profile', JSON.stringify(resolved.profile));
+                await installSessionProfile(
+                    () => sessionRef.current.isCurrent(sessionToken),
+                    resolved.profile,
+                    setUser,
+                    (p) => AsyncStorage.setItem('user_profile', JSON.stringify(p)),
+                );
+                // Signing in is when the account's language follows her to this device. A
+                // cold start does not do this, so a change she makes here is never undone
+                // by an older value read back from the server.
+                const locale = accountLocaleToApply(resolved.profile.locale, i18n.language);
+                if (locale) {
+                    applyLanguage(locale).catch((e) => log.warn('[AuthContext] Could not apply the account language:', e));
+                }
             }
 
             if (resolved && !resolved.isMinimal) {
@@ -406,7 +482,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // screens de garder `if (user?.isCurious)` au lieu de croire l'utilisatrice enceinte.
         curiousOptions?: { isCurious: true; exploreWeek: number },
         medicalFlags?: MedicalFlags,
-        opts?: { replaceExisting?: boolean },
+        opts?: { replaceExisting?: boolean; healthDataConsent?: HealthDataConsent },
     ) => {
         // Cycle 3 F100 : tenter signInAnonymously si pas d'utilisateur fourni.
         // Avant : `uid = 'guest_'+Date.now()` ne satisfait PAS `isAuthenticatedReader()`
@@ -498,6 +574,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // by strict equality against a rule's boolean and quietly match nothing —
         // the same failure that made the glucose rule inert, by a different door.
         const medicalFields = sanitizeMedicalFlags(medicalFlags);
+        // Validated like the flags: it lands in userProfiles/{uid}, whose rules take only
+        // a {version, at} map of short strings.
+        const consent = opts?.healthDataConsent;
+        const consentFields: { healthDataConsent?: HealthDataConsent } = isValidHealthDataConsent(consent)
+            ? { healthDataConsent: { version: consent.version, at: consent.at } }
+            : {};
 
         const newUser: UserProfile = {
             uid,
@@ -515,6 +597,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             ...ttcFields,
             ...curiousFields,
             ...medicalFields,
+            ...consentFields,
         };
 
         try {
@@ -541,7 +624,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                             currentWeek: stored.isTTC
                                 ? 0
                                 : (stored.lmp ? calculateCurrentWeek(new Date(stored.lmp)) : newUser.currentWeek),
+                            // She kept her stored profile but has just given consent on
+                            // the last step: record it on the kept profile too, or the
+                            // next cold start would ask again.
+                            ...consentFields,
                         } as UserProfile;
+                        if (consentFields.healthDataConsent) {
+                            try {
+                                await setDoc(doc(db, 'userProfiles', uid), { healthDataConsent: consentFields.healthDataConsent }, { merge: true });
+                            } catch (consentWriteError) {
+                                log.warn('[AuthContext] ⚠️ Could not record the consent on the kept profile:', consentWriteError);
+                            }
+                        }
                         await AsyncStorage.setItem('user_profile', JSON.stringify(adopted));
                         setUser(adopted);
                         try {
@@ -617,6 +711,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     profileData.isTwinPregnancy = medicalFields.isTwinPregnancy;
                 if (medicalFields.medicalProfileAnsweredAt !== undefined)
                     profileData.medicalProfileAnsweredAt = medicalFields.medicalProfileAnsweredAt;
+                if (consentFields.healthDataConsent) profileData.healthDataConsent = consentFields.healthDataConsent;
 
                 if (opts?.replaceExisting) {
                     // She chose to replace an existing profile: keep its createdAt, and
@@ -664,10 +759,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     const logout = async () => {
+        // First, so a profile read or save still in flight drops its result instead of
+        // writing 'user_profile' back after the wipe below.
+        sessionRef.current.end();
         try {
-            if (firebaseUser) {
-                await signOut(auth);
+            // Kick sessions, contractions and the bag are written to the device first and
+            // sent afterwards; the wipe below erases whatever has not reached the server yet.
+            // Give those pushes a moment while the session can still write — bounded, so no
+            // signal never blocks the logout.
+            const uid = auth.currentUser && !auth.currentUser.isAnonymous ? auth.currentUser.uid : null;
+            if (uid) {
+                const flushed = await settleWithin(
+                    Promise.allSettled([pushPendingSessions(uid), pushPendingContractions(uid), pushPendingBag(uid)]),
+                    3000,
+                );
+                if (flushed === 'timeout') log.warn('[AuthContext] Tracker records still unsent at logout');
             }
+            // Not gated on `firebaseUser` state: a cold start paints from the cache before
+            // the auth listener has reported the restored session, and skipping signOut then
+            // left the session alive to be restored on the next launch. signOut is queued
+            // behind Firebase's own initialisation and is harmless when nobody is signed in.
+            await signOut(auth);
             await wipeLocalUserData();
             log.info('[AuthContext] 🧹 All local data purged on logout');
             setUser(null);
@@ -678,63 +790,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     };
 
-    // MA6-FIX: returns an explicit { ok, error } discriminated union instead of
-    // silently swallowing errors. Callers (ProfileScreen, OnboardingScreen) can
-    // now warn the user when cloud sync fails. Function never throws — local
-    // AsyncStorage state is always updated when possible so the in-memory user
-    // stays consistent even on Firestore write failure.
+    // Server first, then the device, then React state — so what the app shows and caches is
+    // what the account holds. It used to write the device first and keep the edit even when
+    // Firestore refused it (an emptied "Nom" sent `undefined`, which Firestore rejects), and
+    // the Profile screen said "Succès" while the server still had the old name.
     const updateProfile = async (
         data: Partial<UserProfile>,
     ): Promise<{ ok: true } | { ok: false, error: string }> => {
         if (!user) return { ok: false, error: 'No authenticated user' };
-        const updatedUser = { ...user, ...data };
-
-        let localOk = false;
-        try {
-            await AsyncStorage.setItem('user_profile', JSON.stringify(updatedUser));
-            localOk = true;
-        } catch (error: any) {
-            log.error('Failed to persist profile to AsyncStorage:', error);
+        const sessionToken = sessionRef.current.current();
+        const uid = user.uid;
+        const result = await commitProfileUpdate({
+            current: user,
+            data,
+            // A guest's profile lives on the device only.
+            writeServer: !user.isGuest && firebaseUser
+                ? (payload) => setDoc(doc(db, 'userProfiles', uid), payload, { merge: true })
+                : null,
+            writeLocal: (p) => AsyncStorage.setItem('user_profile', JSON.stringify(p)),
+            isStillCurrent: () => sessionRef.current.isCurrent(sessionToken),
+        });
+        if (!result.ok) {
+            if (result.error !== 'SESSION_ENDED') log.error('Failed to update profile:', result.error);
+            return result;
         }
-
-        try {
-            // Only update Firestore if not a guest and authenticated
-            if (!user.isGuest && firebaseUser) {
-                // BUG FIX: Only write safe server fields to Firestore.
-                // Never write client-only fields like isGuest, uid, currentWeek (recalculated on load).
-                const { isGuest, uid, currentWeek, ...serverSafeData } = data;
-                if (Object.keys(serverSafeData).length > 0) {
-                    await setDoc(
-                        doc(db, 'userProfiles', user.uid),
-                        { ...serverSafeData, updatedAt: new Date().toISOString() },
-                        { merge: true }
-                    );
-                }
-            }
-
-            setUser(updatedUser);
-            return { ok: true };
-        } catch (error: any) {
-            log.error('Failed to update profile (cloud sync):', error);
-            // Still update in-memory state so the UI reflects the user's intent;
-            // the next successful sync attempt will reconcile with the server.
-            if (localOk) setUser(updatedUser);
-            const message =
-                typeof error?.message === 'string' && error.message.length > 0
-                    ? error.message
-                    : 'Cloud sync failed';
-            return { ok: false, error: message };
-        }
+        setUser(result.profile);
+        return { ok: true };
     };
 
+    // An explicit language choice: applied on this device at once, and saved on the account
+    // so a sign-in on another device (login() above) opens in the same language.
     const setLocale = async (locale: string) => {
-        try {
-            await AsyncStorage.setItem('app_locale', locale);
-            if (user) {
-                await updateProfile({ locale });
-            }
-        } catch (error) {
-            log.error('Failed to set locale:', error);
+        await applyLanguage(locale);
+        if (user) {
+            const res = await updateProfile({ locale });
+            if (!res.ok) log.warn('Language changed on this device but not saved to the account:', res.error);
         }
     };
 
@@ -746,6 +836,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             // A failed purge throws here, with the session intact, so the reset can be retried.
             if (firebaseUser) {
                 await eraseAccountData(db, firebaseUser);
+            }
+            // After the purge (which keeps the session when it fails), before the wipe.
+            sessionRef.current.end();
+            if (firebaseUser) {
                 await signOut(auth);
             }
 
@@ -766,6 +860,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Everything the device holds for the deleted account: scheduled notifications,
     // every private AsyncStorage key, the in-memory content cache, then the session.
     const clearLocalStateAfterDeletion = async () => {
+        sessionRef.current.end();
         await wipeLocalUserData();
         // Setting user to null swaps the navigator to AuthStack; no screen needs to navigate.
         setUser(null);
@@ -785,7 +880,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 await clearLocalStateAfterDeletion();
             }
         } catch (error) {
-            log.error('Failed to delete account:', error);
+            // A session too old to delete with is a normal step of the flow (the UI asks for
+            // the password next and nothing has been erased), not a fault worth an error report.
+            (classifyDeletionFailure(error) === 'reauth' ? log.warn : log.error)('Failed to delete account:', error);
             throw error;
         }
     };

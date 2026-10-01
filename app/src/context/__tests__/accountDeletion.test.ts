@@ -32,6 +32,8 @@ import {
   classifyDeletionFailure,
   eraseAccountData,
   resumePendingDeletion,
+  hasPendingDeletion,
+  isErasedButNotDeleted,
   RECENT_LOGIN_WINDOW_MS,
 } from '../accountDeletion';
 import { PurgeIncompleteError } from '../gdprPurge';
@@ -162,26 +164,68 @@ describe('resumePendingDeletion', () => {
   it('finishes the deletion the user asked for when this uid was left purged', async () => {
     mockStore.set(DELETION_PENDING_KEY, 'u1');
     const user = fakeUser(60_000);
-    await expect(resumePendingDeletion({}, user)).resolves.toBe(true);
+    await expect(resumePendingDeletion({}, user)).resolves.toBe('deleted');
     expect(user.delete).toHaveBeenCalled();
     expect(mockStore.has(DELETION_PENDING_KEY)).toBe(false);
   });
 
   it('does nothing for another uid, or with no marker', async () => {
     const user = fakeUser(60_000);
-    await expect(resumePendingDeletion({}, user)).resolves.toBe(false);
+    await expect(resumePendingDeletion({}, user)).resolves.toBe('none');
     mockStore.set(DELETION_PENDING_KEY, 'someone-else');
-    await expect(resumePendingDeletion({}, user)).resolves.toBe(false);
+    await expect(resumePendingDeletion({}, user)).resolves.toBe('none');
     expect(mockPurge).not.toHaveBeenCalled();
     expect(user.delete).not.toHaveBeenCalled();
   });
 
-  it('reports false (and keeps the marker) when it still cannot finish', async () => {
+  it('reports failed (and keeps the marker) when it still cannot finish', async () => {
     mockStore.set(DELETION_PENDING_KEY, 'u1');
     const user = fakeUser(60_000);
     user.delete.mockRejectedValueOnce(new Error('offline'));
-    await expect(resumePendingDeletion({}, user)).resolves.toBe(false);
+    await expect(resumePendingDeletion({}, user)).resolves.toBe('failed');
     expect(mockStore.get(DELETION_PENDING_KEY)).toBe('u1');
+  });
+
+  // D-011. At a cold start the sign-in is usually minutes old, so the retry was refused
+  // before it began, returned "false", and the emptied account opened as if nothing happened.
+  it('reports needs-password (never "nothing pending") when the sign-in is too old to finish', async () => {
+    mockStore.set(DELETION_PENDING_KEY, 'u1');
+    const user = fakeUser(RECENT_LOGIN_WINDOW_MS + 60_000);
+    await expect(resumePendingDeletion({}, user)).resolves.toBe('needs-password');
+    expect(user.delete).not.toHaveBeenCalled();
+    expect(mockStore.get(DELETION_PENDING_KEY)).toBe('u1');
+    await expect(hasPendingDeletion('u1')).resolves.toBe(true);
+  });
+
+  it('runs once when login() and the auth listener both ask for the same uid', async () => {
+    mockStore.set(DELETION_PENDING_KEY, 'u1');
+    const user = fakeUser(60_000);
+    const [a, b] = await Promise.all([resumePendingDeletion({}, user), resumePendingDeletion({}, user)]);
+    expect(a).toBe('deleted');
+    expect(b).toBe('deleted');
+    expect(user.delete).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('a refusal after the purge is told apart from one before it', () => {
+  it('flags a late requires-recent-login as afterPurge', async () => {
+    const user = fakeUser(60_000);
+    user.delete.mockRejectedValueOnce(Object.assign(new Error('x'), { code: 'auth/requires-recent-login' }));
+    const err = await deleteUserAccount({}, user, NOW).then(() => null, (e) => e);
+    expect(classifyDeletionFailure(err)).toBe('reauth');
+    expect(isErasedButNotDeleted(err)).toBe(true);
+    expect(mockStore.get(DELETION_PENDING_KEY)).toBe('u1');
+  });
+
+  it('an up-front REAUTH_REQUIRED (nothing erased) is not', async () => {
+    const user = fakeUser(RECENT_LOGIN_WINDOW_MS + 1);
+    const err = await deleteUserAccount({}, user, NOW).then(() => null, (e) => e);
+    expect(isErasedButNotDeleted(err)).toBe(false);
+  });
+
+  it('the pending marker is a device key that a logout does not wipe', () => {
+    const { PRIVATE_STORAGE_KEYS } = jest.requireActual('../storageKeys');
+    expect(PRIVATE_STORAGE_KEYS).not.toContain(DELETION_PENDING_KEY);
   });
 });
 

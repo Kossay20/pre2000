@@ -190,7 +190,9 @@ describe('wiring — register lands on Onboarding, profile written under the acc
     it('App.tsx routes a signed-in user without a profile to ProfileSetupStack, not MainTabs', () => {
         const app = read('App.tsx');
         expect(app).toMatch(/import\s*\{\s*needsProfileSetup\s*\}\s*from\s*'\.\/src\/context\/loginHelpers'/);
-        expect(app).toMatch(/user\s*\?\s*\(\s*needsProfileSetup\(user\)\s*\?\s*<ProfileSetupStack\s*\/>\s*:\s*<MainTabs\s*\/>\s*\)\s*:\s*<AuthStack\s*\/>/);
+        // The same stack also hosts the health-data consent question (needsHealthDataConsent),
+        // so it opens on Onboarding exactly when the profile is missing.
+        expect(app).toMatch(/user\s*\?\s*\(\s*needsProfileSetup\(user\)\s*\|\|\s*needsHealthDataConsent\(user\)\s*\?\s*<ProfileSetupStack[\s\S]*?initialRouteName=\{needsProfileSetup\(user\) \? 'Onboarding' : 'HealthDataConsent'\}\s*\/>\s*:\s*<MainTabs\s*\/>\s*\)\s*:\s*<AuthStack\s*\/>/);
         const setup = app.slice(app.indexOf('const ProfileSetupStack'), app.indexOf('const HomeStack'));
         expect(setup).toMatch(/name="Onboarding"\s+component=\{OnboardingScreen\}/);
     });
@@ -236,7 +238,7 @@ describe('wiring — register lands on Onboarding, profile written under the acc
         const onb = read('src/screens/OnboardingScreen.tsx');
         expect(onb).toMatch(/const confirmReplaceExistingProfile = async/);
         expect(onb.match(/replaceExisting = await confirmReplaceExistingProfile\(authenticatedUser\.uid\)/g)).toHaveLength(2);
-        expect(onb.match(/\{ replaceExisting \},/g)).toHaveLength(2);
+        expect(onb.match(/\{ replaceExisting, healthDataConsent: recordHealthDataConsent\(\) \},/g)).toHaveLength(2);
         const lag = block('const loginAsGuest = async', 'const logout = async');
         expect(lag).toMatch(/if \(!opts\?\.replaceExisting && shouldPreserveExistingProfile\(existingSnap\)\)/);
         // Replacing keeps createdAt and clears the mode fields a merge would leave behind.

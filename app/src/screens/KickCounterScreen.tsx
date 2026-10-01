@@ -10,6 +10,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { usePregnancy } from '../context/PregnancyContext';
+import { useAuth } from '../context/AuthContext';
 import { theme } from '../theme';
 import { Button } from '../components/common/Button';
 import { Card } from '../components/common/Card';
@@ -17,6 +18,7 @@ import { EmptyState } from '../components/common/EmptyState';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
 import { confirmAction } from '../utils/uiUtils';
 import {
+    CANCEL_SESSION_PROMPT,
     KickCounterState,
     cancelSession,
     countInLastHour,
@@ -38,6 +40,9 @@ export const KickCounterScreen: React.FC = () => {
     useScreenAnalytics('KickCounterScreen');
     const { t } = useTranslation();
     const { pregnancyInfo } = usePregnancy();
+    const { user } = useAuth();
+    // A signed-in account keeps this history on the server too; a guest's stays here.
+    const syncUid = user && !user.isGuest ? user.uid : null;
     const week = pregnancyInfo?.week ?? 1;
     const kickCountRuleApplies = week >= 28;
     const [state, setState] = useState<KickCounterState>({ activeSession: null, history: [] });
@@ -47,13 +52,13 @@ export const KickCounterScreen: React.FC = () => {
     useFocusEffect(
         useCallback(() => {
             let alive = true;
-            loadState().then((s) => {
+            loadState(syncUid).then((s) => {
                 if (alive) setState(s);
             });
             return () => {
                 alive = false;
             };
-        }, []),
+        }, [syncUid]),
     );
 
     useEffect(() => {
@@ -79,21 +84,23 @@ export const KickCounterScreen: React.FC = () => {
     }, [state.activeSession]);
 
     const onEnd = useCallback(async () => {
-        const next = await endSession();
+        const next = await endSession(syncUid);
         setState(next);
-    }, []);
+    }, [syncUid]);
 
+    // The dialog used to read just "Annuler", with "Annuler" on both of its buttons, so
+    // nothing said which one threw the session away.
     const onCancel = useCallback(() => {
         confirmAction(
-            t('cycle8.kickCounter.cancelSession'),
-            '',
+            t(CANCEL_SESSION_PROMPT.title),
+            t(CANCEL_SESSION_PROMPT.message),
             async () => {
                 const next = await cancelSession();
                 setState(next);
             },
             undefined,
-            t('common.cancel', { defaultValue: 'Annuler' }),
-            t('cycle8.kickCounter.cancelSession'),
+            t(CANCEL_SESSION_PROMPT.keep),
+            t(CANCEL_SESSION_PROMPT.discard),
         );
     }, [t]);
 
@@ -190,6 +197,7 @@ export const KickCounterScreen: React.FC = () => {
                     </View>
                 )}
 
+                {!syncUid && <Text style={styles.localNote}>{t('cycle8.localOnlyNote')}</Text>}
                 <Text style={styles.disclaimer}>{t('cycle8.kickCounter.disclaimer')}</Text>
             </ScrollView>
         </SafeAreaView>
@@ -236,6 +244,12 @@ const styles = StyleSheet.create({
     },
     historyDate: { ...theme.typography.caption, color: theme.colors.textLight },
     historyCount: { ...theme.typography.caption, color: theme.colors.text, fontWeight: '600' },
+    localNote: {
+        ...theme.typography.caption,
+        color: theme.colors.textLight,
+        marginTop: theme.spacing.l,
+        textAlign: 'center',
+    },
     disclaimer: {
         ...theme.typography.caption,
         color: theme.colors.textLight,

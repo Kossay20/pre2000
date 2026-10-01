@@ -52,5 +52,8 @@
   "appointment_created": "تم إنشاء الموعد بنجاح!",
   "guestBannerTitle": "وضع الضيف",
   "guestBannerMsg": "يمكنك ملء هذا النموذج، لكن الحفظ يتطلب حسابًا. سنحتفظ ببياناتك ريثما تنشئين حسابك.",
-  "draftRestored": "تمت استعادة موعدك ✨"
+  "draftRestored": "تمت استعادة موعدك ✨",
+  "notFoundTitle": "الموعد غير موجود",
+  "notFoundMsg": "ربما تم حذفه، أو انقطع الاتصال.",
+  "backToCalendar": "العودة إلى التقويم"
 }

@@ -17,6 +17,7 @@ import { theme } from '../theme';
 import { MODAL_MAX_WIDTH } from '../utils/layout';
 import { Button } from '../components/common/Button';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
+import { useAuth } from '../context/AuthContext';
 import {
     HospitalBagItem,
     HospitalBagSection,
@@ -51,6 +52,9 @@ export const HospitalBagChecklistScreen: React.FC = () => {
     // regardless of language. The row mirrors visually under dir=rtl but the checkbox→label gap
     // stayed on the screen-edge side. Pick the spacing side + text alignment explicitly per lang.
     const isRTL = i18n.language === 'ar' || i18n.language === 'tn';
+    const { user } = useAuth();
+    // A signed-in account keeps this list on the server too; a guest's stays here.
+    const syncUid = user && !user.isGuest ? user.uid : null;
     const [state, setState] = useState<HospitalBagState>({ items: [], checked: {} });
     const [addingFor, setAddingFor] = useState<HospitalBagSection | null>(null);
     const [draft, setDraft] = useState('');
@@ -58,32 +62,32 @@ export const HospitalBagChecklistScreen: React.FC = () => {
     useFocusEffect(
         useCallback(() => {
             let alive = true;
-            loadState().then((s) => {
+            loadState(syncUid).then((s) => {
                 if (alive) setState(s);
             });
             return () => {
                 alive = false;
             };
-        }, []),
+        }, [syncUid]),
     );
 
     const onToggle = useCallback(async (id: string) => {
-        const next = await toggleItem(id);
+        const next = await toggleItem(id, syncUid);
         setState(next);
-    }, []);
+    }, [syncUid]);
 
     const onRemove = useCallback(async (id: string) => {
-        const next = await removeCustomItem(id);
+        const next = await removeCustomItem(id, syncUid);
         setState(next);
-    }, []);
+    }, [syncUid]);
 
     const onAddSubmit = useCallback(async () => {
         if (!addingFor) return;
-        const next = await addCustomItem(addingFor, draft);
+        const next = await addCustomItem(addingFor, draft, syncUid);
         setState(next);
         setAddingFor(null);
         setDraft('');
-    }, [addingFor, draft]);
+    }, [addingFor, draft, syncUid]);
 
     const grouped = useMemo(() => {
         const map: Record<HospitalBagSection, HospitalBagItem[]> = {
@@ -117,6 +121,7 @@ export const HospitalBagChecklistScreen: React.FC = () => {
                 </View>
 
                 <Text style={styles.tip}>{t('cycle8.hospitalBag.tip')}</Text>
+                {!syncUid && <Text style={styles.tip}>{t('cycle8.localOnlyNote')}</Text>}
 
                 {SECTIONS.map((sec) => (
                     <View key={sec} style={styles.section}>

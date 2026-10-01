@@ -32,5 +32,7 @@
     },
     "noAppointments": "Aucun RDV cette semaine",
     "appointmentsThisWeek": "{{count}} RDV cette semaine",
-    "myAppointment": "Mon RDV"
+    "myAppointment": "Mon RDV",
+    "noSuggestionsWeek": "Aucune suggestion à afficher pour cette semaine.",
+    "noSuggestionsMonth": "Aucune suggestion à afficher pour ce mois."
 }

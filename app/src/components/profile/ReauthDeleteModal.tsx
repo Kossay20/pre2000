@@ -8,16 +8,20 @@ interface Props {
     visible: boolean;
     password: string;
     loading: boolean;
+    // Differs when her data is already erased and only the account is left to delete.
+    message: string;
     onChangePassword: (value: string) => void;
     onCancel: () => void;
     onConfirm: () => void;
+    // Sends a password-reset email to the signed-in address; hidden when there is none.
+    onForgotPassword?: () => void;
 }
 
 /**
  * Password prompt for the account-deletion reauth step on Android and web
  * (Alert.prompt is iOS-only). Rendered by useAccountDeletion's callers.
  */
-export const ReauthDeleteModal = ({ visible, password, loading, onChangePassword, onCancel, onConfirm }: Props) => {
+export const ReauthDeleteModal = ({ visible, password, loading, message, onChangePassword, onCancel, onConfirm, onForgotPassword }: Props) => {
     const { t } = useTranslation();
     return (
         <Modal
@@ -31,7 +35,7 @@ export const ReauthDeleteModal = ({ visible, password, loading, onChangePassword
             <View style={styles.overlay}>
                 <View style={styles.card}>
                     <Text style={styles.title}>{t('profile.reauthTitle')}</Text>
-                    <Text style={styles.message}>{t('profile.reauthMessage')}</Text>
+                    <Text style={styles.message}>{message}</Text>
                     <TextInput
                         style={styles.input}
                         value={password}
@@ -39,9 +43,23 @@ export const ReauthDeleteModal = ({ visible, password, loading, onChangePassword
                         secureTextEntry
                         autoFocus
                         editable={!loading}
-                        placeholder="••••••••"
-                        accessibilityLabel={t('profile.reauthMessage')}
+                        // A dotted placeholder read as a password already typed in.
+                        placeholder={t('passwordPlaceholder')}
+                        placeholderTextColor={theme.colors.textSecondary}
+                        accessibilityLabel={t('passwordPlaceholder')}
+                        accessibilityHint={message}
                     />
+                    {onForgotPassword && (
+                        <TouchableOpacity
+                            style={styles.forgotButton}
+                            onPress={onForgotPassword}
+                            disabled={loading}
+                            accessibilityRole="link"
+                            accessibilityLabel={t('forgotPassword')}
+                        >
+                            <Text style={styles.forgotText}>{t('forgotPassword')}</Text>
+                        </TouchableOpacity>
+                    )}
                     <View style={styles.actions}>
                         <TouchableOpacity
                             style={styles.cancelButton}
@@ -59,12 +77,12 @@ export const ReauthDeleteModal = ({ visible, password, loading, onChangePassword
                             onPress={onConfirm}
                             disabled={loading}
                             accessibilityRole="button"
-                            accessibilityLabel={t('common.confirm')}
+                            accessibilityLabel={t('common.deleteForever')}
                         >
                             {loading ? (
                                 <ActivityIndicator color={theme.colors.white} />
                             ) : (
-                                <Text style={styles.confirmText}>{t('common.confirm')}</Text>
+                                <Text style={styles.confirmText}>{t('common.deleteForever')}</Text>
                             )}
                         </TouchableOpacity>
                     </View>
@@ -108,6 +126,18 @@ const styles = StyleSheet.create({
         padding: 14,
         fontSize: 16,
         backgroundColor: theme.colors.white,
+    },
+    forgotButton: {
+        alignSelf: 'flex-start',
+        minHeight: 44,
+        justifyContent: 'center',
+        marginTop: 4,
+    },
+    forgotText: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: theme.colors.primaryStrong,
+        textDecorationLine: 'underline',
     },
     actions: {
         flexDirection: 'row',

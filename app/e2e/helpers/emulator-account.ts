@@ -144,6 +144,12 @@ export type ProfileSeed = {
   hasHypertension?: boolean;
   isTwinPregnancy?: boolean;
   medicalProfileAnsweredAt?: string;
+  /**
+   * Seed the health-data consent onboarding records (default true). `false` seeds a
+   * profile saved before the question existed: the app then shows the consent sheet
+   * instead of Home.
+   */
+  consent?: boolean;
   [extra: string]: unknown;
 };
 
@@ -165,7 +171,7 @@ export async function seedProfile(
   idToken: string,
   fields: ProfileSeed = {},
 ): Promise<Record<string, unknown>> {
-  const { week = 32, now = new Date(), ...rest } = fields;
+  const { week = 32, now = new Date(), consent = true, ...rest } = fields;
   const lmp = lmpIsoForWeek(week, now);
   const stamp = new Date().toISOString();
   const data: Record<string, unknown> = {
@@ -178,6 +184,9 @@ export async function seedProfile(
     dpa: new Date(new Date(lmp).getTime() + 280 * 24 * 60 * 60 * 1000).toISOString(),
     ageRange: '25-29',
     isFirstPregnancy: true,
+    // Onboarding's last step records this with every profile; without it the app shows
+    // the consent sheet instead of Home (see ProfileSeed.consent).
+    healthDataConsent: consent ? { version: '2026-09-30', at: stamp } : undefined,
     ...rest,
   };
   for (const k of Object.keys(data)) if (data[k] === undefined) delete data[k];

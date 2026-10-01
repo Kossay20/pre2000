@@ -34,6 +34,9 @@ export const topLevelCollectionsToDelete = [
     'reminder_settings_v2', // remindersV2Service.ts
     'glucoseMetrics',       // healthService.saveGlucoseEntry
     'symptomsLog',          // healthService.saveSymptomEntry
+    'kickSessions',         // kickCounterService (tracker history sync)
+    'contractions',         // contractionTimerService (tracker history sync)
+    'hospitalBags',         // hospitalBagService — one doc per user, id = uid
 ] as const;
 
 // Legacy nested data under userProfiles/{uid}/… and users/{uid}/… from earlier

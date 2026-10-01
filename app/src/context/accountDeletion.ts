@@ -33,9 +33,12 @@ export interface DeletableUser {
     getIdTokenResult(forceRefresh?: boolean): Promise<{ authTime: string; issuedAtTime?: string }>;
 }
 
-const reauthRequired = (): Error => {
+// `afterPurge`: Firebase refused the Auth delete after the data was already erased. The UI
+// must then say so, and must not leave her in the emptied account if she cancels.
+const reauthRequired = (afterPurge = false): Error => {
     const e = new Error('REAUTH_REQUIRED');
     (e as any).code = 'REAUTH_REQUIRED';
+    if (afterPurge) (e as any).afterPurge = true;
     return e;
 };
 
@@ -79,7 +82,7 @@ const purgeThenDeleteAuthUser = async (db: any, user: DeletableUser): Promise<vo
     try {
         await user.delete();
     } catch (err: any) {
-        if (err?.code === 'auth/requires-recent-login') throw reauthRequired();
+        if (err?.code === 'auth/requires-recent-login') throw reauthRequired(true);
         throw authDeletePending(err);
     }
     try {
@@ -114,28 +117,60 @@ export const finishDeletionAfterReauth = async (
     await purgeThenDeleteAuthUser(db, user);
 };
 
-/**
- * Called at start-up for a signed-in user whose profile document is missing. If this
- * device recorded a finished purge for that uid, the user had asked for the account to
- * be deleted and only the Auth delete failed: finish it rather than bootstrapping an
- * empty account. Returns true when the account is now deleted.
- */
-export const resumePendingDeletion = async (db: any, user: DeletableUser): Promise<boolean> => {
-    let pendingUid: string | null = null;
+/** True when this device recorded a finished purge for `uid` whose Auth user still exists. */
+export const hasPendingDeletion = async (uid: string): Promise<boolean> => {
     try {
-        pendingUid = await AsyncStorage.getItem(DELETION_PENDING_KEY);
+        return (await AsyncStorage.getItem(DELETION_PENDING_KEY)) === uid;
     } catch {
         return false;
     }
-    if (!pendingUid || pendingUid !== user.uid) return false;
-    try {
-        await deleteUserAccount(db, user);
-        return true;
-    } catch (err) {
-        log.error('Could not finish a pending account deletion', err);
-        return false;
-    }
 };
+
+/**
+ * - 'none': nothing pending for this uid — open the account normally.
+ * - 'deleted': the deletion she asked for is now finished.
+ * - 'needs-password': still pending, and the sign-in is too old to finish it. A fresh
+ *   sign-in finishes it (the password is what Firebase requires).
+ * - 'failed': still pending for another reason (offline); the next attempt retries.
+ * Anything but 'none' means the account is emptied and must not be opened as normal.
+ */
+export type ResumeResult = 'none' | 'deleted' | 'needs-password' | 'failed';
+
+const resumesInFlight = new Map<string, Promise<ResumeResult>>();
+
+/**
+ * Called for a signed-in user whose profile document is missing. If this device recorded a
+ * finished purge for that uid, the user had asked for the account to be deleted and only the
+ * Auth delete failed: finish it rather than bootstrapping an empty account.
+ *
+ * Single-flight per uid: a sign-in runs both login() and the auth listener, and two
+ * concurrent deletes of the same user would race each other.
+ */
+export const resumePendingDeletion = (db: any, user: DeletableUser): Promise<ResumeResult> => {
+    const existing = resumesInFlight.get(user.uid);
+    if (existing) return existing;
+    const run = (async (): Promise<ResumeResult> => {
+        if (!(await hasPendingDeletion(user.uid))) return 'none';
+        try {
+            await deleteUserAccount(db, user);
+            return 'deleted';
+        } catch (err) {
+            if (classifyDeletionFailure(err) === 'reauth') {
+                // Measured at start-up the sign-in is usually more than a few minutes old.
+                log.warn('A pending account deletion needs a fresh sign-in to finish');
+                return 'needs-password';
+            }
+            log.error('Could not finish a pending account deletion', err);
+            return 'failed';
+        }
+    })().finally(() => resumesInFlight.delete(user.uid));
+    resumesInFlight.set(user.uid, run);
+    return run;
+};
+
+/** The data is already erased and only the Auth user is left (see reauthRequired). */
+export const isErasedButNotDeleted = (err: any): boolean =>
+    err?.code === 'AUTH_DELETE_PENDING' || (err?.code === 'REAUTH_REQUIRED' && err?.afterPurge === true);
 
 /**
  * "Reset profile", and a guest's "Erase my data". Everything the uid holds in Firestore is

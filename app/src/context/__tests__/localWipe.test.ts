@@ -32,6 +32,7 @@ const DEVICE_LEVEL_KEYS = new Set([
   'app_locale',               // chosen language (LanguageSelectScreen, i18n)
   '@home_welcome_seen_v1',    // first-run welcome already shown on this device (HomeScreen)
   '@notification_primer_dismissed_v1', // notification invitation already shown (notificationPermissionFlow)
+  '@account_deletion_pending_v1', // a uid only; must outlive logout until its deletion is finished (accountDeletion)
 ]);
 
 const SRC = path.resolve(__dirname, '..', '..');

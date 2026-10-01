@@ -15,6 +15,8 @@ import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { FIRESTORE_GUEST_TIMEOUT_MS, withTimeout } from '../utils/withTimeout';
 import { createLogger } from '../utils/logger';
+import { toLocalDateKey } from '../utils/localDate';
+import { calculateCurrentWeek } from '../utils/pregnancyCalculator';
 import { cancelRDVReminders } from './rdvNotificationService';
 import { CalendarTemplate } from '../types';
 
@@ -198,9 +200,28 @@ export const getWeekDates = (lmpDate: Date, weekNumber: number): { start: Date; 
     return { start: weekStart, end: weekEnd };
 };
 
+/**
+ * "This week" wherever the app counts appointments in it: the pregnancy week in progress,
+ * with the local-midnight boundaries the Calendar strip shows. Home's "N rendez-vous prévus
+ * cette semaine" used the Sunday–Saturday week of a list capped at 3, so with four
+ * appointments it said 3 while the Calendar said 4.
+ */
+export const getCurrentPregnancyWeekRange = (lmpDate: Date): { start: Date; end: Date } =>
+    getWeekDates(lmpDate, calculateCurrentWeek(lmpDate));
+
+/** How many events fall inside `range` (both ends inclusive). */
+export const countEventsInRange = (
+    events: ReadonlyArray<{ date: string | Date }>,
+    range: { start: Date; end: Date },
+): number =>
+    events.filter((event) => {
+        const date = new Date(event.date);
+        return date >= range.start && date <= range.end;
+    }).length;
+
 // ============ USER EVENTS SECTION ============
 
-import { doc, setDoc, deleteDoc, query, where, orderBy, limit } from 'firebase/firestore';
+import { doc, getDoc, setDoc, deleteDoc, deleteField, query, where, orderBy, limit } from 'firebase/firestore';
 import { UserEvent, CombinedEvent } from '../types';
 
 /**
@@ -257,6 +278,23 @@ export const loadUserEvents = async (userId: string): Promise<UserEvent[]> => {
     } catch (error) {
         log.error('Error loading user events:', error);
         return [];
+    }
+};
+
+/**
+ * One user event by id, or null when it is gone (deleted elsewhere) or cannot be read.
+ * The edit form loads the event itself: the route only carries the id, which survives a
+ * web reload — the whole object did not (it became "[object Object]" in the URL and the
+ * form reopened in edit mode with every field empty).
+ */
+export const getUserEvent = async (eventId: string): Promise<UserEvent | null> => {
+    if (!eventId) return null;
+    try {
+        const snapshot = await getDoc(doc(db, 'userEvents', eventId));
+        return snapshot.exists() ? (snapshot.data() as UserEvent) : null;
+    } catch (error) {
+        log.error('Error loading user event:', error);
+        return null;
     }
 };
 
@@ -391,20 +429,31 @@ export const deleteUserEvent = async (eventId: string): Promise<void> => {
 /**
  * Combine template events and user events for a specific week
  */
+export type UserEventUpdate = {
+    [K in keyof Omit<UserEvent, 'event_id' | 'created_at'>]?: UserEvent[K] | null;
+};
+
 /**
- * Update an existing user event
+ * Update an existing user event.
+ *
+ * `undefined` leaves a field as it is; `null` clears it. The write is a merge, so a field
+ * that is simply left out keeps its old value — emptying the notes of an appointment used
+ * to "save" while the server kept the old notes. A cleared field is sent as deleteField(),
+ * the same way a cleared profile field is.
  */
 export const updateUserEvent = async (
     eventId: string,
-    updates: Partial<Omit<UserEvent, 'event_id' | 'created_at'>>,
+    updates: UserEventUpdate,
     options: Pick<SaveUserEventOptions, 'ackTimeoutMs'> = {}
 ): Promise<{ pendingSync: boolean }> => {
     log.info(`Updating user event: ${eventId}`);
     try {
-        // Filter out undefined values (Firestore doesn't accept undefined)
+        // Firestore rejects undefined values outright.
         const cleanedUpdates: Record<string, any> = {};
         Object.entries(updates).forEach(([key, value]) => {
-            if (value !== undefined) {
+            if (value === null) {
+                cleanedUpdates[key] = deleteField();
+            } else if (value !== undefined) {
                 cleanedUpdates[key] = value;
             }
         });
@@ -495,12 +544,7 @@ export const getCombinedEventsForWeek = (
  * This prevents UTC conversion issues where a date like Dec 5 at 23:30 local time
  * becomes Dec 6 when converted to UTC with toISOString()
  */
-export const getLocalDateKey = (date: Date): string => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-};
+export const getLocalDateKey = (date: Date): string => toLocalDateKey(date);
 
 /**
  * Group events by date string (YYYY-MM-DD) using local timezone

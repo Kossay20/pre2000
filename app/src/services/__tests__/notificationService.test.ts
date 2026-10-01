@@ -12,6 +12,7 @@ import {
     cancelBabyMessage,
     scheduleBabyMessage,
     nativeNotificationsSupported,
+    cancelAllNotifications,
 } from '../notificationService';
 
 // Mock dependencies
@@ -248,6 +249,12 @@ describe('NotificationService', () => {
             );
             await expect(cancelBabyMessage()).resolves.toBeUndefined();
             expect(Notifications.getAllScheduledNotificationsAsync).not.toHaveBeenCalled();
+        });
+
+        it('cancelAllNotifications (every logout / erase) does not call expo-notifications on web', async () => {
+            Platform.OS = 'web';
+            await expect(cancelAllNotifications()).resolves.toBeUndefined();
+            expect(Notifications.cancelAllScheduledNotificationsAsync).not.toHaveBeenCalled();
         });
 
         it('scheduleBabyMessage returns null on web without calling the native scheduler', async () => {

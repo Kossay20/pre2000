@@ -25,7 +25,7 @@ import {
   initializeTestEnvironment,
   RulesTestEnvironment,
 } from '@firebase/rules-unit-testing';
-import { doc, getDoc, setDoc, deleteDoc, collection, getDocs } from 'firebase/firestore';
+import { doc, getDoc, setDoc, deleteDoc, collection, getDocs, query, where } from 'firebase/firestore';
 
 const ALICE = 'alice-uid';
 const MALLORY = 'mallory-uid';
@@ -100,6 +100,21 @@ describe('user profiles', () => {
     await assertFails(setDoc(doc(asAlice(), `userProfiles/${ALICE}`), { lastName: huge }));
   });
 
+  it('accepts the WeightTracker setup (height, pre-pregnancy weight) merged into a full profile', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), `userProfiles/${ALICE}`), {
+        firstName: 'Amira', lastName: 'B', country: 'France', lmp: TODAY, pregnancyStartDate: TODAY, locale: 'fr',
+      });
+    });
+    await assertSucceeds(
+      setDoc(
+        doc(asAlice(), `userProfiles/${ALICE}`),
+        { height: 165, prePregnancyWeight: 60, updatedAt: new Date().toISOString() },
+        { merge: true },
+      ),
+    );
+  });
+
   it('still accepts a name at the boundary', async () => {
     await assertSucceeds(
       setDoc(doc(asAlice(), `userProfiles/${ALICE}`), { firstName: 'a'.repeat(50) }),
@@ -132,6 +147,25 @@ describe('user profiles', () => {
         medicalProfileAnsweredAt: 'x'.repeat(200),
       }),
     );
+  });
+
+  it('accepts the health-data consent record and nothing shaped otherwise', async () => {
+    // Written by onboarding's last step (full profile) and by the consent sheet (a merge
+    // of the record alone). It is the proof the processing is allowed: fixed shape.
+    const consent = { version: '2026-09-30', at: '2026-09-30T08:00:00.000Z' };
+    await assertSucceeds(
+      setDoc(doc(asAlice(), `userProfiles/${ALICE}`), {
+        firstName: 'Amira', country: 'France', lmp: TODAY, pregnancyStartDate: TODAY, healthDataConsent: consent,
+      }),
+    );
+    await assertSucceeds(
+      setDoc(doc(asAlice(), `userProfiles/${ALICE}`), { healthDataConsent: consent, updatedAt: new Date().toISOString() }, { merge: true }),
+    );
+    await assertFails(setDoc(doc(asAlice(), `userProfiles/${ALICE}`), { healthDataConsent: true }));
+    await assertFails(setDoc(doc(asAlice(), `userProfiles/${ALICE}`), { healthDataConsent: { version: '2026-09-30' } }));
+    await assertFails(setDoc(doc(asAlice(), `userProfiles/${ALICE}`), { healthDataConsent: { ...consent, extra: 'x' } }));
+    await assertFails(setDoc(doc(asAlice(), `userProfiles/${ALICE}`), { healthDataConsent: { ...consent, at: 'x'.repeat(200) } }));
+    await assertFails(setDoc(doc(asMallory(), `userProfiles/${ALICE}`), { healthDataConsent: consent }, { merge: true }));
   });
 
   it('bounds how many fields the profile document can carry', async () => {
@@ -308,6 +342,104 @@ describe('per-user collections', () => {
 
   it.each(OWNED)('%s: unauthenticated traffic is refused outright', async (name, payload) => {
     await assertFails(setDoc(doc(asVisitor(), `${name}/d3`), { ...payload, user_id: ALICE }));
+  });
+});
+
+describe('tracker history (kick sessions, contractions, hospital bag)', () => {
+  const T0 = 1_790_000_000_000;
+  const kick = (uid: string, extra: Record<string, unknown> = {}) => ({
+    user_id: uid,
+    id: 'mf1k2-abc123',
+    startedAt: T0,
+    endedAt: T0 + 60_000,
+    kicks: [T0 + 1000, T0 + 2000],
+    ...extra,
+  });
+  const contraction = (uid: string, extra: Record<string, unknown> = {}) => ({
+    user_id: uid,
+    id: 'mf1k2-def456',
+    startedAt: T0,
+    endedAt: T0 + 45_000,
+    ...extra,
+  });
+  const bag = (uid: string, extra: Record<string, unknown> = {}) => ({
+    user_id: uid,
+    checked: { 'mom-1': true },
+    customItems: [{ id: 'custom-1', section: 'mom', label: 'Chargeur' }],
+    updatedAt: T0,
+    ...extra,
+  });
+
+  it('the owner can write, list and delete her kick sessions and contractions', async () => {
+    await assertSucceeds(setDoc(doc(asAlice(), `kickSessions/${ALICE}_mf1k2-abc123`), kick(ALICE)));
+    await assertSucceeds(setDoc(doc(asAlice(), `contractions/${ALICE}_mf1k2-def456`), contraction(ALICE)));
+    // Re-sending the same record (a retried sync) is an update, and allowed.
+    await assertSucceeds(setDoc(doc(asAlice(), `kickSessions/${ALICE}_mf1k2-abc123`), kick(ALICE)));
+    await assertSucceeds(getDocs(query(collection(asAlice(), 'kickSessions'), where('user_id', '==', ALICE))));
+    await assertSucceeds(getDocs(query(collection(asAlice(), 'contractions'), where('user_id', '==', ALICE))));
+    await assertSucceeds(deleteDoc(doc(asAlice(), `contractions/${ALICE}_mf1k2-def456`)));
+  });
+
+  it('pins tracker ids to the owner, so no one can squat her namespace', async () => {
+    await assertFails(setDoc(doc(asAlice(), 'kickSessions/whatever'), kick(ALICE)));
+    await assertFails(setDoc(doc(asMallory(), `kickSessions/${ALICE}_x1`), kick(MALLORY)));
+    await assertFails(setDoc(doc(asMallory(), `contractions/${ALICE}_x1`), contraction(MALLORY)));
+  });
+
+  it('refuses records attributed to someone else, and unauthenticated writes', async () => {
+    await assertFails(setDoc(doc(asAlice(), `kickSessions/${ALICE}_x1`), kick(MALLORY)));
+    await assertFails(setDoc(doc(asAlice(), `contractions/${ALICE}_x1`), contraction(MALLORY)));
+    await assertFails(setDoc(doc(asVisitor(), `kickSessions/${ALICE}_x1`), kick(ALICE)));
+  });
+
+  it("refuses to disclose or delete another user's history", async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), `kickSessions/${ALICE}_x1`), kick(ALICE));
+      await setDoc(doc(ctx.firestore(), `contractions/${ALICE}_x1`), contraction(ALICE));
+      await setDoc(doc(ctx.firestore(), `hospitalBags/${ALICE}`), bag(ALICE));
+    });
+    await assertFails(getDoc(doc(asMallory(), `kickSessions/${ALICE}_x1`)));
+    await assertFails(getDocs(query(collection(asMallory(), 'contractions'), where('user_id', '==', ALICE))));
+    await assertFails(getDoc(doc(asMallory(), `hospitalBags/${ALICE}`)));
+    await assertFails(deleteDoc(doc(asMallory(), `kickSessions/${ALICE}_x1`)));
+    await assertFails(deleteDoc(doc(asMallory(), `hospitalBags/${ALICE}`)));
+    await assertFails(setDoc(doc(asMallory(), `hospitalBags/${ALICE}`), bag(MALLORY)));
+  });
+
+  it.each([
+    ['an extra field', kick(ALICE, { note: 'x' })],
+    ['an end before the start', kick(ALICE, { endedAt: T0 - 1 })],
+    ['a non-numeric start', kick(ALICE, { startedAt: 'today' })],
+    ['kicks that are not a list', kick(ALICE, { kicks: 12 })],
+    ['an unbounded kick list', kick(ALICE, { kicks: Array.from({ length: 2001 }, (_, i) => T0 + i) })],
+  ])('rejects a kick session with %s', async (_label, payload) => {
+    await assertFails(setDoc(doc(asAlice(), `kickSessions/${ALICE}_mf1k2-abc123`), payload));
+  });
+
+  it.each([
+    ['an extra field', contraction(ALICE, { intensity: 9 })],
+    ['an end before the start', contraction(ALICE, { endedAt: T0 - 1 })],
+  ])('rejects a contraction with %s', async (_label, payload) => {
+    await assertFails(setDoc(doc(asAlice(), `contractions/${ALICE}_mf1k2-def456`), payload));
+  });
+
+  it('the hospital bag is one document per user, id = uid, readable before it exists', async () => {
+    // The app reads it on first open, when it does not exist yet.
+    await assertSucceeds(getDoc(doc(asAlice(), `hospitalBags/${ALICE}`)));
+    await assertSucceeds(setDoc(doc(asAlice(), `hospitalBags/${ALICE}`), bag(ALICE)));
+    await assertSucceeds(getDoc(doc(asAlice(), `hospitalBags/${ALICE}`)));
+    await assertSucceeds(getDocs(query(collection(asAlice(), 'hospitalBags'), where('user_id', '==', ALICE))));
+    await assertFails(setDoc(doc(asAlice(), 'hospitalBags/other-id'), bag(ALICE)));
+    await assertSucceeds(deleteDoc(doc(asAlice(), `hospitalBags/${ALICE}`)));
+  });
+
+  it.each([
+    ['an extra field', bag(ALICE, { items: [] })],
+    ['a non-map checked', bag(ALICE, { checked: ['mom-1'] })],
+    ['too many custom items', bag(ALICE, { customItems: Array.from({ length: 101 }, (_, i) => ({ id: `c${i}` })) })],
+    ['no version stamp', bag(ALICE, { updatedAt: 'now' })],
+  ])('rejects a hospital bag with %s', async (_label, payload) => {
+    await assertFails(setDoc(doc(asAlice(), `hospitalBags/${ALICE}`), payload));
   });
 });
 

@@ -23,6 +23,11 @@ import { loadState as loadKickState } from './kickCounterService';
 import { loadState as loadContractionState } from './contractionTimerService';
 import { loadState as loadHospitalBagState } from './hospitalBagService';
 import { getBookmarks } from './bookmarkService';
+// Hydration intake is erased on delete, so it belongs in the export too. The Ramadan log only
+// while its screen is reachable (feature-flagged until clinically reviewed).
+import { loadHydrationData } from './hydrationService';
+import { loadState as loadRamadanState } from './ramadanService';
+import { RAMADAN_GUIDANCE_CLINICALLY_REVIEWED } from '../config/featureFlags';
 
 const log = createLogger('DataExportService');
 
@@ -44,7 +49,7 @@ const log = createLogger('DataExportService');
  *   whitelist that does not carry them — so a health diagnosis was absent from a
  *   subject-access export. GDPR Art. 15 / Art. 20.
  */
-const EXPORT_SCHEMA_VERSION = 5;
+const EXPORT_SCHEMA_VERSION = 6;
 
 // Symptoms history helper takes a look-back in days. Use ~11 years so every
 // entry the user ever created is exported (RGPD Art. 15 / Art. 20 — full data).
@@ -116,10 +121,14 @@ export const generateExportData = async (user: any, profile: any) => {
             loadReminderSettingsAuth(userId),    // 7 userReminderSettings (V1)
             taskStatusesPromise,                 // 8 userTaskStatuses (merged)
             loadUserSettings(userId),            // 9 reminder_settings_v2
-            loadKickState(),                     // 10 kick counter history
-            loadContractionState(),              // 11 contraction timer history
-            loadHospitalBagState(),              // 12 hospital bag checklist
+            // With an account these also hold what is only on the server (another phone,
+            // or this one before a logout): loadState(uid) merges it in first.
+            loadKickState(isGuest ? null : userId),        // 10 kick counter history
+            loadContractionState(isGuest ? null : userId), // 11 contraction timer history
+            loadHospitalBagState(isGuest ? null : userId), // 12 hospital bag checklist
             getBookmarks(),                      // 13 saved articles/supplements
+            loadHydrationData(),                 // 14 hydration goal + daily intake
+            RAMADAN_GUIDANCE_CLINICALLY_REVIEWED ? loadRamadanState() : Promise.resolve(null), // 15
         ]);
 
         const appointments = unwrap(settled[0], 'appointments', [] as any[]);
@@ -157,6 +166,8 @@ export const generateExportData = async (user: any, profile: any) => {
         const contractionTimer = unwrap(settled[11], 'contractionTimer', {} as Record<string, any>);
         const hospitalBag = unwrap(settled[12], 'hospitalBag', {} as Record<string, any>);
         const bookmarks = unwrap(settled[13], 'bookmarks', [] as any[]);
+        const hydration = unwrap(settled[14], 'hydration', {} as Record<string, any>);
+        const ramadan = unwrap(settled[15], 'ramadan', null as any);
 
         // P0 GDPR FIX: Anonymize userId — raw Firebase UID must never appear in shared exports
         const anonymizedId = isGuest
@@ -204,6 +215,8 @@ export const generateExportData = async (user: any, profile: any) => {
                 contractionTimer,
                 hospitalBag,
                 bookmarks,
+                hydration,
+                ...(ramadan ? { ramadan } : {}),
             },
         };
 
@@ -229,25 +242,51 @@ export const exportUserData = async (user: any, profile: any, t: any) => {
 
         const dateStamp = new Date().toISOString().split('T')[0];
         const fileName = `mama-bebe-export-${dateStamp}.json`;
+
+        // A browser has neither expo-file-system nor a share sheet: the write threw and the
+        // native-only Alert below showed nothing, so the export silently did nothing. Hand
+        // the file to the browser as a download instead.
+        if (Platform.OS === 'web') {
+            const blobUrl = URL.createObjectURL(new Blob([jsonString], { type: 'application/json' }));
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            link.download = fileName;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 10_000);
+            log.info('Data downloaded as a file (web)');
+            return;
+        }
+
         const fileUri = `${FileSystem.cacheDirectory}${fileName}`;
 
         await FileSystem.writeAsStringAsync(fileUri, jsonString, {
             encoding: FileSystem.EncodingType.UTF8,
         });
 
-        const isAvailable = await Sharing.isAvailableAsync();
-        if (!isAvailable) {
-            Alert.alert(t('common.error'), t('export.errorMessage') || t('common.error'));
-            return;
+        try {
+            const isAvailable = await Sharing.isAvailableAsync();
+            if (!isAvailable) {
+                Alert.alert(t('common.error'), t('export.errorMessage') || t('common.error'));
+                return;
+            }
+
+            await Sharing.shareAsync(fileUri, {
+                mimeType: 'application/json',
+                dialogTitle: t('common.privacyData.export'),
+                UTI: 'public.json',
+            });
+
+            log.info('Data shared via file');
+        } finally {
+            // The file is her whole medical record in plain text. Once the share sheet has
+            // handed it on, the app's copy has no use, and nothing else ever removed it —
+            // it outlived even an account deletion.
+            await FileSystem.deleteAsync(fileUri, { idempotent: true }).catch((e: unknown) =>
+                log.warn('Could not remove the temporary export file', e),
+            );
         }
-
-        await Sharing.shareAsync(fileUri, {
-            mimeType: 'application/json',
-            dialogTitle: t('common.privacyData.export'),
-            UTI: 'public.json',
-        });
-
-        log.info('Data shared via file');
     } catch (error) {
         log.error('Error exporting data', error);
         Alert.alert(t('common.error'), t('export.errorMessage') || t('common.error'));

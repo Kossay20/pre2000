@@ -359,6 +359,12 @@ export const cancelReminderNotifications = async (reminderId: string): Promise<v
 export const cancelAllNotifications = async (): Promise<void> => {
     log.info('Canceling ALL notifications...');
 
+    // Every logout and erase runs this; on web it logged a console error each time.
+    if (!nativeNotificationsSupported()) {
+        log.debug('Skipping cancel-all: native notifications unavailable on web');
+        return;
+    }
+
     try {
         await Notifications.cancelAllScheduledNotificationsAsync();
         log.success('All notifications canceled');

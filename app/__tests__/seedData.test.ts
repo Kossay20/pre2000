@@ -89,3 +89,42 @@ describe.each(Object.keys(RENDERED_FIELDS))('%s seed', (collection) => {
     expect(gaps).toEqual([]);
   });
 });
+
+/**
+ * The Calendar's "Suggestions" read `calendarTemplates` (calendarService.loadCalendarTemplates),
+ * but nothing ever seeded it: the button opened an empty panel on every account. The seed
+ * must carry what generateEventsForWeek and the suggestion list actually read.
+ */
+describe('calendarTemplates seed', () => {
+  const { records } = seeded('calendarTemplates');
+
+  it('is the collection the calendar reads, and signed-in users may read it', () => {
+    expect(read('src/services/calendarService.ts')).toContain("collection(db, 'calendarTemplates')");
+    expect(read('firestore.rules')).toMatch(
+      /match \/calendarTemplates\/\{docId\} \{ allow read: if isAuthenticatedReader\(\); allow write: if false; \}/,
+    );
+  });
+
+  it('has unique template ids', () => {
+    const ids = records.map((r) => r.template_id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('every template has a usable week window and day', () => {
+    const bad = records.filter((r) => {
+      const { week_min: min, week_max: max, recommended_day: day } = r as Record<string, unknown>;
+      return !Number.isInteger(min) || !Number.isInteger(max) || (min as number) < 1 || (min as number) > (max as number)
+        || (day !== undefined && (!Number.isInteger(day) || (day as number) < 1 || (day as number) > 7));
+    });
+    expect(bad.map((r) => r.template_id)).toEqual([]);
+  });
+
+  it('every template has a French title and description, and a title in ar and tn', () => {
+    const gaps = records.flatMap((r) =>
+      ['title_fr', 'description_fr', 'title_ar', 'title_tn']
+        .filter((field) => typeof r[field] !== 'string' || (r[field] as string).trim() === '')
+        .map((field) => `${String(r.template_id)}.${field}`),
+    );
+    expect(gaps).toEqual([]);
+  });
+});

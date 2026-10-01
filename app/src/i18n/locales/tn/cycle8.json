@@ -1,4 +1,5 @@
 {
+  "localOnlyNote": "السجل هذا يقعد كان في التليفون هذا لين تعملي حساب.",
   "kickCounter": {
     "title": "عداد ركلات البيبي",
     "subtitle": "احسبي حركات بيبيك على ساعة.",
@@ -9,6 +10,10 @@
     "startSession": "ابدا جلسة",
     "endSession": "كمل الجلسة",
     "cancelSession": "إلغاء",
+    "cancelConfirmTitle": "تلغي الجلسة هاذي؟",
+    "cancelConfirmMsg": "الحركات اللي عدّيتهم في الجلسة هاذي ما يتسجلوش.",
+    "keepCounting": "كمّلي العدّ",
+    "discardSession": "ألغي الجلسة",
     "noSessionYet": "ما عندكش جلسة لتو",
     "noSessionSub": "ابدا تعدي حركات البيبي.",
     "history": "التاريخ",

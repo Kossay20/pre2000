@@ -2,11 +2,13 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Modal } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { theme } from '../../theme';
+import { useAuth } from '../../context/AuthContext';
 // W1 #11: removed the dead `expo-updates` import (language change goes through i18n/rtl's
 // changeLanguage, never expo-updates) and the unused I18nManager import.
 
 export const LanguageSelector = ({ isCompact }: { isCompact?: boolean }) => {
     const { i18n, t } = useTranslation();
+    const { setLocale } = useAuth();
     const [modalVisible, setModalVisible] = React.useState(false);
     // W1 #11: guard against a rapid double-tap firing changeLanguage twice (each triggers an
     // RTL flip / potential reload) before the modal closes.
@@ -16,8 +18,9 @@ export const LanguageSelector = ({ isCompact }: { isCompact?: boolean }) => {
         if (changingRef.current) return;
         changingRef.current = true;
         try {
-            const { changeLanguage } = require('../../i18n/rtl');
-            await changeLanguage(lang);
+            // Through AuthContext so a signed-in account saves the choice as well, and a
+            // sign-in on another device opens in the same language.
+            await setLocale(lang);
             setModalVisible(false);
         } finally {
             changingRef.current = false;

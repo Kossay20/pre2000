@@ -122,7 +122,7 @@
   "testNotificationsFailed": "Sending failed. Check permissions.",
   "reminderInfo": "Health reminders can be configured in the \"Reminders\" tab",
   "legal": "Legal & Support",
-  "dangerZone": "Security Zone",
+  "dangerZone": "Danger zone",
   "dashboard": "Dashboards",
   "preferences": "Preferences",
   "privacyPolicy": "Privacy Policy",
@@ -335,7 +335,8 @@
       "item1": "provide pregnancy tracking and schedule your reminders on your phone;",
       "item2": "sync your data across your devices when you are signed in;",
       "item3": "fix app errors using technical reports.",
-      "disclaimer": "We do not sell or rent your data, and we do not use it for advertising or profiling."
+      "disclaimer": "We do not sell or rent your data, and we do not use it for advertising or profiling.",
+      "consent": "We process your pregnancy and health data with your explicit agreement: before saving your profile, the app asks you to tick a box allowing it to use this data to provide its features. Without that agreement, your profile is not saved. The date of your agreement and the version of this policy are kept with your profile."
     },
     "processors": {
       "title": "4. Service providers",
@@ -367,7 +368,7 @@
       "deletion": "Erasure:",
       "deletionDesc": "“{{profile}}” → “{{dangerZone}}” → “{{deleteFromProfile}}”, or “{{settings}}” → “{{dataSection}}” → “{{deleteFromSettings}}”. Deletion is immediate and permanent: your account, the data stored on our servers and the local copy on your phone.",
       "consent": "Withdrawing consent:",
-      "consentDesc": "turn off the declared medical follow-up at any time in “{{settings}}” → “{{medical}}”, without deleting the rest of your account."
+      "consentDesc": "you can withdraw the agreement given when you created your profile at any time by erasing your data: “{{settings}}” → “{{dataSection}}” → “{{deleteFromSettings}}” with an account, or “{{eraseGuest}}” without one. The declared medical follow-up can be turned off separately in “{{settings}}” → “{{medical}}”, without deleting the rest of your account."
     },
     "contact": {
       "title": "8. Contact",

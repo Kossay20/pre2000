@@ -124,5 +124,14 @@
     "message": "Ce compte contient déjà un profil de grossesse. Le remplacer par les réponses que vous venez de saisir ?",
     "keep": "Garder mon profil",
     "replace": "Remplacer"
+  },
+  "healthConsent": {
+    "label": "J'accepte que Mama & Bébé utilise mes données de grossesse et de santé pour me proposer le suivi, les conseils et les rappels de l'application.",
+    "hint": "Obligatoire pour enregistrer votre profil. Vous pouvez retirer votre accord à tout moment en effaçant vos données.",
+    "policyLink": "Lire la politique de confidentialité",
+    "sheetTitle": "Vos données de santé",
+    "sheetText": "Mama & Bébé a besoin de votre accord pour continuer à utiliser vos données de grossesse et de santé. Cochez la case pour continuer, ou choisissez plus bas de ne pas donner votre accord.",
+    "declineTitle": "Vous ne souhaitez pas donner votre accord ?",
+    "saveError": "Votre accord n'a pas pu être enregistré. Vérifiez votre connexion et réessayez."
   }
 }

@@ -51,7 +51,8 @@ export type ResourcesStackParamList = {
 // ─── Calendar Stack Screens ──────────────────────────────────
 export type CalendarStackParamList = {
   CalendarMain: { selectedDate?: string };
-  AddAppointment: { selectedDate?: string; event?: any };
+  // selectedDate: local yyyy-MM-dd. eventId: edit mode (the form reads the event itself).
+  AddAppointment: { selectedDate?: string; eventId?: string };
 };
 
 // ─── Reminders Stack Screens ─────────────────────────────────
@@ -101,7 +102,8 @@ export type AllScreensParamList = {
   RamadanPregnancy: undefined;
   // Calendar Stack
   CalendarMain: { selectedDate?: string };
-  AddAppointment: { selectedDate?: string; event?: any };
+  // selectedDate: local yyyy-MM-dd. eventId: edit mode (the form reads the event itself).
+  AddAppointment: { selectedDate?: string; eventId?: string };
   // Reminders Stack
   RemindersMain: { screen?: string; params?: Record<string, any> };
   Statistics: undefined;

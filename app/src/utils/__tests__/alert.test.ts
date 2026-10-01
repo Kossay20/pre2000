@@ -163,6 +163,46 @@ describe('showAlert', () => {
                 expect(second).not.toHaveBeenCalled();
             });
 
+            it('offers every positive choice in turn, so the second one is reachable', () => {
+                // The Health clinical alert has Cancel / call emergency / save anyway. With
+                // one confirm, OK always meant the first and "save anyway" was unreachable.
+                confirmSpy.mockReturnValueOnce(false).mockReturnValueOnce(true);
+                const call = jest.fn();
+                const save = jest.fn();
+                const cancel = jest.fn();
+
+                showAlert('Tension très élevée', 'Contactez votre médecin.', [
+                    { text: 'Annuler', style: 'cancel', onPress: cancel },
+                    { text: 'Appeler les urgences', onPress: call },
+                    { text: 'Sauvegarder quand même', style: 'destructive', onPress: save },
+                ]);
+
+                expect(confirmSpy).toHaveBeenCalledTimes(2);
+                expect(confirmSpy.mock.calls[0][0]).toContain('Appeler les urgences');
+                expect(confirmSpy.mock.calls[1][0]).toContain('Sauvegarder quand même');
+                expect(save).toHaveBeenCalledTimes(1);
+                expect(call).not.toHaveBeenCalled();
+                expect(cancel).not.toHaveBeenCalled();
+            });
+
+            it('runs the cancel button when every positive choice is declined', () => {
+                confirmSpy.mockReturnValue(false);
+                const call = jest.fn();
+                const save = jest.fn();
+                const cancel = jest.fn();
+
+                showAlert('Titre', 'Message', [
+                    { text: 'Annuler', style: 'cancel', onPress: cancel },
+                    { text: 'Appeler', onPress: call },
+                    { text: 'Sauvegarder', onPress: save },
+                ]);
+
+                expect(confirmSpy).toHaveBeenCalledTimes(2);
+                expect(cancel).toHaveBeenCalledTimes(1);
+                expect(call).not.toHaveBeenCalled();
+                expect(save).not.toHaveBeenCalled();
+            });
+
             it('treats a button with no style as the positive (non-cancel) action even if listed first', () => {
                 confirmSpy.mockReturnValue(true);
                 const positive = jest.fn();

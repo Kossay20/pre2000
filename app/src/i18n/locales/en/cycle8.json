@@ -1,4 +1,5 @@
 {
+  "localOnlyNote": "This history stays on this phone until you create an account.",
   "kickCounter": {
     "title": "Baby kick counter",
     "subtitle": "Count your baby's movements over 1 hour.",
@@ -9,6 +10,10 @@
     "startSession": "Start a session",
     "endSession": "End session",
     "cancelSession": "Cancel",
+    "cancelConfirmTitle": "Cancel this session?",
+    "cancelConfirmMsg": "The movements counted in this session will not be saved.",
+    "keepCounting": "Keep counting",
+    "discardSession": "Discard session",
     "noSessionYet": "No session yet",
     "noSessionSub": "Start counting your baby's kicks.",
     "history": "History",
