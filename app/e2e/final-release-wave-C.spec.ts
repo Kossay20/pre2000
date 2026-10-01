@@ -9,7 +9,8 @@
  * Tunisia) — static reads need `isAuthenticatedReader`, so a session-less guest would only
  * exercise the bundled fallback. Plus:
  *   - C-G1: a REAL anonymous guest (AuthChoice → guest → onboarding → skip), fr.
- *   - C-G2: an en guest with NO country (HYP-C5 — emergency call affordance).
+ *   - C-G2: an en guest on a region-less device: country must be answered; "Other" → 112.
+ *   - C-G3: a signed-in user whose profile has NO country, region-less device → 112 fallback.
  *   - C-X1: fr reader, chatbot mounted, language switched to ar via Profile (HYP-C6).
  *
  * Carried-over residuals: GJ-007 (chatbot chips clip), GJ-008 (duplicate back in
@@ -401,6 +402,75 @@ async function userMsgBoxes(page: Page, text: string): Promise<{ x: number; w: n
   }, text);
 }
 
+/** First decimal number in a localized string ("1,7 kg" / "42.4 cm" / "١٫٧") → 1.7. */
+function num(text: string | null | undefined): number | null {
+  if (!text) return null;
+  const t = text.replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace(/[٫,]/g, '.');
+  const m = t.match(/\d+(?:\.\d+)?/);
+  return m ? Number(m[0]) : null;
+}
+
+/**
+ * Home hero stats (HomeScreen heroStatsRow): [lengthCard, weightCard], each [value, label].
+ * Located from the localized weight label, which is the only fixed string in the row.
+ */
+async function homeGrowth(page: Page, weightLabel: string) {
+  return page.evaluate((wl) => {
+    const lbl = [...document.querySelectorAll('div')].find(
+      (e) => e.children.length === 0 && (e.textContent || '').trim() === wl && !e.closest('[aria-hidden="true"]'),
+    );
+    const weightCard = lbl?.parentElement;
+    const row = weightCard?.parentElement;
+    if (!weightCard || !row || row.children.length < 2) return null;
+    const lengthCard = row.children[0] as HTMLElement;
+    return {
+      length: (lengthCard.children[0]?.textContent || '').trim(),
+      lengthLabel: (lengthCard.children[1]?.textContent || '').trim(),
+      weight: (weightCard.children[0]?.textContent || '').trim(),
+    };
+  }, weightLabel);
+}
+
+/** BabyEvolution card: [item, size, "Week N · <length label>"] — read size + item next to the caption. */
+async function evolutionGrowth(page: Page, lengthLabel: string) {
+  return page.evaluate((ll) => {
+    const cap = [...document.querySelectorAll('div')].find(
+      (e) => e.children.length === 0 && (e.textContent || '').includes(`· ${ll}`) && !e.closest('[aria-hidden="true"]'),
+    );
+    if (!cap) return null;
+    const size = cap.previousElementSibling;
+    const item = size?.previousElementSibling;
+    return { caption: (cap.textContent || '').trim(), size: (size?.textContent || '').trim(), item: (item?.textContent || '').trim() };
+  }, lengthLabel);
+}
+
+/**
+ * Is the element actually on screen for the user: its box inside the viewport and the
+ * top-most element at its centre (not covered). Returns the measurement for evidence.
+ */
+async function onScreen(loc: Locator) {
+  return loc.evaluate((el) => {
+    const r = el.getBoundingClientRect();
+    const cx = r.left + r.width / 2;
+    const cy = r.top + r.height / 2;
+    const inside = r.top >= 0 && r.bottom <= window.innerHeight && r.left >= 0 && r.right <= window.innerWidth;
+    const hit = inside ? document.elementFromPoint(cx, cy) : null;
+    return { ok: inside && !!hit && (hit === el || el.contains(hit)), top: Math.round(r.top), bottom: Math.round(r.bottom), vh: window.innerHeight };
+  });
+}
+
+/** Poll until the call button is on screen (the chat list scrolls to the end after the reply). */
+async function expectCallOnScreen(w: WaveCtx, loc: Locator, label: string) {
+  // Wait (not a check): the list scrolls to the end after the reply renders.
+  let m = await onScreen(loc);
+  for (let i = 0; i < 20 && !m.ok; i++) {
+    await loc.page().waitForTimeout(300);
+    m = await onScreen(loc);
+  }
+  w.note(`${label}.onScreen`, m);
+  expect.soft(m.ok, `${label}: call button visible on screen ${JSON.stringify(m)}`).toBe(true);
+}
+
 /** "12 Aliments" → 12 (ForbiddenFoods results line). */
 async function foodsCount(page: Page, L: AppLocale): Promise<number | null> {
   const line = page.getByText(new RegExp(`^\\d+ ${esc(tr(L, 'common.foods'))}$`)).first();
@@ -481,6 +551,13 @@ for (const C of CFG) {
       // ── 00 Home (weekly content language: baby message, recommendations) ────
       await expect(page.getByText(tr(L, 'common.nav.home'), { exact: true }).first()).toBeVisible();
       await page.waitForTimeout(1500);
+      const hg = await homeGrowth(page, tr(L, 'common.weight'));
+      w.note('00.homeGrowth', hg);
+      expect.soft(hg, '00: Home hero size/weight cards found').not.toBeNull();
+      expect.soft(num(hg?.length), '00: week-32 length on Home = 42.4 cm').toBe(42.4);
+      expect.soft(num(hg?.weight), '00: week-32 weight on Home = 1.7 kg').toBe(1.7);
+      const homeSa = (await visibleLines(page)).filter((l) => /\(\s*\d+\s*SA\s*\)/.test(l));
+      expect.soft(homeSa, '00: no stray "(N SA)" aside on Home').toEqual([]);
       await w.state('00-home');
 
       // Chatbot must be local-only: record any non-static, non-Firestore request.
@@ -749,6 +826,13 @@ for (const C of CFG) {
       const beBacks = await backAffordances(page);
       w.note('10.backs', beBacks);
       if (rtl) expect.soft(beBacks.filter((b) => b.x + b.w / 2 < VW / 2), '10: RTL — back on the right').toEqual([]);
+      const eg = hg ? await evolutionGrowth(page, hg.lengthLabel) : null;
+      w.note('10.evolutionGrowth', eg);
+      expect.soft(eg, '10: BabyEvolution size caption found').not.toBeNull();
+      expect.soft(eg?.size, '10 SYNC: month-8 size identical to Home week-32 size').toBe(hg?.length);
+      expect.soft(num(eg?.caption), '10: card quotes the user\'s own week (32)').toBe(32);
+      const beSa = (await visibleLines(page)).filter((l) => /\(\s*\d+\s*SA\s*\)/.test(l));
+      expect.soft(beSa, '10: no stray "(N SA)" aside').toEqual([]);
       await w.state('10-baby-evolution');
       await page.getByRole('button', { name: tr(L, 'common.monthLabel', { number: 3 }), exact: true }).click();
       await expect.soft(page.getByText(new RegExp(`${esc(tr(L, 'common.monthLabel', { number: 3 }))} / 9`)).first(), '10b: dot "Month 3" navigates').toBeVisible();
@@ -816,6 +900,7 @@ for (const C of CFG) {
       const hasCall = got13 ? await call.count() : 0;
       w.note('13.callButton', { count: hasCall, text: hasCall ? await call.first().innerText() : null });
       expect.soft(hasCall, '13: emergency call button present').toBe(1);
+      if (hasCall) await expectCallOnScreen(w, call.first(), '13');
       if (hasCall) {
         expect.soft(await call.first().innerText(), `13 SYNC-16: country ${C.country} → (${C.emergency})`).toContain(`(${C.emergency})`);
       }
@@ -879,7 +964,11 @@ for (const C of CFG) {
 
 // ── C-G1: real anonymous guest (fr) ───────────────────────────────────────────
 
-async function guestOnboard(page: Page, L: 'fr' | 'en', opts: { country?: string }) {
+async function guestOnboard(
+  page: Page,
+  L: 'fr' | 'en',
+  opts: { country?: string; probeCountryRequired?: (blocked: boolean) => void },
+) {
   await page.goto('/welcome', { waitUntil: 'load' });
   const card = page.getByTestId(`lang_card_${L}`);
   await expect(card).toBeVisible({ timeout: 60_000 });
@@ -892,6 +981,10 @@ async function guestOnboard(page: Page, L: 'fr' | 'en', opts: { country?: string
   await page.locator('input[type="date"]').fill(lmpIsoForWeek(32).slice(0, 10));
   await page.getByRole('button', { name: tr(L, 'common.continue'), exact: true }).click();
   await page.getByRole('button', { name: '25-29', exact: true }).click({ timeout: 20_000 });
+  if (opts.probeCountryRequired) {
+    const cont = page.getByRole('button', { name: tr(L, 'common.continue'), exact: true });
+    opts.probeCountryRequired((await cont.getAttribute('aria-disabled')) === 'true' || (await cont.isDisabled()));
+  }
   if (opts.country) await page.getByRole('button', { name: opts.country, exact: true }).click();
   await page.getByRole('button', { name: tr(L, 'common.continue'), exact: true }).click();
   await tickHealthConsent(page);
@@ -955,6 +1048,7 @@ test.describe('Wave C — C-G1 real anonymous guest (fr)', () => {
     const callText = (await call.count()) ? await call.first().innerText() : null;
     w.note('G-03.call', callText);
     expect.soft(callText ?? '', 'G-03: guest France → 15').toContain('(15)');
+    if (callText) await expectCallOnScreen(w, call.first(), 'G-03');
     await w.state('03-guest-chatbot');
 
     w.note('G.firestoreRequests', { count: fsReqs.length, sample: fsReqs.slice(0, 5) });
@@ -964,22 +1058,27 @@ test.describe('Wave C — C-G1 real anonymous guest (fr)', () => {
   });
 });
 
-// ── C-G2: en guest with no country (HYP-C5) ───────────────────────────────────
+// ── C-G2: en guest on a region-less device (HYP-C5) ───────────────────────────
+// Browser locale "en" (no region) → no country can be detected. Onboarding must make
+// the country an explicit answer; "Other" is the explicit international 112.
 
-test.describe('Wave C — C-G2 en guest, no country (HYP-C5)', () => {
-  test.use({ ...waveUse('en'), actionTimeout: 20_000 });
+test.describe('Wave C — C-G2 en guest, region-less device (HYP-C5)', () => {
+  test.use({ ...waveUse('en'), locale: 'en', actionTimeout: 20_000 });
 
-  test('G2: triage still offers an emergency call', async ({ page }, testInfo) => {
+  test('G2: country must be answered; "Other" → 112 call button on screen', async ({ page }, testInfo) => {
     test.setTimeout(240_000);
     const L: AppLocale = 'en';
     const w = new WaveCtx(page, L, 'G2', testInfo);
-    await guestOnboard(page, 'en', {});
+    let blocked: boolean | null = null;
+    await guestOnboard(page, 'en', {
+      country: tr(L, 'common.countries.other'),
+      probeCountryRequired: (b) => (blocked = b),
+    });
+    w.note('G2.countryRequired(continue disabled with no country)', blocked);
+    expect.soft(blocked, 'G2: step-3 Continue disabled until a country is answered').toBe(true);
     const profile = await page.evaluate(() => JSON.parse(localStorage.getItem('user_profile') || '{}'));
-    const regionCode = await page.evaluate(() => navigator.language);
-    w.note('G2.guest', { uid: profile.uid, country: profile.country ?? null, navigatorLanguage: regionCode });
-    // The user never touched the country picker on an en-US device: a stored country she
-    // did not choose decides her emergency number (OnboardingScreen default).
-    expect.soft(profile.country ?? null, 'G2: an en-US guest who never picked a country must not be silently stored as Tunisia').not.toBe('tunisia');
+    const nav = await page.evaluate(() => navigator.language);
+    w.note('G2.guest', { uid: profile.uid, country: profile.country ?? null, navigatorLanguage: nav });
     await page.getByRole('tab', { name: tr(L, 'common.nav.chatbot'), exact: true }).click();
     await expect(page.getByPlaceholder(tr(L, 'common.chatAskQuestion'))).toBeVisible({ timeout: 30_000 });
     await markAlerts(page);
@@ -989,9 +1088,50 @@ test.describe('Wave C — C-G2 en guest, no country (HYP-C5)', () => {
     const n = await call.count();
     const text = n ? await call.first().innerText() : null;
     w.note('G2.HYP-C5.call', { count: n, text, alert: (await newAlert(page).count()) ? await newAlert(page).last().innerText() : null });
-    expect.soft(n, 'G2 HYP-C5: an en guest with no country must still get a call button').toBe(1);
-    await w.state('01-en-guest-nocountry-redflag');
+    expect.soft(n, 'G2 HYP-C5: call button present').toBe(1);
+    expect.soft(text ?? '', 'G2: "Other country" → 112').toContain('112');
+    if (n) await expectCallOnScreen(w, call.first(), 'G2');
+    await w.state('01-en-guest-other-country-redflag');
     console.log(`[wave-C G2] observations ${JSON.stringify(w.obs)}`);
+    w.dispose();
+  });
+});
+
+// ── C-G3: a TRUE no-country user (profile has no country, region-less device) ──
+// E.g. an account created before the country became mandatory. Nothing can resolve a
+// national number, so the app must still offer a call — the international 112 — and say so.
+
+test.describe('Wave C — C-G3 signed-in user with no country, region-less device', () => {
+  test.use({ ...waveUse('en'), locale: 'en', actionTimeout: 20_000 });
+
+  test('G3: no country anywhere → 112 call button, labelled as a fallback', async ({ page }, testInfo) => {
+    test.setTimeout(240_000);
+    const L: AppLocale = 'en';
+    const email = newAccountEmail('C', 'g3-nocountry');
+    const acct = await createAccount(email, E2E_PASSWORD);
+    await seedProfile(acct.uid, acct.idToken, { week: 32, country: undefined, firstName: 'Reader', lastName: 'Tester' });
+    const server = await serverDoc(`userProfiles/${acct.uid}`);
+    const w = new WaveCtx(page, L, 'G3', testInfo);
+    w.typed.push('Reader', 'Tester', email);
+    w.note('G3.server.country', server?.country ?? null);
+    expect(server?.country ?? null, 'G3 harness: seeded profile has no country').toBeNull();
+    await uiLogin(page, email, E2E_PASSWORD, L);
+    w.note('G3.navigatorLanguage', await page.evaluate(() => navigator.language));
+    await page.getByRole('tab', { name: tr(L, 'common.nav.chatbot'), exact: true }).click();
+    await expect(page.getByPlaceholder(tr(L, 'common.chatAskQuestion'))).toBeVisible({ timeout: 30_000 });
+    await markAlerts(page);
+    await chatExchange(w, 'I have heavy bleeding');
+    await expect.soft(newAlert(page), 'G3: triage alert').toHaveCount(1, { timeout: 10_000 });
+    const alertText = (await newAlert(page).count()) ? await newAlert(page).last().innerText() : '';
+    const call = newAlert(page).last().getByRole('button', { name: tr(L, 'a11y.emergencyCall'), exact: true });
+    const n = await call.count();
+    const text = n ? await call.first().innerText() : null;
+    w.note('G3.call', { count: n, text, alert: alertText });
+    expect.soft(n, 'G3: a no-country user still gets a call button').toBe(1);
+    expect.soft(text ?? '', 'G3: falls back to 112').toContain('112');
+    if (n) await expectCallOnScreen(w, call.first(), 'G3');
+    await w.state('01-nocountry-redflag');
+    console.log(`[wave-C G3] observations ${JSON.stringify(w.obs)}`);
     w.dispose();
   });
 });
