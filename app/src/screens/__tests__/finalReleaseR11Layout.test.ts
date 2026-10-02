@@ -90,10 +90,9 @@ describe('E-060 / E-054 — Calendar', () => {
     expect(b).toMatch(/paddingVertical: 12/);
   });
 
-  it('the month grid scrolls under the add button instead of being cut above it', () => {
-    expect(styles).not.toContain('monthListWithFab');
-    expect(read('src/screens/CalendarScreen.tsx')).not.toContain('monthListWithFab');
-    expect(block(styles, 'listContent')).toMatch(/MONTH_FAB_CLEARANCE/);
+  it('the month list stops above the add button: the button covers no day cell (E-008 over E-054)', () => {
+    expect(block(styles, 'monthListWithFab')).toMatch(/paddingBottom: MONTH_FAB_CLEARANCE/);
+    expect(read('src/screens/CalendarScreen.tsx')).toMatch(/calendarView === 'month' && styles\.monthListWithFab/);
   });
 });
 

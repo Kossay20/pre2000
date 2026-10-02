@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { getCategoryIcon } from '../utils/categoryIcon';
 import { HomeHeader } from '../components/home/HomeHeader';
 import { BabyGrowthCard } from '../components/home/BabyGrowthCard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -434,7 +435,11 @@ export const HomeScreen = () => {
                         style={styles.recommendationGradient}
                     >
                         <View style={styles.recHeader}>
-                            <Text style={styles.recEmoji}>{isArticle ? '📰' : '💊'}</Text>
+                            <Ionicons
+                                name={isArticle ? getCategoryIcon((item as Article).category) : 'medkit-outline'}
+                                size={30}
+                                color={theme.colors.primaryStrong}
+                            />
                         </View>
                         <Text style={styles.recTitle} numberOfLines={3}>{title}</Text>
                         <View style={styles.recBadge}>

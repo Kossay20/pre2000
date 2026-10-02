@@ -443,7 +443,7 @@ export const CalendarScreen = () => {
                 t={t}
             />
 
-            <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
+            <Animated.View style={[{ flex: 1, opacity: fadeAnim }, calendarView === 'month' && styles.monthListWithFab]}>
                 <FlatList
                     data={filteredEvents}
                     keyExtractor={(item) => item.id}

@@ -2294,8 +2294,11 @@ test('D-logout-onboarding: the onboarding header logout asks, then warns about a
   note(testInfo, '42b-dialogs', JSON.stringify(ctx.dialogs.dialogs.slice(before42b).map((d) => ({ m: d.message, a: d.action }))));
   expect.soft(norm(accepted.first.message), '42b: ordinary confirm first').toMatch(/^Déconnexion/);
   expect.soft(norm(accepted.second?.message) || '(no second dialog)', '42b (D-044): second confirmation').toMatch(/^Données pas encore sauvegardées/);
-  expect.soft(new URL(page.url()).pathname, '42b: "log out anyway" signs her out (sign-in choice)').toBe('/auth');
-  await expect.soft(page.getByRole('button', { name: 'Je suis enceinte' }), '42b: Onboarding is gone').toHaveCount(0);
+  // Signed out. The URL may stay /onboarding: that path also exists in the signed-out stack (guest
+  // start), so the router keeps it and shows a fresh step 1 — the proof of sign-out is that the
+  // header logout link is gone, not the path.
+  expect.soft(['/auth', '/onboarding'], '42b: "log out anyway" lands on a signed-out surface').toContain(new URL(page.url()).pathname);
+  await expect.soft(headerLogout, '42b: the signed-in header logout is gone (she is signed out)').toHaveCount(0);
   expect.soft(privateKeysIn(await localKeys(page)), '42b: private keys left after logout').toEqual([]);
   await page.unroute(FIRESTORE_TRAFFIC);
   await offlineState(ctx, '42b-onboarding-logout-anyway');

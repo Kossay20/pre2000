@@ -23,6 +23,12 @@ interface ToastOptions {
      * keep claiming it is waiting.
      */
     replaceOnReconnect?: string;
+    /**
+     * With `replaceOnReconnect`: when this resolves (e.g. Firestore's waitForPendingWrites,
+     * i.e. the queued write was acknowledged) the replacement is said — even if the network
+     * event never fires (the connection did not drop at the OS level) or the toast already left.
+     */
+    replaceWhen?: Promise<unknown>;
 }
 
 interface ToastContextType {
@@ -54,6 +60,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const timerRef = useRef<NodeJS.Timeout | null>(null);
     const gate = useRef(createToastNavigationGate()).current;
     const reconnectMessageRef = useRef<string | null>(null);
+    const replaceTokenRef = useRef(0);
 
     // Cleanup timer on unmount
     useEffect(() => {
@@ -67,6 +74,15 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
         gate.shown(!!options?.persistent);
         reconnectMessageRef.current = options?.replaceOnReconnect ?? null;
+        // A newer toast cancels an older toast's pending replacement.
+        const replaceToken = ++replaceTokenRef.current;
+        if (options?.replaceWhen && options.replaceOnReconnect) {
+            const replacement = options.replaceOnReconnect;
+            options.replaceWhen.then(
+                () => { if (replaceTokenRef.current === replaceToken) showToast(replacement, 'success', { persistent: true }); },
+                () => { /* the write failed: the offline toast stays what it was */ },
+            );
+        }
         setMessage(msg);
         setType(t);
         setVisible(true);

@@ -489,7 +489,7 @@ test.describe('Wave B — B-track (Europe/Paris)', () => {
         await openHealth(page);
         const bpDocs = async () => (await serverQuery('healthMetrics', 'user_id', acct.uid)).filter((r) => r.data.type === 'blood_pressure');
         const bpBefore = (await bpDocs()).length;
-        await openHealthModal(page, '💓 Tension Artérielle, Ajouter');
+        await openHealthModal(page, 'Tension Artérielle, Ajouter');
         await vis(page.getByPlaceholder('Systolique (ex: 120)')).fill('300');
         await vis(page.getByPlaceholder('Diastolique (ex: 80)')).fill('200');
         const n = h.dialogs.dialogs.length;
@@ -528,7 +528,7 @@ test.describe('Wave B — B-track (Europe/Paris)', () => {
         // Critical but rules-valid (165/105): the confirms must offer "Sauvegarder quand même" and
         // saving must work; "Appeler" must not be the only outcome.
         if (!(await page.getByPlaceholder('Systolique (ex: 120)').filter({ visible: true }).count())) {
-          await openHealthModal(page, '💓 Tension Artérielle, Ajouter');
+          await openHealthModal(page, 'Tension Artérielle, Ajouter');
         }
         await vis(page.getByPlaceholder('Systolique (ex: 120)')).fill('165');
         await vis(page.getByPlaceholder('Diastolique (ex: 80)')).fill('105');
@@ -558,7 +558,7 @@ test.describe('Wave B — B-track (Europe/Paris)', () => {
         });
         // 140/90.
         if (!(await page.getByPlaceholder('Systolique (ex: 120)').filter({ visible: true }).count())) {
-          await openHealthModal(page, '💓 Tension Artérielle, Ajouter');
+          await openHealthModal(page, 'Tension Artérielle, Ajouter');
         }
         await vis(page.getByPlaceholder('Systolique (ex: 120)')).fill('140');
         await vis(page.getByPlaceholder('Diastolique (ex: 80)')).fill('90');
@@ -579,7 +579,7 @@ test.describe('Wave B — B-track (Europe/Paris)', () => {
         const flag165 = /165 \/ 105\s*\n\s*⚠️ Tension très élevée/.test(text);
         expect.soft({ flag140, flag165 }, '28: 140/90 and 165/105 carry a flag where they are listed').toEqual({ flag140: true, flag165: true });
         obs.add('BP-WARN-140-90', saved && /dans les 24 heures/.test(warn) && !/prochain rendez-vous/.test(warn) ? 'PASS' : 'FAIL', '28-health-bp-boundary', { warn, saved, flag140, flag165 });
-        await vis(page.getByRole('button', { name: '💓 Tension Artérielle, Ajouter', exact: true })).scrollIntoViewIfNeeded();
+        await vis(page.getByRole('button', { name: 'Tension Artérielle, Ajouter', exact: true })).scrollIntoViewIfNeeded();
       });
 
       // 29a ── Glucose 5.0 fasting: in the pregnancy target → no alert, "dans l'objectif" (B-009/B-010)

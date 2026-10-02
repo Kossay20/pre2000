@@ -35,6 +35,8 @@ import { getPickerLocale } from '../utils/pickerLocale';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
 import { showAlert } from '../utils/alert';
 import { confirmAction } from '../utils/uiUtils';
+import { waitForPendingWrites } from 'firebase/firestore';
+import { db } from '../config/firebase';
 import {
     savePendingAppointmentDraft,
     loadPendingAppointmentDraft,
@@ -523,7 +525,7 @@ const AppointmentForm = ({ editingEvent }: { editingEvent?: EditableEvent }) => 
                 showToast(pendingSync ? t('addAppointment.savedOffline') : t('addAppointment.successEdit'), pendingSync ? 'info' : 'success', {
                     persistent: true,
                     // Back online while the "saved offline" toast is still up: say it went through.
-                    ...(pendingSync ? { replaceOnReconnect: t('addAppointment.successEdit') } : {}),
+                    ...(pendingSync ? { replaceOnReconnect: t('addAppointment.successEdit'), replaceWhen: waitForPendingWrites(db) } : {}),
                 });
             } else {
                 // CREATE new event
@@ -548,7 +550,7 @@ const AppointmentForm = ({ editingEvent }: { editingEvent?: EditableEvent }) => 
                     result.pendingSync ? 'info' : 'success',
                     {
                         persistent: true,
-                        ...(result.pendingSync ? { replaceOnReconnect: t('addAppointment.successAdd') } : {}),
+                        ...(result.pendingSync ? { replaceOnReconnect: t('addAppointment.successAdd'), replaceWhen: waitForPendingWrites(db) } : {}),
                     },
                 );
                 // Engagement: Track positive action

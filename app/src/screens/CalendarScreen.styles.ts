@@ -3,8 +3,9 @@ import { theme } from '../theme';
 import { getShadowStyle } from '../utils/styleUtils';
 
 // The add-appointment button floats 56pt high, 20pt in from the corner. The month grid is
-// taller than the screen, so the list's bottom padding keeps its last row 12pt clear of the
-// button once scrolled (the list scrolls under the button; it is not cut above it).
+// taller than the screen, so a button over the list lands on day cells (11 and 18 Oct at
+// 375x667): the month list stops above the button instead, 12pt clear of it (E-008). The
+// list's own bottom padding is separate.
 export const FAB_SIZE = 56;
 export const FAB_INSET = 20;
 export const MONTH_FAB_CLEARANCE = FAB_SIZE + FAB_INSET + 12;
@@ -448,10 +449,11 @@ export const styles = StyleSheet.create({
     },
     listContent: {
         paddingHorizontal: CALENDAR_LIST_GUTTER,
-        // Also the floating button's clearance: the grid scrolls UNDER the button and the last
-        // row can be scrolled clear of it (a container padding clipped the grid flat mid-row
-        // above an empty gap, E-054). 120 >= MONTH_FAB_CLEARANCE.
-        paddingBottom: Math.max(120, MONTH_FAB_CLEARANCE),
+        paddingBottom: 120,
+    },
+    // Month view only: the list ends above the button (see MONTH_FAB_CLEARANCE).
+    monthListWithFab: {
+        paddingBottom: MONTH_FAB_CLEARANCE,
     },
     // Centred copy kept out of the FAB's column (56pt button + 20pt inset − the 16pt
     // list gutter = 60): at 375pt the "+" sat on the end of "Aucun événement…".
