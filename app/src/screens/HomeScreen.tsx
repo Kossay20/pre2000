@@ -145,10 +145,22 @@ export const HomeScreen = () => {
             );
         pulseLoop?.start();
 
+        // The entrance is decoration, and a JS-driven animation stops advancing whenever frames
+        // are throttled (a busy first render, a backgrounded tab): the guest Home sat at ~20%
+        // opacity for seconds after the onboarding skip (A-012). Whatever the frame clock does,
+        // the content is fully shown shortly after the fade should have ended.
+        const entranceGuard = setTimeout(() => {
+            fadeAnim.stopAnimation();
+            fadeAnim.setValue(1);
+            scaleAnim.stopAnimation();
+            scaleAnim.setValue(1);
+        }, 1500);
+
         // Engagement: Track daily check
         trackPositiveAction('daily_check');
 
         return () => {
+            clearTimeout(entranceGuard);
             pulseLoop?.stop();
         };
     }, []);

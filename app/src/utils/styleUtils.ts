@@ -78,6 +78,13 @@ export const getTextShadowStyle = (
  * react-native-web ignores `thumbColor` while the switch is ON and paints its own
  * default teal unless `activeThumbColor` is set. Native has no such prop,
  * so it is only added on web — where the store screenshots are taken.
+ *
+ * On web the switch also gets an explicit size: react-native-web draws it 40×20, under the
+ * 24×24 minimum target of WCAG 2.5.8 (the native control has its own system size).
  */
-export const switchThumbProps = (color: string): { thumbColor: string; activeThumbColor?: string } =>
-    Platform.OS === 'web' ? { thumbColor: color, activeThumbColor: color } : { thumbColor: color };
+export const switchThumbProps = (
+    color: string,
+): { thumbColor: string; activeThumbColor?: string; style?: { height: number; width: number } } =>
+    Platform.OS === 'web'
+        ? { thumbColor: color, activeThumbColor: color, style: { height: 26, width: 52 } }
+        : { thumbColor: color };

@@ -171,3 +171,16 @@ describe('a question about one named food answers from the foods-to-avoid data (
     expect(r.type).toBe('red_flag');
   });
 });
+
+describe('Tunisian spaced negation "ما عنديش" (C-021, round 6)', () => {
+  it.each(['ما عنديش نزيف', 'ما عنديش وجيعة'])('tn: "%s" retrieves no article', async (text) => {
+    const r = await ask('tn', text);
+    expect(r.type).not.toBe('red_flag');
+    expect(r.articles ?? []).toEqual([]);
+  });
+
+  it('tn: a plain "ما" question is not a negation', async () => {
+    const r = await ask('tn', 'ما هي الأطعمة التي يجب تجنبها؟');
+    expect(r.screenLink).toBe('ForbiddenFoods');
+  });
+});

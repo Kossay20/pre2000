@@ -24,6 +24,11 @@ export const RemindersScreen = () => {
     const { t } = useTranslation();
     return (
         <Tab.Navigator
+            // The tab view's root is `overflow: hidden`, which a browser still scrolls to reveal a
+            // focused or measured element. Switching to "Tâches" for the first time left the whole
+            // screen (tab bar and page) sitting 98 px to the left of the viewport (B-021/B-032);
+            // `clip` forbids any scroll offset, and the pager slides by transform anyway.
+            style={Platform.OS === 'web' ? ({ overflow: 'clip' } as object) : undefined}
             screenOptions={{
                 tabBarActiveTintColor: theme.colors.accent,
                 tabBarInactiveTintColor: theme.colors.neutral400,

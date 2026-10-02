@@ -667,7 +667,9 @@ const AppointmentForm = ({ editingEvent }: { editingEvent?: EditableEvent }) => 
 
                     {/* Date & Time Pickers Row */}
                     <View style={styles.row}>
-                        <View style={[styles.inputGroup, { flex: 1 }]}>
+                        {/* The date ("2026-10-02") is the wider value: at 280pt equal halves cut it
+                            off, so it takes 3 parts to the time's 2. */}
+                        <View style={[styles.inputGroup, { flex: 3 }]}>
                             <Text style={styles.label}>{t('addAppointment.dateLabel')}</Text>
                             {Platform.OS === 'web' ? (
                                 <>
@@ -715,7 +717,7 @@ const AppointmentForm = ({ editingEvent }: { editingEvent?: EditableEvent }) => 
                             )}
                         </View>
 
-                        <View style={[styles.inputGroup, { flex: 1 }]}>
+                        <View style={[styles.inputGroup, { flex: 2 }]}>
                             <Text style={styles.label}>{t('addAppointment.timeLabel')}</Text>
                             {Platform.OS === 'web' ? (
                                 <TextInput

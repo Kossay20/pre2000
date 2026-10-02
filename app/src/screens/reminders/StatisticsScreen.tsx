@@ -206,16 +206,22 @@ export const StatisticsScreen = () => {
                 </View>
             )}
 
-            <View style={styles.rangeSelector}>
+            <View style={styles.rangeSelector} accessibilityRole="tablist">
                 <TouchableOpacity
                     style={[styles.rangeButton, timeRange === 'week' && styles.rangeButtonActive]}
                     onPress={() => setTimeRange('week')}
+                    accessibilityRole="tab"
+                    accessibilityLabel={t('sevenDays')}
+                    accessibilityState={{ selected: timeRange === 'week' }}
                 >
                     <Text style={[styles.rangeText, timeRange === 'week' && styles.rangeTextActive]}>{t('sevenDays')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                     style={[styles.rangeButton, timeRange === 'month' && styles.rangeButtonActive]}
                     onPress={() => setTimeRange('month')}
+                    accessibilityRole="tab"
+                    accessibilityLabel={t('thirtyDays')}
+                    accessibilityState={{ selected: timeRange === 'month' }}
                 >
                     <Text style={[styles.rangeText, timeRange === 'month' && styles.rangeTextActive]}>{t('thirtyDays')}</Text>
                 </TouchableOpacity>
@@ -398,9 +404,9 @@ const styles = StyleSheet.create({
         marginEnd: 16,
         width: 80,
     },
-    badgeLocked: {
-        opacity: 0.5,
-    },
+    // A locked badge is shown by its greyed icon, not by fading the whole item: an opacity on
+    // the item washed the title and the streak count out to 2.2–2.9:1 on white.
+    badgeLocked: {},
     badgeIconContainer: {
         width: 56,
         height: 56,
@@ -413,6 +419,7 @@ const styles = StyleSheet.create({
         borderColor: theme.colors.warning,
     },
     badgeIconLocked: {
+        opacity: 0.5,
         backgroundColor: theme.colors.divider,
         borderColor: theme.colors.materialGray400,
     },

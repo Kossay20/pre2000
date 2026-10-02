@@ -244,7 +244,11 @@ describe('switchThumbProps', () => {
 
     it('sets activeThumbColor on web, where thumbColor alone leaves the ON thumb teal', () => {
         mutablePlatform.OS = 'web';
-        expect(switchThumbProps('#FFFFFF')).toEqual({ thumbColor: '#FFFFFF', activeThumbColor: '#FFFFFF' });
+        expect(switchThumbProps('#FFFFFF')).toEqual({
+            thumbColor: '#FFFFFF',
+            activeThumbColor: '#FFFFFF',
+            style: { height: 26, width: 52 }, // ≥ 24×24 (WCAG 2.5.8); react-native-web draws 40×20
+        });
     });
 
     it('passes only thumbColor on native', () => {

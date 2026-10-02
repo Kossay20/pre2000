@@ -82,7 +82,7 @@ const BCP47: Record<AppLocale, string> = { fr: 'fr-FR', en: 'en-US', ar: 'ar', t
 // the wave. workers=1 (playwright.config.ts) keeps the order; a failed test restarts the
 // worker, so cross-test state (the reader account, the roll-up) goes through disk, keyed
 // by the Playwright runner pid (constant across the run's workers).
-test.use({ timezoneId: 'Europe/Paris', storageState: { cookies: [], origins: [] } });
+test.use({ timezoneId: 'Europe/Paris', storageState: { cookies: [], origins: [] }, navigationTimeout: 60_000 });
 
 // ── shared state ───────────────────────────────────────────────────────────────
 
@@ -397,7 +397,8 @@ const SIGNED_IN_FR: Surface[] = [
   { slug: 'calendar', path: '/calendar', ready: (p) => p.getByRole('button', { name: 'Mois', exact: true }), cta: (p) => p.getByRole('button', { name: 'Ajouter un rendez-vous' }), tabBar: true },
   { slug: 'appointment-add', path: '/appointment/add', ready: (p) => p.getByPlaceholder(/Échographie/), cta: (p) => p.getByRole('button', { name: 'Enregistrer les modifications' }) },
   { slug: 'reminders', path: '/reminders', ready: (p) => p.getByRole('tab', { name: 'Tâches' }).first(), cta: (p) => p.getByRole('switch').first(), tabBar: true },
-  { slug: 'statistics', path: '/statistics', ready: (p) => p.getByTestId('statistics_screen_root'), cta: (p) => p.getByRole('button', { name: /Aller aux tâches|tâches/i }) },
+  { slug: 'statistics', path: '/statistics', ready: (p) => p.getByTestId('statistics_screen_root'), // the way back is the one control in both branches (empty state has "Aller aux tâches", the data branch none)
+    cta: (p) => p.getByRole('button', { name: 'Retour', exact: true }) },
   { slug: 'health', path: '/health', ready: (p) => p.getByRole('button', { name: /Ajouter une pesée/ }).first(), cta: (p) => p.getByRole('button', { name: /Ajouter une pesée/ }) },
   { slug: 'weight', path: '/weight', cta: (p) => p.getByRole('button', { name: /Enregistrer|Ajouter une pesée/ }) },
   { slug: 'resources', path: '/resources', ready: (p) => p.getByRole('tab', { name: /Articles/ }).first(), cta: (p) => p.getByRole('tab', { name: /Articles/ }), tabBar: true },

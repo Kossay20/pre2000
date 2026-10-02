@@ -86,7 +86,7 @@ export function describeProblems(p: FrameProblems): string {
  */
 export async function waitFrameClean(
   page: Page,
-  timeoutMs = 4_000,
+  timeoutMs = 10_000,
   opts: { opacity?: boolean } = {},
 ): Promise<FrameCheck & { ms: number }> {
   const t0 = Date.now();

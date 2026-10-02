@@ -197,13 +197,14 @@ export const styles = StyleSheet.create({
         width: '100%',
         paddingBottom: 24,
     },
-    // The avatar is absolutely placed over the header's top-right corner; at 280pt the
-    // centred greeting ran under it. Padding both sides by the avatar's footprint (16 +
-    // 50 + 4) keeps the greeting centred and lets a long one wrap instead.
+    // The avatar is absolutely placed over the header's top-right corner (its left edge sits
+    // ~86pt from the right). Wide screens pad both sides by that footprint so the greeting stays
+    // centred beside it; a narrow one has no room for a greeting next to a 50pt avatar (at 280pt
+    // it still touched), so the greeting starts below the avatar instead.
     headerTextContainer: {
         alignItems: 'center',
         marginBottom: 16,
-        paddingHorizontal: 70,
+        ...(width < 340 ? { marginTop: 54 } : { paddingHorizontal: 90 }),
     },
     weekInfo: {
         fontSize: 14,

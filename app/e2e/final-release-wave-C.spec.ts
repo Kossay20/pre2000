@@ -1571,7 +1571,7 @@ for (const C of CFG) {
       // C-047: bleeding at 32 weeks is an EMERGENCY (hemorragie_antepartum); "urgent consult"
       // would be a downgrade, so only the emergency title is accepted, in every language.
       expect.soft(alert15.includes(tr(L, 'common.chatEmergency')), `15 C-047: bleeding chip block titled "${tr(L, 'common.chatEmergency')}" (not urgent-consult)`).toBe(true);
-      expect.soft(alert15.includes(tr(L, 'common.chatResponse.redFlagHigh')), '15 C-047: not downgraded to the urgent-consult title').toBe(false);
+      expect.soft(alert15.includes(tr(L, 'common.chatResponse.redFlagModerate')), '15 C-047: an emergency never ends on the soft "monitor and consult if it persists" line').toBe(false);
       w.note('15.chip.answer', { alerts: await newAlert(page).count(), alertLines: splitLines(alert15) });
       const bubbles15After = (await userMsgBoxes(page, C.cs06)).length;
       w.note('15.userBubbles', { before: bubbles15, after: bubbles15After });
@@ -1602,8 +1602,8 @@ for (const C of CFG) {
       const alert16 = (await newAlert(page).count()) ? await newAlert(page).last().innerText() : '';
       w.note('16.alertText', alert16);
       expect.soft(
-        alert16.includes(tr(L, 'common.chatResponse.redFlagHigh')) || alert16.includes(tr(L, 'common.chatEmergency')),
-        '16 C-022: alert block titled urgent-consult or emergency',
+        alert16.includes(tr(L, 'common.chatEmergency')) || alert16.includes(tr(L, 'common.chatEmergencyAction')),
+        '16 C-022: the alert block is the emergency block or carries the call action (only an emergency has a title)',
       ).toBe(true);
       expect.soft((await userMsgBoxes(page, cs19)).length, '16: chip text sent as a user message').toBe(bubbles16 + 1);
       const calls16 = await callsOnScreen(page, tr(L, 'a11y.emergencyCall'));
@@ -1625,8 +1625,8 @@ for (const C of CFG) {
       const alert17 = (await newAlert(page).count()) ? await newAlert(page).last().innerText() : '';
       w.note('17.typed.alertText', alert17);
       expect.soft(
-        alert17.includes(tr(L, 'common.chatResponse.redFlagHigh')) || alert17.includes(tr(L, 'common.chatEmergency')),
-        `17 C-047: typed reduced-movements report is triaged (urgent-consult or emergency title) in ${L}`,
+        alert17.includes(tr(L, 'common.chatEmergency')) || alert17.includes(tr(L, 'common.chatEmergencyAction')),
+        `17 C-047: typed reduced-movements report is triaged (emergency title or the call action) in ${L}`,
       ).toBe(true);
       await w.state('17-chatbot-movements-typed');
 
@@ -1644,8 +1644,8 @@ for (const C of CFG) {
         const alert17c = (await newAlert(page).count()) ? await newAlert(page).last().innerText() : '';
         w.note('17.chip.alertText', alert17c);
         expect.soft(
-          alert17c.includes(tr(L, 'common.chatResponse.redFlagHigh')) || alert17c.includes(tr(L, 'common.chatEmergency')),
-          `17 C-047: chip block titled urgent-consult or emergency in ${L}`,
+          alert17c.includes(tr(L, 'common.chatEmergency')) || alert17c.includes(tr(L, 'common.chatEmergencyAction')),
+          `17 C-047: chip block is the emergency block or carries the call action in ${L}`,
         ).toBe(true);
         expect.soft((await userMsgBoxes(page, cs07)).length, '17: chip text sent as a user message').toBe(bubbles17 + 1);
         const calls17 = await callsOnScreen(page, tr(L, 'a11y.emergencyCall'));
