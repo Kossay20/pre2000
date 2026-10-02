@@ -7,6 +7,8 @@ interface CalendarMonthStatsProps {
     totalEvents: number;
     userEventCount: number;
     suggestionCount: number;
+    /** One line instead of a stacked card: on a short screen the card pushed the grid down. */
+    compact?: boolean;
     t: (key: string) => string;
 }
 
@@ -14,8 +16,15 @@ export const CalendarMonthStats: React.FC<CalendarMonthStatsProps> = ({
     totalEvents,
     userEventCount,
     suggestionCount,
+    compact = false,
     t,
-}) => (
+}) => compact ? (
+    <View style={[styles.statsCard, styles.statsCardCompact]}>
+        <Text style={styles.statsCompactText} numberOfLines={2}>
+            {`📊 ${t('calendar.thisMonth')} · ${totalEvents} ${t('calendar.total')} · ${userEventCount} ${t('calendar.myAppointments')} · ${suggestionCount} ${t('calendar.suggestions')}`}
+        </Text>
+    </View>
+) : (
     <View style={styles.statsCard}>
         <Text style={styles.statsTitle}>📊 {t('calendar.thisMonth')}</Text>
         <View style={styles.statsRow}>

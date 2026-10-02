@@ -44,6 +44,7 @@ import {
 } from './helpers/emulator-account';
 import { lmpIsoForWeek } from './helpers/guest-profile';
 import { tickHealthConsent } from './helpers/health-consent';
+import { describeProblems, waitFrameClean } from './helpers/visual-settle';
 import { PRIVATE_STORAGE_KEYS, PRIVATE_STORAGE_KEY_PREFIXES } from '../src/context/storageKeys';
 
 test.use(waveUse('fr'));
@@ -119,6 +120,9 @@ type Ctx = {
   permission: string[];
   permCursor: number;
   dialogs: DialogRecorder;
+  /** Where this test's quartets go: dialog text is written next to each PNG there (D-047). */
+  dirs: string[];
+  dialogCursor: number;
 };
 
 function quartetDirs(testInfo: TestInfo): string[] {
@@ -138,7 +142,7 @@ function instrument(page: Page, testInfo: TestInfo): Ctx {
   page.on('pageerror', (err) => {
     if (PERMISSION_SIGNAL.test(err.message)) permission.push(`pageerror: ${err.message.slice(0, 400)}`);
   });
-  return { page, rec, strict, cursor: 0, permission, permCursor: 0, dialogs };
+  return { page, rec, strict, cursor: 0, permission, permCursor: 0, dialogs, dirs: quartetDirs(testInfo), dialogCursor: 0 };
 }
 
 /**
@@ -161,6 +165,16 @@ async function settle(page: Page) {
 }
 
 /**
+ * `settle` only sees CSS/Web animations; react-native-web fades (Animated.timing) are
+ * JS-driven opacity writes it cannot see, which is how Home was captured half transparent
+ * (D-025). Poll the frame itself until nothing visible is mid-fade or displaced.
+ */
+async function settledFrame(page: Page) {
+  await settle(page);
+  return waitFrameClean(page, 8_000);
+}
+
+/**
  * Record a state: soft non-blank + no raw i18n key, the quartet, and every strict-console
  * error raised since the previous state of this context.
  */
@@ -169,7 +183,19 @@ async function state(ctx: Ctx, name: string, expectedNetworkErrors: RegExp[] = [
   expect.soft(body.trim().length, `${name}: screen should not be blank`).toBeGreaterThan(0);
   const leak = body.split('\n').find((l) => RAW_KEY.test(l));
   expect.soft(leak, `${name}: raw i18n key leaked → "${leak}"`).toBeFalsy();
-  await settle(ctx.page);
+  const frame = await settledFrame(ctx.page);
+  expect.soft(frame.ok, `${name} (D-025): frame captured mid-fade or displaced (${describeProblems(frame.problems)})`).toBe(true);
+  // window.alert / confirm are native: no screenshot shows them. D-047: keep what was said (and
+  // what was pressed) beside the PNG of the state it belongs to, so a state whose screen did not
+  // change is still told apart from the one before it.
+  const said = ctx.dialogs.dialogs.slice(ctx.dialogCursor);
+  ctx.dialogCursor = ctx.dialogs.dialogs.length;
+  if (said.length) {
+    for (const dir of ctx.dirs) {
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, `${name}.dialogs.txt`), said.map((d) => `[${d.type}:${d.action}] ${d.message}`).join('\n---\n') + '\n');
+    }
+  }
   await ctx.rec.snap(name);
   // Only the browser's own resource-load line for a request the test itself provoked
   // (simulated CREDENTIAL_TOO_OLD refusal, deliberate wrong password) may be allowed —
@@ -263,10 +289,14 @@ async function seedEverything(uid: string) {
   const docs: Record<string, Record<string, unknown>> = {
     userEvents: { user_id: uid, title: 'RDV seed D', date: inTenDays, type: 'medical', location: 'Seed', createdAt: iso },
     userTasks: { user_id: uid, title: 'Tâche seed D', dueDate: inTenDays, completed: false, createdAt: iso },
-    healthMetrics: { user_id: uid, type: 'weight', value: 62, date: iso, createdAt: iso },
-    weight_entries: { user_id: uid, weight: 62, date: iso, createdAt: iso },
-    glucoseMetrics: { user_id: uid, value: 0.92, context: 'fasting', date: iso, createdAt: iso },
-    symptomsLog: { user_id: uid, symptoms: ['nausea'], date: day, createdAt: iso },
+    // The shapes the services read (healthService / weightService), so the Health, Weight and
+    // journal screens render the seed instead of ignoring it. D-038: 0.92 was a g/L figure
+    // stored as mmol/L and under the wrong field name — Health showed "Glycémie basse".
+    // 4.5 mmol/L fasting sits inside the 3.5 – <5.1 target the app itself prints.
+    healthMetrics: { user_id: uid, type: 'weight', value: 62, date: iso, week: 32, notes: '', created_at: iso },
+    weight_entries: { user_id: uid, weight: 62, date: iso, week_of_pregnancy: 32, created_at: iso },
+    glucoseMetrics: { user_id: uid, value: 4.5, meal_context: 'fasting', date: iso, week: 32, created_at: iso },
+    symptomsLog: { user_id: uid, symptoms: ['nausea'], date: day, week: 32, notes: '', updated_at: iso },
     // The shape reminderPersistence writes (reminder_id / times_per_day / last_modified).
     userReminderSettings: { user_id: uid, reminder_id: 'rem_med_iron_supplement', enabled: true, times_per_day: 1, last_modified: iso },
     userTaskStatuses: { user_id: uid, taskId: 'seed-d', completed: true, updatedAt: iso },
@@ -322,6 +352,27 @@ async function authLookup(uid: string): Promise<any | null> {
   });
   const body: any = await res.json();
   return body.users?.[0] ?? null;
+}
+
+/**
+ * Make the account's last sign-in `ageMs` old ON THE AUTH EMULATOR. A token's `auth_time` is
+ * the user's `lastLoginAt` and the app measures the sign-in age as (fresh token `iat` −
+ * `auth_time`) on that one server clock (accountDeletion.isRecentLogin), so moving
+ * `lastLoginAt` back is exactly what five real minutes would do — without the sleep. Every
+ * later real sign-in (the re-auth password) sets it to now again, as in production.
+ * Returns false when the emulator did not take the value (an older emulator): the caller then
+ * falls back to really waiting.
+ */
+async function backdateLastLogin(uid: string, ageMs: number): Promise<boolean> {
+  const target = Date.now() - ageMs;
+  const res = await fetch(`${AUTH_EMULATOR}/identitytoolkit.googleapis.com/v1/projects/${PROJECT_ID}/accounts:update`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer owner' },
+    body: JSON.stringify({ localId: uid, lastLoginAt: String(target) }),
+  });
+  if (!res.ok) return false;
+  const rec = await authLookup(uid);
+  return Math.abs(Number(rec?.lastLoginAt) - target) < 1_000;
 }
 
 async function newSeededAccount(scenario: string, fields: Record<string, unknown> = {}): Promise<CreatedAccount> {
@@ -424,7 +475,7 @@ const FIRESTORE_TRAFFIC = /:8080\//;
  *     backend does) until the page re-authenticates (`accounts:signInWithPassword`).
  * Call after login; requires `page.clock.install()` before the first navigation.
  */
-async function makeSessionStale(page: Page, opts: { waitMs?: number; shiftClock?: boolean } = {}) {
+async function makeSessionStale(page: Page, opts: { waitMs?: number; shiftClock?: boolean; uid?: string } = {}) {
   let reauthenticated = false;
   const refusals: string[] = [];
   // Only a password the server ACCEPTED makes the session recent again — a wrong password
@@ -458,9 +509,15 @@ async function makeSessionStale(page: Page, opts: { waitMs?: number; shiftClock?
   //    vs authTime) cannot be fooled by the browser clock: let the session really age past
   //    Firebase's 5-minute window on the emulator clock, so every signal is consistent.
   //    waitMs 0 = the client pre-check passes and only the server refuses, AFTER the purge.
+  //    Instead of sleeping, the sign-in is aged on the emulator itself (backdateLastLogin);
+  //    the real wait stays as the fallback when no uid is given or the emulator refuses.
   const waitMs = opts.waitMs ?? Number(process.env.WAVE_D_STALE_WAIT_MS ?? 310_000);
-  if (waitMs > 0) await page.waitForTimeout(waitMs);
-  return { refusals };
+  let aged = false;
+  if (waitMs > 0 && opts.uid && process.env.WAVE_D_STALE_WAIT_MS === undefined) {
+    aged = await backdateLastLogin(opts.uid, waitMs);
+  }
+  if (waitMs > 0 && !aged) await page.waitForTimeout(waitMs);
+  return { refusals, aged };
 }
 
 // ── Common UI steps (fr) ──────────────────────────────────────────────────────
@@ -510,6 +567,72 @@ async function remindersText(page: Page): Promise<{ text: string; groups: string
 const PRIVACY_SCREEN = (p: Page) => p.getByText('Mentions Légales & CGU', { exact: true }).first();
 
 const onAuthSurface = (url: string) => /\/(welcome|auth|login|Language|AuthChoice)(\b|$|\?)/.test(url);
+
+// ── Journal (PDF) capture (D-039) ─────────────────────────────────────────────
+
+/**
+ * On web "Mon Journal (PDF)" writes the journal into a hidden iframe and calls its print()
+ * (pdfExportService.printJournalOnWeb) — a native dialog no screenshot can show. Replace that
+ * print() with a recorder so the generated document can be read and asserted. The native path
+ * (expo-print on a device) stays a device check. Install on the loaded page, before the click.
+ */
+async function armJournalCapture(page: Page) {
+  await page.evaluate(() => {
+    const w = window as any;
+    w.__journalPrints = [];
+    if (w.__journalCaptureArmed) return;
+    w.__journalCaptureArmed = true;
+    const desc = Object.getOwnPropertyDescriptor(HTMLIFrameElement.prototype, 'contentWindow')!;
+    Object.defineProperty(HTMLIFrameElement.prototype, 'contentWindow', {
+      configurable: true,
+      get(this: HTMLIFrameElement) {
+        const win = desc.get!.call(this) as any;
+        try {
+          if (win && !win.__e2ePrintStub) {
+            win.__e2ePrintStub = true;
+            win.print = () => {
+              const d = win.document as Document;
+              w.__journalPrints.push({ html: d.documentElement.outerHTML, text: (d.body?.textContent ?? '').replace(/\s+/g, ' ').trim(), dir: d.documentElement.dir, lang: d.documentElement.lang });
+            };
+          }
+        } catch {
+          /* cross-origin frame: not ours */
+        }
+        return win;
+      },
+    });
+  });
+}
+
+type JournalCapture = { html: string; text: string; dir: string; lang: string };
+
+async function readJournal(page: Page, timeout = 20_000): Promise<JournalCapture | null> {
+  const until = Date.now() + timeout;
+  while (Date.now() < until) {
+    const got = (await page.evaluate(() => (window as any).__journalPrints?.[0] ?? null)) as JournalCapture | null;
+    if (got) return got;
+    await page.waitForTimeout(300);
+  }
+  return null;
+}
+
+/** Render the captured journal in its own tab and save the PNG next to the quartets. */
+async function snapJournal(page: Page, ctx: Ctx, name: string, journal: JournalCapture) {
+  const view = await page.context().newPage();
+  try {
+    await view.setViewportSize({ width: 820, height: 1100 });
+    // The journal @imports a web font: do not let an offline font fetch hold the capture.
+    await view.setContent(journal.html, { waitUntil: 'domcontentloaded' });
+    await view.waitForTimeout(600);
+    for (const dir of ctx.dirs) {
+      fs.mkdirSync(dir, { recursive: true });
+      await view.screenshot({ path: path.join(dir, `${name}.png`), fullPage: true });
+      fs.writeFileSync(path.join(dir, `${name}.txt`), journal.text);
+    }
+  } finally {
+    await view.close();
+  }
+}
 
 // ══════════════════════════════════════════════════════════════════════════════
 // D-profile — states 01-06 (SYNC-8, HYP-D1, HYP-D2)
@@ -620,6 +743,16 @@ test('D-profile: load, save, empty last name, unsaved-edit wipe, emergency conta
   );
   expect.soft(((s06?.emergencyContacts as any[]) ?? []).length, '06: server emergencyContacts after delete').toBe(0);
   await state(ctx, '06-emergency-contact-delete');
+  {
+    // D-040: the delete is proven on the server above; here also from a phone that has never seen her.
+    const f = await freshCtx(browser, acct, 'fr', testInfo);
+    await openProfile(f.page);
+    await expect.soft(firstNameBox(f.page), '06: fresh context profile loaded').not.toHaveValue('', { timeout: 15_000 });
+    await expect.soft(f.page.getByRole('button', { name: 'Appeler Sage-femme' }), '06 (D-040): fresh context no longer shows the deleted contact').toHaveCount(0);
+    await expect.soft(f.page.getByRole('button', { name: 'Supprimer le contact Sage-femme' })).toHaveCount(0);
+    await state(f, '06c-emergency-contact-delete-fresh-context');
+    await closeCtx(f);
+  }
 
   // 06b — max 10 contacts enforced at the 11th.
   for (let i = 0; i < 10; i++) await addContact(ctx, `Contact ${i}`, `06123456${String(i).padStart(2, '0')}`, 'Autre');
@@ -705,6 +838,16 @@ test('D-settings: dev surfaces, medical flag, daily message, permissions, export
   note(testInfo, '08-reminders-off-groups', JSON.stringify(remOff.groups));
   expect.soft(glyc(remOff.text), '08: "Contrôle glycémie" removed when the flag is off').toBe(false);
   await state(ctx, '08d-medical-flag-off');
+  {
+    // D-040: switching the flag off must reach a new device too (08c proved the "on" half).
+    const f = await freshCtx(browser, acct, 'fr', testInfo);
+    await openSettings(f.page);
+    await expect.soft(f.page.getByRole('switch', { name: 'Diabète gestationnel' }).first(), '08 (D-040): fresh context switch off after the flag was cleared').not.toBeChecked({ timeout: 15_000 });
+    const remFresh = await remindersText(f.page);
+    expect.soft(glyc(remFresh.text), '08 (D-040): fresh context does not list "Contrôle glycémie" once the flag is off').toBe(false);
+    await state(f, '08e-medical-flag-off-fresh-context');
+    await closeCtx(f);
+  }
 
   // 09 — daily message: hour 11 + toggle → local keys; no console error.
   await openSettings(page);
@@ -718,6 +861,22 @@ test('D-settings: dev surfaces, medical flag, daily message, permissions, export
   const enabled = await page.evaluate(() => localStorage.getItem('@baby_message_enabled_v1'));
   expect.soft(enabled === null ? null : JSON.parse(enabled), '09: @baby_message_enabled_v1 after toggle off').toBe(false);
   await msgSwitch.click();
+  await page.waitForTimeout(800);
+  // D-040: same-context reload — hour 11 and the re-enabled switch must come back from storage,
+  // not from React state. (Both live in device storage: a new phone starts from the defaults,
+  // recorded below, not asserted — that is the storage contract, not a defect.)
+  await page.reload({ waitUntil: 'load' });
+  await expect(page.getByRole('switch').first()).toBeVisible({ timeout: 30_000 });
+  await expect.soft(page.getByRole('button', { name: "Sélectionner l'heure : 11 heures" }).first(), '09 (D-040): hour 11 still selected after a reload').toHaveAttribute('aria-selected', 'true', { timeout: 10_000 });
+  await expect.soft(page.getByRole('switch', { name: 'Activer ou désactiver le message quotidien' }).first(), '09 (D-040): daily message still on after a reload').toBeChecked();
+  expect.soft(await page.evaluate(() => localStorage.getItem('@baby_message_hour_v1')), '09: stored hour after reload').not.toBeNull();
+  {
+    const f = await freshCtx(browser, acct, 'fr', testInfo);
+    await openSettings(f.page);
+    const sel = await f.page.getByRole('button', { name: "Sélectionner l'heure : 11 heures" }).first().getAttribute('aria-selected');
+    note(testInfo, '09-fresh-context-hour-11-selected', String(sel));
+    await closeCtx(f);
+  }
   await state(ctx, '09-settings-daily-message');
 
   // 10 — request permissions: a web failure dialog is fine; an uncaught exception is not.
@@ -740,9 +899,16 @@ test('D-settings: dev surfaces, medical flag, daily message, permissions, export
   expect.soft(!!dl || after11.length > 0, '11 (HYP-D3): export ends with no download and no message (silent no-op)').toBe(true);
   await state(ctx, '11-export-json');
 
-  // 12 — PDF export (HYP-D4): the Settings screen must not collapse into a skeleton.
+  // 12 — PDF export (HYP-D4): the Settings screen must not collapse into a skeleton, and (D-039)
+  // the journal it generates must carry her data. Seeded here: one weighing, one appointment.
+  const nowIso = new Date().toISOString();
+  await ownerWrite(`weight_entries/journal-d-${acct.uid}`, { user_id: acct.uid, weight: 63.4, date: nowIso, week_of_pregnancy: 32, created_at: nowIso });
+  await ownerWrite(`userEvents/journal-d-${acct.uid}`, {
+    user_id: acct.uid, event_id: `journal-d-${acct.uid}`, title: 'RDV Journal D', date: new Date(Date.now() + 10 * 864e5).toISOString(), type: 'medical', notes: 'Note du journal D', createdAt: nowIso,
+  });
   await openSettings(page);
   const dialogsBefore12 = ctx.dialogs.dialogs.length;
+  await armJournalCapture(page);
   await page.evaluate(() => {
     (window as any).__settingsVanished = false;
     const obs = new MutationObserver(() => {
@@ -752,13 +918,30 @@ test('D-settings: dev surfaces, medical flag, daily message, permissions, export
     (window as any).__settingsObs = obs;
   });
   await page.getByRole('button', { name: 'Mon Journal (PDF)' }).click();
-  await page.waitForTimeout(6000);
+  const journal12 = await readJournal(page);
+  await page.waitForTimeout(1500);
   const vanished = await page.evaluate(() => {
     (window as any).__settingsObs?.disconnect();
     return (window as any).__settingsVanished as boolean;
   });
-  note(testInfo, '12-export-pdf', `settingsVanished=${vanished} dialogs=${JSON.stringify(ctx.dialogs.dialogs.slice(dialogsBefore12).map((d) => d.message))}`);
+  note(testInfo, '12-export-pdf', `settingsVanished=${vanished} journal=${journal12 ? journal12.text.length : null} dialogs=${JSON.stringify(ctx.dialogs.dialogs.slice(dialogsBefore12).map((d) => d.message))}`);
   expect.soft(vanished, '12 (HYP-D4): Settings content disappeared (skeleton flash) during PDF export').toBe(false);
+  expect.soft(journal12, '12 (D-039): the journal reached the print step (nothing generated = silent failure)').not.toBeNull();
+  if (journal12) {
+    const t12 = norm(journal12.text);
+    expect.soft(journal12.lang, '12 (D-039): journal lang').toBe('fr');
+    expect.soft(journal12.dir, '12 (D-039): journal dir').toBe('ltr');
+    expect.soft(t12, '12 (D-039): journal title').toContain('Mon suivi de grossesse');
+    expect.soft(t12, '12 (D-039): her name on the profile block').toContain('Salma Settings');
+    expect.soft(t12, '12 (D-039): weight section heading').toContain('Historique du poids');
+    expect.soft(t12, '12 (D-039): the seeded weighing is listed').toContain('63.4 kg');
+    expect.soft(t12, '12 (D-039): the weight table is not the empty state').not.toContain('Aucune donnée de poids');
+    expect.soft(t12, '12 (D-039): appointments heading').toContain('Rendez-vous');
+    expect.soft(t12, '12 (D-039): the seeded appointment title is listed').toContain('RDV Journal D');
+    expect.soft(t12, '12 (D-039): the appointment note is listed').toContain('Note du journal D');
+    expect.soft(t12, '12 (D-039): the appointments table is not the empty state').not.toContain('Aucun rendez-vous');
+    await snapJournal(page, ctx, '12b-export-pdf-journal', journal12);
+  }
   await state(ctx, '12-export-pdf');
 
   // 13 — Privacy policy reachable from Settings and Profile; back works.
@@ -916,6 +1099,8 @@ test('D-lang: live switch fr→ar→tn→fr, /language deep link, persistence', 
     note(testInfo, '17b-fresh-context', JSON.stringify(fresh17));
     expect.soft(fresh17.lang, '17b: html lang on a new device').toMatch(/^ar/);
     expect.soft(fresh17.dir, '17b: html dir on a new device').toBe('rtl');
+    // D-025: Home's own content (not the tab bar alone) before the capture.
+    await expect.soft(f.page.getByTestId('home_quick_search'), '17b: the new device lands on Home').toBeVisible({ timeout: 30_000 });
     await state(f, '17b-language-fresh-context');
     await closeCtx(f);
   }
@@ -1068,6 +1253,7 @@ test('D-upgrade: real anonymous guest → account keeps uid, data and a complete
   await expect(page.getByTestId('register_email_input')).toBeVisible({ timeout: 20_000 });
   // GuestUpgrade terms line → privacy (13, third entry point).
   const termsLine = page.getByText(/En créant un compte, vous acceptez/);
+  await expect.soft(termsLine.first(), '13: GuestUpgrade shows its terms line (third privacy entry point)').toBeVisible();
   if (await termsLine.count()) {
     await termsLine.first().click();
     await expect.soft(PRIVACY_SCREEN(page), '13: privacy from GuestUpgrade').toBeVisible({ timeout: 15_000 });
@@ -1109,6 +1295,16 @@ test('D-upgrade: real anonymous guest → account keeps uid, data and a complete
   expect.soft(serverData21.weight_entries + serverData21.healthMetrics, '21: guest weight entry on the server').toBeGreaterThan(0);
   expect.soft(serverData21.reminder_settings_v2, '21: guest reminder toggle on the server').toBeGreaterThan(0);
   expect.soft(serverData21.userTaskStatuses, `21: guest task status on the server (${taskLabel})`).toBeGreaterThan(0);
+  // D-040: the weighing she entered as a guest is on the server with its value (68), and so is
+  // the hospital bag she packed — not just "some row exists".
+  const weightRows21 = [...(await serverQuery('weight_entries', 'user_id', guestUid)), ...(await serverQuery('healthMetrics', 'user_id', guestUid))];
+  const weights21 = weightRows21.map((r) => Number(r.data.weight ?? r.data.value));
+  note(testInfo, '21-server-weights', JSON.stringify(weights21));
+  expect.soft(weights21, '21 (D-040): the guest weighing (68 kg) is on the server under the same uid').toContain(68);
+  const bag21 = await pollServer(() => serverDoc(`hospitalBags/${guestUid}`), (d) => d !== null, 10_000);
+  note(testInfo, '21-server-bag', JSON.stringify(bag21));
+  expect.soft(bag21, '21 (D-040): hospitalBags/{uid} exists after the upgrade').not.toBeNull();
+  expect.soft(Object.values((bag21?.checked as Record<string, unknown>) ?? {}).filter((v) => v === true).length, '21 (D-040): both packed bag items are on the server').toBeGreaterThanOrEqual(2);
   const localAfter = await localKeys(page);
   expect.soft(localAfter.includes('@bookmarks_v1'), '21: bookmarks survive the upgrade on this device').toBe(true);
   expect.soft(localAfter.includes('hospital_bag_v1'), '21: bag survives the upgrade on this device').toBe(true);
@@ -1127,6 +1323,15 @@ test('D-upgrade: real anonymous guest → account keeps uid, data and a complete
   await expect.soft(firstNameBox(f.page), '22: fresh login keeps the first name').toHaveValue('Invitée', { timeout: 15_000 });
   await expect.soft(f.page.getByRole('button', { name: 'Appeler Sage-femme' }), '22: fresh login keeps the emergency contact').toBeVisible({ timeout: 10_000 });
   await state(f, '22b-upgrade-fresh-profile');
+  // D-040: the bag follows her account to the new phone (server truth: hospitalBags/{uid}).
+  await f.page.goto('/hospital-bag', { waitUntil: 'load' });
+  await expect(f.page.getByRole('checkbox').first()).toBeVisible({ timeout: 20_000 });
+  await expect.soft(f.page.getByRole('checkbox').nth(0), '22 (D-040): fresh login keeps bag item 1 packed').toBeChecked({ timeout: 15_000 });
+  await expect.soft(f.page.getByRole('checkbox').nth(1), '22 (D-040): fresh login keeps bag item 2 packed').toBeChecked({ timeout: 15_000 });
+  // Bookmarks are device-local by design (@bookmarks_v1 in storage, no Firestore collection):
+  // recorded, so a change of contract shows up here.
+  note(testInfo, '22-fresh-device-bookmarks', String(await f.page.evaluate(() => localStorage.getItem('@bookmarks_v1'))));
+  await state(f, '22c-upgrade-fresh-bag');
   await closeCtx(f);
 });
 
@@ -1313,6 +1518,7 @@ test('D-delete-A: cancel keeps everything; confirm leaves zero server data and n
 const reauthField = (p: Page) => p.getByRole('textbox', { name: /retape ton mot de passe|mot de passe/i }).last();
 
 test('D-reauth-cancel: cancelling the re-auth prompt must not leave a half-purged account', async ({ page }, testInfo) => {
+  // Only the fallback (emulator refused the backdate) really waits 5 min; normally this is seconds.
   test.setTimeout(720_000);
   const acct = await newSeededAccount('reauth-cancel', { firstName: 'Rania', lastName: 'Cancel' });
   await seedEverything(acct.uid);
@@ -1321,7 +1527,8 @@ test('D-reauth-cancel: cancelling the re-auth prompt must not leave a half-purge
   await page.clock.install();
   await uiLogin(page, acct.email, acct.password, 'fr');
   await openProfile(page);
-  const stale = await makeSessionStale(page);
+  const stale = await makeSessionStale(page, { uid: acct.uid });
+  note(testInfo, '30-stale-by', stale.aged ? 'emulator lastLoginAt backdated' : 'real wait (fallback)');
 
   // 30 — delete → re-auth prompt → Annuler.
   await clickForDialog(ctx, () => page.getByRole('button', { name: 'Supprimer le compte' }).click());
@@ -1350,6 +1557,7 @@ test('D-reauth-cancel: cancelling the re-auth prompt must not leave a half-purge
 });
 
 test('D-reauth: wrong password → localized error; right password completes the deletion', async ({ page }, testInfo) => {
+  // Only the fallback (emulator refused the backdate) really waits 5 min; normally this is seconds.
   test.setTimeout(720_000);
   const acct = await newSeededAccount('reauth', { firstName: 'Rim', lastName: 'Reauth' });
   await seedEverything(acct.uid);
@@ -1358,7 +1566,8 @@ test('D-reauth: wrong password → localized error; right password completes the
   await page.clock.install();
   await uiLogin(page, acct.email, acct.password, 'fr');
   await openProfile(page);
-  await makeSessionStale(page);
+  const stale29 = await makeSessionStale(page, { uid: acct.uid });
+  note(testInfo, '29-stale-by', stale29.aged ? 'emulator lastLoginAt backdated' : 'real wait (fallback)');
 
   // 29 — prompt with a labelled password field.
   await clickForDialog(ctx, () => page.getByRole('button', { name: 'Supprimer le compte' }).click());
@@ -1541,6 +1750,7 @@ test('D-delete-second-phone: a deletion left unfinished on one phone is finished
   await state(phone2, '38c-phone2-deletion-finished');
 
   // 38d — the credentials are dead everywhere.
+  await expect.soft(page2.getByTestId('login_email_input'), '38d: the login form is shown again after the deletion finished').toBeVisible({ timeout: 15_000 });
   if (await page2.getByTestId('login_email_input').count()) {
     await submitLogin(page2, acct.email, acct.password);
     await expect.soft(page2.getByText('Email ou mot de passe incorrect').first(), '38d: the deleted account cannot sign in again').toBeVisible({ timeout: 15_000 });
@@ -1588,11 +1798,8 @@ test('D-reset: "Réinitialiser mon profil" must not orphan server data', async (
   await uiLogin(page, acct.email, acct.password, 'fr');
   await openProfile(page);
   const reset = page.getByRole('button', { name: 'Réinitialiser mon profil' });
-  if (!(await reset.count())) {
-    note(testInfo, '31-reset', 'row absent');
-    await state(ctx, '31-reset-profile');
-    return;
-  }
+  // D-047: a missing row is a failure, never a quiet early return that records a state anyway.
+  await expect(reset, '31: "Réinitialiser mon profil" row on Profile').toBeVisible({ timeout: 15_000 });
   await watchDeletionProgress(page);
   const d31 = await clickForDialog(ctx, () => reset.click());
   note(testInfo, '31-confirm', JSON.stringify(d31?.message ?? null));
@@ -1831,6 +2038,16 @@ test('D-rules: tightened subcollection rules refuse unknown names and never dist
     await ready(page);
     // Let the screen's own Firestore reads come back before judging its console.
     await page.waitForTimeout(2500);
+    if (name === '40-rules-health') {
+      // D-038: the seeded fasting glucose is inside the target, so the card must say so — and
+      // must not raise the low / high alert the old 0.92 seed provoked.
+      const healthBody = norm(await page.locator('body').innerText());
+      note(testInfo, '40-health-glucose-lines', JSON.stringify(healthBody.split('\n').filter((l) => /lyc[ée]mie|mmol|objectif/i.test(l))));
+      expect.soft(healthBody, '40 (D-038): the seeded 4,5 mmol/L reading is shown').toMatch(/4,5/);
+      expect.soft(healthBody, '40 (D-038): an in-target fasting glucose is reported as in range').toContain("Mesures du mois dans l'objectif");
+      expect.soft(healthBody, '40 (D-038): no low-glucose alert on a normal reading').not.toMatch(/Glycémie basse/);
+      expect.soft(healthBody, '40 (D-038): no out-of-range banner on a normal reading').not.toContain('hors objectif');
+    }
     await state(ctx, name);
   }
 
@@ -1862,32 +2079,53 @@ test('D-rules: tightened subcollection rules refuse unknown names and never dist
   const bag = await pollServer(() => serverDoc(`hospitalBags/${acct.uid}`), (d) => d !== null, 15_000);
   expect.soft(bag, '40 (D-014): hospital bag saved on the server').not.toBeNull();
 
-  // Chatbot: one question asked and answered (its history must not hit a refused path).
+  // Chatbot: one question asked and answered. Product contract (D-037): the conversation lives
+  // in the screen's memory only — there is no chatbot_history feature, nothing is written for
+  // it, and a reload starts a new conversation. Both halves are asserted below.
   await page.goto('/chatbot', { waitUntil: 'load' });
   await expect(page.getByRole('tablist').first()).toBeVisible({ timeout: 30_000 });
   await page.waitForTimeout(1500);
   const chatInput = page.getByRole('textbox').last();
   note(testInfo, '40-chatbot-input', String(await chatInput.count()));
   expect.soft(await chatInput.count(), '40 (D-050): the chatbot input exists').toBeGreaterThan(0);
+  const greeting = page.getByText(/Je suis votre assistante grossesse/).first();
+  await expect.soft(greeting, '40: the chat opens on the assistant greeting').toBeVisible();
+  const question = 'Puis-je manger du fromage ?';
   if (await chatInput.count()) {
-    await chatInput.fill('Puis-je manger du fromage ?');
+    await chatInput.fill(question);
     await chatInput.press('Enter');
   }
-  await page.waitForTimeout(4000);
   // D-036: a named food is answered from the foods-to-avoid data, not with an unrelated article.
+  // The phrase appears nowhere on the screen except in the assistant's reply bubble.
+  const cheeseAnswer = page.getByText(/Fromages au lait cru/).first();
+  await expect.soft(cheeseAnswer, '40 (D-036): the assistant answer to the cheese question lists raw-milk cheeses').toBeVisible({ timeout: 15_000 });
+  await expect.soft(page.getByText(question, { exact: true }), '40: her question is echoed in the thread').toBeVisible();
   const chatBody = await page.locator('body').innerText();
-  expect.soft(chatBody, '40 (D-036): the cheese question lists raw-milk cheeses').toContain('Fromages au lait cru');
   expect.soft(chatBody, '40 (D-036): no unrelated "Je pense qu\'il répond" article offer').not.toContain("Je pense qu'il répond");
   await state(ctx, '40-rules-chatbot-question');
   await page.reload({ waitUntil: 'load' });
   await expect(page.getByRole('tablist').first()).toBeVisible({ timeout: 30_000 });
   await page.waitForTimeout(2500);
-  await state(ctx, '40-rules-chatbot-history-reload');
+  // D-037: history is NOT persisted (no chatbot_history feature): a reload is a new conversation.
+  await expect.soft(page.getByText(/Je suis votre assistante grossesse/).first(), '40 (D-037): after a reload the chat is back to the greeting').toBeVisible();
+  await expect.soft(page.getByText(/Fromages au lait cru/), '40 (D-037): the previous answer is not restored — history is not persisted').toHaveCount(0);
+  await expect.soft(page.getByText(question, { exact: true }), '40 (D-037): the previous question is not restored').toHaveCount(0);
+  await state(ctx, '40-rules-chatbot-reload-no-history');
 
   // Journal (PDF) from Settings.
   await openSettings(page);
+  await armJournalCapture(page);
   await page.getByRole('button', { name: 'Mon Journal (PDF)' }).click();
-  await page.waitForTimeout(5000);
+  const journal40 = await readJournal(page);
+  expect.soft(journal40, '40 (D-039): the journal is generated under the tightened rules').not.toBeNull();
+  if (journal40) {
+    const t40 = norm(journal40.text);
+    note(testInfo, '40-journal-text-length', String(t40.length));
+    expect.soft(t40, '40 (D-039): the journal lists her seeded appointment').toContain('RDV seed D');
+    expect.soft(t40, '40 (D-039): the journal lists a weighing (latest of the day: the 68.4 just saved, or the 62 seed)').toMatch(/(68\.4|62) kg/);
+    expect.soft(t40, '40 (D-039): the weight table is not the empty state').not.toContain('Aucune donnée de poids');
+    await snapJournal(page, ctx, '40-rules-journal-pdf-content', journal40);
+  }
   await state(ctx, '40-rules-journal-pdf');
 
   // Medical flag (profile write through validMedicalFlags).
@@ -2044,6 +2282,32 @@ test.describe('ar', () => {
     expect.soft(/Paramètres|Diabète|Exporter/.test(settingsText), '33: French strings left on the ar Settings screen').toBe(false);
     await state(ctx, '33-ar-settings');
 
+    // 33a — D-039: the journal in Arabic: RTL document, Arabic headings, her data.
+    {
+      const nowIso = new Date().toISOString();
+      await ownerWrite(`weight_entries/journal-ar-${acct.uid}`, { user_id: acct.uid, weight: 63.4, date: nowIso, week_of_pregnancy: 32, created_at: nowIso });
+      await ownerWrite(`userEvents/journal-ar-${acct.uid}`, {
+        user_id: acct.uid, event_id: `journal-ar-${acct.uid}`, title: 'Rendez-vous Journal AR', date: new Date(Date.now() + 10 * 864e5).toISOString(), type: 'medical', createdAt: nowIso,
+      });
+      await armJournalCapture(page);
+      await page.getByRole('button', { name: 'تصدير PDF' }).click();
+      const journalAr = await readJournal(page);
+      expect.soft(journalAr, '33a (D-039): the Arabic journal reached the print step').not.toBeNull();
+      if (journalAr) {
+        note(testInfo, '33a-journal-ar', JSON.stringify({ dir: journalAr.dir, lang: journalAr.lang, text: journalAr.text.slice(0, 300) }));
+        expect.soft(journalAr.dir, '33a (D-039): the Arabic journal is rtl').toBe('rtl');
+        expect.soft(journalAr.lang, '33a (D-039): the Arabic journal lang').toBe('ar');
+        expect.soft(journalAr.text, '33a (D-039): Arabic title').toContain('مذكرات الحمل');
+        expect.soft(journalAr.text, '33a (D-039): Arabic weight heading').toContain('متابعة الوزن');
+        expect.soft(journalAr.text, '33a (D-039): the seeded weighing is listed').toContain('63.4 kg');
+        expect.soft(journalAr.text, '33a (D-039): Arabic appointments heading').toContain('مواعيدي');
+        expect.soft(journalAr.text, '33a (D-039): the seeded appointment title is listed').toContain('Rendez-vous Journal AR');
+        expect.soft(/Historique du poids|Mon suivi de grossesse|Rendez-vous\b(?! Journal)/.test(journalAr.text), '33a (D-039): French headings left in the Arabic journal').toBe(false);
+        await snapJournal(page, ctx, '33a-ar-journal-pdf', journalAr);
+      }
+      await state(ctx, '33a-ar-journal-requested');
+    }
+
     // 33b — D-025: the privacy policy in Arabic, with its legal tab list (D-023).
     await page.getByRole('button', { name: 'سياسة الخصوصية' }).first().click();
     const arLegalTabs = page.getByRole('tablist').filter({ has: page.getByRole('tab', { name: 'الشروط' }) });
@@ -2167,6 +2431,7 @@ test.describe('ar', () => {
     await expect.soft(page.getByTestId('health_consent_continue'), '39d: "continue" enabled once ticked').not.toHaveAttribute('aria-disabled', 'true');
     await page.getByTestId('health_consent_continue').click();
     await expect.soft(page.getByRole('tablist').first(), '39d: agreeing opens the app').toBeVisible({ timeout: 30_000 });
+    await expect.soft(page.getByTestId('home_quick_search'), '39d: agreeing lands on Home (its own content, fully faded in)').toBeVisible({ timeout: 30_000 });
     const prof = await pollServer(() => serverDoc(`userProfiles/${acct.uid}`), (d) => !!d?.healthDataConsent, 15_000);
     note(testInfo, '39d-server-consent', JSON.stringify(prof?.healthDataConsent ?? null));
     expect.soft(typeof (prof?.healthDataConsent as any)?.at, '39d: consent timestamp on the server').toBe('string');
@@ -2174,6 +2439,7 @@ test.describe('ar', () => {
     await state(ctx, '39d-ar-consent-accepted');
     const f = await freshCtx(browser, acct, 'ar', testInfo);
     await expect.soft(f.page.getByTestId('health_consent_continue'), '39e: a new device does not ask again').toHaveCount(0);
+    await expect.soft(f.page.getByTestId('home_quick_search'), '39e: the new device lands on Home').toBeVisible({ timeout: 30_000 });
     await state(f, '39e-ar-consent-fresh-context');
     await closeCtx(f);
   });

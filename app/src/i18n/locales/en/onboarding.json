@@ -38,7 +38,7 @@
   "step3": {
     "title": "A few details about you",
     "firstNameLabel": "Your first name (optional)",
-    "firstNamePlaceholder": "To personalize your messages",
+    "firstNamePlaceholder": "To personalize",
     "ageLabel": "Your age range",
     "countryLabel": "Your country",
     "firstPregnancyLabel": "Is this your first pregnancy?",

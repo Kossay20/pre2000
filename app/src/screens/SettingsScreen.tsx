@@ -159,7 +159,6 @@ export const SettingsScreen = () => {
                     <Ionicons name="settings-outline" size={26} color={theme.colors.text} style={styles.headerIcon} />
                     <Text style={styles.headerTitle}>{t('common.settings')}</Text>
                 </View>
-                <Text style={styles.headerSubtitle}>{t('common.notifications')}</Text>
             </View>
 
             {/* Baby Message Section */}
@@ -182,9 +181,6 @@ export const SettingsScreen = () => {
                         trackColor={{ false: theme.colors.neutral300, true: theme.colors.accent }}
                         {...switchThumbProps(babyMessageEnabled ? theme.colors.white : theme.colors.iosGroupedBackground)}
                         accessibilityLabel={t('common.a11y.toggleBabyMessage')}
-                        accessibilityRole="switch"
-                        accessibilityState={{ checked: babyMessageEnabled }}
-                        {...(Platform.OS === 'web' ? { 'aria-checked': babyMessageEnabled } : {})}
                     />
                 </View>
 
@@ -271,10 +267,7 @@ export const SettingsScreen = () => {
                                 }}
                                 trackColor={{ false: theme.colors.neutral300, true: theme.colors.accent }}
                                 {...switchThumbProps(value ? theme.colors.white : theme.colors.iosGroupedBackground)}
-                                accessibilityRole="switch"
                                 accessibilityLabel={t(`common.medicalProfile.${labelKey[key]}`)}
-                                accessibilityState={{ checked: value }}
-                                {...(Platform.OS === 'web' ? { 'aria-checked': value } : {})}
                             />
                         </View>
                     );

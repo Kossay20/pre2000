@@ -1,3 +1,4 @@
+import { chartLabelProps } from '../utils/chartLabelProps';
 import { createLogger } from '../utils/logger';
 const log = createLogger('HealthDashboardScreen');
 import React, { useEffect, useState, useCallback } from 'react';
@@ -71,8 +72,9 @@ export const HealthDashboardScreen = () => {
     // line printed on the same card.
     const num = (value: number) => formatDecimal(Number(value), i18n.language);
     const { user } = useAuth();
-    const { pregnancyInfo } = usePregnancy();
+    const { pregnancyInfo, profile } = usePregnancy();
     const navigation = useNavigation();
+    const hasWeightBaseline = Number(user?.prePregnancyWeight ?? profile?.prePregnancyWeight) > 0;
 
     const [stats, setStats] = useState<HealthStats | null>(null);
     const [weightHistory, setWeightHistory] = useState<HealthMetric[]>([]);
@@ -523,14 +525,31 @@ export const HealthDashboardScreen = () => {
                                 <Text style={styles.statLabel}>{t('dashboard.gain')}</Text>
                                 {/* U-FIX-5: was always prefixed '+' even for losses → showed '+-2.0 kg'.
                                     Now formats with proper sign and colors loss differently. */}
-                                <Text style={[
-                                    styles.statValue,
-                                    { color: (stats?.weightGain ?? 0) < 0 ? theme.colors.warning : theme.colors.success }
-                                ]}>
-                                    {stats?.weightGain != null
-                                        ? `${stats.weightGain >= 0 ? '+' : ''}${num(stats.weightGain)} ${t('dashboard.kg')}`
-                                        : `— ${t('dashboard.kg')}`}
-                                </Text>
+                                {/* Without a pre-pregnancy weight the stats measure the gain from the
+                                    first weighing, so a single entry read "+0 kg" in success green
+                                    while the weight screen said the setup was still to do. */}
+                                {hasWeightBaseline ? (
+                                    <Text style={[
+                                        styles.statValue,
+                                        { color: (stats?.weightGain ?? 0) < 0 ? theme.colors.warning : theme.colors.success }
+                                    ]}>
+                                        {stats?.weightGain != null
+                                            ? `${stats.weightGain >= 0 ? '+' : ''}${num(stats.weightGain)} ${t('dashboard.kg')}`
+                                            : `— ${t('dashboard.kg')}`}
+                                    </Text>
+                                ) : (
+                                    <>
+                                        <Text style={[styles.statValue, { color: theme.colors.textSecondary }]}>—</Text>
+                                        <TouchableOpacity
+                                            style={styles.linkTouch}
+                                            onPress={() => navigation.navigate('WeightTracker')}
+                                            accessibilityRole="button"
+                                            accessibilityLabel={t('dashboard.setStartingWeight')}
+                                        >
+                                            <Text style={styles.linkText}>{t('dashboard.setStartingWeight')}</Text>
+                                        </TouchableOpacity>
+                                    </>
+                                )}
                             </View>
                         </View>
 
@@ -556,6 +575,7 @@ export const HealthDashboardScreen = () => {
                                         strokeWidth: '2',
                                         stroke: theme.colors.primary,
                                     },
+                                    propsForLabels: chartLabelProps,
                                 }}
                                 bezier
                                 style={styles.chart}
@@ -740,7 +760,7 @@ export const HealthDashboardScreen = () => {
                     <Text style={styles.sectionTitle}>{t('dashboard.remindersThisWeek')}</Text>
                     <TouchableOpacity
                         style={styles.linkTouch}
-                        onPress={() => navigation.navigate('Rappels')}
+                        onPress={() => navigation.navigate('Rappels', { screen: 'RemindersMain', params: { screen: 'TasksTab' } })}
                         accessibilityRole="button"
                         accessibilityLabel={t('dashboard.seeAll')}
                     >

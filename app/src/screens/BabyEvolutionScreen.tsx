@@ -252,13 +252,15 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'center',
         paddingVertical: 4,
+        // Nine 44pt boxes are 396pt: on a 390pt phone the row overflows by 3pt a side,
+        // clipped here rather than scrolling the page.
+        overflow: 'hidden',
     },
-    // The dot stays 10pt; its pressable box is 44pt tall and shares the row's width
-    // (9 × 44pt does not fit a phone, so each box gets up to 44pt — ~37pt on a 375pt
-    // phone, the full 44pt on a tablet). hitSlop alone is ignored on web.
+    // The dot stays 10pt; its pressable box is 44 x 44pt (hitSlop alone is ignored on web).
     progressDotTouch: {
-        flex: 1,
-        maxWidth: 44,
+        width: 44,
+        minWidth: 44,
+        flexShrink: 0,
         height: 44,
         alignItems: 'center',
         justifyContent: 'center',

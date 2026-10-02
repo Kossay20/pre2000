@@ -140,6 +140,9 @@ export const styles = StyleSheet.create({
         fontWeight: '600',
     },
     previewBox: {
+        // Same width in every state (week, post-term, invalid): without it the card shrink-wrapped
+        // to its text and changed width as the date changed.
+        alignSelf: 'stretch',
         marginTop: 20,
         padding: 16,
         backgroundColor: theme.colors.background,

@@ -101,6 +101,18 @@ type Copy = {
 
 const BRAND = 'Mama & Bébé';
 
+/**
+ * A-030 (g): the Tunisian decline copy, so the tn sheet is asserted against real strings instead of
+ * `null` (which only checked that the four controls exist). Taken from the tn locale files.
+ */
+const TN_DECLINE: NonNullable<Copy['decline']> = {
+  title: "ما تحبّيش توافقي؟",
+  exportLabel: /صدّر الداتا متاعي/,
+  logout: "تسجيل الخروج",
+  logoutNote: /الخروج من الكونت ما يفسخ شي: المعلومات متاعك تقعد مسجّلة في السيرفرات متاعنا\. باش تفسخيهم، اختاري/,
+  erase: "فسّخ حسابي",
+};
+
 const COPY: Record<'fr' | 'ar' | 'en', Copy> = {
   fr: {
     langContinue: 'Continuer',
@@ -578,8 +590,8 @@ async function callRowOverlap(page: Page): Promise<{ overlapPx: number; culprit:
  * walking up from that leaf to the button. Also returns the button's box-shadow and the
  * product of the opacities on the way (RN-web disabled styles often dim with opacity).
  */
-async function buttonLegibility(page: Page, testId: string) {
-  return page.getByTestId(testId).evaluate((btn: HTMLElement) => {
+async function buttonLegibility(page: Page, testId: string, opts: { untilFill?: boolean } = {}) {
+  return page.getByTestId(testId).evaluate((btn: HTMLElement, untilFill: boolean) => {
     const rgb = (v: string) => {
       const m = v.match(/rgba?\(([^)]+)\)/);
       if (!m) return null;
@@ -606,7 +618,8 @@ async function buttonLegibility(page: Page, testId: string) {
         if (img) fill = img;
         else if (bg && bg.a > 0.99) fill = cs.backgroundColor;
       }
-      if (n === btn) break;
+      // A text link has no fill of its own: with `untilFill` keep walking up to the page background.
+      if (n === btn && !(untilFill && !fill)) break;
     }
     const fg = rgb(color);
     const bg = fill ? rgb(fill) : null;
@@ -616,7 +629,7 @@ async function buttonLegibility(page: Page, testId: string) {
       ratio = Math.round(((hi + 0.05) / (lo + 0.05)) * 100) / 100;
     }
     return { label: (leaf.innerText || '').trim(), color, fill, ratio, opacity, boxShadow: getComputedStyle(btn).boxShadow };
-  });
+  }, opts.untilFill ?? false);
 }
 
 async function registerViaUi(page: Page, email: string, pw: string, confirm = pw) {
@@ -771,8 +784,23 @@ async function onboardingSteps1to3(
     expect.soft(consentText, `${prefix} step4 A-032: consent names the app in Arabic`).toContain(c.brandInText);
     expect.soft(consentText, `${prefix} step4 A-032: no Latin brand inside the Arabic consent sentence`).not.toContain(BRAND);
   }
+  if (!opts.signedIn) {
+    // A-030 (h): the "continue without an account" link is the control a guest actually uses; its
+    // disabled look is recorded (a link has no fill: measured against the page behind it).
+    const skipOff = await buttonLegibility(page, 'onboarding_step4_skip', { untilFill: true });
+    r.note(`${prefix}-step4-skip-disabled-style`, skipOff);
+    expect.soft(skipOff.color, `${prefix} step4 A-030: disabled skip label is not white (${JSON.stringify(skipOff)})`).not.toMatch(/^rgba?\(255, 255, 255/);
+  }
   await r.snap(`${prefix}-step4-consent-unticked`);
   await tickHealthConsent(page);
+  // A-030 (h): and once ticked, the state the user then acts on: enabled, readable, snapped.
+  await expect.soft(save, `${prefix} step4 A-030: saving is enabled once the consent is ticked`).toBeEnabled();
+  const saveId = opts.signedIn ? 'onboarding_step4_submit' : 'onboarding_step4_skip';
+  const onStyle = await buttonLegibility(page, saveId, { untilFill: !opts.signedIn });
+  r.note(`${prefix}-step4-ticked-${saveId}-style`, onStyle);
+  expect.soft(onStyle.ratio ?? 0, `${prefix} step4 A-030: the enabled save control is legible (${JSON.stringify(onStyle)})`).toBeGreaterThanOrEqual(3);
+  expect.soft(onStyle.opacity, `${prefix} step4 A-030: the enabled save control is not dimmed`).toBe(1);
+  await r.snap(`${prefix}-step4-consent-ticked`);
   return { countrySel, navLang };
 }
 
@@ -1406,6 +1434,38 @@ async function assertDeclineOptions(page: Page, tag: string, d: NonNullable<Copy
   return { tops, eraseLabel, erase, eraseBg };
 }
 
+const EXPORT_CONFIRM: Record<'fr' | 'ar' | 'tn', RegExp> = { fr: /^Données sensibles/, ar: /^بيانات حساسة/, tn: /^بيانات حساسة/ };
+const ERASE_CONFIRM: Record<'fr' | 'ar' | 'tn', RegExp> = { fr: /^Supprimer le compte\n\n[\s\S]*irréversible/, ar: /^حذف الحساب\n\nهل أنت متأكدة/, tn: /\S/ };
+
+/**
+ * A-030 (i): the sheet's Export and Delete controls are pressed, not just laid out. Each must ask
+ * first (a native confirm); both confirms are dismissed, so nothing is exported or deleted and the
+ * server (profile + login) must be exactly as it was.
+ */
+async function pressDeclineControls(r: Rig, page: Page, tag: string, locale: 'fr' | 'ar' | 'tn', uid: string) {
+  const before = await serverDoc(`userProfiles/${uid}`);
+  const asked: Record<string, { message: string; action: string } | null> = {};
+  for (const [id, re] of [
+    ['health_consent_export', EXPORT_CONFIRM[locale]],
+    ['health_consent_erase', ERASE_CONFIRM[locale]],
+  ] as const) {
+    r.dialogs.next('dismiss');
+    const next = r.dialogs.waitForNext(15_000).catch(() => null);
+    await page.getByTestId(id).scrollIntoViewIfNeeded();
+    await page.getByTestId(id).click();
+    const d = await next;
+    asked[id] = d ? { message: d.message, action: d.action } : null;
+    expect.soft(d?.message ?? '(no dialog)', `${tag}: ${id} asks before it acts`).toMatch(re);
+    expect.soft(d?.action, `${tag}: the ${id} confirm was dismissed`).toBe('dismissed');
+    expect.soft(d?.message ?? '', `${tag}: ${id} confirm has no raw key / placeholder`).not.toMatch(/\{\{|^[a-z]+\.[a-zA-Z]+\.[a-zA-Z.]+/);
+  }
+  r.note(`${tag}-pressed-export-erase`.replace(/\s+/g, '-'), asked);
+  await page.waitForTimeout(1500);
+  expect.soft(await serverDoc(`userProfiles/${uid}`), `${tag}: dismissed export / delete confirms change nothing on the server`).toEqual(before);
+  expect.soft(await authAccountExists(uid), `${tag}: the login still exists`).toBe(true);
+  await expect.soft(page.getByTestId('health_consent_continue'), `${tag}: still on the sheet`).toBeVisible();
+}
+
 async function consentGate(page: Page, browser: Browser, testInfo: TestInfo, locale: 'fr' | 'ar') {
   const r = rig(page, testInfo);
   const c = COPY[locale];
@@ -1436,6 +1496,7 @@ async function consentGate(page: Page, browser: Browser, testInfo: TestInfo, loc
   const decline = await assertDeclineOptions(page, `34-${locale} decline`, c.decline ?? null);
   r.note(`34-${locale}-health-consent-decline-options`, decline);
   await r.snap(`34-${locale}-health-consent-decline-options`);
+  await pressDeclineControls(r, page, `34-${locale} decline`, locale, acct.uid);
   // Sign out: she leaves without consenting, nothing is recorded and nothing is deleted.
   await page.getByTestId('health_consent_logout').click();
   await expect(page.getByTestId('health_consent_continue'), `34-${locale}: signing out leaves the sheet`).toHaveCount(0, { timeout: 30_000 });
@@ -1687,6 +1748,9 @@ test.describe('Wave A — tn', () => {
     await langContinue(page, COPY.ar).dispatchEvent('click');
     await expect(page.getByTestId('auth_guest_button')).toBeVisible({ timeout: 20_000 });
     expect.soft(await htmlDirLang(page), '37: AuthChoice keeps lang=ar-TN').toEqual({ dir: 'rtl', lang: 'ar-TN' });
+    // A-030 (g): the tn AuthChoice screen was never captured.
+    expect.soft((await page.locator('body').innerText()).match(FR_LEAK)?.[0] ?? null, '37: no French fallback on the tn AuthChoice').toBeNull();
+    await r.snap('37-tn-authchoice');
 
     // Pre-consent account → the consent sheet in Tunisian.
     const email = newAccountEmail('A', 'tn-consent-gate');
@@ -1701,11 +1765,75 @@ test.describe('Wave A — tn', () => {
     expect.soft(body.match(FR_LEAK)?.[0] ?? null, '37: no French fallback in tn').toBeNull();
     await expect.soft(page.getByTestId('health_consent_continue'), '37: Continue disabled while unticked').toBeDisabled();
     await r.snap('37-tn-health-consent-gate');
-    const decline = await assertDeclineOptions(page, '37-tn decline', null);
+    const decline = await assertDeclineOptions(page, '37-tn decline', TN_DECLINE);
     r.note('37-tn-health-consent-decline-options', decline);
     await r.snap('37-tn-health-consent-decline-options');
+    await pressDeclineControls(r, page, '37-tn decline', 'tn', acct.uid);
     const after = await serverDoc(`userProfiles/${acct.uid}`);
     expect.soft(after?.healthDataConsent, '37: looking at the sheet records no consent').toBeUndefined();
+    r.dispose();
+  });
+
+  // A-030 (g): the tn onboarding was never captured. Its own fresh context: a guest start must not
+  // share a session with the consent-sheet account above.
+  test('A-030 tn guest start → first onboarding step (37)', async ({ page }, testInfo) => {
+    const r = rig(page, testInfo);
+    await pickLanguage(page, 'tn');
+    await langContinue(page, COPY.ar).dispatchEvent('click');
+    await expect(page.getByTestId('auth_guest_button')).toBeVisible({ timeout: 20_000 });
+    await page.getByTestId('auth_guest_button').click();
+    await expect(page.getByTestId('auth_guest_button'), '37: the guest button leads away from AuthChoice').toHaveCount(0, { timeout: 20_000 });
+    await expect(page.getByRole('tablist'), '37: onboarding, not Home').toHaveCount(0);
+    await page.waitForTimeout(800);
+    expect.soft(await htmlDirLang(page), '37: onboarding keeps lang=ar-TN').toEqual({ dir: 'rtl', lang: 'ar-TN' });
+    expect.soft((await page.locator('body').innerText()).match(FR_LEAK)?.[0] ?? null, '37: no French fallback on the tn onboarding').toBeNull();
+    await r.snap('37-tn-onboarding-step1');
+    r.dispose();
+  });
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Consent sheet, decline block on the smallest phones (A-030)
+// ═════════════════════════════════════════════════════════════════════════════
+
+test.describe('Wave A — consent decline, small phones', () => {
+  test.use(waveUse('fr'));
+  test.describe.configure({ timeout: WAVE_TIMEOUT });
+
+  test('A-030: the decline block fits and works at 320×568 and 375×667 (fr)', async ({ page }, testInfo) => {
+    const r = rig(page, testInfo);
+    const email = newAccountEmail('A', 'fr-consent-small');
+    const acct = await createAccount(email, E2E_PASSWORD);
+    await seedProfile(acct.uid, acct.idToken, { week: 32, firstName: 'Petite', consent: false });
+    await seedLocaleOnce(page, 'fr');
+    await page.setViewportSize({ width: 320, height: 568 });
+    await loginToConsentSheet(page, email);
+    for (const vp of [
+      { width: 320, height: 568 },
+      { width: 375, height: 667 },
+    ]) {
+      const tag = `A-030 ${vp.width}x${vp.height}`;
+      await page.setViewportSize(vp);
+      await page.waitForTimeout(600);
+      await r.snap(`34-fr-health-consent-gate-${vp.width}x${vp.height}`);
+      const decline = await assertDeclineOptions(page, `${tag} decline`, COPY.fr.decline ?? null);
+      r.note(`34-fr-consent-decline-${vp.width}x${vp.height}`, decline);
+      // Nothing may spill sideways, and each of the four controls must sit inside the width.
+      const fit = await page.evaluate(() => ({
+        scrollWidth: document.documentElement.scrollWidth,
+        clientWidth: document.documentElement.clientWidth,
+        boxes: ['health_consent_export', 'health_consent_logout', 'health_consent_logout_note', 'health_consent_erase'].map((id) => {
+          const b = document.querySelector(`[data-testid="${id}"]`)?.getBoundingClientRect();
+          return { id, left: b ? Math.round(b.left) : null, right: b ? Math.round(b.right) : null, w: b ? Math.round(b.width) : null, h: b ? Math.round(b.height) : null };
+        }),
+      }));
+      expect.soft(fit.scrollWidth, `${tag}: no horizontal scroll (${JSON.stringify(fit)})`).toBeLessThanOrEqual(fit.clientWidth);
+      for (const b of fit.boxes) {
+        expect.soft(b.left !== null && b.left >= 0 && (b.right ?? 9999) <= vp.width, `${tag}: ${b.id} inside the ${vp.width}px width (${JSON.stringify(b)})`).toBe(true);
+      }
+      await r.snap(`34-fr-health-consent-decline-${vp.width}x${vp.height}`);
+    }
+    await pressDeclineControls(r, page, 'A-030 375x667 decline', 'fr', acct.uid);
     r.dispose();
   });
 });

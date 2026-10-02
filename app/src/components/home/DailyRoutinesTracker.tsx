@@ -12,6 +12,7 @@ import { generateDailyChecklist, loadDailyProgress, buildMyDayItems, myDayProgre
 import { getUserTasks } from '../../services/taskService';
 import { countEventsInRange, getCurrentPregnancyWeekRange, loadUserEvents } from '../../services/calendarService';
 import { isToday, isTomorrow, isThisWeek } from 'date-fns';
+import { Ionicons } from '@expo/vector-icons';
 import { RtlAwareChevron } from '../common/RtlAwareChevron';
 
 interface UnifiedDaySummaryProps {
@@ -126,7 +127,7 @@ export const DailyRoutinesTracker: React.FC<UnifiedDaySummaryProps> = ({
 
     const renderAppointmentRow = (isSharedContext: boolean) => {
         if (!appointmentMessage) return null;
-        const icon = appointmentPriority === 'high' ? '📅' : (appointmentPriority === 'medium' ? '🔔' : '📆');
+        const icon = appointmentPriority === 'medium' ? 'notifications-outline' : 'calendar-outline';
         return (
             <TouchableOpacity
                 activeOpacity={0.6}
@@ -136,7 +137,7 @@ export const DailyRoutinesTracker: React.FC<UnifiedDaySummaryProps> = ({
                 accessibilityLabel={appointmentMessage}
             >
                 <View style={styles.leftContent}>
-                    <Text style={styles.emoji}>{icon}</Text>
+                    <Ionicons name={icon} size={16} color={theme.colors.white} style={styles.icon} />
                     <Text style={[styles.title, { color: theme.colors.white }]}>
                         {appointmentMessage}
                     </Text>
@@ -161,7 +162,7 @@ export const DailyRoutinesTracker: React.FC<UnifiedDaySummaryProps> = ({
                 <View style={[isSharedContext && { flex: 1 }, !isSharedContext && { width: '100%', alignItems: 'center' }]}>
                     <View style={styles.topTaskRow}>
                         <View style={styles.leftContent}>
-                            <Text style={styles.emoji}>✨</Text>
+                            <Ionicons name="sparkles-outline" size={16} color={theme.colors.white} style={styles.icon} />
                             <Text style={[styles.title, { color: theme.colors.white }]}>
                                 {t('reminders.myDay.title')} {completedItems}/{totalItems}
                             </Text>
@@ -211,8 +212,9 @@ const styles = StyleSheet.create({
     cardContainer: {
         backgroundColor: theme.colors.headerChipBg, // Darkening glass: a white wash drops the white labels below AA
         borderRadius: 20, // Modern card shape
-        paddingVertical: 12,
-        paddingHorizontal: 10,
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        minHeight: 44,
         borderWidth: 1,
         borderColor: theme.colors.whiteAlpha25, // Very subtle border
         width: '100%', // Take full available width of container
@@ -242,7 +244,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'center', // Center entire block if solitary, or within flex:1 if shared
         alignItems: 'center',
-        paddingVertical: 4,
+        paddingVertical: 2,
     },
     topTaskRow: {
         flexDirection: 'row',
@@ -261,23 +263,25 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
     },
-    emoji: {
-        fontSize: 13,
+    icon: {
         // Cycle 2 F309 RTL.
-        marginEnd: 4,
+        marginEnd: 6,
     },
     title: {
-        fontSize: 11,
+        fontSize: 13,
         fontWeight: '600',
         color: theme.colors.white,
         flexShrink: 1, // Allow shrinking within leftContent
     },
     progressBarBackground: {
+        // Full width: the solo row centres its children, so a track with no width collapsed
+        // to nothing and an empty 0/N bar was invisible.
+        width: '100%',
         height: 4,
-        backgroundColor: theme.colors.whiteAlpha20,
+        backgroundColor: theme.colors.whiteAlpha40,
         borderRadius: 2,
         overflow: 'hidden',
-        marginTop: 6, // Space between text and bar
+        marginTop: 4, // Space between text and bar
     },
     progressBarFill: {
         height: '100%',

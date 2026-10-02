@@ -123,9 +123,9 @@ describe('contrast wiring on the pink header', () => {
 describe('accessible names and roles', () => {
     it('My Day 🗑️ says what it does (delete a task vs hide a reminder for today)', () => {
         const src = read('src/components/tasks/MyDaySection.tsx');
-        expect(src).toMatch(/t\('a11y\.deleteItem', \{ name: item\.title \}\)/);
-        expect(src).toMatch(/t\('a11y\.hideItemToday', \{ name: item\.title \}\)/);
-        expect(src).toMatch(/t\('a11y\.editItem', \{ name: item\.title \}\)/);
+        expect(src).toMatch(/t\('a11y\.deleteItem', \{ name: plainLabel\(item\.title\) \}\)/);
+        expect(src).toMatch(/t\('a11y\.hideItemToday', \{ name: plainLabel\(item\.title\) \}\)/);
+        expect(src).toMatch(/t\('a11y\.editItem', \{ name: plainLabel\(item\.title\) \}\)/);
     });
 
     it('AddTask: ✕ is named, priority/recurrence are radios, switches are named', () => {

@@ -1,7 +1,7 @@
 import { createLogger } from '../utils/logger';
 const log = createLogger('CalendarScreen');
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
-import { View, Text, FlatList, ActivityIndicator, TouchableOpacity, ScrollView, Animated, Platform } from 'react-native';
+import { View, Text, FlatList, ActivityIndicator, TouchableOpacity, ScrollView, Animated, Platform, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../context/AuthContext';
 import { auth, db } from '../config/firebase'; // FIX: Import auth and db for direct access
@@ -52,6 +52,9 @@ export const CalendarScreen = () => {
     const { user } = useAuth();
     const navigation = useNavigation();
     const { t, i18n } = useTranslation();
+    // 667pt and under (iPhone SE class): the month grid shows one week row under the header and the
+    // stats card, so the card shrinks to a line.
+    const compactMonthStats = useWindowDimensions().height <= 700;
     const dateLocale = useDateLocale();
 
     // State
@@ -452,6 +455,7 @@ export const CalendarScreen = () => {
                                         totalEvents={monthSummary.totalEvents}
                                         userEventCount={monthSummary.userEventCount}
                                         suggestionCount={monthSummary.suggestionCount}
+                                        compact={compactMonthStats}
                                         t={t}
                                     />
                                     <View style={styles.monthGrid}>

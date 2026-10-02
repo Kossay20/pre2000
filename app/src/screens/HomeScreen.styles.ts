@@ -198,13 +198,14 @@ export const styles = StyleSheet.create({
         paddingBottom: 24,
     },
     // The avatar is absolutely placed over the header's top-right corner (its left edge sits
-    // ~86pt from the right). Wide screens pad both sides by that footprint so the greeting stays
-    // centred beside it; a narrow one has no room for a greeting next to a 50pt avatar (at 280pt
+    // ~86pt from the right). Wide screens keep only that side clear (a symmetric 90pt on both
+    // sides left 170pt, and a name of 8+ letters wrapped onto a second line) so the greeting is
+    // centred in the space beside the avatar; a narrow one has no room for a greeting next to a 50pt avatar (at 280pt
     // it still touched), so the greeting starts below the avatar instead.
     headerTextContainer: {
         alignItems: 'center',
         marginBottom: 16,
-        ...(width < 340 ? { marginTop: 54 } : { paddingHorizontal: 90 }),
+        ...(width < 340 ? { marginTop: 54 } : { paddingStart: 0, paddingEnd: 90 }),
     },
     weekInfo: {
         fontSize: 14,
@@ -823,7 +824,7 @@ export const styles = StyleSheet.create({
     recommendationCard: {
         width: width * 0.45,
         minWidth: 180,
-        height: 140,
+        height: 164, // three title lines (a long title ended in "...") plus the badge
         borderRadius: theme.borderRadius.l,
         overflow: 'hidden',
         shadowColor: theme.colors.black,

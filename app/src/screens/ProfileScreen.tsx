@@ -4,14 +4,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { showAlert } from '../utils/alert';
-import { confirmAction } from '../utils/uiUtils';
 import { useAuth } from '../context/AuthContext';
 import { usePregnancy } from '../context/PregnancyContext';
 import { useCurrentWeek } from '../services/useCurrentWeek';
 import { theme } from '../theme';
 import { styles } from './ProfileScreen.styles';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { format } from 'date-fns';
 import { useDateLocale } from '../hooks/useDateLocale';
 import { LanguageSelector } from '../components/common/LanguageSelector';
@@ -30,6 +29,8 @@ import { LineChart } from 'react-native-chart-kit';
 import { Ionicons } from '@expo/vector-icons';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
 import { useAccountDeletion } from '../hooks/useAccountDeletion';
+import { useConfirmedLogout } from '../hooks/useConfirmedLogout';
+import { useUnsyncedRecords } from '../hooks/useUnsyncedRecords';
 import { validateProfile } from '../utils/validation';
 import { changedFormFields } from '../context/profileSync';
 
@@ -42,7 +43,7 @@ const MAX_WEIGHT_KG = 200;
 
 export const ProfileScreen = () => {
     useScreenAnalytics('ProfileScreen');
-    const { user, firebaseUser, logout, updateProfile } = useAuth();
+    const { user, firebaseUser, updateProfile } = useAuth();
     const { requestDeleteAccount, requestResetProfile, busy: deletionBusy, reauthModal } = useAccountDeletion();
     const { profile, setProfile } = usePregnancy();
     const { displayWeek } = useCurrentWeek();
@@ -50,6 +51,8 @@ export const ProfileScreen = () => {
     const { t, i18n } = useTranslation();
     const { isRTL } = useRtl();
     const [loading, setLoading] = useState(false);
+    const { pending: unsyncedCount, offline, refresh: refreshUnsynced } = useUnsyncedRecords();
+    useFocusEffect(React.useCallback(() => { refreshUnsynced(); }, [refreshUnsynced]));
 
     // Get date locale using shared hook (handles all languages including tn → arTN)
     const dateLocale = useDateLocale();
@@ -197,33 +200,8 @@ export const ProfileScreen = () => {
         }
     };
 
-    const handleLogout = async () => {
-        confirmAction(
-            t('profile.logoutConfirmTitle'),
-            t('profile.logoutConfirmMsg'),
-            async () => {
-                try {
-                    // Kick sessions, contractions or the bag not yet sent (no signal) are
-                    // erased by the logout: she is told how many and may stay signed in.
-                    await logout({
-                        confirmUnsyncedLoss: (count) => new Promise<boolean>((resolve) => confirmAction(
-                            t('profile.logoutUnsyncedTitle'),
-                            t('profile.logoutUnsyncedMsg', { n: count }),
-                            () => resolve(true),
-                            () => resolve(false),
-                            t('common.cancel'),
-                            t('profile.logoutAnyway'),
-                        )),
-                    });
-                } catch (error) {
-                    log.error('Logout error:', error);
-                }
-            },
-            undefined,
-            t('common.cancel'),
-            t('profile.logout')
-        );
-    };
+    // Same confirmation + unsent-records guard as the onboarding header's sign-out.
+    const handleLogout = useConfirmedLogout();
 
     const COUNTRIES = COUNTRY_OPTIONS.map((key) => ({ key, label: t(`common.countries.${key}`) }));
 
@@ -320,7 +298,7 @@ export const ProfileScreen = () => {
                                 value={firstName}
                                 onChangeText={setFirstName}
                                 placeholder={t('common.enterFirstName')}
-                                placeholderTextColor={theme.colors.neutral400}
+                                placeholderTextColor={theme.colors.textSecondary}
                                 maxLength={50}
                                 accessibilityLabel={t('common.firstName')}
                             />
@@ -331,7 +309,7 @@ export const ProfileScreen = () => {
                                 value={lastName}
                                 onChangeText={setLastName}
                                 placeholder={t('common.enterLastName')}
-                                placeholderTextColor={theme.colors.neutral400}
+                                placeholderTextColor={theme.colors.textSecondary}
                                 maxLength={50}
                                 accessibilityLabel={t('common.lastName')}
                             />
@@ -340,7 +318,7 @@ export const ProfileScreen = () => {
                             {renderCountrySelector()}
 
                             {/* PROFILE-FIX: Physical data section */}
-                            <View style={styles.physicalRow}>
+                            <View style={[styles.physicalRow, { alignItems: 'flex-end' }]}>
                                 <View style={{ flex: 1, marginEnd: 8 }}>
                                     <Text style={styles.label}>{t('profile.height', 'Taille (cm)')}</Text>
                                     <TextInput
@@ -348,7 +326,7 @@ export const ProfileScreen = () => {
                                         value={height}
                                         onChangeText={setHeight}
                                         placeholder={t('profile.heightPlaceholder')}
-                                        placeholderTextColor={theme.colors.neutral400}
+                                        placeholderTextColor={theme.colors.textSecondary}
                                         keyboardType="numeric"
                                         maxLength={3}
                                         accessibilityLabel={t('profile.height', 'Taille (cm)')}
@@ -361,7 +339,7 @@ export const ProfileScreen = () => {
                                         value={prePregnancyWeight}
                                         onChangeText={setPrePregnancyWeight}
                                         placeholder={t('profile.weightPlaceholderShort')}
-                                        placeholderTextColor={theme.colors.neutral400}
+                                        placeholderTextColor={theme.colors.textSecondary}
                                         keyboardType="numeric"
                                         maxLength={5}
                                         accessibilityLabel={t('profile.prePregnancyWeight', 'Poids avant (kg)')}
@@ -378,11 +356,11 @@ export const ProfileScreen = () => {
                                     style={styles.dateButton}
                                     onPress={() => setShowDatePicker(true)}
                                     accessibilityRole="button"
-                                    accessibilityLabel={`${t('profile.lmpLabel')}: ${format(lmpDay, 'dd MMM yyyy', { locale: dateLocale })}`}
+                                    accessibilityLabel={`${t('profile.lmpLabel')}: ${format(lmpDay, 'd MMMM yyyy', { locale: dateLocale })}`}
                                     accessibilityHint={t('a11y.selectDate')}
                                 >
                                     <Text style={styles.dateButtonText}>
-                                        {format(lmpDay, 'dd MMM yyyy', { locale: dateLocale })}
+                                        {format(lmpDay, 'd MMMM yyyy', { locale: dateLocale })}
                                     </Text>
                                 </TouchableOpacity>
                             </View>
@@ -408,7 +386,7 @@ export const ProfileScreen = () => {
                             <View style={styles.dpaContainer}>
                                 <Text style={styles.label}>{t('profile.dpaLabel')}</Text>
                                 <Text style={styles.dpaText}>
-                                    {format(dpa, 'dd MMMM yyyy', { locale: dateLocale })}
+                                    {format(dpa, 'd MMMM yyyy', { locale: dateLocale })}
                                 </Text>
                                 <Text style={styles.dpaSubtext}>{t('profile.dpaSubtext')}</Text>
                             </View>
@@ -517,7 +495,11 @@ export const ProfileScreen = () => {
                         <Text style={styles.userTypeSubtext}>
                             {user?.isGuest
                                 ? t('profile.guestData')
-                                : t('profile.cloudData')}
+                                : unsyncedCount > 0
+                                    ? t('profile.cloudPending', { n: unsyncedCount })
+                                    : offline
+                                        ? t('profile.cloudOffline')
+                                        : t('profile.cloudData')}
                         </Text>
                     </View>
 

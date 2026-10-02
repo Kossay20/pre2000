@@ -42,7 +42,8 @@ import {
 } from './helpers/emulator-account';
 import { lmpIsoForWeek } from './helpers/guest-profile';
 import { tickHealthConsent } from './helpers/health-consent';
-import { SUGGESTIONS } from '../src/data/chatbot_data';
+import { RED_FLAGS, SUGGESTIONS } from '../src/data/chatbot_data';
+import { waitFrameClean } from './helpers/visual-settle';
 
 // ── i18n (read from the tree the web export is built from) ────────────────────
 
@@ -293,6 +294,10 @@ class WaveCtx {
     const { page, L } = this;
     const full = `${this.prefix}-${name}`;
     await page.waitForTimeout(400);
+    // C-051: a state snapped while a screen is still fading in (G-00 caught the welcome card over a
+    // half-transparent hero) is not a state. Wait until nothing visible is mid-fade, then assert it.
+    const frame = await waitFrameClean(page, 8_000, { opacity: true });
+    expect.soft(frame.problems.lowOpacity, `${full} (C-051): captured mid-fade`).toEqual([]);
     const lines = await visibleLines(page);
     expect.soft(lines.length, `${full}: screen must not be blank`).toBeGreaterThan(0);
     const raw = lines.filter((l) => RAW_KEY.test(l) || RAW_KEY_EXTRA.test(l));
@@ -574,6 +579,22 @@ async function foodCard(page: Page, name: string, badgeLabels: string[], details
   );
 }
 
+/**
+ * C-055: the chat holds at most ONE emergency call button in the whole thread (inline on the
+ * newest alert, or pinned above the input — never both, never one per older alert). `visible`
+ * alone cannot see a hidden duplicate scrolled out of view, so the DOM count is asserted too.
+ */
+function expectOneCallInThread(calls: { inDom: number; visible: number }, where: string) {
+  expect.soft(calls.inDom, `${where} C-055: at most one emergency call button in the whole thread ${JSON.stringify(calls)}`).toBeLessThanOrEqual(1);
+}
+
+/** The reviewed bubble copy of a red flag (chatbot_data standard_message_<L>), by flag id. */
+function redFlagBubbleCopy(flagId: string, L: AppLocale): string {
+  const flag = RED_FLAGS.find((f) => f.red_flag_id === flagId) as any;
+  return norm(String(flag?.[`standard_message_${L}`] ?? ''));
+}
+const suggestionFlagId = (sid: string) => String((SUGGESTIONS.find((x) => x.suggestion_id === sid) as any)?.linked_red_flag_ids ?? '');
+
 /** Emergency call buttons the user can actually see right now (in the viewport, not covered). */
 async function callsOnScreen(page: Page, label: string) {
   const all = page.getByRole('button', { name: label, exact: true });
@@ -845,6 +866,21 @@ for (const C of CFG) {
       ).toEqual([]);
       expect.soft(homeLines.filter((l) => RAW_MARKDOWN.test(l)), '00 C-028: no raw markdown in Home excerpts').toEqual([]);
       await w.state('00-home');
+      // C-043: the "Baby this week" card sits below the hero fold and was DOM-only in every capture.
+      const babyCard = page.getByText(tr(L, 'home.babyThisWeek')).first();
+      await expect.soft(babyCard, '00b C-043: Home has the "Baby this week" card').toHaveCount(1);
+      if (await babyCard.count()) {
+        await babyCard.scrollIntoViewIfNeeded();
+        await expect.soft(babyCard, '00b C-043: the card is in view for the capture').toBeInViewport();
+        await w.state('00b-home-baby-this-week');
+        await page.evaluate(() => {
+          window.scrollTo(0, 0);
+          document.querySelectorAll('*').forEach((e) => {
+            if ((e as HTMLElement).scrollTop > 0) (e as HTMLElement).scrollTop = 0;
+          });
+        });
+        await page.waitForTimeout(300);
+      }
 
       // Chatbot must be local-only: record any non-static, non-Firestore request.
       const foreign: string[] = [];
@@ -1427,6 +1463,18 @@ for (const C of CFG) {
       await page.getByRole('button', { name: tr(L, 'common.monthLabel', { number: 3 }), exact: true }).click();
       await expect.soft(page.getByText(new RegExp(`${esc(tr(L, 'common.monthLabel', { number: 3 }))} / 9`)).first(), '10b: dot "Month 3" navigates').toBeVisible();
       await w.state('10b-baby-evolution-dot3');
+      // C-043: only months 8 and 3 were ever rendered. Every month dot is opened and captured, and
+      // each month must show its own card (not one month's content under another month's label).
+      const monthCards: Record<number, string> = {};
+      for (let m = 1; m <= 9; m++) {
+        await page.getByRole('button', { name: tr(L, 'common.monthLabel', { number: m }), exact: true }).click();
+        await expect.soft(page.getByText(new RegExp(`${esc(tr(L, 'common.monthLabel', { number: m }))} / 9`)).first(), `10c C-043: dot "Month ${m}" navigates`).toBeVisible();
+        await page.waitForTimeout(500);
+        monthCards[m] = (await visibleLines(page)).filter((l) => !/ \/ 9$/.test(l)).join(' | ');
+        await w.state(`10c-baby-evolution-month${m}`);
+      }
+      w.note('10c.C-043.distinctMonthCards', new Set(Object.values(monthCards)).size);
+      expect.soft(new Set(Object.values(monthCards)).size, '10c C-043: the nine months show nine different cards').toBe(9);
 
       // ── 11 Chatbot empty (GJ-007) ───────────────────────────────────────────
       await page.getByRole('tab', { name: tr(L, 'common.nav.chatbot'), exact: true }).click();
@@ -1522,6 +1570,7 @@ for (const C of CFG) {
       const calls13 = got13 ? await callsOnScreen(page, tr(L, 'a11y.emergencyCall')) : null;
       w.note('13.C-041.calls', calls13);
       if (calls13) expect.soft(calls13.visible, `13 C-041: one call button visible at a time ${JSON.stringify(calls13)}`).toBe(1);
+      if (calls13) expectOneCallInThread(calls13, '13');
       expect.soft(await page.getByTestId('chat_pinned_emergency_call').getByRole('button').count(), '13: the call button is the pinned one').toBe(1);
       if (hasCall) await expectCallOnScreen(w, call.first(), '13');
       if (hasCall) {
@@ -1553,7 +1602,9 @@ for (const C of CFG) {
         w.note('14.C-021', { offTopic: ngOff, links: ngLinks });
         expect.soft(ngOff, `14 C-021: "${C.negation}" retrieves nothing about bleeding or breastfeeding`).toEqual([]);
         expect.soft(ngLinks, '14 C-021: no article is recommended for a negated symptom').toEqual([]);
-        w.note('14.C-041.callsAfterNegation', await callsOnScreen(page, tr(L, 'a11y.emergencyCall')));
+        const calls14 = await callsOnScreen(page, tr(L, 'a11y.emergencyCall'));
+        w.note('14.C-041.callsAfterNegation', calls14);
+        expectOneCallInThread(calls14, '14');
         await w.state('14-chatbot-negation');
       } else {
         w.note('14.negation', 'not applicable (no negation phrase in plan for this locale)');
@@ -1579,6 +1630,9 @@ for (const C of CFG) {
       const calls15 = await callsOnScreen(page, tr(L, 'a11y.emergencyCall'));
       w.note('15.C-041.calls', calls15);
       expect.soft(calls15.visible, `15 C-041: one call button visible at a time ${JSON.stringify(calls15)}`).toBe(1);
+      expectOneCallInThread(calls15, '15');
+      // C-055: the bubble itself carries the reviewed bleeding copy, not just the call action.
+      expect.soft(norm(await page.locator('body').innerText()), `15 C-055: the bubble carries the reviewed bleeding message (${L})`).toContain(redFlagBubbleCopy(suggestionFlagId('cs06'), L));
       if (calls15.inDom) {
         const txt15 = await page.getByRole('button', { name: tr(L, 'a11y.emergencyCall'), exact: true }).last().innerText();
         expect.soft(txt15, `15 C-047 SYNC-16: emergency call button for ${C.country} → (${C.emergency})`).toContain(`(${C.emergency})`);
@@ -1609,6 +1663,11 @@ for (const C of CFG) {
       const calls16 = await callsOnScreen(page, tr(L, 'a11y.emergencyCall'));
       w.note('16.C-041.calls', calls16);
       expect.soft(calls16.visible, `16 C-041: one call button visible at a time ${JSON.stringify(calls16)}`).toBe(1);
+      expectOneCallInThread(calls16, '16');
+      // C-055: an urgent_consult has no heading, so the call action alone cannot prove the triage:
+      // the bubble must carry the reviewed pre-eclampsia message for the swelling chip.
+      expect.soft(redFlagBubbleCopy(suggestionFlagId('cs19'), L), '16: the swelling chip maps to a reviewed red flag message').not.toBe('');
+      expect.soft(norm(await page.locator('body').innerText()), `16 C-055: the bubble carries the reviewed swelling / pre-eclampsia message (${L})`).toContain(redFlagBubbleCopy(suggestionFlagId('cs19'), L));
       if (calls16.inDom) {
         const txt16 = await page.getByRole('button', { name: tr(L, 'a11y.emergencyCall'), exact: true }).last().innerText();
         expect.soft(txt16, `16 SYNC-16: country ${C.country} → (${C.emergency})`).toContain(`(${C.emergency})`);
@@ -1622,6 +1681,9 @@ for (const C of CFG) {
       const mv = await chatExchange(w, C.movementTyped);
       w.note('17.movementTyped', { text: C.movementTyped, lines: mv.newLines });
       await expect.soft(newAlert(page), `17: typed "${C.movementTyped}" raises a triage alert`).toHaveCount(1, { timeout: 10_000 });
+      // C-055: the typed report is answered with the reviewed reduced-movements message (urgent_consult).
+      expect.soft(redFlagBubbleCopy(suggestionFlagId('cs07'), L), '17: cs07 maps to a reviewed red flag message').not.toBe('');
+      expect.soft(norm(await page.locator('body').innerText()), `17 C-055: the bubble carries the reviewed reduced-movements message (${L})`).toContain(redFlagBubbleCopy(suggestionFlagId('cs07'), L));
       const alert17 = (await newAlert(page).count()) ? await newAlert(page).last().innerText() : '';
       w.note('17.typed.alertText', alert17);
       expect.soft(
@@ -1651,6 +1713,7 @@ for (const C of CFG) {
         const calls17 = await callsOnScreen(page, tr(L, 'a11y.emergencyCall'));
         w.note('17.calls', calls17);
         expect.soft(calls17.visible, `17 C-041: never more than one call button visible ${JSON.stringify(calls17)}`).toBeLessThanOrEqual(1);
+        expectOneCallInThread(calls17, '17');
         await w.state('17-chatbot-movements-chip');
       }
 
@@ -1760,6 +1823,7 @@ test.describe('Wave C — C-G1 real anonymous guest (fr)', () => {
     const gCalls = await callsOnScreen(page, tr(L, 'a11y.emergencyCall'));
     w.note('G-03.C-041.calls', gCalls);
     expect.soft(gCalls.visible, `G-03 C-041: one call button visible at a time ${JSON.stringify(gCalls)}`).toBe(1);
+    expectOneCallInThread(gCalls, 'G-03');
     await w.state('03-guest-chatbot');
 
     // G-04 (C-020): the foods answer's link opens the Foods-to-avoid screen.

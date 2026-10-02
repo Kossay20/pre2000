@@ -231,10 +231,13 @@ export const styles = StyleSheet.create({
         minHeight: MIN_TAP_TARGET,
         alignItems: 'center',
         justifyContent: 'center',
+        // A compact chip, not a bar across the whole header with one small centred word.
+        alignSelf: 'center',
+        minWidth: 140,
     },
     todayButtonText: {
         color: theme.colors.white,
-        fontSize: 12,
+        fontSize: 14,
         fontWeight: '600',
     },
     viewToggleContainer: {
@@ -271,6 +274,18 @@ export const styles = StyleSheet.create({
         shadowOpacity: 0.1,
         shadowRadius: 6,
         elevation: 3,
+    },
+    statsCardCompact: {
+        marginTop: 8,
+        marginBottom: 4,
+        paddingVertical: 10,
+        paddingHorizontal: 12,
+    },
+    statsCompactText: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: theme.colors.text,
+        textAlign: 'center',
     },
     statsTitle: {
         fontSize: 16,
@@ -451,10 +466,13 @@ export const styles = StyleSheet.create({
         fontWeight: 'bold',
         color: theme.colors.text,
         marginBottom: 8,
+        // alignItems centres the block, not the lines of a wrapped title (375pt wraps it).
+        textAlign: 'center',
     },
     emptyStateSubtext: {
         fontSize: 14,
         color: theme.colors.textLight,
+        textAlign: 'center',
     },
     // Month view only: the list ends above the button (see MONTH_FAB_CLEARANCE).
     monthListWithFab: {

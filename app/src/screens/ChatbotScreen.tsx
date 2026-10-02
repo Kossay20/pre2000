@@ -11,14 +11,14 @@ import { RtlAwareChevron } from '../components/common/RtlAwareChevron';
 import { useNavigation } from '@react-navigation/native';
 import { chatbotLimiter } from '../utils/rateLimiter';
 import { useTranslation } from 'react-i18next';
-import { getLocalizedContent } from '../utils/i18nHelpers';
+import { getLocalizedContent, frenchSpacing } from '../utils/i18nHelpers';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
 import { useAuth } from '../context/AuthContext';
 import { resolveEmergencyContact } from '../utils/clinicalChecks';
 import { emergencyNumberLabel } from '../utils/emergencyNumberLabel';
 import { EmergencyNumberNote } from '../components/common/EmergencyNumberNote';
 import { getDeviceRegionCode } from '../utils/deviceRegion';
-import { shouldPinEmergencyCall } from '../utils/chatEmergency';
+import { shouldPinEmergencyCall, chatScrollTarget } from '../utils/chatEmergency';
 
 interface Message {
     id: string;
@@ -62,8 +62,34 @@ export const ChatbotScreen = () => {
     // and when the last message lays out: the content size alone fired before a red-flag
     // reply had its final height, so the list stopped short and the call button stayed
     // under the chips and the input.
+    //
+    // A long bot answer is the exception (D-051): the list rests on the user's question with
+    // the start of the reply under it instead of on the reply's last lines.
+    const messagesRef = useRef(messages);
+    messagesRef.current = messages;
+    const listHeightRef = useRef(0);
+    const lastMessageRef = useRef<{ id: string; height: number }>({ id: '', height: 0 });
+
     const scrollToEnd = useCallback(() => {
-        requestAnimationFrame(() => flatListRef.current?.scrollToEnd({ animated: true }));
+        requestAnimationFrame(() => {
+            const all = messagesRef.current;
+            const last = all[all.length - 1];
+            const lastHeight = last && lastMessageRef.current.id === last.id ? lastMessageRef.current.height : 0;
+            const target = chatScrollTarget(all, lastHeight, listHeightRef.current);
+            if (target === 'end') {
+                flatListRef.current?.scrollToEnd({ animated: true });
+            } else {
+                flatListRef.current?.scrollToIndex({ index: target.index, viewPosition: 0, animated: true });
+            }
+        });
+    }, []);
+
+    // The row is not measured yet when it lies past the rendered window: jump near it, retry.
+    const onScrollToIndexFailed = useCallback((info: { index: number; averageItemLength: number }) => {
+        flatListRef.current?.scrollToOffset({ offset: info.index * info.averageItemLength, animated: false });
+        setTimeout(() => {
+            flatListRef.current?.scrollToIndex({ index: info.index, viewPosition: 0, animated: true });
+        }, 100);
     }, []);
 
     const callEmergency = () => {
@@ -151,6 +177,11 @@ export const ChatbotScreen = () => {
     const getSuggestionLabel = (item: ChatbotSuggestion): string => {
         return getLocalizedContent(item, 'label', i18n.language, { plainSpaces: true }) || item.label_fr || '';
     };
+    // What the chip shows: the same label with French no-break spaces before ? ! : ;
+    // ("Quels aliments éviter ?" must not wrap the "?" onto its own line).
+    const getSuggestionDisplayLabel = (item: ChatbotSuggestion): string => {
+        return getLocalizedContent(item, 'label', i18n.language) || item.label_fr || '';
+    };
 
     const renderMessage = ({ item, index }: { item: Message; index: number }) => {
         const isUser = item.sender === 'user';
@@ -161,10 +192,13 @@ export const ChatbotScreen = () => {
         return (
             <View
                 style={[styles.messageContainer, isUser ? styles.userMessage : styles.botMessage]}
-                onLayout={isLast ? scrollToEnd : undefined}
+                onLayout={isLast ? (e) => {
+                    lastMessageRef.current = { id: item.id, height: e.nativeEvent.layout.height };
+                    scrollToEnd();
+                } : undefined}
             >
                 <Text style={[styles.messageText, isUser ? styles.userMessageText : styles.botMessageText, { textAlign: 'auto' as const }]}>
-                    {item.text}
+                    {!isUser && i18n.language.split('-')[0] === 'fr' ? frenchSpacing(item.text) : item.text}
                 </Text>
 
                 {item.data?.type === 'error' && (
@@ -320,7 +354,11 @@ export const ChatbotScreen = () => {
                 keyExtractor={item => item.id}
                 contentContainerStyle={styles.listContent}
                 onContentSizeChange={scrollToEnd}
-                onLayout={scrollToEnd}
+                onLayout={(e) => {
+                    listHeightRef.current = e.nativeEvent.layout.height;
+                    scrollToEnd();
+                }}
+                onScrollToIndexFailed={onScrollToIndexFailed}
             />
 
             {loading && (
@@ -356,10 +394,10 @@ export const ChatbotScreen = () => {
                             style={styles.suggestionButton}
                             onPress={() => handleSend(getSuggestionLabel(item))}
                             accessibilityRole="button"
-                            accessibilityLabel={getSuggestionLabel(item)}
+                            accessibilityLabel={getSuggestionDisplayLabel(item)}
                             accessibilityHint={t('a11y.suggestionChip')}
                         >
-                            <Text style={styles.suggestionText}>{getSuggestionLabel(item)}</Text>
+                            <Text style={styles.suggestionText}>{getSuggestionDisplayLabel(item)}</Text>
                         </TouchableOpacity>
                     )}
                     showsHorizontalScrollIndicator={false}

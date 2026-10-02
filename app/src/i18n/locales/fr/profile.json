@@ -27,6 +27,8 @@
   "secureAccount": "Compte Sécurisé",
   "guestData": "Vos données ne sont liées à aucun compte",
   "cloudData": "Vos données sont synchronisées dans le cloud",
+  "cloudPending": "{{n}} enregistrement(s) en attente de synchronisation",
+  "cloudOffline": "Vos données seront sauvegardées dans le cloud dès que vous serez en ligne",
   "confirmLogout": "Déconnexion",
   "confirmLogoutMsg": "Êtes-vous sûre de vouloir vous déconnecter ?",
   "confirmReset": "Réinitialiser le profil",

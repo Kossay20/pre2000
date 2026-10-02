@@ -78,7 +78,7 @@ describe('wiring', () => {
         ['src/screens/RegisterScreen.tsx', 1],
         ['src/screens/CompletedTasksScreen.tsx', 1],
     ])('%s: a confirmation followed by the app navigating away is persistent', (file, count) => {
-        expect(read(file).match(/\{ persistent: true \}/g)).toHaveLength(count);
+        expect(read(file).match(/persistent: true/g)).toHaveLength(count);
     });
 
     it('the language confirmation is transient (A-013)', () => {

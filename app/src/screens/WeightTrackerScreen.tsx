@@ -17,6 +17,7 @@ import {
     TextInput,
     RefreshControl,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { format } from 'date-fns';
 import { useAuth } from '../context/AuthContext';
@@ -588,6 +589,8 @@ export const WeightTrackerScreen = () => {
                                 )}
                                 accessibilityRole="button"
                                 accessibilityLabel={t('weight.howItWorks')}
+                                // The 24pt badge keeps its look; the slop makes the touch target 44pt.
+                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                             >
                                 <Text style={styles.infoIcon}>ℹ️</Text>
                             </TouchableOpacity>
@@ -680,7 +683,11 @@ export const WeightTrackerScreen = () => {
                             accessibilityRole="button"
                             accessibilityLabel={t('a11y.addWeight')}
                         >
-                            <Text style={styles.addButtonText}>{t('weight.addDailyWeight')}</Text>
+                            {/* A vector icon: the "➕" emoji painted dark grey on the magenta button. */}
+                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                                <Ionicons name="add" size={22} color={theme.colors.white} />
+                                <Text style={styles.addButtonText}>{t('weight.addDailyWeight')}</Text>
+                            </View>
                         </TouchableOpacity>
                     )}
 
@@ -715,7 +722,7 @@ export const WeightTrackerScreen = () => {
                                                 </Text>
                                             </View>
                                             <TouchableOpacity
-                                                style={styles.deleteButton}
+                                                style={[styles.deleteButton, { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' }]}
                                                 onPress={() => handleDeleteEntry(entry)}
                                                 accessibilityRole="button"
                                                 accessibilityLabel={t('a11y.deleteWeight')}

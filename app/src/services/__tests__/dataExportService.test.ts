@@ -81,6 +81,16 @@ jest.mock('../healthService', () => ({
 }));
 jest.mock('../reminderPersistence', () => ({ loadReminderSettingsAuth: jest.fn() }));
 // W8 export-completeness (GDPR Art.20)
+// In-memory AsyncStorage: the export reads the TTC snapshot, the daily checklist and the
+// reminder completions straight from it.
+const mockStore: Record<string, string> = {};
+jest.mock('@react-native-async-storage/async-storage', () => ({
+    __esModule: true,
+    default: {
+        getItem: jest.fn((k: string) => Promise.resolve(k in mockStore ? mockStore[k] : null)),
+        getAllKeys: jest.fn(() => Promise.resolve(Object.keys(mockStore))),
+    },
+}));
 jest.mock('../kickCounterService', () => ({ loadState: jest.fn() }));
 jest.mock('../contractionTimerService', () => ({ loadState: jest.fn() }));
 jest.mock('../hospitalBagService', () => ({ loadState: jest.fn() }));
@@ -255,7 +265,7 @@ describe('generateExportData — authenticated user', () => {
         expect(data.profile.dueDate).toBe('2026-09-01');
         expect(data.metadata.appVersion).toBe('1.0.0');
         expect(data.metadata.platform).toBe('ios');
-        expect(data.metadata.schemaVersion).toBe(6);
+        expect(data.metadata.schemaVersion).toBe(7);
         expect(typeof data.metadata.exportedAt).toBe('string');
         expect(new Date(data.metadata.exportedAt).toISOString()).toBe(data.metadata.exportedAt);
     });
@@ -283,6 +293,20 @@ describe('generateExportData — authenticated user', () => {
             bookmarks: [{ id: 'b1', type: 'article' }],
             hydration: { goal: 2000, entries: [] },
         });
+    });
+
+    test('D-024: exports the TTC snapshot, the daily checklist days and the reminder completions when the device holds them', async () => {
+        mockStore.ttcProfile = JSON.stringify({ cycleLength: 28 });
+        mockStore['@daily_checklist_v2_2026-09-01'] = JSON.stringify([{ id: 'a', completed: true }]);
+        mockStore['reminders_v2_completions_uidAAAA1234567890'] = JSON.stringify({ r1: ['2026-09-01'] });
+        try {
+            const data = await generateExportData(authUser, profile);
+            expect(data.tools.ttcProfile).toEqual({ cycleLength: 28 });
+            expect(data.tools.dailyChecklist).toEqual({ '2026-09-01': [{ id: 'a', completed: true }] });
+            expect(data.tools.completions).toEqual({ r1: ['2026-09-01'] });
+        } finally {
+            Object.keys(mockStore).forEach((k) => delete mockStore[k]);
+        }
     });
 
     test('reads the tool histories for the account, so what is only on the server is exported too', async () => {
@@ -415,7 +439,7 @@ describe('generateExportData — resilience via Promise.allSettled / unwrap', ()
         // W8: tool histories fall back cleanly (objects → {}, bookmarks → []).
         expect(data.tools).toEqual({ kickCounter: {}, contractionTimer: {}, hospitalBag: {}, bookmarks: [], hydration: {} });
         // Envelope metadata still present.
-        expect(data.metadata.schemaVersion).toBe(6);
+        expect(data.metadata.schemaVersion).toBe(7);
     });
 });
 
@@ -447,7 +471,7 @@ describe('exportUserData', () => {
 
         // Contents are valid pretty-printed JSON of the export.
         const parsed = JSON.parse(contents);
-        expect(parsed.metadata.schemaVersion).toBe(6);
+        expect(parsed.metadata.schemaVersion).toBe(7);
         expect(parsed.profile.name).toBe('Lina');
         // pretty-printed (indent of 2) → contains newlines.
         expect(contents).toContain('\n');

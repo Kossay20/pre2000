@@ -85,7 +85,11 @@ export const LanguageSelectScreen = () => {
             // so t('languageUpdated') would show the OLD language's string (e.g. "Langue mise
             // à jour" in French even after switching to Arabic). getFixedT reads the new locale
             // directly from the i18n instance without waiting for a React re-render.
-            showToast(i18n.getFixedT(languageCode)('common.languageUpdated'), 'success');
+            // Not in the signed-out funnel (route 'Language'): the toast covered the globe and
+            // the title there, and the ticked card already says it (E-050).
+            if (route.name === 'LanguageSelect') {
+                showToast(i18n.getFixedT(languageCode)('common.languageUpdated'), 'success');
+            }
         } catch (error) {
             log.error('Error saving language:', error);
             showAlert(t('common.error'), t('common.languageChangeError'));
@@ -120,7 +124,7 @@ export const LanguageSelectScreen = () => {
                     under 4.5:1 on the light end of the old gradient. */}
                 <LinearGradient
                     colors={[theme.colors.primaryStrong, theme.colors.accent]}
-                    style={styles.header}
+                    style={[styles.header, { paddingTop: Math.max(insets.top + 12, 36) }]}
                 >
                     <Text style={styles.headerEmoji}>🌐</Text>
                     <Text style={styles.headerTitle}>{t('common.chooseLanguage')}</Text>
@@ -250,14 +254,16 @@ const styles = StyleSheet.create({
         borderTopWidth: 1,
         borderTopColor: theme.colors.disabled,
     },
+    // Compact on purpose: with a 60pt top, a 64pt globe and 20pt-padded cards the fourth
+    // card ended under the 72pt Continue footer on an 844pt screen (A-044).
     header: {
-        paddingTop: 60,
-        paddingBottom: 32,
+        paddingTop: 36,
+        paddingBottom: 20,
         alignItems: 'center',
     },
     headerEmoji: {
-        fontSize: 64,
-        marginBottom: 16,
+        fontSize: 48,
+        marginBottom: 8,
     },
     headerTitle: {
         fontSize: 28,
@@ -286,14 +292,14 @@ const styles = StyleSheet.create({
         fontSize: 15,
         color: theme.colors.textSecondary,
         textAlign: 'center',
-        marginBottom: 24,
+        marginBottom: 16,
         lineHeight: 22,
     },
     languageCard: {
         backgroundColor: theme.colors.white,
         borderRadius: 16,
-        padding: 20,
-        marginBottom: 12,
+        padding: 14,
+        marginBottom: 10,
         borderWidth: 2,
         borderColor: theme.colors.disabled,
         shadowColor: theme.colors.black,

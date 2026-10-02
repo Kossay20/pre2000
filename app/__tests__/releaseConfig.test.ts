@@ -206,3 +206,79 @@ describe('app.json store metadata', () => {
     expect(appJson.extra.marketingUrl).toBe(listing.shared.marketingUrl);
   });
 });
+
+describe('Android target SDK', () => {
+  it('stays at or above the Play minimum (35) through the React Native default', () => {
+    // No expo-build-properties override exists, so targetSdk is whatever
+    // react-native ships. An RN or Expo downgrade would otherwise slip under the
+    // Play requirement unnoticed until the upload is rejected.
+    expect(appJson.plugins.some((p: unknown) => (Array.isArray(p) ? p[0] : p) === 'expo-build-properties')).toBe(
+      false,
+    );
+    const toml = read('node_modules/react-native/gradle/libs.versions.toml');
+    const targetSdk = Number(toml.match(/^targetSdk\s*=\s*"(\d+)"/m)?.[1]);
+    expect(Number.isInteger(targetSdk)).toBe(true);
+    expect(targetSdk).toBeGreaterThanOrEqual(35);
+  });
+});
+
+describe('store privacy answers (store/app-privacy.json, store/data-safety.json)', () => {
+  type ManifestEntry = {
+    NSPrivacyCollectedDataType: string;
+    NSPrivacyCollectedDataTypeLinked: boolean;
+    NSPrivacyCollectedDataTypeTracking: boolean;
+  };
+  const manifest = appJson.ios.privacyManifests;
+  const entries: ManifestEntry[] = manifest.NSPrivacyCollectedDataTypes;
+  const appPrivacy = JSON.parse(read('store/app-privacy.json'));
+  const dataSafety = JSON.parse(read('store/data-safety.json'));
+
+  it('flags both files as drafts the owner must confirm in the consoles', () => {
+    expect(appPrivacy._status).toMatch(/owner MUST confirm/);
+    expect(dataSafety._status).toMatch(/owner MUST confirm/);
+  });
+
+  it('App Privacy lists exactly the data types of the iOS privacy manifest, with the same linking', () => {
+    const answered = appPrivacy.dataTypes.map((d: { manifestType: string }) => d.manifestType).sort();
+    expect(answered).toEqual(entries.map((e) => e.NSPrivacyCollectedDataType).sort());
+    for (const d of appPrivacy.dataTypes) {
+      const entry = entries.find((e) => e.NSPrivacyCollectedDataType === d.manifestType)!;
+      expect({ type: d.manifestType, linked: d.linkedToUser }).toEqual({
+        type: d.manifestType,
+        linked: entry.NSPrivacyCollectedDataTypeLinked,
+      });
+      expect(d.usedForTracking).toBe(entry.NSPrivacyCollectedDataTypeTracking);
+    }
+  });
+
+  it('declares no tracking and no advertising anywhere', () => {
+    expect(appPrivacy.tracking).toBe(manifest.NSPrivacyTracking);
+    expect(appPrivacy.trackingDomains).toEqual(manifest.NSPrivacyTrackingDomains);
+    expect(appPrivacy.advertising).toBe(false);
+    expect(dataSafety.advertising).toBe(false);
+    expect(dataSafety.sellsData).toBe(false);
+    expect(dataSafety.dataShared).toEqual([]);
+  });
+
+  it('Data safety covers every manifest data type through appleEquivalent', () => {
+    const covered = new Set(dataSafety.dataCollected.map((d: { appleEquivalent: string }) => d.appleEquivalent));
+    for (const e of entries) expect(covered).toContain(e.NSPrivacyCollectedDataType);
+    for (const c of covered) expect(entries.map((e) => e.NSPrivacyCollectedDataType)).toContain(c);
+  });
+
+  it('Data safety names health data, crash logs and the deletion URL the binary ships', () => {
+    const types = dataSafety.dataCollected.map((d: { playType: string }) => d.playType);
+    expect(types).toEqual(expect.arrayContaining(['Health info', 'Crash logs', 'Email address', 'User IDs']));
+    expect(dataSafety.encryptedInTransit).toBe(true);
+    expect(dataSafety.userCanRequestDeletion).toBe(true);
+    expect(dataSafety.accountDeletionUrl).toBe(appJson.extra.accountDeletionUrl);
+  });
+
+  it('keeps Data safety honest about permissions: no location or contacts collection beyond typed input', () => {
+    expect(appJson.android.blockedPermissions).toEqual(
+      expect.arrayContaining(['android.permission.ACCESS_FINE_LOCATION', 'android.permission.READ_CONTACTS']),
+    );
+    const location = dataSafety.dataCollected.filter((d: { playCategory: string }) => d.playCategory === 'Location');
+    for (const d of location) expect(d.playType).toBe('Approximate location');
+  });
+});

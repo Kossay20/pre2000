@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { format } from 'date-fns';
 import { useTranslation } from 'react-i18next';
 import { getDateLocale } from '../../utils/i18nHelpers';
@@ -39,7 +40,10 @@ export const EventCard: React.FC<EventCardProps> = React.memo(({ event, onEdit, 
                 {/* Header Row */}
                 <View style={styles.header}>
                     <View style={styles.iconBadge}>
-                        <Text style={styles.iconText}>{isUserEvent ? '📝' : '📅'}</Text>
+                        {/* The category decides the glyph: a check-up is not a memo. */}
+                        {isUserEvent && event.category === 'medical'
+                            ? <MaterialCommunityIcons name="stethoscope" size={22} color={theme.colors.indigoAccent} />
+                            : <Ionicons name="calendar-outline" size={22} color={isUserEvent ? theme.colors.indigoAccent : theme.colors.textSecondary} />}
                     </View>
                     <Text style={styles.title} numberOfLines={1}>{event.title}</Text>
                 </View>
@@ -166,9 +170,6 @@ const styles = StyleSheet.create({
     },
     iconBadge: {
         marginEnd: theme.spacing.xs,
-    },
-    iconText: {
-        fontSize: 20,
     },
     title: {
         flex: 1,

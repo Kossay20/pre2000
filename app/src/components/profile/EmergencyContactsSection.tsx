@@ -121,10 +121,12 @@ export const EmergencyContactsSection = () => {
 
     const getTypeColor = (type: string) => {
         switch (type) {
-            case 'sos': return theme.colors.critical; // Red
-            case 'doctor': return theme.colors.blue600; // Blue
-            case 'partner': return theme.colors.pinkAccent; // Pink
-            default: return theme.colors.gray500; // Grey
+            // Every fill holds 4.5:1 under the white 11pt label (the bright Material reds, blues,
+            // pinks and greys measured 3.7 to 4.4 and 2.5).
+            case 'sos': return theme.colors.error; // Red
+            case 'doctor': return theme.colors.blue800; // Blue
+            case 'partner': return theme.colors.accent; // Pink
+            default: return theme.colors.textSecondary; // Grey
         }
     };
 
@@ -328,7 +330,7 @@ const styles = StyleSheet.create({
     },
     typeText: {
         color: theme.colors.white,
-        fontSize: 10,
+        fontSize: 11,
         fontWeight: 'bold',
         textTransform: 'uppercase',
     },

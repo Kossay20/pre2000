@@ -1,3 +1,4 @@
+import { plainLabel } from '../../utils/a11yLabel';
 import { theme } from '../../theme';
 import { createLogger } from '../../utils/logger';
 import { getShadowStyle } from '../../utils/styleUtils';
@@ -82,7 +83,7 @@ export const TaskCard: React.FC<TaskCardProps> = React.memo(({ task }) => {
             // react-native-web does not map accessibilityState.checked to aria-checked, so
             // a screen reader heard every weekly task as an unchecked checkbox.
             {...(Platform.OS === 'web' ? { 'aria-checked': completed } : {})}
-            accessibilityLabel={getLocalizedContent(task, 'label', i18n.language) || t('tasks.suggestedTask')}
+            accessibilityLabel={plainLabel(getLocalizedContent(task, 'label', i18n.language)) || t('tasks.suggestedTask')}
         >
             <View style={[styles.taskCheckbox, completed && styles.taskCheckboxCheckedContainer]}>
                 {completed ? (

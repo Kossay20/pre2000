@@ -1,6 +1,7 @@
 import { Alert, Platform } from 'react-native';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { createLogger } from '../utils/logger';
@@ -48,8 +49,43 @@ const log = createLogger('DataExportService');
  *   the export spreads PregnancyContext's `profile`, which is a hand-written
  *   whitelist that does not carry them — so a health diagnosis was absent from a
  *   subject-access export. GDPR Art. 15 / Art. 20.
+ * - v7 (D-024): `tools` also carries the TTC snapshot (`ttcProfile`), the daily checklist
+ *   progress by day (`dailyChecklist`) and the reminder completion history (`completions`) —
+ *   the three AsyncStorage records wiped on delete that the export still left out. Each is
+ *   present only when the device holds something for it.
  */
-const EXPORT_SCHEMA_VERSION = 6;
+const EXPORT_SCHEMA_VERSION = 7;
+
+// AsyncStorage keys listed in context/storageKeys.ts (the erasure list), read here so what is
+// wiped on delete is what is exported.
+const TTC_PROFILE_KEY = 'ttcProfile';
+const DAILY_CHECKLIST_PREFIX = '@daily_checklist_v2_';
+const COMPLETIONS_KEY = 'reminders_v2_completions';
+
+const readJson = async (key: string): Promise<any> => {
+    const raw = await AsyncStorage.getItem(key);
+    if (!raw) return null;
+    try {
+        return JSON.parse(raw);
+    } catch {
+        return null;
+    }
+};
+
+/** Daily checklist progress, keyed by the day in the storage key (YYYY-MM-DD). */
+const loadDailyChecklistProgress = async (): Promise<Record<string, any>> => {
+    const keys = (await AsyncStorage.getAllKeys()).filter((k) => k.startsWith(DAILY_CHECKLIST_PREFIX));
+    const out: Record<string, any> = {};
+    for (const key of keys) {
+        const value = await readJson(key);
+        if (value) out[key.slice(DAILY_CHECKLIST_PREFIX.length)] = value;
+    }
+    return out;
+};
+
+/** Reminder completion days per reminder; an account's history is stored under its own key. */
+const loadCompletionHistory = (userId: string, isGuest: boolean): Promise<Record<string, string[]> | null> =>
+    readJson(isGuest ? COMPLETIONS_KEY : `${COMPLETIONS_KEY}_${userId}`);
 
 // Symptoms history helper takes a look-back in days. Use ~11 years so every
 // entry the user ever created is exported (RGPD Art. 15 / Art. 20 — full data).
@@ -129,6 +165,9 @@ export const generateExportData = async (user: any, profile: any) => {
             getBookmarks(),                      // 13 saved articles/supplements
             loadHydrationData(),                 // 14 hydration goal + daily intake
             RAMADAN_GUIDANCE_CLINICALLY_REVIEWED ? loadRamadanState() : Promise.resolve(null), // 15
+            readJson(TTC_PROFILE_KEY),           // 16 TTC snapshot
+            loadDailyChecklistProgress(),        // 17 daily checklist progress by day
+            loadCompletionHistory(userId, isGuest), // 18 reminder completion days
         ]);
 
         const appointments = unwrap(settled[0], 'appointments', [] as any[]);
@@ -168,6 +207,9 @@ export const generateExportData = async (user: any, profile: any) => {
         const bookmarks = unwrap(settled[13], 'bookmarks', [] as any[]);
         const hydration = unwrap(settled[14], 'hydration', {} as Record<string, any>);
         const ramadan = unwrap(settled[15], 'ramadan', null as any);
+        const ttcProfile = unwrap(settled[16], 'ttcProfile', null as any);
+        const dailyChecklist = unwrap(settled[17], 'dailyChecklist', {} as Record<string, any>);
+        const completions = unwrap(settled[18], 'completions', null as any);
 
         // P0 GDPR FIX: Anonymize userId — raw Firebase UID must never appear in shared exports
         const anonymizedId = isGuest
@@ -217,6 +259,9 @@ export const generateExportData = async (user: any, profile: any) => {
                 bookmarks,
                 hydration,
                 ...(ramadan ? { ramadan } : {}),
+                ...(ttcProfile ? { ttcProfile } : {}),
+                ...(Object.keys(dailyChecklist).length > 0 ? { dailyChecklist } : {}),
+                ...(completions && Object.keys(completions).length > 0 ? { completions } : {}),
             },
         };
 
@@ -290,5 +335,25 @@ export const exportUserData = async (user: any, profile: any, t: any) => {
     } catch (error) {
         log.error('Error exporting data', error);
         Alert.alert(t('common.error'), t('export.errorMessage') || t('common.error'));
+    }
+};
+
+/**
+ * Remove any export file still in the cache — one left by a crash between the write and the
+ * delete above. For the local wipe (logout / reset / deletion) to call: the file is her whole
+ * record in plain text and must not outlive her account on the device.
+ */
+export const sweepExportFiles = async (): Promise<void> => {
+    const dir = FileSystem.cacheDirectory;
+    if (Platform.OS === 'web' || !dir) return;
+    try {
+        const names = await FileSystem.readDirectoryAsync(dir);
+        await Promise.all(
+            names
+                .filter((name) => name.startsWith('mama-bebe-export-'))
+                .map((name) => FileSystem.deleteAsync(`${dir}${name}`, { idempotent: true })),
+        );
+    } catch (e) {
+        log.warn('Could not sweep the export cache', e);
     }
 };

@@ -1204,6 +1204,25 @@ test.describe('Wave B — B-track offline', () => {
         // A record may only be lost if she was told so: either the warning announced it, or it must still be there.
         expect.soft(told === null ? lostSessions : 0, `57: no kick session is lost without the warning (history before logout ${truth.device.kickHistory}, after re-login ${JSON.stringify(kick.rows)})`).toBe(0);
         expect.soft(kick.rows.includes('3 coups'), '57: the session that had reached the server is back after re-login').toBe(true);
+        // B-040: what the second dialog promises ("Ils seront perdus si vous vous déconnectez
+        // maintenant", fr/profile.json logoutUnsyncedMsg) must be what happens. Accepting it with
+        // `told` unsent kick sessions has to cost her exactly those sessions. In the web build
+        // they came back after re-login (Firestore's own persisted write queue sent them), so the
+        // copy and the behaviour disagree: reported as COPY-MISMATCH — fix the wording (or the
+        // wipe), then this assertion holds.
+        const promisedLoss = told === null ? 0 : Math.min(Number(told), truth.kick);
+        const serverHasUnsent = srv.kickSessions.length >= truth.device.kickHistory;
+        expect.soft(
+          lostSessions >= promisedLoss,
+          `57 (B-040) COPY-MISMATCH: the warning says ${promisedLoss} unsent session(s) "seront perdus" (src/i18n/locales/fr/profile.json logoutUnsyncedMsg) but ${lostSessions} were lost; after re-login the history shows ${JSON.stringify(kick.rows)} and the server holds ${srv.kickSessions.length} session(s) (server has all of them: ${serverHasUnsent})`,
+        ).toBe(true);
+        obs.add('B-040-COPY-VS-BEHAVIOUR', lostSessions >= (told === null ? 0 : Math.min(Number(told), truth.kick)) ? 'PASS' : 'FAIL', '57-offline-logout-anyway', {
+          copy: 'fr/profile.json logoutUnsyncedMsg: "Ils seront perdus si vous vous déconnectez maintenant"',
+          warnedCount: told,
+          unsentKickSessionsBeforeLogout: truth.kick,
+          sessionsLostAfterRelogin: lostSessions,
+          serverKickSessionsAfterRelogin: srv.kickSessions.length,
+        });
         obs.add('B-018-LOGOUT-ANYWAY', told !== null && Number(told) === truth.total ? 'PASS' : 'FAIL', '57-offline-logout-anyway', {
           dialogs: msgs,
           countInWarning: told,

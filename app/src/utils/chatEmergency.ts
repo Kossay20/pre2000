@@ -27,3 +27,32 @@ export const shouldPinEmergencyCall = (messages: readonly ChatMessageLike[]): bo
     }
     return false;
 };
+
+/**
+ * Where the chat list should rest after a new message lays out.
+ *
+ * Always the end, except for a long ANSWER: scrolling to the end of a reply taller than
+ * the list left the reader in its last lines, with her own question cut off under the
+ * disclaimer. A long answer is anchored so her question sits at the top of the list and
+ * the reply starts right under it. Emergencies, errors and any red-flag reply keep the
+ * end (that is where the call action lives, and it is also pinned above the input).
+ */
+export type ChatScrollTarget = 'end' | { index: number };
+
+// A reply taller than this share of the list no longer fits next to the question.
+const LONG_REPLY_SHARE = 0.6;
+
+export const chatScrollTarget = (
+    messages: readonly ChatMessageLike[],
+    lastMessageHeight: number,
+    listHeight: number,
+): ChatScrollTarget => {
+    const last = messages[messages.length - 1];
+    const prev = messages[messages.length - 2];
+    if (!last || last.sender !== 'bot' || !prev || prev.sender !== 'user') return 'end';
+    if (last.data?.type === 'error' || last.data?.type === 'red_flag') return 'end';
+    if (!(lastMessageHeight > 0) || !(listHeight > 0)) return 'end';
+    return lastMessageHeight > listHeight * LONG_REPLY_SHARE
+        ? { index: messages.length - 2 }
+        : 'end';
+};

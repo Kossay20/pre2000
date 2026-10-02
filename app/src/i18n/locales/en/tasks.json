@@ -1,6 +1,6 @@
 {
   "title": "My Tasks",
-  "newTask": "➕ New Task",
+  "newTask": "New Task",
   "viewStats": "View Statistics",
   "weeklyTasks": "WEEKLY TASKS",
   "added": "Task added!",
@@ -14,7 +14,7 @@
   "createAccount": "Create Account",
   "suggestedTask": "Suggested Task",
   "modal": {
-    "newTitle": "➕ New Task",
+    "newTitle": "New Task",
     "editTitle": "✏️ Edit Task",
     "info": "💡 Use this for one-off tasks. For daily habits (e.g. Vitamins), use the Reminders tab.",
     "titleLabel": "Task Title",

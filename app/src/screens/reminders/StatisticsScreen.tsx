@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { LineChart, BarChart } from 'react-native-chart-kit';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme } from '../../theme';
 import { hexToRgba } from '../../utils/styleUtils';
 import { getHistoricalData, generateDailyChecklist, loadDailyProgress, buildMyDayItems, myDayProgress } from '../../services/dailyChecklistService';
@@ -31,6 +32,7 @@ const screenWidth = getContentWidth();
 export const StatisticsScreen = () => {
     useScreenAnalytics('StatisticsScreen');
     const navigation = useNavigation();
+    const insets = useSafeAreaInsets();
     const { t, i18n } = useTranslation();
     const dateLocale = useDateLocale();
     const { user } = useAuth();
@@ -125,7 +127,7 @@ export const StatisticsScreen = () => {
     // Shared by both branches: the empty state used to render without it, a bare
     // card on the navigator's grey with no title and no way back.
     const header = (
-        <View style={styles.header}>
+        <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
             <TouchableOpacity
                 onPress={() => navigation.goBack()}
                 style={styles.backButton}
@@ -336,7 +338,7 @@ const styles = StyleSheet.create({
     },
     header: {
         padding: 20,
-        paddingTop: 60,
+        paddingTop: 20, // the status-bar inset is added at render (60pt of blank white on web)
         backgroundColor: theme.colors.white,
         flexDirection: 'row',
         alignItems: 'center',
@@ -448,6 +450,8 @@ const styles = StyleSheet.create({
         padding: 4,
     },
     rangeButton: {
+        minHeight: 44,
+        justifyContent: 'center',
         paddingVertical: 8,
         paddingHorizontal: 24,
         borderRadius: 8,

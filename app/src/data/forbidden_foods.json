@@ -299,7 +299,7 @@
     {
         "id": "rillettes",
         "name_fr": "Rillettes, pâtés, terrines",
-        "name_en": "Rillettes, pâtés, terrines",
+        "name_en": "Rillettes, pâtés, terrines (meat spreads)",
         "name_ar": "ريليت، باتيه، ترين",
         "name_tn": "ريليت، باتيه، ترين",
         "category": "meat",
@@ -316,10 +316,10 @@
         "details_en": "These products are risky even if they appear cooked.",
         "details_ar": "هذه المنتجات خطرة حتى لو بدت مطبوخة.",
         "details_tn": "هالمنتوجات فيها خطر حتى كان تبان مطيّبة.",
-        "alternative_fr": "Éviter pendant la grossesse",
-        "alternative_en": "Avoid during pregnancy",
-        "alternative_ar": "تجنبيها أثناء الحمل",
-        "alternative_tn": "تجنّبيها وقت الحمل",
+        "alternative_fr": "Pâté de légumes, houmous ou rillettes en conserve stérilisée (boîte non ouverte, à consommer rapidement après ouverture)",
+        "alternative_en": "Vegetable pâté, hummus, or sterilised canned rillettes (unopened tin, eaten soon after opening)",
+        "alternative_ar": "باتيه الخضار أو الحمص أو ريليت معلّب ومعقّم (علبة غير مفتوحة، يؤكل بعد فتحه بوقت قصير)",
+        "alternative_tn": "باتيه خضرة ولا حمص ولا ريليت معلّب ومعقّم (بوسطة ما تحلّتش، تتاكل بعد ما تتحلّ على طول)",
         "icon": "🥫",
         "severity": "high"
     },

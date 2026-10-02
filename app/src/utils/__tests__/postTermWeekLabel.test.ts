@@ -121,8 +121,9 @@ describe('due date', () => {
     it('Profile and the PDF show the LMP and due date as calendar days (dueDateTimezones.test.ts)', () => {
         const profile = read('src/screens/ProfileScreen.tsx');
         expect(profile).toMatch(/const dpa = dueDateFromLmp\(lmp\)/);
-        expect(profile).toMatch(/format\(dpa, 'dd MMMM yyyy'/);
-        expect(profile).toMatch(/format\(lmpDay, 'dd MMM yyyy'/);
+        expect(profile).toMatch(/format\(dpa, 'd MMMM yyyy'/);
+        // D-046: the LMP chip and the due date use one format (long month, no padded day).
+        expect(profile).toMatch(/format\(lmpDay, 'd MMMM yyyy'/);
         expect(profile).not.toMatch(/addDays\(lmpDate, 280\)/);
         expect(profile).not.toMatch(/dpa: dpa\.toISOString\(\)/);
         const pdf = read('src/services/pdfExportService.ts');

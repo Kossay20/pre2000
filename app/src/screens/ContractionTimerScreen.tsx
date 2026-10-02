@@ -11,6 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
+import { useRtl } from '../hooks/useRtl';
 import { theme } from '../theme';
 import { Button } from '../components/common/Button';
 import { Card } from '../components/common/Card';
@@ -37,6 +38,7 @@ import {
 export const ContractionTimerScreen: React.FC = () => {
     useScreenAnalytics('ContractionTimerScreen');
     const { t } = useTranslation();
+    const { isRTL } = useRtl();
     const { user } = useAuth();
     // A signed-in account keeps this history on the server too; a guest's stays here.
     const syncUid = user && !user.isGuest ? user.uid : null;
@@ -223,7 +225,8 @@ export const ContractionTimerScreen: React.FC = () => {
                 <EmergencyNumberNote source={emergencyContact.source} />
 
                 {!syncUid && <Text style={styles.localNote}>{t('cycle8.localOnlyNote')}</Text>}
-                <Text style={styles.disclaimer}>{t('cycle8.contractionTimer.disclaimer')}</Text>
+                {/* Arabic script has no italic: the browser shears the glyphs. */}
+                <Text style={[styles.disclaimer, isRTL && styles.disclaimerUpright]}>{t('cycle8.contractionTimer.disclaimer')}</Text>
             </ScrollView>
         </SafeAreaView>
     );
@@ -291,4 +294,5 @@ const styles = StyleSheet.create({
         marginTop: theme.spacing.l,
         textAlign: 'center',
     },
+    disclaimerUpright: { fontStyle: 'normal' },
 });

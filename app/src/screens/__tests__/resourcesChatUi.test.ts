@@ -105,7 +105,8 @@ describe('Home — the size comparison has its own label', () => {
 describe('week recommendations — article excerpts are plain text', () => {
     it('strips markdown from the summary ("# L\'accouchement…" showed its "#")', () => {
         const src = read('src/screens/WeekRecommendationsScreen.tsx');
-        expect(src).toMatch(/getLocalizedContent\(article, 'summary', i18n\.language, \{ stripMarkdown: true \}\)/);
+        // getCardExcerpt strips the markdown and the heading that repeats the title.
+        expect(src).toMatch(/getCardExcerpt\(article, 'summary', i18n\.language\)/);
     });
 });
 

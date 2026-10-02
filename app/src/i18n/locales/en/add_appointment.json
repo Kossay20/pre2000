@@ -5,7 +5,7 @@
   "newSubtitleMedical": "Add a medical appointment to your calendar",
   "editSubtitle": "Update your appointment details",
   "titleLabel": "Title *",
-  "titlePlaceholder": "Ex: Ultrasound, Consultation...",
+  "titlePlaceholder": "Ex: Ultrasound",
   "typeLabel": "Type",
   "typeMedical": "Medical",
   "typeOther": "Personal",

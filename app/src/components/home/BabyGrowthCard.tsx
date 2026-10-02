@@ -10,6 +10,7 @@ import {
     } from 'react-native';
 import { Week } from '../../types';
 import { getLocalizedContent } from '../../utils/i18nHelpers';
+import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getBabyGrowthForWeek } from '../../config/babyGrowthData';
 import { useNavigation } from '@react-navigation/native';
@@ -117,7 +118,7 @@ export const BabyGrowthCard = React.memo<BabyGrowthCardProps>(({
             {/* Timeline Info */}
             <View style={[styles.timeline, { justifyContent: 'center' }]}>
                 <View style={[styles.timelineItem, { justifyContent: 'center' }]}>
-                    <Text style={styles.timelineIcon}>📅</Text>
+                    <Ionicons name="calendar-outline" size={18} color={theme.colors.neutral900} />
                     <Text style={styles.timelineText}>
                         {t('home.day')} {dayOfPregnancy}
                     </Text>
@@ -256,9 +257,6 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 6,
-    },
-    timelineIcon: {
-        fontSize: 16,
     },
     timelineText: {
         fontSize: 14,

@@ -7,8 +7,10 @@
  * - Local progress tracking with AsyncStorage
  */
 
+import { plainLabel } from '../../utils/a11yLabel';
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
 import { showAlert } from '../../utils/alert';
 import { confirmAction } from '../../utils/uiUtils';
@@ -269,7 +271,7 @@ export const MyDaySection: React.FC<Props> = React.memo(({
                                 accessibilityState={{ checked: item.completed }}
                                 // Not mapped to aria-checked by react-native-web.
                                 {...(Platform.OS === 'web' ? { 'aria-checked': item.completed } : {})}
-                                accessibilityLabel={item.title}
+                                accessibilityLabel={plainLabel(item.title)}
                             >
                                 <View style={[styles.checkbox, item.completed && styles.checkboxChecked]}>
                                     {item.completed && <Text style={styles.checkmark}>✓</Text>}
@@ -304,7 +306,7 @@ export const MyDaySection: React.FC<Props> = React.memo(({
                                         style={styles.actionIcon}
                                         onPress={() => onEditTask && onEditTask(item.id)}
                                         accessibilityRole="button"
-                                        accessibilityLabel={t('a11y.editItem', { name: item.title })}
+                                        accessibilityLabel={t('a11y.editItem', { name: plainLabel(item.title) })}
                                     >
                                         <Text style={{ fontSize: 16 }}>✏️</Text>
                                     </TouchableOpacity>
@@ -312,12 +314,12 @@ export const MyDaySection: React.FC<Props> = React.memo(({
 
                                 <TouchableOpacity
                                     style={styles.actionIcon}
-                                    // Same 🗑️ glyph, two actions: custom tasks are deleted,
-                                    // reminders/appointments are only hidden for today.
+                                    // Two actions, two glyphs: custom tasks are deleted (trash),
+                                    // reminders/appointments are only hidden for today (eye-off).
                                     accessibilityRole="button"
                                     accessibilityLabel={item.type === 'custom'
-                                        ? t('a11y.deleteItem', { name: item.title })
-                                        : t('a11y.hideItemToday', { name: item.title })}
+                                        ? t('a11y.deleteItem', { name: plainLabel(item.title) })
+                                        : t('a11y.hideItemToday', { name: plainLabel(item.title) })}
                                     onPress={() => {
                                         if (item.type === 'custom') {
                                             onDeleteTask && onDeleteTask(item.id);
@@ -334,7 +336,9 @@ export const MyDaySection: React.FC<Props> = React.memo(({
                                         }
                                     }}
                                 >
-                                    <Text style={{ fontSize: 16 }}>🗑️</Text>
+                                    {item.type === 'custom'
+                                        ? <Text style={{ fontSize: 16 }}>🗑️</Text>
+                                        : <Ionicons name="eye-off-outline" size={18} color={theme.colors.textSecondary} />}
                                 </TouchableOpacity>
                             </View>
 

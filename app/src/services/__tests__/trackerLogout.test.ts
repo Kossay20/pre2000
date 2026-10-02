@@ -194,11 +194,19 @@ describe('without signal, the warning counts every record the server does not ha
 describe('wiring', () => {
     const read = (rel: string) => fs.readFileSync(path.resolve(__dirname, '../../..', rel), 'utf8');
 
-    it('the Profile logout passes the question, with the count, to logout()', () => {
-        const profile = read('src/screens/ProfileScreen.tsx');
-        expect(profile).toMatch(/await logout\(\{\s*confirmUnsyncedLoss:/);
-        expect(profile).toMatch(/t\('profile\.logoutUnsyncedMsg', \{ n: count \}\)/);
-        expect(profile).toMatch(/\(\) => resolve\(false\)/);
+    it('the shared logout passes the question, with the count, to logout()', () => {
+        const hook = read('src/hooks/useConfirmedLogout.ts');
+        expect(hook).toMatch(/await logout\(\{\s*confirmUnsyncedLoss:/);
+        expect(hook).toMatch(/t\('profile\.logoutUnsyncedMsg', \{ n: count \}\)/);
+        expect(hook).toMatch(/\(\) => resolve\(false\)/);
+    });
+
+    it('Profile and the onboarding header both sign out through that one hook (D-044)', () => {
+        expect(read('src/screens/ProfileScreen.tsx')).toMatch(/const handleLogout = useConfirmedLogout\(\);/);
+        const app = read('App.tsx');
+        expect(app).toMatch(/const confirmedLogout = useConfirmedLogout\(\);/);
+        expect(app).toMatch(/onPress=\{confirmedLogout\}/);
+        expect(app).not.toMatch(/void logout\(\)/);
     });
 
     it('the question exists in the four languages and carries the count', () => {

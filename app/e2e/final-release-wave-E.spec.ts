@@ -293,6 +293,49 @@ async function settle(page: Page, ms = 1200) {
   await page.waitForTimeout(ms);
 }
 
+/**
+ * E-055: a toast / banner (role=status|alert) fades and slides for ~300 ms at each end
+ * (ToastContext), and a contrast sample taken mid-fade reads half-faded colours. Before any
+ * a11y probe, wait until every visible live box (opacity and transform along its ancestor
+ * chain, plus its position) has stopped changing for three polls. A box held at a constant
+ * opacity below 1 is stable and passes through; one that has left the DOM is stable too.
+ * Best effort by design (a wait, not an assertion): it never fails a state by itself.
+ */
+async function settleLiveBoxes(page: Page) {
+  await page
+    .evaluate(() => {
+      (window as any).__liveSettle = { sig: null, stable: 0 };
+    })
+    .catch(() => undefined);
+  await page
+    .waitForFunction(
+      () => {
+        const w = window as any;
+        const parts: string[] = [];
+        for (const el of Array.from(document.querySelectorAll<HTMLElement>('[role="status"],[role="alert"]'))) {
+          const r = el.getBoundingClientRect();
+          if (r.width === 0 || r.height === 0) continue;
+          let op = 1;
+          const tf: string[] = [];
+          for (let n: HTMLElement | null = el; n && n !== document.documentElement; n = n.parentElement) {
+            const cs = getComputedStyle(n);
+            op *= parseFloat(cs.opacity || '1');
+            if (cs.transform && cs.transform !== 'none') tf.push(cs.transform);
+          }
+          parts.push(`${op.toFixed(3)}|${tf.join('/')}|${Math.round(r.top * 10)},${Math.round(r.left * 10)}`);
+        }
+        const sig = parts.join('#');
+        const st = w.__liveSettle || (w.__liveSettle = { sig: null, stable: 0 });
+        st.stable = st.sig === sig ? st.stable + 1 : 0;
+        st.sig = sig;
+        return st.stable >= 3;
+      },
+      null,
+      { polling: 100, timeout: 5_000 },
+    )
+    .catch(() => undefined);
+}
+
 /** Navigate by URL (SPA fallback) and wait for the app to paint. */
 async function go(page: Page, p: string, ready?: Locator) {
   await page.goto(p, { waitUntil: 'load' });
@@ -336,7 +379,10 @@ async function snapState(
     await page.waitForTimeout(250);
   }
 
+  await settleLiveBoxes(page);
   await c.mega.snap(state);
+  // E-055: the contrast probe must not read a toast mid-fade (the snap above takes time too).
+  await settleLiveBoxes(page);
   const report = await measureA11y(page, state, { planRow, ctaFold: fold, ...(opts.extra || {}) });
   writeA11yJson(OUT_DIRS, state, report);
 
@@ -625,6 +671,10 @@ test('E07-24 SE 375×667 fr — signed-in surfaces', async ({ browser }) => {
         check('E-032', state, !!day && !!pct && pct.text.replace(/\D/g, '') === expectedPct, 'Home "Jour N" and the progress percentage agree (N/280)', { day: day?.text ?? null, percent: pct?.text ?? null, expectedPercent: expectedPct });
         const pillInDom = fs.readFileSync(path.join(OUT_DIRS[0], `${state}.dom.html`), 'utf8').includes('Ma Journée');
         check('E-025', state, pillInDom, 'the Home snapshot DOM contains the "Ma Journée n/m" pill', { pillInSnapshotDom: pillInDom, pillButton: r.interactive.find((i) => /Ma Journée/.test(i.axName))?.axName ?? null });
+        // E-030: the pill is one 14 pt line in a glass box; the OUTER box (the pressable) must be a
+        // pill, not the 139×69 block it was (product plan: height 36-44).
+        const pill030 = r.interactive.find((i) => /Ma Journée/.test(i.axName));
+        check('E-030', state, !!pill030 && pill030.rect.h <= 44, 'Home "Ma Journée n/m": the outer glass container is at most 44 pt tall (one text line, no 69 pt block)', pill030 ? { name: pill030.axName, w: pill030.rect.w, h: pill030.rect.h } : 'pill not found');
       } else if (s.slug === 'calendar') {
         // E-028: the empty state draws an icon, not the 📅 emoji (Apple prints "JUL 17" on it).
         const emptyVisible = has(/^Aucun événement pour ce jour$/);
@@ -675,7 +725,9 @@ test('E07-24 SE 375×667 fr — signed-in surfaces', async ({ browser }) => {
         const back = leafs.find((l) => l.text === 'Retour');
         const rootBg = await page.getByTestId('statistics_screen_root').first().evaluate((e) => getComputedStyle(e).backgroundColor);
         await snapState(c, state, 'E 01-15', { cta: s.cta?.(page), expectTabBar: s.tabBar, extra: { emptyBranch, title, back, rootBg } });
-        check('E-030', state, emptyBranch ? !!title && !!back : null, 'Statistics empty state shows the "Mes Statistiques" title and a "Retour" control', { emptyBranch, title: title ?? null, back: back ?? null, rootBg });
+        // Both branches are evaluated (the reader's data decides which one shows): a way back
+        // always, and the title when it is the empty state. Never "not reached".
+        check('E-030', state, !!back && (emptyBranch ? !!title : true), 'Statistics: a "Retour" control in either branch, and the "Mes Statistiques" title on the empty state', { emptyBranch, title: title ?? null, back: back ?? null, rootBg });
       } else if (s.slug === 'article') {
         // E-024: reached through Resources → the Resources tab stays active. E-026: one title.
         const activeTab = await activeBottomTab(page);
@@ -1299,7 +1351,7 @@ test('E57-59 iPad Slide Over 320×1000 fr — Home, Calendar, Reminders', async 
       if (sf.slug === 'home') {
         // E-030 (a): size of the "Ma Journée" pill at 320 pt — measurement only.
         const pill = r.interactive.find((i) => /Ma Journée/.test(i.axName));
-        check('E-030', state, null, 'measurement: "Ma Journée n/m" pill box at 320 pt (round 3: 140×70)', pill ? { name: pill.axName, w: pill.rect.w, h: pill.rect.h } : 'pill not found');
+        check('E-030', state, !!pill && pill.rect.h <= 44, 'at 320 pt the "Ma Journée n/m" outer glass container is at most 44 pt tall (round 3: 140×70)', pill ? { name: pill.axName, w: pill.rect.w, h: pill.rect.h } : 'pill not found');
       }
       expect.soft(r.layout.overlaps, `${state}: overlapping controls`).toEqual([]);
       expect.soft(r.layout.clippedLabels.filter((l) => !l.intentionalTruncation), `${state}: clipped button text`).toEqual([]);
@@ -1388,8 +1440,10 @@ test('E64-65 WeightTracker 390×844 fr — tip chips and the chart stay inside t
     await snapState(c, '64-weight-tips', 'B-012 (weight tip chips)', { extra: { chips: chips2 } });
     check('B-012', '64-weight-tips', chips2.length ? chips2.every((x) => !x.pastViewport && !x.cutNoWrap && x.exceededAncestors.length === 0) : null, 'weight tip chips stay inside the card and wrap (no text past the right edge)', chips2.length ? chips2 : 'no tip chip on screen for this account');
 
-    const triLine = chips2.find((x) => /trimestre/i.test(x.text))?.text ?? null;
-    check('E-017', '64-weight-tips', null, 'measurement: fr trimester wording on the Weight screen (Home / Reminders write "3ème Trimestre")', { weightScreen: triLine });
+    // E-017: every trimester the Weight screen names (tips or anywhere else) uses the label Home and
+    // Reminders write for week 32 ("3ème Trimestre"). Evaluated on all leaf texts, not just the chips.
+    const triMentions = (await leafTexts(page)).map((l) => l.text).filter((t) => /trimestre/i.test(t));
+    check('E-017', '64-weight-tips', triMentions.every((t) => /3ème Trimestre/.test(t)), 'fr trimester wording on the Weight screen is the Home / Reminders label "3ème Trimestre"', { mentions: triMentions, count: triMentions.length });
 
     // 65: chart
     const svg = page.locator('svg').first();
@@ -1430,7 +1484,10 @@ test('E56 a11y roll-up — unnamed controls, contrast AA, tap targets (plan 28/2
 
   // RN-web Switch 40×20 (web-harness, §0.3): reported, not asserted — native UISwitch is 51×31.
   const webSwitches = new Set(allReports.flatMap((r) => r.interactive.filter((i) => i.domRole === 'switch' && i.small44 && !i.disabled).map((i) => `${i.axName} ${i.rect.w}×${i.rect.h}`)));
-  check('E-006', 'roll-up', null, 'measurement: RN-web Switch boxes under 44 pt (web-only; native UISwitch 51×31 — P2 web-harness per §0.3)', { count: webSwitches.size, sample: [...webSwitches].slice(0, 8) });
+  // The accepted exception is exactly RN-web's own 40×20 Switch box; any other "switch" under 44 is not it.
+  check('E-006', 'roll-up', [...webSwitches].every((x) => /40×20$/.test(x)), 'RN-web Switch boxes under 44 pt are exactly the 40×20 web-harness Switch (native UISwitch 51×31 — §0.3)', { count: webSwitches.size, sample: [...webSwitches].slice(0, 8) });
   const nonSwitchSmallNative = new Set(allReports.flatMap((r) => r.interactive.filter((i) => i.small44Native && !i.disabled && i.domRole !== 'switch').map((i) => `${r.layout.viewport.w}w ${i.axRole} "${i.axName || i.text}" ${i.rect.w}×${i.rect.h}`)));
-  check('E-006', 'roll-up', null, 'measurement: non-Switch targets under 44 pt even with hitSlop (native-relevant)', { count: nonSwitchSmallNative.size, sample: [...nonSwitchSmallNative].slice(0, 25) });
+  // The plan's 44×44 (not the 24 px floor above): every non-Switch target, hitSlop included, must
+  // reach it. Switches are the accepted web-harness exception above (native UISwitch 51×31).
+  check('E-006', 'roll-up', nonSwitchSmallNative.size === 0, 'no non-Switch interactive target under 44×44 pt even with its hitSlop (small44Native)', { count: nonSwitchSmallNative.size, sample: [...nonSwitchSmallNative].slice(0, 25) });
 });

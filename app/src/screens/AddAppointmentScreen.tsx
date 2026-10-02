@@ -520,7 +520,11 @@ const AppointmentForm = ({ editingEvent }: { editingEvent?: EditableEvent }) => 
                     notes: notes.trim() || null,
                 });
                 // Persistent: the form closes right after, and the toast is about the calendar she returns to.
-                showToast(pendingSync ? t('addAppointment.savedOffline') : t('addAppointment.successEdit'), pendingSync ? 'info' : 'success', { persistent: true });
+                showToast(pendingSync ? t('addAppointment.savedOffline') : t('addAppointment.successEdit'), pendingSync ? 'info' : 'success', {
+                    persistent: true,
+                    // Back online while the "saved offline" toast is still up: say it went through.
+                    ...(pendingSync ? { replaceOnReconnect: t('addAppointment.successEdit') } : {}),
+                });
             } else {
                 // CREATE new event
                 const result = await saveUserEvent({
@@ -542,7 +546,10 @@ const AppointmentForm = ({ editingEvent }: { editingEvent?: EditableEvent }) => 
                 showToast(
                     result.pendingSync ? t('addAppointment.savedOffline') : t('addAppointment.successAdd'),
                     result.pendingSync ? 'info' : 'success',
-                    { persistent: true },
+                    {
+                        persistent: true,
+                        ...(result.pendingSync ? { replaceOnReconnect: t('addAppointment.successAdd') } : {}),
+                    },
                 );
                 // Engagement: Track positive action
                 trackPositiveAction('add_rdv');
@@ -691,7 +698,7 @@ const AppointmentForm = ({ editingEvent }: { editingEvent?: EditableEvent }) => 
                                         // CAL-07: the control keeps a yyyy-MM-dd value (required for
                                         // parsing), but raw ISO is unfriendly — show a localized read-out.
                                         <Text style={styles.dateReadout}>
-                                            {format(date, 'dd MMM yyyy', { locale: dateLocale })}
+                                            {format(date, 'd MMMM yyyy', { locale: dateLocale })}
                                         </Text>
                                     )}
                                 </>
@@ -704,14 +711,14 @@ const AppointmentForm = ({ editingEvent }: { editingEvent?: EditableEvent }) => 
                                         setShowTimePicker(false); // Close other picker
                                     }}
                                     accessibilityRole="button"
-                                    accessibilityLabel={`${t('addAppointment.dateLabel')}: ${format(date, 'dd MMMM yyyy', { locale: dateLocale })}`}
+                                    accessibilityLabel={`${t('addAppointment.dateLabel')}: ${format(date, 'd MMMM yyyy', { locale: dateLocale })}`}
                                     accessibilityHint={t('a11y.selectDate')}
                                     accessibilityState={{ expanded: showDatePicker }}
                                     // CAL-R2-03: this picker button renders on NATIVE only (web uses the
                                     // <TextInput> branch above), so no web aria is needed here.
                                 >
                                     <Text style={styles.dateText}>
-                                        {format(date, 'dd MMMM yyyy', { locale: dateLocale })}
+                                        {format(date, 'd MMMM yyyy', { locale: dateLocale })}
                                     </Text>
                                 </TouchableOpacity>
                             )}
@@ -822,10 +829,7 @@ const AppointmentForm = ({ editingEvent }: { editingEvent?: EditableEvent }) => 
                                 onValueChange={setReminderJ1}
                                 trackColor={{ false: theme.colors.disabled, true: theme.colors.primarySoft }}
                                 {...switchThumbProps(reminderJ1 ? theme.colors.primary : theme.colors.neutral400)}
-                                accessibilityRole="switch"
                                 accessibilityLabel={t('addAppointment.reminderJ1')}
-                                accessibilityState={{ checked: reminderJ1 }}
-                                {...(Platform.OS === 'web' ? { 'aria-checked': reminderJ1 } : {})}
                             />
                         </View>
 
@@ -840,10 +844,7 @@ const AppointmentForm = ({ editingEvent }: { editingEvent?: EditableEvent }) => 
                                 onValueChange={setReminderJ}
                                 trackColor={{ false: theme.colors.disabled, true: theme.colors.primarySoft }}
                                 {...switchThumbProps(reminderJ ? theme.colors.primary : theme.colors.neutral400)}
-                                accessibilityRole="switch"
                                 accessibilityLabel={t('addAppointment.reminderJ')}
-                                accessibilityState={{ checked: reminderJ }}
-                                {...(Platform.OS === 'web' ? { 'aria-checked': reminderJ } : {})}
                             />
                         </View>
 
@@ -858,10 +859,7 @@ const AppointmentForm = ({ editingEvent }: { editingEvent?: EditableEvent }) => 
                                 onValueChange={setReminderH2}
                                 trackColor={{ false: theme.colors.disabled, true: theme.colors.primarySoft }}
                                 {...switchThumbProps(reminderH2 ? theme.colors.primary : theme.colors.neutral400)}
-                                accessibilityRole="switch"
                                 accessibilityLabel={t('addAppointment.reminderH2')}
-                                accessibilityState={{ checked: reminderH2 }}
-                                {...(Platform.OS === 'web' ? { 'aria-checked': reminderH2 } : {})}
                             />
                         </View>
                     </View>

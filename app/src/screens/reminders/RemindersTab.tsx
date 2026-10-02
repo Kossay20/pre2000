@@ -196,10 +196,8 @@ const EssentialsList: React.FC<EssentialsListProps> = ({
                                     trackColor={{ false: theme.colors.disabled, true: theme.colors.pinkAccentA100 }}
                                     {...switchThumbProps(theme.colors.white)}
                                     ios_backgroundColor={theme.colors.disabled}
-                                    accessibilityRole="switch"
                                     accessibilityLabel={getLocalizedContent(reminder.title)}
                                     accessibilityHint={t('a11y.toggleReminder')}
-                                    accessibilityState={{ checked: isEnabled }}
                                 />
                             </View>
                             {/* Summary row when enabled - same as ReminderCardV2 */}

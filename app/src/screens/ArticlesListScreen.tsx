@@ -4,6 +4,7 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, TextInput, ScrollView, Platform } from 'react-native';
 import { collection, getDocs } from 'firebase/firestore';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import { db } from '../config/firebase';
 import { Article, ArticleAntigravity } from '../types';
 import { getLocalizedContent } from '../utils/i18nHelpers';
@@ -23,16 +24,37 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
 
-const CATEGORY_ICONS: Record<string, string> = {
-    nutrition: '🍎',
-    examens: '🩺',
-    sante: '❤️',
-    developpement: '👶',
-    preparation: '🎒',
-    lifestyle: '🌸',
-    administratif: '📄',
-    medical: '⚕️',
+type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
+
+// One vector icon per category in articles_db.json (pinned by a test); a category the
+// bundle does not know yet (a new Firestore one) gets the generic document icon.
+const CATEGORY_ICONS: Record<string, IoniconName> = {
+    nutrition: 'nutrition-outline',
+    examens: 'medkit-outline',
+    sante: 'heart-outline',
+    developpement: 'happy-outline',
+    preparation: 'bag-handle-outline',
+    lifestyle: 'flower-outline',
+    administratif: 'document-text-outline',
+    medical: 'medical-outline',
+    symptomes: 'thermometer-outline',
+    accouchement: 'body-outline',
+    sport: 'barbell-outline',
+    exercice: 'walk-outline',
+    allaitement: 'cafe-outline',
+    autres: 'ellipsis-horizontal-circle-outline',
+    bien_etre: 'leaf-outline',
+    droits: 'shield-checkmark-outline',
+    emotions: 'sad-outline',
+    famille: 'people-outline',
+    mouvements_bebe: 'footsteps-outline',
+    multiples: 'copy-outline',
+    post_partum: 'home-outline',
+    sexualite: 'heart-circle-outline',
+    sommeil: 'moon-outline',
+    travail: 'time-outline',
 };
+const DEFAULT_CATEGORY_ICON: IoniconName = 'document-text-outline';
 
 export const ArticlesListScreen = () => {
     useScreenAnalytics('ArticlesListScreen');
@@ -181,7 +203,7 @@ export const ArticlesListScreen = () => {
     }, [articles, searchQuery, selectedCategory, favoritesActive, bookmarkedIds, i18n.language]);
 
     const getCategoryIcon = (category: string) => {
-        return CATEGORY_ICONS[category] || '📚';
+        return CATEGORY_ICONS[(category || '').toLowerCase()] || DEFAULT_CATEGORY_ICON;
     };
 
     const handleArticlePress = useCallback((articleId: string) => {
@@ -207,7 +229,7 @@ export const ArticlesListScreen = () => {
             >
                 <Card style={styles.card}>
                     <View style={styles.iconContainer}>
-                        <Text style={styles.categoryIcon}>{getCategoryIcon(item.category)}</Text>
+                        <Ionicons name={getCategoryIcon(item.category)} size={32} color={theme.colors.white} />
                     </View>
                     <View style={styles.content}>
                         <View style={styles.headerRow}>
@@ -447,9 +469,6 @@ const styles = StyleSheet.create({
         backgroundColor: theme.colors.secondary,
         alignItems: 'center',
         justifyContent: 'center',
-    },
-    categoryIcon: {
-        fontSize: 32,
     },
     content: {
         flex: 1,

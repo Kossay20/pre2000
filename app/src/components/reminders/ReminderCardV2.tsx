@@ -123,11 +123,8 @@ export const ReminderCardV2: React.FC<ReminderCardV2Props> = ({
                     onValueChange={onToggle}
                     trackColor={{ false: theme.colors.neutral300, true: theme.colors.accent }}
                     {...switchThumbProps(isEnabled ? theme.colors.white : theme.colors.iosGroupedBackground)}
-                    accessibilityRole="switch"
                     accessibilityLabel={getLocalizedContent(reminder.title)}
                     accessibilityHint={t('a11y.toggleReminder')}
-                    accessibilityState={{ checked: isEnabled }}
-                    {...(Platform.OS === 'web' ? { 'aria-checked': isEnabled } : {})}
                 />
             </View>
 

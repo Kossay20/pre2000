@@ -8,6 +8,7 @@ serve is [`docs/GOAL_STORE_RELEASE_MAMABEBE_2026-08-19.md`](../docs/GOAL_STORE_R
 | Path | Committed | What it is |
 |---|---|---|
 | `listing.json` | ✅ | Single source for both listings, 3 locales. Limits enforced by `__tests__/storeListing.test.ts`. |
+| `app-privacy.json`, `data-safety.json` | ✅ | Drafts of the App Store Connect App Privacy and Play Data safety answers, derived from the code. The owner must confirm them in the consoles. `__tests__/releaseConfig.test.ts` checks them against the privacy manifest in `app.json`. |
 | `icons/play-icon-512.png` | ✅ | Play listing icon, 512×512, 32-bit. |
 | `brand/wordmark.png` | ✅ | Trimmed mark + wordmark on transparency, used by the feature graphic. |
 | `feature-graphic/*.png` | ✅ | Play feature graphic, 1024×500, one per locale. **Mandatory** — Play will not publish without it. |

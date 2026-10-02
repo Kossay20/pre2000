@@ -30,6 +30,7 @@ import { useTranslation } from 'react-i18next';
 import { trackPositiveAction } from '../services/inAppReviewService';
 import { getLocalizedContent } from '../utils/i18nHelpers';
 import { isSafeUrl } from '../utils/safeOpenUrl';
+import { stripLeadingTitleHeading } from '../utils/articleHeading';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
 import { isBookmarked, toggleBookmark, subscribeBookmarks } from '../services/bookmarkService';
 
@@ -317,7 +318,7 @@ export const ArticleDetailScreen = () => {
     };
 
     const content = hasContent
-        ? sanitizeContent(rawContent)
+        ? stripLeadingTitleHeading(sanitizeContent(rawContent), title)
         : (summary || t('article.contentComingSoon'));
 
 

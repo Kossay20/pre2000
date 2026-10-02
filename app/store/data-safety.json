@@ -1,0 +1,121 @@
+{
+  "_status": "DRAFT FROM THE CODE. The owner MUST confirm every answer in Play Console > App content > Data safety before submitting. This file is checked against app.json ios.privacyManifests and android permissions by __tests__/releaseConfig.test.ts; it is not read by the stores.",
+  "_sources": [
+    "app.json (android.permissions, blockedPermissions, extra.accountDeletionUrl)",
+    "App.tsx and src/utils/logger.ts (Sentry)",
+    "src/context/AuthContext.tsx, src/context/gdprPurge.ts",
+    "docs/RELEASE_READINESS_2026-08-19.md rows 9-10"
+  ],
+  "collectsOrSharesUserData": true,
+  "encryptedInTransit": true,
+  "userCanRequestDeletion": true,
+  "accountDeletionUrl": "https://www.mama-et-bebe.com/delete-account.html",
+  "inAppDeletion": "Profile > Danger zone > Delete my account (src/context/accountDeletion.ts, gdprPurge.ts)",
+  "advertising": false,
+  "sellsData": false,
+  "dataShared": [],
+  "sharedNote": "Sentry processes crash reports on our behalf as a service provider. Play does not count that as sharing; re-read the Play help text when filling the form.",
+  "dataCollected": [
+    {
+      "playCategory": "Personal info",
+      "playType": "Name",
+      "appleEquivalent": "NSPrivacyCollectedDataTypeName",
+      "optional": false,
+      "purposes": ["App functionality"]
+    },
+    {
+      "playCategory": "Personal info",
+      "playType": "Email address",
+      "appleEquivalent": "NSPrivacyCollectedDataTypeEmailAddress",
+      "optional": true,
+      "purposes": ["App functionality", "Account management"],
+      "note": "Optional: guests use anonymous auth."
+    },
+    {
+      "playCategory": "Personal info",
+      "playType": "User IDs",
+      "appleEquivalent": "NSPrivacyCollectedDataTypeUserID",
+      "optional": false,
+      "purposes": ["App functionality", "Account management"],
+      "note": "Firebase Auth uid, anonymous for guests. A SHA-256 hash is sent to Sentry."
+    },
+    {
+      "playCategory": "Personal info",
+      "playType": "Other info",
+      "appleEquivalent": "NSPrivacyCollectedDataTypeSensitiveInfo",
+      "optional": true,
+      "purposes": ["App functionality"],
+      "note": "Declared conditions (gestational diabetes, hypertension, twin pregnancy) and the consent record."
+    },
+    {
+      "playCategory": "Personal info",
+      "playType": "Other info",
+      "appleEquivalent": "NSPrivacyCollectedDataTypeOtherContactInfo",
+      "optional": true,
+      "purposes": ["App functionality"],
+      "note": "Emergency contacts entered by the user."
+    },
+    {
+      "playCategory": "Health and fitness",
+      "playType": "Health info",
+      "appleEquivalent": "NSPrivacyCollectedDataTypeHealth",
+      "optional": true,
+      "purposes": ["App functionality"],
+      "note": "Weight, blood pressure, glucose, symptoms, kick sessions, contractions, hospital bag."
+    },
+    {
+      "playCategory": "Messages",
+      "playType": "Other in-app messages",
+      "appleEquivalent": "NSPrivacyCollectedDataTypeOtherUserContent",
+      "optional": true,
+      "purposes": ["App functionality"],
+      "note": "Journal notes, appointments, reminders, chatbot history. Owner to decide whether Play's 'Other user-generated content' fits better."
+    },
+    {
+      "playCategory": "Location",
+      "playType": "Approximate location",
+      "appleEquivalent": "NSPrivacyCollectedDataTypeCoarseLocation",
+      "optional": true,
+      "purposes": ["App functionality"],
+      "note": "Country and city typed by the user; no location permission is declared."
+    },
+    {
+      "playCategory": "App info and performance",
+      "playType": "Crash logs",
+      "appleEquivalent": "NSPrivacyCollectedDataTypeCrashData",
+      "optional": false,
+      "purposes": ["App functionality", "Analytics"],
+      "note": "Sentry, production builds with a DSN only."
+    },
+    {
+      "playCategory": "App info and performance",
+      "playType": "Diagnostics",
+      "appleEquivalent": "NSPrivacyCollectedDataTypePerformanceData",
+      "optional": false,
+      "purposes": ["App functionality"],
+      "note": "Sentry traces sampled at 20 percent."
+    },
+    {
+      "playCategory": "App info and performance",
+      "playType": "Diagnostics",
+      "appleEquivalent": "NSPrivacyCollectedDataTypeOtherDiagnosticData",
+      "optional": false,
+      "purposes": ["App functionality"],
+      "note": "Device and OS context on Sentry events."
+    },
+    {
+      "playCategory": "App activity",
+      "playType": "App interactions",
+      "appleEquivalent": "NSPrivacyCollectedDataTypeProductInteraction",
+      "optional": false,
+      "purposes": ["App functionality"],
+      "note": "Taps recorded as Sentry breadcrumbs; no analytics SDK."
+    }
+  ],
+  "ownerChecklist": [
+    "Re-read each row in Play Console against the published privacy policy and the delete-account page, which must answer 200.",
+    "Decide the retention period for anonymous guest data before enabling Anonymous Auth (RELEASE_READINESS row 5 ter).",
+    "Confirm whether Firebase App Check (Play Integrity) needs a 'Device or other IDs' row in your reading of the Play definitions; it is not declared here.",
+    "If EXPO_PUBLIC_SENTRY_DSN is not set on the production EAS environment, the App info and performance rows overstate collection (finding F-036)."
+  ]
+}

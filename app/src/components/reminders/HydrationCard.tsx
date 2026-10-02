@@ -173,6 +173,8 @@ export const HydrationCard = () => {
                                 onPress={() => setShowSettings(false)}
                                 accessibilityRole="button"
                                 accessibilityLabel={t('a11y.closeModal')}
+                                style={{ minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' }}
+                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                             >
                                 <Ionicons name="close" size={24} color={theme.colors.textMuted} />
                             </TouchableOpacity>

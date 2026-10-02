@@ -67,6 +67,7 @@ import {
     generateAllEvents,
     getEventsForWeek,
     loadCalendarTemplates,
+    getBundledCalendarTemplates,
     getWeekDates,
     getUpcomingAppointments,
     calculateWeekFromDate,
@@ -372,10 +373,12 @@ describe('loadCalendarTemplates', () => {
         );
     });
 
-    test('returns [] and logs error when getDocs rejects', async () => {
+    test('returns the bundled templates and logs error when getDocs rejects', async () => {
         mockedGetDocs.mockRejectedValueOnce(new Error('network'));
         const result = await loadCalendarTemplates();
-        expect(result).toEqual([]);
+        // E-052: offline, the week keeps its suggestions from the templates shipped with the app.
+        expect(result.length).toBeGreaterThan(0);
+        expect(result).toEqual(getBundledCalendarTemplates());
         expect(mockLog.error).toHaveBeenCalled();
     });
 });
@@ -476,7 +479,7 @@ describe('loadUserEvents', () => {
         expect(where).toHaveBeenCalledWith('user_id', '==', 'user_123');
     });
 
-    test('returns [] and logs error when getDocs rejects', async () => {
+    test('returns the bundled templates and logs error when getDocs rejects', async () => {
         mockedGetDocs.mockRejectedValueOnce(new Error('boom'));
         const result = await loadUserEvents('user_123');
         expect(result).toEqual([]);
@@ -533,7 +536,7 @@ describe('getUpcomingAppointments', () => {
         expect(result).toHaveLength(2);
     });
 
-    test('returns [] and logs error when getDocs rejects', async () => {
+    test('returns the bundled templates and logs error when getDocs rejects', async () => {
         mockedGetDocs.mockRejectedValueOnce(new Error('fail'));
         expect(await getUpcomingAppointments('user_123')).toEqual([]);
         expect(mockLog.error).toHaveBeenCalled();

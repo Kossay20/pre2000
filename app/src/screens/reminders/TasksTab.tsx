@@ -1,6 +1,7 @@
 import { createLogger } from '../../utils/logger';
 const log = createLogger('TasksTab');
 import React, { useState, useEffect } from 'react';
+import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../theme';
 import { RtlAwareChevron } from '../../components/common/RtlAwareChevron';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList, ActivityIndicator, RefreshControl } from 'react-native';
@@ -231,6 +232,8 @@ export const TasksTab = () => {
                     accessibilityLabel={t('tasks.newTask')}
                     accessibilityHint={t('a11y.addNew')}
                 >
+                    {/* A vector icon: the "➕" emoji painted dark grey on the accent fill. */}
+                    <Ionicons name="add" size={18} color={theme.colors.white} />
                     <Text style={styles.addTaskButtonText}>{t('tasks.newTask')}</Text>
                 </TouchableOpacity>
             </View>
@@ -361,7 +364,10 @@ const styles = StyleSheet.create({
     addTaskButton: {
         backgroundColor: theme.colors.accent,
         minHeight: 44,
+        flexDirection: 'row',
+        alignItems: 'center',
         justifyContent: 'center',
+        gap: 6,
         paddingVertical: 8,
         paddingHorizontal: 16,
         borderRadius: theme.borderRadius.m,

@@ -7,6 +7,7 @@ import { db } from '../config/firebase';
 import { useCurrentWeek } from '../services/useCurrentWeek';
 import { Article, Supplement } from '../types';
 import { getLocalizedContent } from '../utils/i18nHelpers';
+import { getCardExcerpt } from '../utils/cardExcerpt';
 import { normalizeSupplementSafety } from '../utils/supplementSafety';
 import { getLocalArticle, getLocalSupplement } from '../services/localContentFallback';
 import { withoutUnreviewedContent } from '../config/unreviewedContent';
@@ -170,7 +171,7 @@ export const WeekRecommendationsScreen = () => {
                                 <View style={styles.content}>
                                     <Text style={[theme.typography.h3, styles.title] as any}>{getLocalizedContent(article, 'title', i18n.language)}</Text>
                                     <Text numberOfLines={2} style={[theme.typography.body, styles.summary]}>
-                                        {getLocalizedContent(article, 'summary', i18n.language, { stripMarkdown: true }) || t('common.seeMore')}
+                                        {getCardExcerpt(article, 'summary', i18n.language) || t('common.seeMore')}
                                     </Text>
                                 </View>
                             </Card>

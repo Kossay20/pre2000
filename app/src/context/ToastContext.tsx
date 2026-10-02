@@ -6,6 +6,8 @@ import { toastFixedPosition } from '../utils/toastLayout';
 import { isRtlLang } from '../hooks/useRtl';
 import { usePrefersReducedMotion, getReducedMotionSync } from '../hooks/usePrefersReducedMotion';
 import { createToastNavigationGate } from '../utils/toastNavigationGate';
+import NetInfo from '@react-native-community/netinfo';
+import { createReconnectDetector } from '../hooks/useRefetchOnReconnect.helpers';
 
 type ToastType = 'success' | 'error' | 'info';
 
@@ -15,6 +17,12 @@ interface ToastOptions {
      * app navigates on its own, about the screen she lands on (see toastNavigationGate.ts).
      */
     persistent?: boolean;
+    /**
+     * Said (as a success) instead of this toast if the connection comes back while it is
+     * still up. For "saved offline": once the queued write goes through, the toast must not
+     * keep claiming it is waiting.
+     */
+    replaceOnReconnect?: string;
 }
 
 interface ToastContextType {
@@ -45,6 +53,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const translateY = useRef(new Animated.Value(20)).current;
     const timerRef = useRef<NodeJS.Timeout | null>(null);
     const gate = useRef(createToastNavigationGate()).current;
+    const reconnectMessageRef = useRef<string | null>(null);
 
     // Cleanup timer on unmount
     useEffect(() => {
@@ -57,6 +66,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (timerRef.current) clearTimeout(timerRef.current);
 
         gate.shown(!!options?.persistent);
+        reconnectMessageRef.current = options?.replaceOnReconnect ?? null;
         setMessage(msg);
         setType(t);
         setVisible(true);
@@ -90,6 +100,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     const hideToast = () => {
         gate.hidden();
+        reconnectMessageRef.current = null;
         if (getReducedMotionSync()) {
             fadeAnim.setValue(0);
             translateY.setValue(20);
@@ -111,6 +122,18 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             setVisible(false);
         });
     };
+
+    // While a toast that promised a later sync is up, watch for the connection returning.
+    useEffect(() => {
+        if (!visible) return;
+        const detector = createReconnectDetector();
+        return NetInfo.addEventListener((state) => {
+            const replacement = reconnectMessageRef.current;
+            if (detector.observe(state.isInternetReachable) && replacement) {
+                showToast(replacement, 'success', { persistent: true });
+            }
+        });
+    }, [visible]);
 
     const getBackgroundColor = () => {
         switch (type) {

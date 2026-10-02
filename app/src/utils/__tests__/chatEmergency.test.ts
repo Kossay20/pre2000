@@ -8,7 +8,7 @@
  */
 import * as fs from 'fs';
 import * as path from 'path';
-import { shouldPinEmergencyCall, ChatMessageLike } from '../chatEmergency';
+import { shouldPinEmergencyCall, chatScrollTarget, ChatMessageLike } from '../chatEmergency';
 
 const welcome: ChatMessageLike = { sender: 'bot' };
 const user: ChatMessageLike = { sender: 'user' };
@@ -44,6 +44,32 @@ describe('shouldPinEmergencyCall', () => {
     });
 });
 
+describe('chatScrollTarget', () => {
+    const long = { lastHeight: 500, listHeight: 600 };
+    const short = { lastHeight: 120, listHeight: 600 };
+
+    it('anchors on her question when the reply is taller than most of the list', () => {
+        expect(chatScrollTarget([welcome, user, answer], long.lastHeight, long.listHeight)).toEqual({ index: 1 });
+    });
+
+    it('rests on the end when the reply fits next to the question', () => {
+        expect(chatScrollTarget([welcome, user, answer], short.lastHeight, short.listHeight)).toBe('end');
+    });
+
+    it('keeps the end for an emergency, any red flag and an error, however long', () => {
+        expect(chatScrollTarget([welcome, user, emergency], long.lastHeight, long.listHeight)).toBe('end');
+        expect(chatScrollTarget([welcome, user, urgentConsult], long.lastHeight, long.listHeight)).toBe('end');
+        expect(chatScrollTarget([welcome, user, networkError], long.lastHeight, long.listHeight)).toBe('end');
+    });
+
+    it('keeps the end for her own message, the welcome message and unmeasured rows', () => {
+        expect(chatScrollTarget([welcome, user], long.lastHeight, long.listHeight)).toBe('end');
+        expect(chatScrollTarget([welcome], long.lastHeight, long.listHeight)).toBe('end');
+        expect(chatScrollTarget([welcome, user, answer], 0, long.listHeight)).toBe('end');
+        expect(chatScrollTarget([welcome, user, answer], long.lastHeight, 0)).toBe('end');
+    });
+});
+
 describe('ChatbotScreen wiring', () => {
     const src = fs.readFileSync(path.resolve(__dirname, '../../screens/ChatbotScreen.tsx'), 'utf8');
 
@@ -53,11 +79,18 @@ describe('ChatbotScreen wiring', () => {
         expect(src).toMatch(/t\('common\.chatSeeForbiddenFoods'\)/);
     });
 
-    it('scrolls to the end after layout: content size, list resize and the last message', () => {
-        expect(src).toMatch(/requestAnimationFrame\(\(\) => flatListRef\.current\?\.scrollToEnd\(\{ animated: true \}\)\)/);
-        expect(src).toMatch(/onContentSizeChange=\{scrollToEnd\}\s*onLayout=\{scrollToEnd\}/);
+    it('re-settles the scroll after layout: content size, list resize and the last message', () => {
+        expect(src).toMatch(/flatListRef\.current\?\.scrollToEnd\(\{ animated: true \}\)/);
+        expect(src).toMatch(/onContentSizeChange=\{scrollToEnd\}/);
+        expect(src).toMatch(/listHeightRef\.current = e\.nativeEvent\.layout\.height;\s*scrollToEnd\(\);/);
         expect(src).toMatch(/const isLast = index === messages\.length - 1;/);
-        expect(src).toMatch(/onLayout=\{isLast \? scrollToEnd : undefined\}/);
+        expect(src).toMatch(/onLayout=\{isLast \? \(e\) => \{[\s\S]*?scrollToEnd\(\);/);
+    });
+
+    it('anchors a long bot answer on her question instead of the end of the reply', () => {
+        expect(src).toMatch(/chatScrollTarget\(all, lastHeight, listHeightRef\.current\)/);
+        expect(src).toMatch(/scrollToIndex\(\{ index: target\.index, viewPosition: 0, animated: true \}\)/);
+        expect(src).toMatch(/onScrollToIndexFailed=\{onScrollToIndexFailed\}/);
     });
 
     it('pins the call action above the chips and the input while on an emergency', () => {

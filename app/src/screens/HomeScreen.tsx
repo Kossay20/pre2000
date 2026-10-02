@@ -436,7 +436,7 @@ export const HomeScreen = () => {
                         <View style={styles.recHeader}>
                             <Text style={styles.recEmoji}>{isArticle ? '📰' : '💊'}</Text>
                         </View>
-                        <Text style={styles.recTitle} numberOfLines={2}>{title}</Text>
+                        <Text style={styles.recTitle} numberOfLines={3}>{title}</Text>
                         <View style={styles.recBadge}>
                             <Text style={styles.recBadgeText}>{subtitle}</Text>
                         </View>
@@ -595,7 +595,7 @@ export const HomeScreen = () => {
                             <Text style={styles.weekSubtitle}>
                                 {isPastDueToday
                                     ? t('home.postTermTitle')
-                                    : cleanTitle.replace(/^(Semaine|Week|الأسبوع)\s*\d+\s*[-–]\s*/i, '').trim()} {growth.emoji}
+                                    : cleanTitle.replace(/^(Semaine|Week|الأسبوع)\s*\d+\s*[-–]\s*/i, '').trim()}
                             </Text>
                         )}
 
@@ -664,7 +664,9 @@ export const HomeScreen = () => {
                         </View>
 
                         {/* GROUP 2.5: UNIFIED DAILY TRACKER (RDV + Tasks) */}
-                        <View style={{ marginTop: 12 }}>
+                        {/* stretch: centerContent centres its children, so the wrapper shrank to the
+                            pill's text (a 140pt box); the tracker sizes itself to 100% of this. */}
+                        <View style={{ marginTop: 12, alignSelf: 'stretch' }}>
                             <DailyRoutinesTracker appointments={appointments} />
                         </View>
 

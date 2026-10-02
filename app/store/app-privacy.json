@@ -1,0 +1,118 @@
+{
+  "_status": "DRAFT FROM THE CODE. The owner MUST confirm every answer in App Store Connect > App Privacy before submitting. This file is checked against app.json ios.privacyManifests by __tests__/releaseConfig.test.ts; it is not read by the stores.",
+  "_sources": [
+    "app.json ios.privacyManifests",
+    "App.tsx (Sentry.init, tracesSampleRate 0.2, Sentry.wrap)",
+    "src/utils/logger.ts (Sentry.setUser with SHA-256 of the uid, 16 hex chars)",
+    "src/context/AuthContext.tsx (email/password sign-up, anonymous sign-in for guests)",
+    "src/types/index.ts UserProfile (name, email, country/city, medical flags, emergency contacts, consent record)",
+    "src/context/gdprPurge.ts (health trackers synced to Firestore under the uid)"
+  ],
+  "tracking": false,
+  "trackingDomains": [],
+  "advertising": false,
+  "thirdPartyAdvertising": false,
+  "dataTypes": [
+    {
+      "manifestType": "NSPrivacyCollectedDataTypeName",
+      "appStoreConnectCategory": "Contact Info > Name",
+      "linkedToUser": true,
+      "usedForTracking": false,
+      "purposes": ["App Functionality"],
+      "what": "First name (and optional last name) entered at onboarding, stored in Firestore under the account uid."
+    },
+    {
+      "manifestType": "NSPrivacyCollectedDataTypeEmailAddress",
+      "appStoreConnectCategory": "Contact Info > Email Address",
+      "linkedToUser": true,
+      "usedForTracking": false,
+      "purposes": ["App Functionality"],
+      "what": "Sign-in e-mail (Firebase Auth) for registered accounts. Guests use anonymous auth and give none."
+    },
+    {
+      "manifestType": "NSPrivacyCollectedDataTypeHealth",
+      "appStoreConnectCategory": "Health & Fitness > Health",
+      "linkedToUser": true,
+      "usedForTracking": false,
+      "purposes": ["App Functionality"],
+      "what": "Weight, blood pressure, glucose, symptoms, kick sessions, contractions, hospital bag, pregnancy dates, declared medical flags."
+    },
+    {
+      "manifestType": "NSPrivacyCollectedDataTypeSensitiveInfo",
+      "appStoreConnectCategory": "Sensitive Info",
+      "linkedToUser": true,
+      "usedForTracking": false,
+      "purposes": ["App Functionality"],
+      "what": "Declared conditions (gestational diabetes, hypertension, twin pregnancy) and the health-data consent record."
+    },
+    {
+      "manifestType": "NSPrivacyCollectedDataTypeOtherUserContent",
+      "appStoreConnectCategory": "User Content > Other User Content",
+      "linkedToUser": true,
+      "usedForTracking": false,
+      "purposes": ["App Functionality"],
+      "what": "Appointments, reminders, journal notes and chatbot history stored under the account."
+    },
+    {
+      "manifestType": "NSPrivacyCollectedDataTypeCoarseLocation",
+      "appStoreConnectCategory": "Location > Coarse Location",
+      "linkedToUser": false,
+      "usedForTracking": false,
+      "purposes": ["App Functionality"],
+      "what": "Country and city typed in by the user (no location permission is requested). Declared as not linked, as in the manifest."
+    },
+    {
+      "manifestType": "NSPrivacyCollectedDataTypeOtherContactInfo",
+      "appStoreConnectCategory": "Contact Info > Other User Contact Info",
+      "linkedToUser": true,
+      "usedForTracking": false,
+      "purposes": ["App Functionality"],
+      "what": "Emergency contacts (name and phone number) typed in by the user, stored on the profile."
+    },
+    {
+      "manifestType": "NSPrivacyCollectedDataTypeUserID",
+      "appStoreConnectCategory": "Identifiers > User ID",
+      "linkedToUser": true,
+      "usedForTracking": false,
+      "purposes": ["App Functionality"],
+      "what": "Firebase Auth uid (registered or anonymous) keying every Firestore document; a SHA-256 hash of it is attached to Sentry events."
+    },
+    {
+      "manifestType": "NSPrivacyCollectedDataTypeCrashData",
+      "appStoreConnectCategory": "Diagnostics > Crash Data",
+      "linkedToUser": true,
+      "usedForTracking": false,
+      "purposes": ["App Functionality"],
+      "what": "Sentry crash and error reports, linked to the hashed uid. Only in production builds and only when EXPO_PUBLIC_SENTRY_DSN is set."
+    },
+    {
+      "manifestType": "NSPrivacyCollectedDataTypePerformanceData",
+      "appStoreConnectCategory": "Diagnostics > Performance Data",
+      "linkedToUser": true,
+      "usedForTracking": false,
+      "purposes": ["App Functionality"],
+      "what": "Sentry transactions, sampled at 20 percent (tracesSampleRate 0.2)."
+    },
+    {
+      "manifestType": "NSPrivacyCollectedDataTypeOtherDiagnosticData",
+      "appStoreConnectCategory": "Diagnostics > Other Diagnostic Data",
+      "linkedToUser": true,
+      "usedForTracking": false,
+      "purposes": ["App Functionality"],
+      "what": "Device and OS context attached to every Sentry event."
+    },
+    {
+      "manifestType": "NSPrivacyCollectedDataTypeProductInteraction",
+      "appStoreConnectCategory": "Usage Data > Product Interaction",
+      "linkedToUser": true,
+      "usedForTracking": false,
+      "purposes": ["App Functionality"],
+      "what": "Sentry.wrap adds a touch boundary, so taps become breadcrumbs on error events. No product analytics SDK is active (firebase analytics is a no-op, src/config/firebase.ts)."
+    }
+  ],
+  "ownerChecklist": [
+    "Re-read each answer in App Store Connect against the published privacy policy (website/privacy.html).",
+    "Confirm whether Firebase App Check attestation tokens need a Device ID line in your reading of Apple's definitions; the manifest does not declare one.",
+    "If EXPO_PUBLIC_SENTRY_DSN is not set on the production EAS environment, crash reporting is off and the Diagnostics rows overstate collection (finding F-036)."
+  ]
+}

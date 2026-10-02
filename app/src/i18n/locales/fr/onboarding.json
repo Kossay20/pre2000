@@ -38,7 +38,7 @@
   "step3": {
     "title": "Petit détail pour vous accompagner",
     "firstNameLabel": "Votre prénom (optionnel)",
-    "firstNamePlaceholder": "Pour personnaliser vos messages",
+    "firstNamePlaceholder": "Pour personnaliser",
     "ageLabel": "Votre tranche d'âge",
     "countryLabel": "Votre pays",
     "firstPregnancyLabel": "Est-ce votre première grossesse ?",

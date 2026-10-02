@@ -159,6 +159,7 @@ export const ForbiddenFoodsScreen = () => {
 
             {/* Search Bar */}
             <View style={styles.searchContainer}>
+                <Text style={styles.searchIcon} importantForAccessibility="no" accessibilityElementsHidden>🔍</Text>
                 <TextInput
                     style={styles.searchInput}
                     placeholder={t('common.searchFoodPlaceholder')}
@@ -297,7 +298,7 @@ export const ForbiddenFoodsScreen = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: theme.colors.surface,
+        backgroundColor: theme.colors.background,
     },
     content: {
         padding: 16,
@@ -350,16 +351,26 @@ const styles = StyleSheet.create({
         color: theme.colors.textSecondary,
         marginTop: 4,
     },
+    // Same search row as the Articles list: magnifier + field in one rounded bar.
     searchContainer: {
         marginBottom: 16,
-    },
-    searchInput: {
+        flexDirection: 'row',
+        alignItems: 'center',
         backgroundColor: theme.colors.white,
         borderRadius: 12,
-        padding: 14,
-        fontSize: 16,
+        paddingHorizontal: 12,
         borderWidth: 1,
         borderColor: theme.colors.disabled,
+    },
+    searchIcon: {
+        fontSize: 16,
+        marginEnd: 8,
+    },
+    searchInput: {
+        flex: 1,
+        fontSize: 16,
+        paddingVertical: 14,
+        color: theme.colors.neutral900,
     },
     categoriesScroll: {
         marginBottom: 12,
@@ -476,7 +487,7 @@ const styles = StyleSheet.create({
         color: theme.colors.green800,
         lineHeight: 20,
     },
-    safeArea: { flex: 1, backgroundColor: theme.colors.neutral100 },
+    safeArea: { flex: 1, backgroundColor: theme.colors.background },
     emptyState: {
         alignItems: 'center',
         paddingVertical: 48,

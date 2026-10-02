@@ -1,3 +1,4 @@
+import { chartLabelProps } from '../../utils/chartLabelProps';
 import React from 'react';
 import { View, Text } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
@@ -86,7 +87,8 @@ export const WeightMiniChart: React.FC<WeightMiniChartProps> = ({
                         r: "4",
                         strokeWidth: "2",
                         stroke: theme.colors.accent
-                    }
+                    },
+                    propsForLabels: chartLabelProps,
                 }}
                 bezier
                 style={{

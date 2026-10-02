@@ -19,6 +19,7 @@ import { displayedPregnancyAge, MAX_GESTATION_DAYS } from '../utils/pregnancyCal
 import { cancelRDVReminders } from './rdvNotificationService';
 import { CalendarTemplate } from '../types';
 import { rawTemplateImportance } from '../utils/calendarTemplateTags';
+import bundledTemplates from '../data/calendar_templates_fallback.json';
 
 // Create scoped logger for this service
 const log = createLogger('CalendarService');
@@ -177,7 +178,17 @@ export const getEventsForWeek = (
 };
 
 /**
- * Load all calendar templates from Firestore
+ * The week templates shipped with the app (same content as the seeded `calendarTemplates`
+ * collection). Offline, Firestore rejects or times out and the suggestions row used to
+ * vanish ("Suggestions" with no count) even though the same week showed six online.
+ */
+export const getBundledCalendarTemplates = (): CalendarTemplate[] =>
+    bundledTemplates as unknown as CalendarTemplate[];
+
+/**
+ * Load all calendar templates from Firestore; when the read fails (offline, timeout) the
+ * bundled templates are returned so the week keeps its suggestions. The caller refetches
+ * when connectivity returns to swap in the live copy.
  * @returns Promise resolving to array of CalendarTemplate
  */
 export const loadCalendarTemplates = async (): Promise<CalendarTemplate[]> => {
@@ -194,8 +205,8 @@ export const loadCalendarTemplates = async (): Promise<CalendarTemplate[]> => {
         }
         return templates;
     } catch (error) {
-        log.error('Error loading calendar templates:', error);
-        return [];
+        log.error('Error loading calendar templates, using the bundled templates:', error);
+        return getBundledCalendarTemplates();
     }
 };
 
