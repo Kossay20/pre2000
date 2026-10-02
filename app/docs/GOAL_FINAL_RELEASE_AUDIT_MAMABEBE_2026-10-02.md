@@ -46,7 +46,11 @@ Règles d'exploitation (apprises sur les rounds précédents) :
 | 2 | A–F | oui | oui |
 | 3 | A–E | oui (A–E) | commit `366a959` |
 | 4 | A–E | **A seulement** (49 Ko, 40 constats ; B–E : captures sans fichier de constats) | polish A et lot E, commit `d01e275` |
-| 5 | A–E sur le bundle de `d01e275` | à lancer | — |
+| 5 | A–E sur le bundle de `d01e275` | oui (A–E) | `cad4878`, `e1418b0` |
+| 6 | A–E sur `cad4878` | oui (A–E) | `c4ace82` |
+| 7 | A–E sur `c4ace82`+ | oui (A–F) : GREEN | `f4188d6`, `3bfd0b3` |
+| 8 | A–E sur `3bfd0b3` | oui (A–F) : GREEN | aucun |
+| 9 | A–E sur `3bfd0b3` (bundle reconstruit) | oui (A–F) : GREEN, ensemble identique à r8 | aucun |
 
 Constats P0/P1 de la vague A au round 4, à recroiser avec les captures du round 5 : P0 `A-001` (silent_error), `A-025` (numeric_integrity) ; P1 `A-002` (overlap), `A-003` (aria), `A-004` (i18n_leak), `A-006` (console_error), `A-008` (silent_error), `A-009`, `A-010` (numeric_integrity). Les correctifs `A-034`→`A-040` sont dans `d01e275` mais **pas encore revérifiés dans un navigateur**.
 
@@ -102,3 +106,4 @@ Tant que ce n'est pas signé, aucun texte public ne dit que le contenu est relu.
 | 2026-10-02 | Bundle reconstruit depuis `cad4878` ; round 6 : 6 specs lancées en parallèle, quartets dans `round-6/`. Les images mois 1–2 sont abstraites (honnêtes) ; vrais visuels toujours dus (G8). |
 | 2026-10-02 | Round 6 (bundle `cad4878`) : A AMBER (A-012 : hero Home resté à ~20 % d'opacité), B GREEN (B-032 : écran Rappels décalé de 98 px = vrai bug du pager web, reproduit à la main), C AMBER (spec périmée sur `redFlagHigh` ; tn « ما عنديش نزيف » recommandait un article), D AMBER (D-036 fromage, corrigé `e1418b0` hors bundle), E AMBER (E-048 spec statistiques ; 280 pt avatar/date ; a11y : puces 7/30 j sans rôle, contraste des badges verrouillés, interrupteurs 40×20). |
 | 2026-10-02 | Correctifs round 6 : `overflow: clip` sur la vue d'onglets Rappels (web) ; garde de 1,5 s sur l'entrée animée de Home ; salutation sous l'avatar < 340 pt ; date du RDV `flex 3/2` ; puces Statistiques en `tab` ; badges verrouillés sans opacité globale ; interrupteurs web 52×26 ; négation tunisienne « ما عنديش » ; specs C/E alignées. `verify` 147 suites / 3390 tests verts. |
+| 2026-10-02 | Rounds 7, 8, 9 : A–E GREEN (0 P0 / 0 P1) ; F sans P0/P1 non-propriétaire. Ensembles de constats ouverts identiques entre r8 et r9 (comparaison scriptée). `CONVERGENCE_FINAL.md` écrit. Restent : gates propriétaire G1–G9, smoke-test sur appareil, signatures cliniques. |
