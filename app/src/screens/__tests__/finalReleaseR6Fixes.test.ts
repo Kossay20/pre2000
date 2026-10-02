@@ -45,3 +45,11 @@ describe('E-008 / E-019 — 280 pt layouts', () => {
     expect(src).toMatch(/\{ flex: 2 \}[\s\S]*timeLabel/);
   });
 });
+
+describe('C-041 — one inline call button across the conversation', () => {
+  it('only the newest alert bubble draws the call button', () => {
+    const src = read('src/screens/ChatbotScreen.tsx');
+    expect(src).toMatch(/const latestAlertId = /);
+    expect(src).toMatch(/emergencyNumber && !pinCall && item\.id === latestAlertId/);
+  });
+});

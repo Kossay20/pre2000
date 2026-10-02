@@ -72,6 +72,13 @@ export const ChatbotScreen = () => {
         );
     };
     const pinCall = !!emergencyNumber && shouldPinEmergencyCall(messages);
+    // Only the newest alert carries an inline call button. An older alert still on screen kept
+    // its own, so a long conversation showed two identical "call" buttons at once (read out
+    // twice, and a stale one to tap). The older one keeps its instruction as text.
+    const latestAlertId = [...messages].reverse().find(m => {
+        const sev = m.data?.redFlag?.severity;
+        return m.sender === 'bot' && m.data?.type === 'red_flag' && (sev === 'emergency' || sev === 'urgent_consult');
+    })?.id;
 
     const handleSend = async (text: string = inputText, isRetry = false) => {
         let messageText = text.trim();
@@ -200,7 +207,7 @@ export const ChatbotScreen = () => {
                         */}
                         {/* While the call action is pinned above the input, the bubble does not
                             repeat it: two identical buttons on screen were read out twice. */}
-                        {emergencyNumber && !pinCall ? (
+                        {emergencyNumber && !pinCall && item.id === latestAlertId ? (
                             <TouchableOpacity
                                 style={styles.callButton}
                                 onPress={callEmergency}

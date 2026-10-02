@@ -83,7 +83,7 @@ describe('ChatbotScreen wiring', () => {
         // Wave C: after a red flag the in-message button and the pinned bar were both on screen
         // with the same label, so a screen reader announced the same button twice.
         const bubble = src.slice(src.indexOf('styles.alertContainerCritical'), src.indexOf('chat_pinned_emergency_call'));
-        const gate = bubble.indexOf('{emergencyNumber && !pinCall ? (');
+        const gate = bubble.indexOf('{emergencyNumber && !pinCall && item.id === latestAlertId ? (');
         expect(gate).toBeGreaterThan(-1);
         expect(gate).toBeLessThan(bubble.indexOf('onPress={callEmergency}'));
         expect(src).toMatch(/\{pinCall && \(\s*<View style=\{styles\.pinnedCallBar\}/);

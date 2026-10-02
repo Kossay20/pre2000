@@ -902,7 +902,11 @@ async function contrastProbe(page: Page): Promise<{ samples: ContrastSample[]; t
           if (g) c = over(g, c);
         }
         const inner = i === chain.length - 1 ? (withText ? over(fg, c) : c) : f(i + 1, c, withText, pt);
-        const op = placeholder && i === chain.length - 1 ? 1 : parseFloat(cs.opacity || '1');
+        // A toast (role=status / alert) slides and fades in and out for ~300 ms at each end; the
+        // probe runs after the screenshot and can land in that window, scoring half-faded white
+        // on half-faded blue (2.65:1) for a toast that is #1565C0 at rest. It is scored at rest.
+        const restingOverlay = !!n.closest('[role="status"],[role="alert"]');
+        const op = (placeholder && i === chain.length - 1) || restingOverlay ? 1 : parseFloat(cs.opacity || '1');
         return lerp(B, inner, isNaN(op) ? 1 : op);
       };
       let bgPix: C = white;
