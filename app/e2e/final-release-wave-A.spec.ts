@@ -38,7 +38,6 @@ import {
   waveUse,
   type AppLocale,
 } from './helpers/emulator-account';
-import { lmpIsoForWeek } from './helpers/guest-profile';
 import { tickHealthConsent } from './helpers/health-consent';
 
 // A-021a: the file-level test.setTimeout(300_000) did not apply in round 1 (test 1 hit
@@ -441,13 +440,18 @@ async function localProfile(page: Page): Promise<any> {
 }
 
 const ymd = (iso: string) => iso.slice(0, 10);
-const lmpWeek = (w: number) => ymd(lmpIsoForWeek(w));
+// The app counts days on the browser's calendar (Europe/Paris here). Between 00:00 and 02:00 Paris
+// the UTC date is still yesterday, so "today" must come from Paris, not from toISOString().
+const parisToday = () => {
+  const [y, m, d] = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date()).split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d));
+};
 const lmpDaysAgo = (days: number) => {
-  const now = new Date();
-  const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const d = parisToday();
   d.setUTCDate(d.getUTCDate() - days);
   return ymd(d.toISOString());
 };
+const lmpWeek = (w: number) => lmpDaysAgo((w - 1) * 7);
 /** A-010: 43+0 SA — beyond 42+0, the one range onboarding must refuse. */
 const lmp43wAgo = () => lmpDaysAgo(43 * 7);
 /** Today's day button in the Calendar week strip (WeeklyStrip: format(date, 'EEEE dd MMMM', fr)), Paris time like waveUse. */
