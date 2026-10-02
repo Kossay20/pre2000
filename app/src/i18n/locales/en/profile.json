@@ -41,7 +41,7 @@
   "logoutConfirmTitle": "Log Out",
   "logoutConfirmMsg": "Are you sure you want to log out?",
   "logoutUnsyncedTitle": "Data not saved online yet",
-  "logoutUnsyncedMsg": "Entries not yet saved online: {{n}} (baby kicks, contractions or hospital bag). They will be lost if you log out now. To keep them, get back online before logging out.",
+  "logoutUnsyncedMsg": "Entries not yet saved online: {{n}} (baby kicks, contractions or hospital bag). They may be lost if you log out now. To keep them, get back online before logging out.",
   "logoutAnyway": "Log out anyway",
   "resetConfirmTitle": "Reset Profile",
   "resetConfirmMsg": "All your data will be erased from our servers and this phone: pregnancy profile, appointments, tasks, measurements, symptoms, reminders and emergency contacts. You will then be signed out.\n\nYour account is kept: you can sign in again with the same email address and start over. To delete the account as well, use “{{deleteLabel}}”.\n\nTo keep a copy, export your data first: {{settings}} → “{{exportLabel}}”.",

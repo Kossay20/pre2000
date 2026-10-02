@@ -867,7 +867,7 @@ for (const C of CFG) {
       expect.soft(homeLines.filter((l) => RAW_MARKDOWN.test(l)), '00 C-028: no raw markdown in Home excerpts').toEqual([]);
       await w.state('00-home');
       // C-043: the "Baby this week" card sits below the hero fold and was DOM-only in every capture.
-      const babyCard = page.getByText(tr(L, 'home.babyThisWeek')).first();
+      const babyCard = page.getByText(tr(L, 'common.heroTitle')).first(); // the Home card heading is common.heroTitle in every locale
       await expect.soft(babyCard, '00b C-043: Home has the "Baby this week" card').toHaveCount(1);
       if (await babyCard.count()) {
         await babyCard.scrollIntoViewIfNeeded();

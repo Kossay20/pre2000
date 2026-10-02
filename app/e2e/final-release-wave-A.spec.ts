@@ -1782,7 +1782,7 @@ test.describe('Wave A — tn', () => {
     await langContinue(page, COPY.ar).dispatchEvent('click');
     await expect(page.getByTestId('auth_guest_button')).toBeVisible({ timeout: 20_000 });
     await page.getByTestId('auth_guest_button').click();
-    await expect(page.getByTestId('auth_guest_button'), '37: the guest button leads away from AuthChoice').toHaveCount(0, { timeout: 20_000 });
+    await expect(page.getByTestId('auth_guest_button'), '37: the guest button leads away from AuthChoice').toBeHidden({ timeout: 20_000 }); // a blurred stack screen stays mounted on RN-web: hidden, not detached
     await expect(page.getByRole('tablist'), '37: onboarding, not Home').toHaveCount(0);
     await page.waitForTimeout(800);
     expect.soft(await htmlDirLang(page), '37: onboarding keeps lang=ar-TN').toEqual({ dir: 'rtl', lang: 'ar-TN' });

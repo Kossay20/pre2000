@@ -62,7 +62,7 @@ const VITAMINS = 'Vitamines prénatales';
 function canonicalDpa(lmpIso: string): string {
   const d = new Date(lmpIso);
   const utc = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 280));
-  return new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(utc);
+  return new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(utc);
 }
 
 /** Profile → the line under "Date Prévue d'Accouchement (DPA)". */
@@ -122,7 +122,7 @@ async function openAppointmentFormFromFab(page: Page) {
 
 function form(page: Page) {
   return {
-    title: vis(page.getByPlaceholder('Ex: Échographie, Consultation...')),
+    title: vis(page.getByPlaceholder(/Échographie/)),
     date: vis(page.getByPlaceholder('YYYY-MM-DD')),
     time: vis(page.getByPlaceholder('HH:MM')),
     location: vis(page.getByRole('textbox', { name: 'Lieu (optionnel)' })),
@@ -494,7 +494,7 @@ test.describe('Wave B — B-plan (Europe/Paris)', () => {
         });
         expect.soft(await page.locator('input[role="switch"]').filter({ visible: true }).count(), '05: 3 reminder switches').toBe(3);
         for (const [name, on] of [['La veille (8h)', 'true'], ['Le jour J (8h)', 'true'], ['2h avant', 'false']] as const) {
-          await expect.soft(vis(page.getByRole('switch', { name, exact: true })), `05: switch ${name}`).toHaveAttribute('aria-checked', on);
+          await expect.soft(vis(page.getByRole('switch', { name, exact: true })), `05: switch ${name}`).toBeChecked({ checked: on === 'true' });
         }
       });
 
@@ -707,7 +707,7 @@ test.describe('Wave B — B-plan (Europe/Paris)', () => {
         const text = await bodyText(page);
         const isEdit = text.includes('Modifier le RDV');
         const isCreate = text.includes('Nouveau Rendez-vous');
-        const titleValue = await page.getByPlaceholder('Ex: Échographie, Consultation...').filter({ visible: true }).first().inputValue().catch(() => null);
+        const titleValue = await page.getByPlaceholder(/Échographie/).filter({ visible: true }).first().inputValue().catch(() => null);
         const intact = isEdit && titleValue === APPT;
         obs.add('HYP-B5', intact ? 'REFUTED' : 'CONFIRMED', '11-appt-edit-reload', {
           urlBefore,
@@ -806,15 +806,15 @@ test.describe('Wave B — B-plan (Europe/Paris)', () => {
       await state(h, '16-reminder-toggle', async () => {
         const sw = vis(page.getByRole('switch', { name: VITAMINS, exact: true }));
         await expect(sw, '16: vitamins switch').toBeVisible({ timeout: 15_000 });
-        const before = await sw.getAttribute('aria-checked');
+        const before = String(await sw.isChecked());
         await sw.click();
-        await expect.soft(sw, '16: switch now off').toHaveAttribute('aria-checked', 'false', { timeout: 5000 });
+        await expect.soft(sw, '16: switch now off').not.toBeChecked({ timeout: 5000 });
         const doc = await poll(
           () => serverDoc(`reminder_settings_v2/${acct.uid}_rem_med_prenatal_vitamins`),
           (d) => d?.enabled === false,
         );
         expect.soft(doc?.enabled, '16: server reminder_settings_v2 enabled=false').toBe(false);
-        obs.add('HYP-B7', doc?.enabled === false ? 'REFUTED' : 'CONFIRMED', '16-reminder-toggle', { ariaBefore: before, ariaAfter: await sw.getAttribute('aria-checked'), server: doc });
+        obs.add('HYP-B7', doc?.enabled === false ? 'REFUTED' : 'CONFIRMED', '16-reminder-toggle', { ariaBefore: before, ariaAfter: String(await sw.isChecked()), server: doc });
         await sw.scrollIntoViewIfNeeded();
       });
 
@@ -822,7 +822,7 @@ test.describe('Wave B — B-plan (Europe/Paris)', () => {
       let tasksBefore: TasksMyDay | null = null;
       await state(h, '17-task-create', async () => {
         await remindersTopTab(page, 'Tâches');
-        await vis(page.getByRole('button', { name: '➕ Nouvelle tâche', exact: true })).click();
+        await vis(page.getByRole('button', { name: 'Nouvelle tâche', exact: true })).click();
         const input = vis(page.getByPlaceholder('Ex: Acheter des vitamines'));
         await expect(input, '17: task modal').toBeVisible({ timeout: 10_000 });
         await input.fill('Vi');
@@ -963,7 +963,7 @@ test.describe('Wave B — B-plan (Europe/Paris)', () => {
         await remindersTopTab(fresh, 'Rappels');
         const sw = vis(fresh.getByRole('switch', { name: VITAMINS, exact: true }));
         await expect(sw, '21c: vitamins switch (fresh)').toBeVisible({ timeout: 30_000 });
-        found.vitaminsAria = await sw.getAttribute('aria-checked');
+        found.vitaminsAria = String(await sw.isChecked());
         expect.soft(found.vitaminsAria, '21c: reminder toggle off survives (server)').toBe('false');
         await sw.scrollIntoViewIfNeeded();
       });

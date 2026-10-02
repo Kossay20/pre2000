@@ -252,9 +252,9 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'center',
         paddingVertical: 4,
-        // Nine 44pt boxes are 396pt: on a 390pt phone the row overflows by 3pt a side,
-        // clipped here rather than scrolling the page.
-        overflow: 'hidden',
+        // Nine 44pt boxes are 396pt: on a phone narrower than that the last dots wrap onto a
+        // second row rather than leaving the viewport.
+        flexWrap: 'wrap',
     },
     // The dot stays 10pt; its pressable box is 44 x 44pt (hitSlop alone is ignored on web).
     progressDotTouch: {

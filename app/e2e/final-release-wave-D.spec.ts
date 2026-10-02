@@ -649,7 +649,7 @@ test('D-profile: load, save, empty last name, unsaved-edit wipe, emergency conta
   await expect.soft(firstNameBox(page)).toHaveValue('Leila', { timeout: 15_000 });
   await expect.soft(lastNameBox(page)).toHaveValue('Ben');
   await expect.soft(page.getByRole('button', { name: 'France', exact: true })).toHaveAttribute('aria-selected', 'true');
-  const dpaExpected = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', day: '2-digit', month: 'long', year: 'numeric' })
+  const dpaExpected = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', day: 'numeric', month: 'long', year: 'numeric' })
     .format(new Date(Date.parse(seed.lmp as string) + 280 * 864e5));
   await expect.soft(page.getByText(dpaExpected, { exact: true }), `01: DPA "${dpaExpected}"`).toBeVisible();
   // D-022: the French abbreviation is DDR; the English "LMP" must not be shown to her.
@@ -1367,7 +1367,7 @@ test('D-logout: logout wipes private data, no cross-user leak, relogin restores 
   // …and what she packed before logging out reached the server first.
   const bag23 = await pollServer(() => serverDoc(`hospitalBags/${x.uid}`), (d) => d !== null, 5_000);
   expect.soft(bag23, '23 (B-018): the bag edit made before logout is on the server').not.toBeNull();
-  expect.soft(new URL(page.url()).pathname, '23: lands on the welcome/language screen').toBe('/welcome');
+  expect.soft(new URL(page.url()).pathname, '23: lands on the sign-in choice (A-043: not the cold language picker)').toBe('/auth');
   await page.waitForTimeout(1500);
   const leftover = privateKeysIn(await localKeys(page));
   expect.soft(leftover, '23: private keys left after logout').toEqual([]);
@@ -2208,7 +2208,7 @@ test('D-logout-unsynced: logging out with unsent tracker records asks first; she
   await page.waitForTimeout(1500);
   const dialogs41c = ctx.dialogs.dialogs.slice(before41c).map((d) => norm(d.message));
   expect.soft(dialogs41c.length, `41c (B-018): synced → a single confirm (${JSON.stringify(dialogs41c)})`).toBe(1);
-  expect.soft(new URL(page.url()).pathname, '41c: lands on the sign-in surface').toBe('/welcome');
+  expect.soft(new URL(page.url()).pathname, '41c: lands on the sign-in choice').toBe('/auth');
   await expect.soft(page.getByRole('tablist')).toHaveCount(0);
   expect.soft(privateKeysIn(await localKeys(page)), '41c: private keys left after logout').toEqual([]);
   await state(ctx, '41c-logout-synced-single-confirm');
@@ -2231,7 +2231,7 @@ test('D-logout-unsynced: logging out with unsent tracker records asks first; she
   await page.waitForTimeout(1500);
   note(testInfo, '41d-dialogs', JSON.stringify(ctx.dialogs.dialogs.slice(before41d).map((d) => ({ m: d.message, a: d.action }))));
   expect.soft(norm(anyway.second?.message) || '(no second dialog)', '41d (B-018): second confirmation').toMatch(/^Données pas encore sauvegardées/);
-  expect.soft(new URL(page.url()).pathname, '41d: "log out anyway" signs her out').toBe('/welcome');
+  expect.soft(new URL(page.url()).pathname, '41d: "log out anyway" signs her out (sign-in choice)').toBe('/auth');
   await expect.soft(page.getByRole('tablist')).toHaveCount(0);
   expect.soft(privateKeysIn(await localKeys(page)), '41d: private keys left after logout').toEqual([]);
   await page.unroute(FIRESTORE_TRAFFIC);
@@ -2344,7 +2344,7 @@ test.describe('ar', () => {
     expect.soft(d34b?.message ?? '(no dialog)', '34b: logout confirm in Arabic').toMatch(/^تسجيل الخروج\n\nهل أنت متأكدة/);
     await page.waitForURL((u) => onAuthSurface(u.pathname), { timeout: 20_000 }).catch(() => {});
     await page.waitForTimeout(1500);
-    expect.soft(new URL(page.url()).pathname, '34b: lands on the welcome screen').toBe('/welcome');
+    expect.soft(new URL(page.url()).pathname, '34b: lands on the sign-in choice').toBe('/auth');
     await expect.soft(page.getByRole('tablist')).toHaveCount(0);
     expect.soft((await htmlDirLang(page)).dir, '34b: still rtl after logout').toBe('rtl');
     expect.soft(await authAccountExists(acct.uid), '34b: logout keeps the account').toBe(true);

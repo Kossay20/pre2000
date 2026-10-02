@@ -245,6 +245,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center', // Center entire block if solitary, or within flex:1 if shared
         alignItems: 'center',
         paddingVertical: 2,
+        minHeight: 44,
     },
     topTaskRow: {
         flexDirection: 'row',

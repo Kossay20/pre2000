@@ -41,7 +41,7 @@
   "logoutConfirmTitle": "Déconnexion",
   "logoutConfirmMsg": "Êtes-vous sûre de vouloir vous déconnecter ?",
   "logoutUnsyncedTitle": "Données pas encore sauvegardées",
-  "logoutUnsyncedMsg": "Enregistrements pas encore sauvegardés en ligne : {{n}} (mouvements de bébé, contractions ou valise de maternité). Ils seront perdus si vous vous déconnectez maintenant. Pour les garder, retrouvez une connexion Internet avant de vous déconnecter.",
+  "logoutUnsyncedMsg": "Enregistrements pas encore sauvegardés en ligne : {{n}} (mouvements de bébé, contractions ou valise de maternité). Ils risquent d'être perdus si vous vous déconnectez maintenant. Pour les garder, retrouvez une connexion Internet avant de vous déconnecter.",
   "logoutAnyway": "Se déconnecter quand même",
   "resetConfirmTitle": "Réinitialiser le profil",
   "resetConfirmMsg": "Toutes vos données seront effacées, sur nos serveurs et sur ce téléphone : profil de grossesse, rendez-vous, tâches, mesures, symptômes, rappels et contacts d'urgence. Vous serez ensuite déconnectée.\n\nVotre compte est conservé : vous pourrez vous reconnecter avec la même adresse e-mail et repartir de zéro. Pour supprimer aussi le compte, utilisez « {{deleteLabel}} ».\n\nPour garder une copie, exportez d'abord vos données : {{settings}} → « {{exportLabel}} ».",

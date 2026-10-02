@@ -1482,10 +1482,10 @@ test('E56 a11y roll-up — unnamed controls, contrast AA, tap targets (plan 28/2
   const maxHidden = allReports.reduce((m, r) => (r.layout.hiddenScreens.length > m.n ? { n: r.layout.hiddenScreens.length, state: r.state } : m), { n: 0, state: '' });
   check('E-022', 'App.tsx', line < 0, 'App.tsx no longer sets the no-op `unmountOnBlur`', { appTsxLine: line >= 0 ? line + 1 : null, mostHiddenScreensMounted: maxHidden, hiddenMountedExposed: allReports.reduce((n, r) => n + r.summary.hiddenMounted, 0) });
 
-  // RN-web Switch 40×20 (web-harness, §0.3): reported, not asserted — native UISwitch is 51×31.
+  // RN-web Switch 52×26 (set by switchThumbProps; react-native-web's own default is 40×20) (web-harness, §0.3): reported, not asserted — native UISwitch is 51×31.
   const webSwitches = new Set(allReports.flatMap((r) => r.interactive.filter((i) => i.domRole === 'switch' && i.small44 && !i.disabled).map((i) => `${i.axName} ${i.rect.w}×${i.rect.h}`)));
-  // The accepted exception is exactly RN-web's own 40×20 Switch box; any other "switch" under 44 is not it.
-  check('E-006', 'roll-up', [...webSwitches].every((x) => /40×20$/.test(x)), 'RN-web Switch boxes under 44 pt are exactly the 40×20 web-harness Switch (native UISwitch 51×31 — §0.3)', { count: webSwitches.size, sample: [...webSwitches].slice(0, 8) });
+  // The accepted exception is exactly RN-web's own 52×26 Switch box; any other "switch" under 44 is not it.
+  check('E-006', 'roll-up', [...webSwitches].every((x) => /52×26$/.test(x)), 'RN-web Switch boxes under 44 pt are exactly the 52×26 web Switch (≥ the 24×24 floor) (native UISwitch 51×31 — §0.3)', { count: webSwitches.size, sample: [...webSwitches].slice(0, 8) });
   const nonSwitchSmallNative = new Set(allReports.flatMap((r) => r.interactive.filter((i) => i.small44Native && !i.disabled && i.domRole !== 'switch').map((i) => `${r.layout.viewport.w}w ${i.axRole} "${i.axName || i.text}" ${i.rect.w}×${i.rect.h}`)));
   // The plan's 44×44 (not the 24 px floor above): every non-Switch target, hitSlop included, must
   // reach it. Switches are the accepted web-harness exception above (native UISwitch 51×31).
