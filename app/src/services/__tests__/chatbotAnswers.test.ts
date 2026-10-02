@@ -134,3 +134,40 @@ describe('swelling chip (pre-eclampsia sign)', () => {
     expect(r.redFlag.red_flag_id).toBe('gonflement visage');
   });
 });
+
+// D-036 (final-release round 5): "Puis-je manger du fromage ?" was answered with the twin
+// pregnancy article ("Je pense qu'il répond à votre question") while the Foods-to-avoid data
+// lists raw-milk cheeses as high risk. A named food is now answered from that same data.
+describe('a question about one named food answers from the foods-to-avoid data (D-036)', () => {
+  const byId = (id: string): any => (forbiddenFoods as any[]).find(f => f.id === id);
+  const cases: { lang: string; text: string; ids: string[] }[] = [
+    { lang: 'fr', text: 'Puis-je manger du fromage ?', ids: ['raw_milk_cheese', 'feta_goat'] },
+    { lang: 'en', text: 'Can I eat cheese?', ids: ['raw_milk_cheese', 'feta_goat'] },
+    { lang: 'ar', text: 'هل يمكنني أكل الجبن؟', ids: ['raw_milk_cheese', 'feta_goat'] },
+    { lang: 'tn', text: 'نجم ناكل فرماج؟', ids: ['raw_milk_cheese', 'feta_goat'] },
+    { lang: 'fr', text: 'Puis-je boire du vin ?', ids: ['alcohol'] },
+    { lang: 'en', text: 'is it safe to drink coffee', ids: ['caffeine'] },
+    { lang: 'fr', text: "puis-je manger du saumon fumé ?", ids: ['smoked_fish'] },
+  ];
+
+  it.each(cases)('$lang: "$text" gets the matching foods, not an unrelated article', async ({ lang, text, ids }) => {
+    const r = await ask(lang, text);
+    expect(r.type).toBe('suggestion');
+    expect(r.screenLink).toBe('ForbiddenFoods');
+    expect(r.articles).toEqual([]);
+    expect(r.message).not.toContain('semanticMatch');
+    for (const id of ids) {
+      expect(r.message).toContain((byId(id) as any)[`name_${lang}`]);
+    }
+  });
+
+  it('does not intercept a question that names no food', async () => {
+    const r = await ask('fr', 'Quand faire la première échographie ?');
+    expect(r.screenLink).not.toBe('ForbiddenFoods');
+  });
+
+  it('a red flag in the same message still escalates first', async () => {
+    const r = await ask('fr', "je saigne beaucoup, puis-je manger du fromage ?");
+    expect(r.type).toBe('red_flag');
+  });
+});

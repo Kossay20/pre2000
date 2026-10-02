@@ -666,6 +666,7 @@
     "fallbackMessage": "Hmm, je n'ai pas trouvé d'information sur ce sujet dans ma base.\n\nMais je peux vous aider sur :\n• 🍎 Alimentation & nutrition\n• 🤰 Symptômes de grossesse\n• 🩺 Examens médicaux\n• 😴 Sommeil & fatigue\n• 🏃‍♀️ Sport & activité physique\n• 👶 Préparation à l'accouchement\n\nEssayez de reformuler votre question avec ces thèmes ! ",
     "semanticMatch": "J'ai trouvé quelque chose qui pourrait vous intéresser !\n\nCet article parle de \"{{title}}\". Je pense qu'il répond à votre question ",
     "foodsToAvoidIntro": "Les principaux aliments à éviter pendant la grossesse :",
+    "foodAnswerIntro": "Voici ce que l'application indique sur ce point :",
     "redFlagModerate": "Surveillez l'évolution et consultez si ça persiste.",
     "redFlagDefault": "Ce symptôme mérite une attention particulière.",
     "redFlagWithArticle": "Ce symptôme mérite attention. Consultez si ça persiste.",

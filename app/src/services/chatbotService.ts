@@ -383,6 +383,63 @@ const buildFoodsToAvoidResponse = async (suggestions: ChatbotSuggestion[]): Prom
     };
 };
 
+// A question about one named food ("Puis-je manger du fromage ?") is answered from the same
+// forbidden_foods data as the Foods-to-avoid screen, so the two can never disagree. It used to
+// reach the semantic fallback, which offered an unrelated article as "the answer".
+// Latin keywords are matched accent-folded on whole words (plural "s" allowed); Arabic ones
+// as substrings.
+const NAMED_FOOD_KEYWORDS: { ids: string[]; latin: string[]; arabic: string[] }[] = [
+    { ids: ['raw_milk_cheese', 'feta_goat'], latin: ['fromage', 'cheese', 'camembert', 'brie', 'roquefort'], arabic: ['جبن', 'أجبان', 'اجبان', 'فرماج', 'فروماج'] },
+    { ids: ['feta_goat'], latin: ['feta', 'chevre', 'goat cheese'], arabic: ['فيتا'] },
+    { ids: ['alcohol'], latin: ['alcool', 'vin', 'biere', 'champagne', 'alcohol', 'wine', 'beer'], arabic: ['كحول', 'خمر', 'نبيذ', 'بيرة', 'بيرا'] },
+    { ids: ['caffeine'], latin: ['cafe', 'cafeine', 'coffee', 'caffeine'], arabic: ['قهوة', 'كافيين'] },
+    { ids: ['raw_fish'], latin: ['sushi', 'sashimi', 'poisson cru', 'raw fish'], arabic: ['سوشي', 'ساشيمي'] },
+    { ids: ['smoked_fish'], latin: ['saumon fume', 'poisson fume', 'truite fumee', 'smoked salmon', 'smoked fish'], arabic: ['سلمون مدخن', 'سمك مدخن', 'حوت مدخن'] },
+    { ids: ['high_mercury_fish'], latin: ['thon', 'espadon', 'requin', 'marlin', 'tuna', 'swordfish', 'shark'], arabic: ['تونة', 'تون', 'أبو سيف'] },
+    { ids: ['raw_shellfish'], latin: ['huitre', 'moule', 'oyster', 'mussel', 'fruits de mer', 'shellfish'], arabic: ['محار', 'بلح البحر'] },
+    { ids: ['raw_eggs'], latin: ['oeuf', 'egg'], arabic: ['بيض', 'بيضة'] },
+    { ids: ['homemade_mayo'], latin: ['mayonnaise', 'mayo', 'tiramisu'], arabic: ['مايونيز'] },
+    { ids: ['raw_meat'], latin: ['tartare', 'carpaccio', 'viande crue', 'viande saignante', 'raw meat', 'rare steak'], arabic: ['لحم نيئ', 'لحم ني'] },
+    { ids: ['charcuterie'], latin: ['charcuterie', 'jambon', 'saucisson', 'salami', 'ham', 'deli meat'], arabic: ['مرتديلا', 'سلامي', 'جامبون'] },
+    { ids: ['foie_gras'], latin: ['foie', 'liver'], arabic: ['كبد'] },
+    { ids: ['herbal_teas'], latin: ['tisane', 'herbal tea'], arabic: ['شاي الأعشاب', 'تيزان'] },
+    { ids: ['raw_sprouts'], latin: ['germee', 'sprout'], arabic: ['براعم'] },
+];
+const EAT_OR_DRINK_CUE = /(^|[^a-z])(mang\w*|boi\w*|consomm\w*|autoris\w*|risque\w*|dangereu\w*|combien|how much|how many|eat\w*|ate|drink\w*|safe|allowed|risk\w*|ok)(?![a-z])/;
+const EAT_OR_DRINK_CUE_ARABIC = /(ناكل|نأكل|أكل|اكل|آكل|أكلت|شرب|نشرب|أشرب|اشرب|يجوز|ممكن|نجم|نقدر|مسموح|خطر|ضرر)/;
+const findNamedFoods = (text: string): { id: string; severity: string }[] => {
+    const lower = text.toLowerCase();
+    const latin = lower.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/œ/g, 'oe');
+    const cued = EAT_OR_DRINK_CUE.test(latin) || EAT_OR_DRINK_CUE_ARABIC.test(lower);
+    if (!cued) return [];
+    const ids: string[] = [];
+    for (const entry of NAMED_FOOD_KEYWORDS) {
+        const hit = entry.latin.some(kw => new RegExp(`(^|[^a-z])${kw}s?(?![a-z])`).test(latin))
+            || entry.arabic.some(kw => lower.includes(kw));
+        if (hit) for (const id of entry.ids) if (!ids.includes(id)) ids.push(id);
+    }
+    return (forbiddenFoods as { id: string; severity: string }[]).filter(f => ids.includes(f.id));
+};
+
+const buildNamedFoodResponse = (foods: { id: string; severity: string }[]): ChatResponse => {
+    const blocks = foods.slice(0, 3).map(f => {
+        const alt = getLocalizedContent(f, 'alternative', i18n.language);
+        return [
+            `${(f as any).icon ?? '•'} ${getLocalizedContent(f, 'name', i18n.language)}`,
+            getLocalizedContent(f, 'details', i18n.language),
+            alt ? `→ ${alt}` : '',
+        ].filter(Boolean).join('\n');
+    });
+    return {
+        type: 'suggestion',
+        message: `${i18n.t('common.chatResponse.foodAnswerIntro')}\n\n${blocks.join('\n\n')}`,
+        articles: [],
+        suggestions: [],
+        screenLink: 'ForbiddenFoods',
+        matchScore: 100,
+    };
+};
+
 const buildRedFlagResponse = async (topFlag: RedFlag, matchScore: number): Promise<ChatResponse> => {
     // Fetch linked articles — use cache
     const allArticles = await getArticlesCached();
@@ -1016,6 +1073,11 @@ export const _analyzeMessage = async (text: string): Promise<ChatResponse> => {
     // still escalates first.
     if (exactChip?.suggestion_id === FOODS_TO_AVOID_CHIP || isFoodsToAvoidQuestion(text)) {
         return buildFoodsToAvoidResponse(suggestions);
+    }
+
+    const namedFoods = exactChip ? [] : findNamedFoods(text);
+    if (namedFoods.length > 0) {
+        return buildNamedFoodResponse(namedFoods);
     }
 
     // 3. Check Suggestions (Topic-based)
