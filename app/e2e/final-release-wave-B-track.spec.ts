@@ -1121,7 +1121,7 @@ test.describe('Wave B — B-track offline', () => {
         warning = fold(seen.find((d) => /pas encore sauvegardés/.test(fold(d.message)))?.message ?? '');
         const told = warning.match(/Enregistrements pas encore sauvegardés en ligne : (\d+)/)?.[1] ?? null;
         expect.soft(msgs.length, `55: logout confirm, then the unsent-records warning (${JSON.stringify(msgs)})`).toBe(2);
-        expect.soft(warning, '55: the warning names what would be lost and how to keep it').toMatch(/Ils seront perdus si vous vous déconnectez maintenant[\s\S]*retrouvez une connexion Internet/);
+        expect.soft(warning, '55: the warning names what would be lost and how to keep it').toMatch(/Ils risquent d.être perdus si vous vous déconnectez maintenant[\s\S]*retrouvez une connexion Internet/);
         expect.soft(told === null ? null : Number(told), `55: the warning counts every record the server lacks (kick ${truth.kick} + contractions ${truth.con} + bag ${truth.bag}; device flags: ${JSON.stringify(dev)})`).toBe(expected);
         // She answered "Annuler": still signed in, nothing wiped.
         await expect.soft(page.getByRole('tablist').first(), '55: declining keeps her signed in').toBeVisible({ timeout: 10_000 });

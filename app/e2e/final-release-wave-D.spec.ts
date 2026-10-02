@@ -2185,7 +2185,7 @@ test('D-logout-unsynced: logging out with unsent tracker records asks first; she
   note(testInfo, '41a-dialogs', JSON.stringify(ctx.dialogs.dialogs.slice(before).map((d) => ({ m: d.message, a: d.action }))));
   expect.soft(norm(asked.first.message), '41a: ordinary logout confirm first').toMatch(/^Déconnexion/);
   expect.soft(norm(asked.second?.message) || '(no second dialog)', '41a (B-018): unsent records → a second confirmation that counts them').toMatch(/^Données pas encore sauvegardées\n\nEnregistrements pas encore sauvegardés en ligne : 1 \(/);
-  expect.soft(norm(asked.second?.message), '41a (B-018): it says they would be lost').toMatch(/Ils seront perdus si vous vous déconnectez maintenant/);
+  expect.soft(norm(asked.second?.message), '41a (B-018): it says they would be lost').toMatch(/Ils risquent d.être perdus si vous vous déconnectez maintenant/);
   await page.waitForTimeout(2000);
   await expect.soft(page.getByRole('button', { name: 'Enregistrer les modifications' }), '41a (B-018): declining keeps her signed in, on Profile').toBeVisible();
   await expect.soft(page.getByRole('tablist').first(), '41a: session untouched').toBeVisible();
