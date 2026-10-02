@@ -276,7 +276,8 @@ const styles = StyleSheet.create({
     historyDur: { ...theme.typography.caption, color: theme.colors.text, fontWeight: '600' },
     actionRow: { flexDirection: 'row', justifyContent: 'center', marginTop: theme.spacing.l },
     callRow: { padding: theme.spacing.m, alignItems: 'center', marginTop: theme.spacing.xl },
-    callText: { ...theme.typography.body, color: theme.colors.accent, fontWeight: '600' },
+    // Centred text, not only a centred box: with the 112 fallback the label wraps to two lines.
+    callText: { ...theme.typography.body, color: theme.colors.accent, fontWeight: '600', textAlign: 'center' },
     localNote: {
         ...theme.typography.caption,
         color: theme.colors.textLight,

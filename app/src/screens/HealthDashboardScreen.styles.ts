@@ -105,6 +105,19 @@ export const styles = StyleSheet.create({
     statBox: {
         alignItems: 'center',
     },
+    // The two halves of the Glycémie summary. A box as wide as its text let "Mesure hors
+    // objectif ce mois-ci" run on one line into the card's edge; an equal share of the
+    // row makes the label wrap inside it.
+    glucoseStatBox: {
+        flex: 1,
+        minWidth: 0,
+        alignItems: 'center',
+        paddingHorizontal: 4,
+    },
+    glucoseStatText: {
+        textAlign: 'center',
+        alignSelf: 'stretch',
+    },
     statLabel: {
         fontSize: 14,
         color: theme.colors.textMuted,

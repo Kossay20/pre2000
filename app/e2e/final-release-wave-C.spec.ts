@@ -78,6 +78,61 @@ function tr(l: AppLocale, key: string, vars: Record<string, string | number> = {
 }
 
 const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+/** French typography puts U+00A0 / U+202F before `: ; ? !` — compare on plain spaces. */
+const norm = (s: string) => s.replace(/[\u00A0\u202F\s]+/g, ' ').trim();
+
+// ── Bundled data the screens under test render (read, never edited) ───────────
+
+const DATA_DIR = path.resolve(__dirname, '../src/data');
+type Food = { id: string; severity: 'critical' | 'high' | 'medium' | 'low' } & Record<string, string>;
+const FOODS: Food[] = JSON.parse(fs.readFileSync(path.join(DATA_DIR, 'forbidden_foods.json'), 'utf8'));
+const ARTICLES_DB: Record<string, string>[] = JSON.parse(fs.readFileSync(path.join(DATA_DIR, 'articles_db.json'), 'utf8'));
+const foodName = (id: string, L: AppLocale) => {
+  const f = FOODS.find((x) => x.id === id);
+  if (!f) throw new Error(`forbidden_foods.json: no item ${id}`);
+  return f[`name_${L}`] || f.name_fr;
+};
+const articleTitle = (id: string, L: AppLocale) => {
+  const a = ARTICLES_DB.find((x) => x.article_id === id);
+  if (!a) throw new Error(`articles_db.json: no article ${id}`);
+  return a[`title_${L}`] || a.title_fr;
+};
+const chipLabel = (id: string, L: AppLocale): string => {
+  const c = SUGGESTIONS.find((x) => x.suggestion_id === id) as unknown as Record<string, string> | undefined;
+  if (!c) throw new Error(`chatbot_data: no suggestion ${id}`);
+  return c[`label_${L}`];
+};
+
+/**
+ * C-018 — items the round-3 review found under-rated ("Limit") against their own text;
+ * each must now carry the "Avoid" badge (severity high). Vitamin A is the C-017 twin of
+ * the Supplements rating.
+ */
+const MUST_BE_AVOID = ['smoked_fish', 'high_mercury_fish', 'raw_milk_cheese', 'feta_goat', 'rillettes', 'vitamin_a_supplements'];
+/** Wording that tells her to avoid / to limit, per locale (badge-vs-own-text check). */
+const AVOID_WORDS: Record<AppLocale, RegExp> = {
+  fr: /évit|interdit|proscri|déconseill/i,
+  en: /avoid|forbidden|not recommended/i,
+  ar: /تجن[ّ]?ب|ممنوع|غير موصى|لا يُوصى/,
+  tn: /تجن[ّ]?ب|ممنوع|ما ينصحوش|إيّاك/,
+};
+const LIMIT_WORDS: Record<AppLocale, RegExp> = {
+  fr: /limite[rz]|limitez-vous|avec modération/i,
+  en: /\blimit\b/i,
+  ar: /الحد من|لا تتجاوزي|تقليل/,
+  tn: /ما تفوتيش|قلّلي|اقتصري|نقّصي/,
+};
+/** Chatbot red flag: complications tied to a gestational age / a generic softening close. */
+const LATE_MISCARRIAGE = /fausse couche|miscarriage|إجهاض/i;
+const SOFT_CLOSE = /n['’]hésitez pas|don['’]t hesitate|do not hesitate|لا تترددي|ما تترددش/i;
+/** C-021: what a negated bleeding sentence must not retrieve. */
+const BLEEDING_OR_BREASTFEEDING = /bleed|breastfeed|saign|allaite|نزيف|رضاعة/i;
+/** C-022: the swelling chip names a swelling, in every language ("bloated" reported nothing). */
+const SWOLLEN_WORDING: Record<AppLocale, RegExp> = { fr: /gonfl/i, en: /swollen|swelling/i, ar: /تور[ّ]?م/, tn: /منفوخ|تور[ّ]?م/ };
+/** Raw markdown that must never reach a card excerpt. */
+const RAW_MARKDOWN = /^#{1,6}(\s|$)|(^|\s)#{1,6}\s|\*\*/;
+/** Any analytics beacon (C-011): GA4 / GTM / Firebase Analytics config + collect. */
+const ANALYTICS = /google-analytics\.com|googletagmanager\.com|analytics\.google\.com|app-measurement\.com|\/g\/collect\b|firebase\.googleapis\.com\/v1alpha\/projects\/-\/apps|firebaselogging/;
 
 // ── Per-locale scenario table (AUDIT_PLAN §4 query + triage tables) ───────────
 
@@ -205,12 +260,18 @@ class WaveCtx {
   /** Lines typed by the user (chat) — excluded from script checks. */
   readonly typed: string[] = [];
   readonly dirs: string[];
+  /** Analytics requests since the previous state (C-011), and the per-state tally. */
+  private analytics: string[] = [];
+  private analyticsByState: Record<string, string[]> = {};
 
   constructor(readonly page: Page, public L: AppLocale, readonly prefix: string, testInfo: TestInfo) {
     this.strict = attachConsoleStrict(page);
     this.dirs = QUARTET_DIRS.length ? QUARTET_DIRS : [testInfo.outputPath('quartet')];
     this.rec = attachMegaAuditRecorder(page, this.dirs);
     this.dialogs = attachDialogRecorder(page, this.rec);
+    page.on('request', (r) => {
+      if (ANALYTICS.test(r.url())) this.analytics.push(`${r.method()} ${r.url().slice(0, 160)}`);
+    });
   }
 
   note(key: string, value: unknown) {
@@ -238,12 +299,30 @@ class WaveCtx {
       if (leaks.length) this.note(`${full}.scriptLeaks`, leaks.slice(0, 25));
       expect.soft(leaks, `${full}: ${L === 'en' ? 'French' : 'Latin-script'} strings in a ${L} UI`).toEqual([]);
     }
+    if (wantDir === 'rtl') {
+      // C-032: RN-Web's LocaleProvider takes its direction from the locale tag. `tn` reads as
+      // Setswana (LTR), which left every start/end margin on the LTR side of Tunisian screens.
+      const wrappers = await page.evaluate(() =>
+        [...document.querySelectorAll('[lang]')].map((e) => `${e.tagName.toLowerCase()}[lang=${e.getAttribute('lang')}][dir=${e.getAttribute('dir')}]`),
+      );
+      expect.soft(wrappers.filter((x) => /\[lang=tn\]|\[dir=ltr\]/.test(x)), `${full}: no lang="tn" / dir="ltr" locale wrapper`).toEqual([]);
+    }
     await this.rec.snap(full);
     const errs = this.strict.splice(0);
     expect.soft(errs, `${full}: strict console errors`).toEqual([]);
+    const beacons = this.analytics.splice(0);
+    if (beacons.length) this.analyticsByState[full] = beacons;
+    expect.soft(beacons, `${full} C-011: no Google Analytics / Tag Manager / Firebase Analytics request`).toEqual([]);
   }
 
   dispose() {
+    const tail = this.analytics.splice(0);
+    if (tail.length) this.analyticsByState[`${this.prefix}-after-last-state`] = tail;
+    expect.soft(tail, `${this.prefix} C-011: no analytics request after the last state`).toEqual([]);
+    this.obs['C-011.analyticsRequests'] = {
+      count: Object.values(this.analyticsByState).reduce((n, a) => n + a.length, 0),
+      byState: this.analyticsByState,
+    };
     for (const dir of this.dirs) {
       fs.writeFileSync(path.join(dir, `${this.prefix}-observations.json`), JSON.stringify(this.obs, null, 2));
     }
@@ -371,6 +450,172 @@ async function chipActive(chip: Locator): Promise<boolean> {
     const bg = getComputedStyle(el).backgroundColor;
     return bg !== 'rgba(0, 0, 0, 0)' && bg !== 'rgb(255, 255, 255)' && !/^rgb\(2[3-5]\d, 2[3-5]\d, 2[3-5]\d\)$/.test(bg);
   });
+}
+
+/** The on/off state a chip exposes to assistive tech (RN-Web drops accessibilityState on role=button). */
+async function chipAria(chip: Locator) {
+  return { selected: await chip.getAttribute('aria-selected'), pressed: await chip.getAttribute('aria-pressed') };
+}
+
+/**
+ * Rating tags on screen (outside buttons, i.e. not the filter chips nor the list cards):
+ * text, colours and WCAG contrast of the label on the first opaque ancestor fill.
+ */
+async function ratingTags(page: Page, labels: string[]) {
+  return page.evaluate((wanted) => {
+    const parse = (c: string) => {
+      const m = c.match(/rgba?\(([^)]+)\)/);
+      if (!m) return null;
+      const p = m[1].split(',').map((x) => Number(x));
+      return { r: p[0], g: p[1], b: p[2], a: p[3] === undefined ? 1 : p[3] };
+    };
+    const lum = (c: { r: number; g: number; b: number }) => {
+      const f = (v: number) => {
+        const s = v / 255;
+        return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+      };
+      return 0.2126 * f(c.r) + 0.7152 * f(c.g) + 0.0722 * f(c.b);
+    };
+    const out: { text: string; color: string; background: string; ratio: number }[] = [];
+    document.querySelectorAll('div,span').forEach((el) => {
+      if (el.children.length > 0) return;
+      const t = (el.textContent || '').trim();
+      if (!wanted.includes(t)) return;
+      if (el.closest('[aria-hidden="true"]') || el.closest('[role="button"],button,[role="tab"]')) return;
+      const cv = (el as any).checkVisibility;
+      if (cv && !cv.call(el, { visibilityProperty: true, opacityProperty: true })) return;
+      const r = el.getBoundingClientRect();
+      if (r.width === 0 || r.height === 0) return;
+      const fg = parse(getComputedStyle(el).color);
+      let node: Element | null = el;
+      let bg: { r: number; g: number; b: number; a: number } | null = null;
+      while (node) {
+        const c = parse(getComputedStyle(node).backgroundColor);
+        if (c && c.a > 0) {
+          // Translucent fill: composite over white (the card behind every tag here).
+          bg = c.a >= 1 ? c : { r: c.r * c.a + 255 * (1 - c.a), g: c.g * c.a + 255 * (1 - c.a), b: c.b * c.a + 255 * (1 - c.a), a: 1 };
+          break;
+        }
+        node = node.parentElement;
+      }
+      if (!fg || !bg) return;
+      const [l1, l2] = [lum(fg), lum(bg)].sort((a, b) => b - a);
+      out.push({
+        text: t,
+        color: getComputedStyle(el).color,
+        background: `rgb(${Math.round(bg.r)}, ${Math.round(bg.g)}, ${Math.round(bg.b)})`,
+        ratio: Math.round(((l1 + 0.05) / (l2 + 0.05)) * 100) / 100,
+      });
+    });
+    return out;
+  }, labels);
+}
+
+/** Search row: the leading icon and the input, to prove they are not glued (C-032). */
+async function searchIconGap(input: Locator) {
+  return input.evaluate((el) => {
+    const icon = el.previousElementSibling || el.nextElementSibling;
+    if (!icon) return null;
+    const a = icon.getBoundingClientRect();
+    const b = el.getBoundingClientRect();
+    const st = getComputedStyle(el);
+    const pad = (v: string) => Math.round(parseFloat(v) || 0);
+    return {
+      icon: (icon.textContent || '').trim(),
+      iconLeft: Math.round(a.left),
+      iconRight: Math.round(a.right),
+      inputLeft: Math.round(b.left),
+      inputRight: Math.round(b.right),
+      /** Free space between the icon box and where the input's text starts. */
+      gapRtl: Math.round(a.left - b.right) + pad(st.paddingRight),
+      gapLtr: Math.round(b.left - a.right) + pad(st.paddingLeft),
+      direction: st.direction,
+    };
+  });
+}
+
+/**
+ * ForbiddenFoods card for a food name: its rating badge, and (once expanded) its own text.
+ * Cards carry no role; the card is the smallest ancestor of the name that holds a badge.
+ */
+async function foodCard(page: Page, name: string, badgeLabels: string[], detailsLabel: string) {
+  return page.evaluate(
+    ({ name, badgeLabels, detailsLabel }) => {
+      const n = (s: string) => s.replace(/[\u00A0\u202F\s]+/g, ' ').trim();
+      const leaves = [...document.querySelectorAll('div,span')].filter(
+        (e) => e.children.length === 0 && !e.closest('[aria-hidden="true"]') && e.getBoundingClientRect().width > 0,
+      );
+      const title = leaves.find((e) => n(e.textContent || '') === n(name));
+      if (!title) return null;
+      let card: Element | null = title.parentElement;
+      const badgeIn = (root: Element) => leaves.filter((e) => root.contains(e) && badgeLabels.includes(n(e.textContent || '')));
+      while (card && badgeIn(card).length === 0) card = card.parentElement;
+      if (!card) return { badge: null, badges: 0, expanded: false, text: '' };
+      const badges = badgeIn(card);
+      let full: Element = card;
+      // Expanded details live one level up (foodHeader → foodCard).
+      for (let i = 0; i < 3 && full.parentElement; i++) {
+        if (n((full as HTMLElement).innerText || '').includes(n(detailsLabel))) break;
+        const up: Element = full.parentElement;
+        if (badgeIn(up).length > badges.length) break;
+        full = up;
+      }
+      const text = n((full as HTMLElement).innerText || '');
+      const r = title.getBoundingClientRect();
+      return { badge: n(badges[0].textContent || ''), badges: badges.length, expanded: text.includes(n(detailsLabel)), text, y: Math.round(r.top) };
+    },
+    { name, badgeLabels, detailsLabel },
+  );
+}
+
+/** Emergency call buttons the user can actually see right now (in the viewport, not covered). */
+async function callsOnScreen(page: Page, label: string) {
+  const all = page.getByRole('button', { name: label, exact: true });
+  const n = await all.count();
+  let visible = 0;
+  for (let i = 0; i < n; i++) if ((await onScreen(all.nth(i))).ok) visible++;
+  return { inDom: n, visible };
+}
+
+/** Scroll the virtualized suggestion row until the chip with this label is mounted and in view. */
+async function revealChip(page: Page, label: string, knownLabels: string[]) {
+  return page.evaluate(
+    async ({ label, knownLabels }) => {
+      const wait = () => new Promise((r) => setTimeout(r, 250));
+      const find = (l: string) => [...document.querySelectorAll('[role="button"]')].find((e) => e.getAttribute('aria-label') === l && !e.closest('[aria-hidden="true"]'));
+      const any = knownLabels.map(find).find(Boolean);
+      if (!any) return { ok: false, why: 'no suggestion chip mounted' };
+      let sc: HTMLElement | null = any.parentElement;
+      while (sc && !(sc.scrollWidth > sc.clientWidth + 1 && /(auto|scroll)/.test(getComputedStyle(sc).overflowX))) sc = sc.parentElement;
+      if (!sc) return { ok: false, why: 'no horizontal scroll container' };
+      const centre = (el: Element) => {
+        const r = el.getBoundingClientRect();
+        const s = sc!.getBoundingClientRect();
+        sc!.scrollLeft += r.left + r.width / 2 - (s.left + s.width / 2);
+      };
+      for (const sign of [1, -1]) {
+        sc.scrollLeft = 0;
+        await wait();
+        for (let i = 0; i < 60; i++) {
+          const hit = find(label);
+          if (hit) {
+            centre(hit);
+            await wait();
+            const again = find(label);
+            if (again) centre(again);
+            await wait();
+            return { ok: true, steps: i, sign };
+          }
+          const before = sc.scrollLeft;
+          sc.scrollLeft = before + sign * 300;
+          await wait();
+          if (sc.scrollLeft === before) break;
+        }
+      }
+      return { ok: false, why: 'chip never mounted while scrolling the row' };
+    },
+    { label, knownLabels },
+  );
 }
 
 async function setChip(chip: Locator, on: boolean) {
@@ -574,6 +819,25 @@ for (const C of CFG) {
       expect.soft(hg?.weight.replace(/\s+/g, ' '), `00: week-32 weight on Home = "${W32_WEIGHT[L]}", unit included`).toBe(W32_WEIGHT[L]);
       const homeSa = (await visibleLines(page)).filter((l) => /\(\s*\d+\s*SA\s*\)/.test(l));
       expect.soft(homeSa, '00: no stray "(N SA)" aside on Home').toEqual([]);
+      // C-026: the size comparison is a label of its own + one value. It used to be the
+      // onboarding sentence cut before its placeholder ("Votre bébé fait la taille" / "d'").
+      const cmpLabel = tr(L, 'home.sizeComparisonLabel');
+      const cmp = await page.evaluate((label) => {
+        const el = [...document.querySelectorAll('div')].find(
+          (e) => e.children.length === 0 && (e.textContent || '').trim() === label && !e.closest('[aria-hidden="true"]'),
+        );
+        return el?.parentElement ? [...el.parentElement.children].map((c) => (c.textContent || '').trim()) : null;
+      }, cmpLabel);
+      w.note('00.C-026.sizeComparison', cmp);
+      expect.soft(cmp, `00 C-026: comparison box = ["${cmpLabel}", "<name> (<length>)"]`).not.toBeNull();
+      expect.soft(cmp?.length, '00 C-026: comparison box holds exactly the label and one value').toBe(2);
+      expect.soft(cmp?.[1] ?? '', '00 C-026: the value quotes the same length as the hero card').toContain(`(${hg?.length})`);
+      const homeLines = await visibleLines(page);
+      expect.soft(
+        homeLines.filter((l) => /^(d['’]|d['’]un\(e\)|de la|du|of|of a)$/i.test(l) || /fait la taille$/i.test(l)),
+        '00 C-026: no orphan sentence fragment around the comparison',
+      ).toEqual([]);
+      expect.soft(homeLines.filter((l) => RAW_MARKDOWN.test(l)), '00 C-028: no raw markdown in Home excerpts').toEqual([]);
       await w.state('00-home');
 
       // Chatbot must be local-only: record any non-static, non-Firestore request.
@@ -605,7 +869,32 @@ for (const C of CFG) {
         if (rtl) expect.soft(lead.leadLeft, '01: RTL — card icon block must sit on the right of the text').toBeGreaterThan(lead.contentLeft);
         else expect.soft(lead.leadLeft, '01: LTR — card icon block on the left').toBeLessThan(lead.contentLeft);
       }
+      // C-023 (articles side): the card tag and the filter chip read the same category label.
+      const favChip0 = page.getByRole('button', { name: tr(L, 'common.favorites'), exact: true }).locator('visible=true');
+      const rowLabels = await favChip0.first().evaluate((el) => [...(el.parentElement?.children || [])].map((c) => c.getAttribute('aria-label') || ''));
+      w.note('01.chipRow', rowLabels);
+      expect.soft(rowLabels.slice(0, 2), '01: chip row starts with Favorites, All').toEqual([tr(L, 'common.favorites'), tr(L, 'categories.all')]);
+      const catLabel = rowLabels[2];
+      expect.soft(!!catLabel, '01: at least one category chip').toBe(true);
       await w.state('01-resources-articles');
+      if (catLabel) {
+        const allChip0 = page.getByRole('button', { name: tr(L, 'categories.all'), exact: true }).locator('visible=true').first();
+        const catChip = page.getByRole('button', { name: catLabel, exact: true }).locator('visible=true').first();
+        await catChip.click();
+        await page.waitForTimeout(300);
+        const nCat = await countOf(cards);
+        const cardTags: string[][] = [];
+        for (let i = 0; i < Math.min(6, nCat); i++) cardTags.push(splitLines(await cards.nth(i).innerText()));
+        const offLabel = cardTags.filter((lines) => !lines.includes(catLabel)).map((lines) => lines.slice(0, 2).join(' | '));
+        w.note('01b.C-023.categoryFilter', { chip: catLabel, cards: nCat, cardsWithoutThatTag: offLabel });
+        expect.soft(nCat, `01b: category chip "${catLabel}" lists ≥1 article`).toBeGreaterThanOrEqual(1);
+        expect.soft(offLabel, `01b C-023: every card under chip "${catLabel}" carries the tag "${catLabel}"`).toEqual([]);
+        expect.soft(await chipActive(catChip), '01b: the category chip is lit').toBe(true);
+        expect.soft(await chipActive(allChip0), '01b: "All" is not lit while a category is').toBe(false);
+        await w.state('01b-articles-category-filter');
+        await allChip0.click();
+        await page.waitForTimeout(250);
+      }
 
       // ── 02 Articles search ───────────────────────────────────────────────────
       const artSearch = page.getByPlaceholder(tr(L, 'common.searchArticlePlaceholder'));
@@ -639,6 +928,28 @@ for (const C of CFG) {
       w.note('03b.ramadanSearch', { q: ramadanQ, n: nRamadan });
       expect.soft(nRamadan, `03b: "${ramadanQ}" must return no article (clinically unreviewed content hidden)`).toBe(0);
       await w.state('03b-articles-ramadan-hidden');
+
+      // ── 03c Favoris with nothing saved (C-029) + one lit chip (C-030) ───────
+      await artSearch.fill('');
+      const favTitle = tr(L, 'common.favoritesEmpty.title');
+      const favHint = tr(L, 'common.favoritesEmpty.hint');
+      const emptyQuery = tr(L, 'common.noResultsFor', { query: '' });
+      const favChipA = page.getByRole('button', { name: tr(L, 'common.favorites'), exact: true }).locator('visible=true').first();
+      const allChipA = page.getByRole('button', { name: tr(L, 'categories.all'), exact: true }).locator('visible=true').first();
+      expect.soft(await chipActive(allChipA), '03c: "All" lit before any filter').toBe(true);
+      expect.soft(await chipActive(favChipA), '03c: Favorites not lit before any filter').toBe(false);
+      await setChip(favChipA, true);
+      await expect.soft(page.getByText(favTitle, { exact: true }).locator('visible=true'), `03c C-029: empty Favorites says "${favTitle}"`).toBeVisible();
+      await expect.soft(page.getByText(favHint, { exact: true }).locator('visible=true'), '03c C-029: … and how to add one').toBeVisible();
+      expect.soft((await visibleLines(page)).filter((l) => norm(l) === norm(emptyQuery)), '03c C-029: not a failed search for ""').toEqual([]);
+      expect.soft(favTitle.length + favHint.length, '03c: empty-state copy ≥20 chars').toBeGreaterThanOrEqual(20);
+      expect.soft(await countOf(cards), '03c: fresh account → 0 favourite articles').toBe(0);
+      expect.soft(await chipActive(favChipA), '03c C-030: Favorites lit').toBe(true);
+      expect.soft(await chipActive(allChipA), '03c C-030: "All" not lit while Favorites is').toBe(false);
+      w.note('03c.C-030.aria', { favorites: await chipAria(favChipA), all: await chipAria(allChipA) });
+      await w.state('03c-articles-favoris-empty');
+      await setChip(favChipA, false);
+      expect.soft(await chipActive(allChipA), '03c C-030: leaving Favorites lights "All" again').toBe(true);
 
       // ── 04 Article detail (inside ResourcesStack) + bookmark + Favoris ──────
       await artSearch.fill(C.articleQ);
@@ -680,6 +991,8 @@ for (const C of CFG) {
       w.note('04b.favoris', { artTitle, favCards });
       await expect.soft(page.getByRole('button', { name: artTitle, exact: true }), '04b SYNC-14: bookmarked article listed under Favoris').toBeVisible();
       expect.soft(favCards, '04b: Favoris lists exactly the 1 bookmarked article').toBe(1);
+      expect.soft(await chipActive(favChip), '04b C-030: Favorites lit').toBe(true);
+      expect.soft(await chipActive(allChipA), '04b C-030: "All" not lit while Favorites is').toBe(false);
       await w.state('04b-articles-favoris');
 
       if (L === 'fr') {
@@ -697,6 +1010,8 @@ for (const C of CFG) {
         const favAfter = await countOf(cards);
         w.note('04c.unbookmark', { chipStillOn, favAfter });
         expect.soft(favAfter, '04c SYNC-14: unbookmarked article removed from Favoris').toBe(0);
+        await expect.soft(page.getByText(favTitle, { exact: true }).locator('visible=true'), '04c C-029: back to the empty-Favorites state').toBeVisible();
+        expect.soft((await visibleLines(page)).filter((l) => norm(l) === norm(emptyQuery)), '04c C-029: not a failed search for ""').toEqual([]);
         await w.state('04c-articles-unbookmark');
       }
       await setChip(favChip, false);
@@ -714,6 +1029,19 @@ for (const C of CFG) {
         if (leaks.length) suppLeaks.push({ card, leaks });
       }
       w.note('05.cards', nSupp);
+      const gap = await searchIconGap(suppSearch);
+      w.note('05.C-032.searchRow', gap);
+      expect.soft(gap, '05: search row = icon + input').not.toBeNull();
+      if (gap) {
+        expect.soft(gap.direction, `05 C-032: search input direction`).toBe(C.dir);
+        if (rtl) {
+          expect.soft(gap.iconLeft, '05 C-032: RTL — search icon on the right of the input').toBeGreaterThanOrEqual(gap.inputRight);
+          expect.soft(gap.gapRtl, `05 C-032: RTL — icon not glued to the placeholder ${JSON.stringify(gap)}`).toBeGreaterThanOrEqual(6);
+        } else {
+          expect.soft(gap.iconRight, '05: LTR — search icon on the left of the input').toBeLessThanOrEqual(gap.inputLeft);
+          expect.soft(gap.gapLtr, `05: LTR — icon not glued to the placeholder ${JSON.stringify(gap)}`).toBeGreaterThanOrEqual(6);
+        }
+      }
       w.note('05.HYP-C3.leaks', suppLeaks);
       expect.soft(nSupp, '05: 15 supplements').toBeGreaterThanOrEqual(15);
       expect.soft(
@@ -737,16 +1065,56 @@ for (const C of CFG) {
       // ── 06 "With caution" chip (HYP-C4) ─────────────────────────────────────
       const cautionChip = page.getByRole('button', { name: tr(L, 'common.supplementSafety.caution'), exact: true });
       await setChip(cautionChip, true);
-      const nCaution = (await collectCards(page, cards)).size;
+      const cautionLbl = tr(L, 'common.supplementSafety.caution');
+      const avoidLbl = tr(L, 'common.supplementSafety.avoid');
+      const safeLbl = tr(L, 'common.supplementSafety.safe');
+      const cautionCards = await collectCards(page, cards);
+      const nCaution = cautionCards.size;
       w.note('06.HYP-C4.caution', nCaution);
       expect.soft(nCaution, '06 HYP-C4: "with caution" filter must list the à-surveiller supplements (s09/s10)').toBeGreaterThanOrEqual(1);
+      // C-023: the card badge reads what the chip reads (it used to say "À surveiller" / "Monitor").
+      const offCaution = [...cautionCards].filter(([, text]) => !norm(text).includes(cautionLbl)).map(([name]) => name);
+      w.note('06.C-023.cardBadges', { chip: cautionLbl, cards: [...cautionCards.keys()], cardsWithoutChipLabel: offCaution });
+      expect.soft(offCaution, `06 C-023: every card under chip "${cautionLbl}" is badged "${cautionLbl}"`).toEqual([]);
+      const allChipS = page.getByRole('button', { name: tr(L, 'categories.all'), exact: true }).locator('visible=true').first();
+      expect.soft(await chipActive(allChipS), '06 C-030: "All" not lit while a rating chip is').toBe(false);
       await w.state('06-supplements-caution-filter', { script: false });
       await setChip(cautionChip, false);
 
-      // ── 07 Supplement detail s11 (HYP-C4b, GJ-008, HYP-C3) + bookmark ──────
+      // ── 06c "Avoid" chip (C-017): vitamin A and selenium, badged "Avoid" ────
       const s11 = await serverDoc('supplements/s11_vitamine_a');
+      const s15 = await serverDoc('supplements/s15_selenium');
       w.note('07.server.s11', { pregnancy_safety: s11?.pregnancy_safety, hasShortDescL: !!s11?.[`short_description_${L}`] });
+      w.note('06c.server.s15', { pregnancy_safety: s15?.pregnancy_safety });
       const s11Name = localized(s11, 'name', L) || 'Vitamine A';
+      const s15Name = localized(s15, 'name', L) || 'Sélénium';
+      const avoidChip = page.getByRole('button', { name: avoidLbl, exact: true }).locator('visible=true').first();
+      await setChip(avoidChip, true);
+      const avoidCards = await collectCards(page, cards);
+      const offAvoid = [...avoidCards].filter(([, text]) => !norm(text).includes(avoidLbl)).map(([name]) => name);
+      w.note('06c.C-017.avoid', { chip: avoidLbl, cards: [...avoidCards.keys()], cardsWithoutChipLabel: offAvoid });
+      expect.soft([...avoidCards.keys()].sort(), '06c C-017: the "Avoid" filter lists exactly vitamin A and selenium').toEqual([s11Name, s15Name].sort());
+      expect.soft(offAvoid, `06c C-017/C-023: every card under chip "${avoidLbl}" is badged "${avoidLbl}"`).toEqual([]);
+      await w.state('06c-supplements-avoid-filter', { script: false });
+      await setChip(avoidChip, false);
+
+      // ── 06b Favoris with nothing saved (C-029 / C-030, supplements side) ────
+      const sFav0 = page.getByRole('button', { name: tr(L, 'common.favorites'), exact: true }).locator('visible=true').first();
+      await setChip(sFav0, true);
+      await expect.soft(page.getByText(favTitle, { exact: true }).locator('visible=true'), '06b C-029: empty supplement Favorites has its own empty state').toBeVisible();
+      await expect.soft(page.getByText(favHint, { exact: true }).locator('visible=true'), '06b C-029: … with the hint').toBeVisible();
+      expect.soft(
+        (await visibleLines(page)).filter((l) => norm(l) === norm(tr(L, 'common.noSupplementFound', { query: '' }))),
+        '06b C-029: not a failed search for ""',
+      ).toEqual([]);
+      expect.soft(await chipActive(sFav0), '06b C-030: Favorites lit').toBe(true);
+      expect.soft(await chipActive(allChipS), '06b C-030: "All" not lit while Favorites is').toBe(false);
+      await w.state('06b-supplements-favoris-empty', { script: false });
+      await setChip(sFav0, false);
+      expect.soft(await chipActive(allChipS), '06b C-030: leaving Favorites lights "All" again').toBe(true);
+
+      // ── 07 Supplement detail s11 (HYP-C4b, GJ-008, HYP-C3) + bookmark ──────
+      expect.soft(s11?.pregnancy_safety, '07 C-017: server rating of vitamin A').toBe('deconseille');
       await suppSearch.fill(s11Name);
       await page.getByRole('button', { name: s11Name, exact: true }).first().click();
       const sBookmark = page.getByRole('button', { name: new RegExp(`^(${esc(addFav)}|${esc(savedLbl)})$`) });
@@ -759,6 +1127,14 @@ for (const C of CFG) {
       const unknownLbl = tr(L, 'common.supplementSafety.unknown');
       const sBody = (await page.locator('body').innerText()) || '';
       expect.soft(sBody.includes(unknownLbl), `07 HYP-C4b: s11 status must not read "${unknownLbl}"`).toBe(false);
+      // C-017: vitamin A (retinol, teratogenic in excess) is rated "Avoid", and its own text says so.
+      const ratingLabels = [safeLbl, cautionLbl, avoidLbl, unknownLbl];
+      const s11Tags = await ratingTags(page, ratingLabels);
+      w.note('07.C-017.vitaminA.tag', s11Tags);
+      expect.soft(s11Tags.map((x) => x.text), `07 C-017: vitamin A detail tag = "${avoidLbl}"`).toEqual([avoidLbl]);
+      expect.soft(AVOID_WORDS[L].test(sBody), `07 C-017: vitamin A text itself tells her to avoid it (${AVOID_WORDS[L]})`).toBe(true);
+      for (const tg of s11Tags) expect.soft(tg.ratio, `07 C-040: tag "${tg.text}" ${tg.color} on ${tg.background} ≥ 4.5:1`).toBeGreaterThanOrEqual(4.5);
+      const vitASupplementRating = s11Tags[0]?.text ?? null;
       const sourceLead = tr(L, 'common.sourceLine', { sources: '' }).trim();
       const sourceLines = splitLines(sBody).filter((l) => l.startsWith(sourceLead));
       w.note('07.sourceLine', sourceLines);
@@ -768,7 +1144,12 @@ for (const C of CFG) {
       }
       if (L === 'ar' || L === 'tn') {
         expect.soft(sourceLines.filter((l) => /\bWHO\b/.test(l)), `07: WHO printed under its Arabic name in ${L}`).toEqual([]);
+        expect.soft(/\(ER\)/.test(sBody), '07 C-024: no French "(ER)" unit gloss in the Arabic dose text').toBe(false);
       }
+      // C-024: s11 cites "OMS 2023, ACOG, NHS" — the WHO is named in the reader's language.
+      const whoName = tr(L, 'common.sourceAuthorities.who');
+      expect.soft(sourceLines[0] ?? '', `07 C-024: source line names the WHO as "${whoName} 2023"`).toContain(`${whoName} 2023`);
+      expect.soft(norm(sourceLines[0] ?? '').startsWith(norm(sourceLead)), `07 C-024: lead is the localized "${norm(sourceLead)}"`).toBe(true);
       await page.getByRole('button', { name: addFav, exact: true }).click();
       await expect.soft(page.getByRole('button', { name: savedLbl, exact: true }), '07: supplement bookmark flips').toBeVisible();
       await w.state('07-supplement-detail');
@@ -781,27 +1162,48 @@ for (const C of CFG) {
       await setChip(sFav, true);
       await expect.soft(page.getByRole('button', { name: s11Name, exact: true }), '07b SYNC-14: bookmarked supplement listed under Favoris').toBeVisible();
       expect.soft(await countOf(cards), '07b: exactly 1 favourite supplement').toBe(1);
+      expect.soft(await chipActive(sFav), '07b C-030: Favorites lit').toBe(true);
+      expect.soft(await chipActive(allChipS), '07b C-030: "All" not lit while Favorites is').toBe(false);
+      expect.soft(norm(await cards.first().innerText()).includes(avoidLbl), `07b C-017: vitamin A list card badged "${avoidLbl}"`).toBe(true);
       await w.state('07b-supplements-favoris', { script: false });
       await setChip(sFav, false);
 
-      if (L === 'fr') {
-        // HYP-C4b across every à-surveiller record.
+      {
+        // HYP-C4b + C-017 + C-040: the detail tag of one supplement per rating — iron (safe)
+        // and selenium (avoid) in every locale, plus zinc / vitamin C (with caution) in fr.
+        const want: [string, string, string | null][] = [
+          ['s02_fer', safeLbl, '07d-supplement-safe-detail'],
+          ...(L === 'fr' ? ([['s09_zinc', cautionLbl, null], ['s10_vitamine_c', cautionLbl, null]] as [string, string, null][]) : []),
+          ['s15_selenium', avoidLbl, '07e-supplement-selenium-detail'],
+        ];
         const statuses: Record<string, string> = {};
-        for (const id of ['s09_zinc', 's10_vitamine_c', 's15_selenium']) {
+        const tags: Record<string, unknown> = {};
+        for (const [id, expected, stateName] of want) {
           const d = await serverDoc(`supplements/${id}`);
           const nm = localized(d, 'name', L);
           await suppSearch.fill(nm);
           await page.getByRole('button', { name: nm, exact: true }).first().click();
           await expect(page.getByRole('button', { name: addFav, exact: true })).toBeVisible({ timeout: 30_000 });
+          await page.waitForTimeout(500);
           const b = (await page.locator('body').innerText()) || '';
           statuses[id] = b.includes(unknownLbl) ? unknownLbl : 'ok';
+          const tg = await ratingTags(page, ratingLabels);
+          tags[id] = tg;
+          expect.soft(tg.map((x) => x.text), `07c ${id}: detail tag = "${expected}"`).toEqual([expected]);
+          for (const x of tg) expect.soft(x.ratio, `07c C-040 ${id}: tag "${x.text}" ${x.color} on ${x.background} ≥ 4.5:1`).toBeGreaterThanOrEqual(4.5);
+          if (id === 's15_selenium') {
+            expect.soft(d?.pregnancy_safety, '07e C-017: server rating of selenium').toBe('deconseille');
+            expect.soft(AVOID_WORDS[L].test(b), `07e C-017: selenium text itself tells her to avoid supplementing (${AVOID_WORDS[L]})`).toBe(true);
+          }
+          if (stateName) await w.state(stateName);
           const bb = await backAffordances(page);
           expect(bb.length).toBeGreaterThan(0);
           await clickBox(page, bb[0]);
           await expect(suppSearch).toBeVisible({ timeout: 15_000 });
         }
         w.note('07c.HYP-C4b.statuses', statuses);
-        expect.soft(Object.entries(statuses).filter(([, v]) => v !== 'ok'), '07c HYP-C4b: s09/s10/s15 show "Inconnu"').toEqual([]);
+        w.note('07c.C-040.tags', tags);
+        expect.soft(Object.entries(statuses).filter(([, v]) => v !== 'ok'), `07c HYP-C4b: a supplement shows "${unknownLbl}"`).toEqual([]);
       }
 
       // ── 08 Forbidden foods ──────────────────────────────────────────────────
@@ -827,13 +1229,121 @@ for (const C of CFG) {
       await page.waitForTimeout(250);
       await expect.soft(page.getByText(tr(L, 'common.noResults'), { exact: true }), '08: zzqx → localized empty').toBeVisible();
       await foodSearch.fill('');
-      await page.getByText(/🐟/).first().click();
+      await page.waitForTimeout(250);
+
+      // C-030/C-031: category chips are buttons, follow the page direction, show which one is on.
+      const allFood = page.getByRole('button', { name: tr(L, 'forbiddenFoods.all'), exact: true }).locator('visible=true');
+      const fishFood = page.getByRole('button', { name: /🐟/ }).locator('visible=true');
+      expect.soft(await allFood.count(), '08 C-031: the "All" category chip is a button').toBe(1);
+      expect.soft(await fishFood.count(), '08 C-031: the fish category chip is a button').toBe(1);
+      const chipRow = await page.evaluate((allLabel) => {
+        const all = [...document.querySelectorAll('[role="button"]')].find(
+          (e) => (e.textContent || '').trim() === allLabel && !e.closest('[aria-hidden="true"]') && e.getBoundingClientRect().width > 0,
+        );
+        if (!all?.parentElement) return null;
+        const chips = [...all.parentElement.children].map((c) => {
+          const r = c.getBoundingClientRect();
+          return { label: (c.textContent || '').trim(), left: Math.round(r.left), right: Math.round(r.right), top: Math.round(r.top), h: Math.round(r.height) };
+        });
+        const txt = all.firstElementChild?.getBoundingClientRect();
+        const box = all.getBoundingClientRect();
+        return {
+          vw: window.innerWidth,
+          chips,
+          /** Offset of the "All" label's centre from its chip's centre (it used to sit at the top). */
+          allLabelOffsetY: txt ? Math.round((txt.top + txt.height / 2 - (box.top + box.height / 2)) * 10) / 10 : null,
+        };
+      }, tr(L, 'forbiddenFoods.all'));
+      w.note('08.C-031.chipRow', chipRow);
+      expect.soft(chipRow, '08 C-031: category chip row found').not.toBeNull();
+      if (chipRow && chipRow.chips.length > 1) {
+        const [first, second] = chipRow.chips;
+        expect.soft(first.label, '08 C-031: "All" is the first chip').toBe(tr(L, 'forbiddenFoods.all'));
+        if (rtl) {
+          expect.soft(first.right, `08 C-031: RTL — "All" starts the row at the right edge ${JSON.stringify(first)}`).toBeGreaterThanOrEqual(chipRow.vw - 40);
+          expect.soft(first.right, '08 C-031: RTL — "All" not clipped on the right').toBeLessThanOrEqual(chipRow.vw);
+          expect.soft(second.right, '08 C-031: RTL — the second chip sits to the left of "All"').toBeLessThanOrEqual(first.left);
+        } else {
+          expect.soft(first.left, `08: LTR — "All" starts the row at the left edge ${JSON.stringify(first)}`).toBeLessThanOrEqual(40);
+          expect.soft(first.left, '08: LTR — "All" not clipped on the left').toBeGreaterThanOrEqual(0);
+          expect.soft(second.left, '08: LTR — the second chip sits to the right of "All"').toBeGreaterThanOrEqual(first.right);
+        }
+        expect.soft(Math.abs(chipRow.allLabelOffsetY ?? 99), '08 C-031: "All" label vertically centred in its chip').toBeLessThanOrEqual(2);
+      }
+      const foodAria0 = (await allFood.count()) ? await chipAria(allFood.first()) : null;
+      if (await allFood.count()) expect.soft(await chipActive(allFood.first()), '08 C-031: "All" lit before any category is picked').toBe(true);
+
+      // C-017/C-018: rating badges. Every card's badge is read from the screen, the items the
+      // review found under-rated must read "Avoid", and a badge must not contradict the card's
+      // own text. Vitamin A must carry the same rating word here as in Supplements.
+      const sevLabel = (sev: string) => norm(tr(L, `forbiddenFoods.severity.${sev}`));
+      const badgeLabels = ['critical', 'high', 'medium', 'low'].map(sevLabel);
+      const detailsLabel = tr(L, 'forbiddenFoods.detailsLabel');
+      const ratings: Record<string, unknown> = {};
+      const wrongBadge: string[] = [];
+      const contradictions: string[] = [];
+      for (const f of FOODS) {
+        const name = foodName(f.id, L);
+        let card = await foodCard(page, name, badgeLabels, detailsLabel);
+        if (!card || !card.badge) {
+          wrongBadge.push(`${f.id}: card or badge not found`);
+          continue;
+        }
+        if (card.badge !== sevLabel(f.severity)) wrongBadge.push(`${f.id}: badge "${card.badge}" ≠ data severity ${f.severity}`);
+        if (!MUST_BE_AVOID.includes(f.id)) {
+          ratings[f.id] = card.badge;
+          continue;
+        }
+        await page.getByText(name, { exact: true }).locator('visible=true').first().click();
+        await page.waitForTimeout(200);
+        card = await foodCard(page, name, badgeLabels, detailsLabel);
+        const own = card?.text ?? '';
+        const says = { avoid: AVOID_WORDS[L].test(own), limit: LIMIT_WORDS[L].test(own) };
+        ratings[f.id] = { badge: card?.badge, expanded: card?.expanded, says };
+        expect.soft(card?.expanded, `08 ${f.id}: card expands on tap`).toBe(true);
+        expect.soft(card?.badge, `08 C-018: ${f.id} ("${name}") is badged "${sevLabel('high')}"`).toBe(sevLabel('high'));
+        if (says.limit && !says.avoid) contradictions.push(`${f.id}: badged "${card?.badge}" but its text only says to limit`);
+      }
+      w.note('08.C-018.ratings', ratings);
+      // The rating badge is the safety signal of this screen: same legibility bar as the
+      // supplement tag (C-040). One measurement per distinct badge.
+      const rawBadges = ['critical', 'high', 'medium', 'low'].map((sev) => tr(L, `forbiddenFoods.severity.${sev}`));
+      const badgeContrast = Object.values(
+        Object.fromEntries((await ratingTags(page, rawBadges)).map((b) => [b.text, b])),
+      );
+      w.note('08.badgeContrast', badgeContrast);
+      expect.soft(badgeContrast.length, '08: one contrast measurement per rating badge').toBe(4);
+      expect.soft(
+        badgeContrast.filter((b) => b.ratio < 4.5).map((b) => `"${b.text}" ${b.color} on ${b.background} = ${b.ratio}:1`),
+        '08 (C-040 family): rating badges on ForbiddenFoods reach 4.5:1',
+      ).toEqual([]);
+      expect.soft(wrongBadge, '08: every food card shows the badge of its rating').toEqual([]);
+      expect.soft(contradictions, '08 C-018: no "Avoid" badge on a card whose own text only says to limit').toEqual([]);
+      const strip = (b: string) => norm(b.replace(/^[^\p{L}]+/u, ''));
+      const vitAFood = (ratings['vitamin_a_supplements'] as { badge?: string } | undefined)?.badge ?? '';
+      w.note('08.C-017.vitaminA', { supplements: vitASupplementRating, forbiddenFoods: vitAFood });
+      expect.soft(strip(vitAFood), `08 C-017: vitamin A rated the same in ForbiddenFoods ("${vitAFood}") and Supplements ("${vitASupplementRating}")`).toBe(vitASupplementRating);
+      await page.getByText(foodName('vitamin_a_supplements', L), { exact: true }).locator('visible=true').first().scrollIntoViewIfNeeded();
+      await w.state('08a-forbidden-vitamin-a-rating');
+      await page.mouse.wheel(0, -50_000);
+      await page.waitForTimeout(300);
+
+      await fishFood.first().click();
       await page.waitForTimeout(250);
       const nFish = await foodsCount(page, L);
       foodRes['chip:fish'] = nFish;
       w.note('08.results', foodRes);
       expect.soft(nFish ?? 0, '08: fish chip narrows the list').toBeGreaterThanOrEqual(1);
       if (nAll != null && nFish != null) expect.soft(nFish, '08: fish chip < all').toBeLessThan(nAll);
+      expect.soft(await chipActive(fishFood.first()), '08 C-031: the picked category chip is lit').toBe(true);
+      expect.soft(await chipActive(allFood.first()), '08 C-031: "All" is not lit while a category is').toBe(false);
+      const foodAria1 = { all: await chipAria(allFood.first()), fish: await chipAria(fishFood.first()) };
+      w.note('08.C-031.aria', { before: { all: foodAria0 }, afterFish: foodAria1 });
+      expect.soft(
+        [foodAria1.fish.selected, foodAria1.fish.pressed].includes('true'),
+        `08 C-031 a11y: the picked category chip exposes its state (aria-pressed/aria-selected) ${JSON.stringify(foodAria1)}`,
+      ).toBe(true);
+      // Smoked fish + high-mercury fish are the two fish cards of C-018: on screen, expanded.
       await w.state('08-forbidden-search');
 
       // ── 09 Week recommendations ─────────────────────────────────────────────
@@ -845,6 +1355,10 @@ for (const C of CFG) {
       w.note('09.sections', { articles: await recArt.count(), supplements: await recSupp.count(), empty: await recEmpty.count() });
       await expect.soft(recArt, '09: week-32 recommended articles section').toBeVisible();
       await expect.soft(recSupp, '09: week-32 recommended supplements section').toBeVisible();
+      const recLines = await visibleLines(page);
+      const rawMd = recLines.filter((l) => RAW_MARKDOWN.test(l));
+      w.note('09.C-028.rawMarkdown', rawMd);
+      expect.soft(rawMd, '09 C-027/C-028: no raw "#" / "**" in recommendation excerpts').toEqual([]);
       await w.state('09-week-recs');
 
       // ── 10 Baby evolution (GJ-011) ──────────────────────────────────────────
@@ -858,7 +1372,30 @@ for (const C of CFG) {
       const artBody = await visibleLines(page);
       w.note('09b.art_003', artBody.slice(0, 12));
       expect.soft(artBody.filter((l) => /ramadan|رمضان/i.test(l)), '09b: no Ramadan text rendered').toEqual([]);
+      expect.soft(tr(L, 'article.notFoundHint').length, '09b C-042: not-found copy ≥20 chars').toBeGreaterThanOrEqual(20);
+      const nfBacks = await backAffordances(page);
+      w.note('09b.C-042.backs', nfBacks);
+      expect.soft(nfBacks.length, `09b C-042: a back control at the top of the not-found page ${JSON.stringify(nfBacks)}`).toBeGreaterThanOrEqual(1);
+      if (rtl) expect.soft(nfBacks.filter((b) => b.x + b.w / 2 < VW / 2), '09b: RTL — back on the right').toEqual([]);
+      const nfBg = await notFound.first().evaluate((el) => {
+        let n: Element | null = el;
+        while (n) {
+          const c = getComputedStyle(n).backgroundColor;
+          if (c && c !== 'rgba(0, 0, 0, 0)') return c;
+          n = n.parentElement;
+        }
+        return null;
+      }).catch(() => null);
+      w.note('09b.C-042.background', nfBg);
       await w.state('09b-article-art003-hidden');
+      // C-042: "browse articles" leads somewhere — the articles list.
+      const browse = page.getByRole('button', { name: tr(L, 'article.browseArticles'), exact: true });
+      if (await browse.count()) {
+        await browse.first().click();
+        await expect.soft(page.getByPlaceholder(tr(L, 'common.searchArticlePlaceholder')), '09c C-042: "browse articles" opens the articles list').toBeVisible({ timeout: 15_000 });
+        await expect.soft(cards.first(), '09c C-042: … with articles in it').toBeVisible({ timeout: 15_000 });
+        await w.state('09c-notfound-browse-articles');
+      }
 
       await page.goto('/baby-evolution', { waitUntil: 'load' });
       const month8 = page.getByText(new RegExp(`${esc(tr(L, 'common.monthLabel', { number: 8 }))} / 9`));
@@ -893,6 +1430,8 @@ for (const C of CFG) {
       const welcomeFirst = splitLines(tr(L, 'common.chatWelcome'))[0];
       await expect.soft(page.getByText(welcomeFirst).first(), `11: welcome in ${L}`).toBeVisible();
       await expect(page.getByRole('button', { name: C.cs01, exact: true }), '11: chip cs01 rendered').toBeVisible({ timeout: 15_000 });
+      expect.soft([C.cs01, C.cs06], '11: plan chip labels = chatbot_data cs01/cs06').toEqual([chipLabel('cs01', L), chipLabel('cs06', L)]);
+      await expect.soft(page.getByText('BETA', { exact: true }), '11: no BETA badge on the assistant').toHaveCount(0);
       const geo = await chipGeometry(page, C.cs01);
       w.note('11.GJ-007.chips', geo);
       if (!geo.error) {
@@ -917,6 +1456,19 @@ for (const C of CFG) {
       expect.soft(n.disabledAfter, '12: send disabled right after sending (empty input / loading)').toBe(true);
       expect.soft(n.newLines.length, '12: bot answered').toBeGreaterThan(0);
       expect.soft(scriptLeaks(L, n.newLines), `12: bot answer in ${L}`).toEqual([]);
+      // C-020: "What foods to avoid?" is answered with the foods themselves (the ones the
+      // Foods-to-avoid screen rates forbidden / avoid) and a way to the full list.
+      const answer = n.newLines.map(norm);
+      const wantFoods = FOODS.filter((f) => f.severity === 'critical' || f.severity === 'high').map((f) => norm(`• ${foodName(f.id, L)}`));
+      const missingFoods = wantFoods.filter((b) => !answer.includes(b));
+      w.note('12.C-020', { bullets: answer.filter((l) => l.startsWith('•')).length, expected: wantFoods.length, missing: missingFoods });
+      expect.soft(answer, '12 C-020: the answer opens on the foods-to-avoid intro').toContain(norm(tr(L, 'common.chatResponse.foodsToAvoidIntro')));
+      expect.soft(missingFoods, '12 C-020: the answer lists every forbidden / to-avoid food of the Foods screen').toEqual([]);
+      expect.soft(answer.filter((l) => l.endsWith(norm(tr(L, 'common.chatResponse.topicNutrition')))), '12 C-020: not the empty "here is what I know" nutrition reply').toEqual([]);
+      await expect.soft(
+        page.getByRole('link', { name: tr(L, 'common.chatSeeForbiddenFoods'), exact: true }),
+        '12 C-020: link to the full Foods-to-avoid list',
+      ).toBeVisible();
       if (L === 'ar' || L === 'tn') {
         expect.soft(n.newLines.some((l) => ARABIC.test(l)), '12: Arabic answer').toBe(true);
       }
@@ -949,6 +1501,21 @@ for (const C of CFG) {
       const hasCall = got13 ? await call.count() : 0;
       w.note('13.callButton', { count: hasCall, text: hasCall ? await call.first().innerText() : null });
       expect.soft(hasCall, '13: exactly one emergency call button on screen').toBe(1);
+      // C-019: at 32 weeks the bleeding reply names no "late miscarriage", ends on its own
+      // instruction (no generic "don't hesitate…" close) and links no twins article.
+      const rfText = rf.newLines.map(norm);
+      const rfLinks = rfText.filter((l) => l.startsWith('📄'));
+      w.note('13.C-019', { links: rfLinks, miscarriage: rfText.filter((l) => LATE_MISCARRIAGE.test(l)), softClose: rfText.filter((l) => SOFT_CLOSE.test(l)) });
+      expect.soft(rfText.filter((l) => LATE_MISCARRIAGE.test(l)), '13 C-019: no miscarriage wording in the week-32 bleeding reply').toEqual([]);
+      expect.soft(rfText.filter((l) => SOFT_CLOSE.test(l)), '13 C-019: an emergency reply does not end on "don\'t hesitate… if needed"').toEqual([]);
+      expect.soft(rfLinks.filter((l) => l.includes(articleTitle('a19_grossesses_multiples', L))), '13 C-019: no twins article under a bleeding emergency').toEqual([]);
+      expect.soft(
+        rfLinks.filter((l) => norm(l.replace(/^📄\s*/, '')) !== norm(articleTitle('a03_examens_médicaux_pendant', L))),
+        '13 C-019: the only linked article is the medical-exams one',
+      ).toEqual([]);
+      const calls13 = got13 ? await callsOnScreen(page, tr(L, 'a11y.emergencyCall')) : null;
+      w.note('13.C-041.calls', calls13);
+      if (calls13) expect.soft(calls13.visible, `13 C-041: one call button visible at a time ${JSON.stringify(calls13)}`).toBe(1);
       expect.soft(await page.getByTestId('chat_pinned_emergency_call').getByRole('button').count(), '13: the call button is the pinned one').toBe(1);
       if (hasCall) await expectCallOnScreen(w, call.first(), '13');
       if (hasCall) {
@@ -974,6 +1541,13 @@ for (const C of CFG) {
         w.note('14.negation', ng.newLines);
         expect.soft(ng.newLines.length, '14: negation still answered').toBeGreaterThan(0);
         expect.soft(await newAlert(page).count(), `14: "${C.negation}" must NOT trigger triage`).toBe(0);
+        // C-021: a negated symptom is not a search query — no bleeding / breastfeeding article.
+        const ngOff = ng.newLines.filter((l) => BLEEDING_OR_BREASTFEEDING.test(l));
+        const ngLinks = ng.newLines.filter((l) => l.startsWith('📄'));
+        w.note('14.C-021', { offTopic: ngOff, links: ngLinks });
+        expect.soft(ngOff, `14 C-021: "${C.negation}" retrieves nothing about bleeding or breastfeeding`).toEqual([]);
+        expect.soft(ngLinks, '14 C-021: no article is recommended for a negated symptom').toEqual([]);
+        w.note('14.C-041.callsAfterNegation', await callsOnScreen(page, tr(L, 'a11y.emergencyCall')));
         await w.state('14-chatbot-negation');
       } else {
         w.note('14.negation', 'not applicable (no negation phrase in plan for this locale)');
@@ -996,13 +1570,46 @@ for (const C of CFG) {
       const bubbles15After = (await userMsgBoxes(page, C.cs06)).length;
       w.note('15.userBubbles', { before: bubbles15, after: bubbles15After });
       expect.soft(bubbles15After, '15: chip text sent as a user message').toBe(bubbles15 + 1);
+      const calls15 = await callsOnScreen(page, tr(L, 'a11y.emergencyCall'));
+      w.note('15.C-041.calls', calls15);
+      expect.soft(calls15.visible, `15 C-041: one call button visible at a time ${JSON.stringify(calls15)}`).toBe(1);
       await w.state('15-chatbot-chip');
 
-      const ANALYTICS = /googletagmanager\.com|google-analytics\.com|firebase\.googleapis\.com\/v1alpha\/projects\/-\/apps/;
+      // ── 16 Swelling chip cs19 (C-022) ──────────────────────────────────────
+      const cs19 = chipLabel('cs19', L);
+      w.note('16.C-022.label', cs19);
+      expect.soft(SWOLLEN_WORDING[L].test(cs19), `16 C-022: chip names a swelling in ${L}: "${cs19}"`).toBe(true);
+      expect.soft(/bloated|انتفاخ|ballonn/i.test(cs19), `16 C-022: chip no longer reads "bloated": "${cs19}"`).toBe(false);
+      const revealed = await revealChip(page, cs19, SUGGESTIONS.map((x) => chipLabel(x.suggestion_id, L)));
+      w.note('16.reveal', revealed);
+      expect(revealed.ok, `16: swelling chip reachable in the suggestion row ${JSON.stringify(revealed)}`).toBe(true);
+      await markAlerts(page);
+      w.typed.push(cs19);
+      const bubbles16 = (await userMsgBoxes(page, cs19)).length;
+      await page.getByRole('button', { name: cs19, exact: true }).click();
+      await expect.soft(newAlert(page), `16 C-022: tapping "${cs19}" raises its pre-eclampsia alert`).toHaveCount(1, { timeout: 15_000 });
+      await page.waitForTimeout(500);
+      const alert16 = (await newAlert(page).count()) ? await newAlert(page).last().innerText() : '';
+      w.note('16.alertText', alert16);
+      expect.soft(
+        alert16.includes(tr(L, 'common.chatResponse.redFlagHigh')) || alert16.includes(tr(L, 'common.chatEmergency')),
+        '16 C-022: alert block titled urgent-consult or emergency',
+      ).toBe(true);
+      expect.soft((await userMsgBoxes(page, cs19)).length, '16: chip text sent as a user message').toBe(bubbles16 + 1);
+      const calls16 = await callsOnScreen(page, tr(L, 'a11y.emergencyCall'));
+      w.note('16.C-041.calls', calls16);
+      expect.soft(calls16.visible, `16 C-041: one call button visible at a time ${JSON.stringify(calls16)}`).toBe(1);
+      if (calls16.inDom) {
+        const txt16 = await page.getByRole('button', { name: tr(L, 'a11y.emergencyCall'), exact: true }).last().innerText();
+        expect.soft(txt16, `16 SYNC-16: country ${C.country} → (${C.emergency})`).toContain(`(${C.emergency})`);
+      }
+      await w.state('16-chatbot-swollen-chip');
+
       const analytics = foreign.filter((u) => ANALYTICS.test(u));
       const other = foreign.filter((u) => !ANALYTICS.test(u) && !/^GET tel:/.test(u));
       w.note('network.analytics', { count: analytics.length, hosts: [...new Set(analytics.map((u) => u.split('/')[2]))] });
       w.note('network.otherForeign', other);
+      expect.soft(analytics, 'C-011: no analytics request over the whole run').toEqual([]);
       expect.soft(other, 'chatbot/content must not call third-party hosts').toEqual([]);
       console.log(`[wave-C ${L}] observations ${JSON.stringify(w.obs)}`);
       w.dispose();
@@ -1084,6 +1691,10 @@ test.describe('Wave C — C-G1 real anonymous guest (fr)', () => {
     const gBacks = await backAffordances(page);
     w.note('G-02.backs', gBacks);
     expect.soft(gBacks.length, 'G-02 GJ-008: one back on SupplementDetail').toBe(1);
+    const gTags = await ratingTags(page, ['safe', 'caution', 'avoid', 'unknown'].map((k) => tr(L, `common.supplementSafety.${k}`)));
+    w.note('G-02.C-040.tag', gTags);
+    expect.soft(gTags.map((x) => x.text), 'G-02: iron detail tag = safe').toEqual([tr(L, 'common.supplementSafety.safe')]);
+    for (const x of gTags) expect.soft(x.ratio, `G-02 C-040: tag "${x.text}" ${x.color} on ${x.background} ≥ 4.5:1`).toBeGreaterThanOrEqual(4.5);
     await w.state('02-guest-supplement-detail', { script: false });
 
     // G-03 Chatbot + triage number (guest country France → 15).
@@ -1097,7 +1708,21 @@ test.describe('Wave C — C-G1 real anonymous guest (fr)', () => {
     w.note('G-03.call', callText);
     expect.soft(callText ?? '', 'G-03: guest France → 15').toContain('(15)');
     if (callText) await expectCallOnScreen(w, call.first(), 'G-03');
+    const gCalls = await callsOnScreen(page, tr(L, 'a11y.emergencyCall'));
+    w.note('G-03.C-041.calls', gCalls);
+    expect.soft(gCalls.visible, `G-03 C-041: one call button visible at a time ${JSON.stringify(gCalls)}`).toBe(1);
     await w.state('03-guest-chatbot');
+
+    // G-04 (C-020): the foods answer's link opens the Foods-to-avoid screen.
+    const gFoods = await chatExchange(w, 'Quels aliments éviter ?');
+    w.note('G-04.answer', gFoods.newLines);
+    const foodsLink = page.getByRole('link', { name: tr(L, 'common.chatSeeForbiddenFoods'), exact: true });
+    await expect.soft(foodsLink, 'G-04 C-020: link to the full list under the answer').toBeVisible();
+    if (await foodsLink.count()) {
+      await foodsLink.last().click();
+      await expect.soft(page.getByPlaceholder(tr(L, 'common.searchFoodPlaceholder')), 'G-04 C-020: the link opens Foods to avoid').toBeVisible({ timeout: 15_000 });
+      await w.state('04-guest-chat-foods-link');
+    }
 
     w.note('G.firestoreRequests', { count: fsReqs.length, sample: fsReqs.slice(0, 5) });
     expect.soft(fsReqs.length, 'G: the guest session talks to Firestore (not bundled-only)').toBeGreaterThan(0);

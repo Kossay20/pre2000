@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Linking, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Linking, TouchableOpacity, Platform } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { theme } from '../theme';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
@@ -58,6 +58,9 @@ export const PrivacyPolicyScreen = () => {
                         onPress={() => setActiveTab(tab)}
                         accessibilityRole="tab"
                         accessibilityState={{ selected: activeTab === tab }}
+                        // react-native-web drops accessibilityState, so on web the open
+                        // document is set directly (aria-selected is the state of a tab).
+                        {...(Platform.OS === 'web' ? { 'aria-selected': activeTab === tab } : {})}
                         testID={`legal_tab_${tab}`}
                     >
                         <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>

@@ -631,8 +631,8 @@ export const HealthDashboardScreen = () => {
                 {glucoseHistory.length > 0 ? (
                     <>
                         <View style={styles.statsRow}>
-                            <View style={styles.statBox}>
-                                <Text style={styles.statLabel}>{t('dashboard.glucose')}</Text>
+                            <View style={styles.glucoseStatBox}>
+                                <Text style={[styles.statLabel, styles.glucoseStatText]}>{t('dashboard.glucose')}</Text>
                                 {/* The alert colour only for a reading checkGlucose flags — it
                                     used to colour every reading, in range or not. */}
                                 <Text style={[styles.statValue, checkGlucose(glucoseHistory[0].value) && { color: theme.colors.deepOrange900 }]}>
@@ -640,8 +640,8 @@ export const HealthDashboardScreen = () => {
                                 </Text>
                                 {renderFlag(checkGlucose(glucoseHistory[0].value))}
                             </View>
-                            <View style={styles.statBox}>
-                                <Text style={[styles.statLabel, { textAlign: 'center' }]}>{glucoseMonthLabel}</Text>
+                            <View style={styles.glucoseStatBox}>
+                                <Text style={[styles.statLabel, styles.glucoseStatText]}>{glucoseMonthLabel}</Text>
                                 <Text style={{ fontSize: 11, color: theme.colors.textMuted, textAlign: 'center', maxWidth: 120 }}>
                                     {t('dashboard.glucoseTarget')}
                                 </Text>

@@ -31,6 +31,7 @@ import {
 } from '../services/ramadanService';
 import guidance from '../data/ramadan_pregnancy_guidance.json';
 import { toLocalDateKey } from '../utils/localDate';
+import { frenchSpacing } from '../utils/i18nHelpers';
 
 interface TrimesterEntry {
     id: string;
@@ -76,35 +77,35 @@ const pickLabel = (entry: TrimesterEntry, lang: string): string => {
     if (lang === 'ar') return entry.label_ar;
     if (lang === 'tn') return entry.label_tn || entry.label_ar;
     if (lang === 'en') return entry.label_en;
-    return entry.label_fr;
+    return frenchSpacing(entry.label_fr);
 };
 
 const pickRecommendation = (entry: TrimesterEntry, lang: string): string => {
     if (lang === 'ar') return entry.recommendation_ar;
     if (lang === 'tn') return entry.recommendation_tn || entry.recommendation_ar;
     if (lang === 'en') return entry.recommendation_en;
-    return entry.recommendation_fr;
+    return frenchSpacing(entry.recommendation_fr);
 };
 
 const pickRisks = (entry: TrimesterEntry, lang: string): string[] => {
     if (lang === 'ar') return entry.key_risks_ar;
     if (lang === 'tn') return entry.key_risks_tn || entry.key_risks_ar;
     if (lang === 'en') return entry.key_risks_en;
-    return entry.key_risks;
+    return entry.key_risks.map(frenchSpacing);
 };
 
 const pickItem = (item: MultilingualItem, lang: string): string => {
     if (lang === 'ar') return item.ar;
     if (lang === 'tn') return item.tn || item.ar;
     if (lang === 'en') return item.en;
-    return item.fr;
+    return frenchSpacing(item.fr);
 };
 
 const pickSectionLabel = (sec: SectionItems, lang: string): string => {
     if (lang === 'ar') return sec.label_ar;
     if (lang === 'tn') return sec.label_tn || sec.label_ar;
     if (lang === 'en') return sec.label_en;
-    return sec.label_fr;
+    return frenchSpacing(sec.label_fr);
 };
 
 export const RamadanPregnancyScreen: React.FC = () => {
@@ -395,7 +396,7 @@ const styles = StyleSheet.create({
     dayStatus: { ...theme.typography.caption, color: theme.colors.textLight, marginEnd: theme.spacing.m },
     removeBtn: { color: theme.colors.error, fontSize: 18, fontWeight: '700', paddingHorizontal: theme.spacing.s },
     callRow: { padding: theme.spacing.m, alignItems: 'center', marginTop: theme.spacing.l },
-    callText: { ...theme.typography.body, color: theme.colors.accent, fontWeight: '600' },
+    callText: { ...theme.typography.body, color: theme.colors.accent, fontWeight: '600', textAlign: 'center' },
     disclaimer: {
         ...theme.typography.caption,
         color: theme.colors.textLight,

@@ -139,8 +139,10 @@ export const ChatbotScreen = () => {
         }
     };
 
+    // The chip's label is also the message a tap sends, and the engine recognises a
+    // tapped chip by comparing it with the stored label: keep it byte-identical.
     const getSuggestionLabel = (item: ChatbotSuggestion): string => {
-        return getLocalizedContent(item, 'label', i18n.language) || item.label_fr || '';
+        return getLocalizedContent(item, 'label', i18n.language, { plainSpaces: true }) || item.label_fr || '';
     };
 
     const renderMessage = ({ item, index }: { item: Message; index: number }) => {

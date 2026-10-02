@@ -1,14 +1,35 @@
 import i18n from '../i18n';
 
 /**
+ * French puts a space before ":", ";", "?" and "!" and inside « ». With a plain space
+ * the mark wraps alone to the next line ("… désolé pour tes côtes" / "!"), so the space
+ * becomes a no-break one (U+00A0). The fr locale files carry it in the strings
+ * themselves; the content data (weeks, articles, baby messages, tips) is written with
+ * plain spaces and mostly served from Firestore, so it is fixed here, where it is read
+ * for display, rather than in each copy of the data.
+ *
+ * The mark must be followed by a space, closing punctuation or the end of the text:
+ * that leaves markdown table rules ("| :--- |") and anything glued to a colon alone.
+ */
+export const frenchSpacing = (text: string): string =>
+    text
+        .replace(/(\S) ([:;?!]+)(?=[\s)»"*_]|$)/g, '$1\u00a0$2')
+        .replace(/« /g, '«\u00a0')
+        .replace(/ »/g, '\u00a0»');
+
+/**
  * Generic type for objects with localized fields
  * e.g., name_fr, name_ar, name_en
+ *
+ * French text comes back with no-break spaces before its punctuation (frenchSpacing).
+ * Pass `plainSpaces` when the text is matched against the data rather than shown — a
+ * tapped chatbot chip is recognised by comparing it with the stored label.
  */
 export const getLocalizedContent = <T>(
     data: T,
     fieldPrefix: string, // e.g. 'name' or 'baby_dev_text'
     language: string = i18n.language,
-    options?: { stripMarkdown?: boolean }
+    options?: { stripMarkdown?: boolean; plainSpaces?: boolean }
 ): string => {
     if (!data) return '';
 
@@ -22,13 +43,16 @@ export const getLocalizedContent = <T>(
     const arKey = `${fieldPrefix}_ar` as keyof T;
 
     let content = '';
+    let isFrench = langCode === 'fr';
 
     if (data[targetKey]) content = String(data[targetKey]);
     else if (langCode === 'tn' && data[arKey]) content = String(data[arKey]); // Fallback TN -> AR
-    else if (data[enKey]) content = String(data[enKey]); // Fallback EN
-    else if (data[frKey]) content = String(data[frKey]); // Fallback FR
+    else if (data[enKey]) { content = String(data[enKey]); isFrench = false; } // Fallback EN
+    else if (data[frKey]) { content = String(data[frKey]); isFrench = true; } // Fallback FR
     // If no specific language key found, maybe the field itself is the key (legacy support)
     else if (data[fieldPrefix as keyof T]) content = String(data[fieldPrefix as keyof T]);
+
+    if (isFrench && !options?.plainSpaces) content = frenchSpacing(content);
 
     if (options?.stripMarkdown && content) {
         return content
@@ -89,11 +113,11 @@ export const getLocalizedTrilang = (
     if (langCode === 'tn' && trilang.tn) return trilang.tn;
     if (langCode === 'ar' && trilang.ar) return trilang.ar;
     if (langCode === 'en' && trilang.en) return trilang.en;
-    if (langCode === 'fr' && trilang.fr) return trilang.fr;
+    if (langCode === 'fr' && trilang.fr) return frenchSpacing(trilang.fr);
 
     // 2. TN Fallback -> AR
     if (langCode === 'tn' && trilang.ar) return trilang.ar;
 
     // 3. General Fallback -> FR (Default)
-    return trilang.fr || '';
+    return frenchSpacing(trilang.fr || '');
 };

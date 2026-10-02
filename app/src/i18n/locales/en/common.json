@@ -735,7 +735,7 @@
     "createMyAccount": "Create my account",
     "termsDisclaimer": "By continuing, you agree to the terms",
     "guestDisclaimer": "Your data won't be saved without an account",
-    "export": "Export",
+    "export": "Export my data",
     "exportDesc": "Export your data as JSON",
     "deleteAccount": "Delete my account",
     "deleteAccountDesc": "Permanently deletes your account and all your data",

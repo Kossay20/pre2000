@@ -62,5 +62,6 @@
     "enable": "Turn on notifications",
     "later": "Not now"
   },
+  "postTermTitle": "Baby is taking their time",
   "postTermNote": "You are at {{ga}}: your due date has passed. Stay in touch with your maternity team or midwife."
 }

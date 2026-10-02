@@ -330,6 +330,7 @@ export const ArticlesListScreen = () => {
                                     hitSlop={CHIP_HIT_SLOP}
                                     accessibilityRole="button"
                                     accessibilityState={{ selected }}
+                                    {...(Platform.OS === 'web' ? { 'aria-pressed': selected } : {})}
                                     accessibilityLabel={label}
                                 >
                                     <Text style={[styles.chipText, selected ? styles.chipTextActive : styles.chipTextInactive]}>

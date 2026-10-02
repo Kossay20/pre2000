@@ -12,6 +12,7 @@ import {
     StyleSheet,
     Image,
     TouchableOpacity,
+    Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
@@ -173,6 +174,9 @@ export const BabyEvolutionScreen = () => {
                         accessibilityRole="button"
                         accessibilityLabel={t('common.monthLabel', { number: index + 1 })}
                         accessibilityState={{ selected: activeMonth === index + 1 }}
+                        // react-native-web drops accessibilityState; without this every dot
+                        // is the same "Month n" button and none is announced as the open one.
+                        {...(Platform.OS === 'web' ? { 'aria-pressed': activeMonth === index + 1 } : {})}
                         style={styles.progressDotTouch}
                     >
                         <View

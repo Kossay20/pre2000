@@ -121,6 +121,51 @@ describe('ForbiddenFoods — category chips', () => {
         const chip = src.slice(src.indexOf('categoryChip: {'), src.indexOf('categoryChipActive: {'));
         expect(chip).toMatch(/justifyContent: 'center'/);
     });
+
+    it('C-031 — "All" and every category say on web whether they are the lit one', () => {
+        expect(src).toMatch(/accessibilityState=\{\{ selected: selectedCategory === null \}\}[^>]*?\{\.\.\.\(Platform\.OS === 'web' \? \{ 'aria-pressed': selectedCategory === null \} : \{\}\)\}/);
+        expect(src).toMatch(/accessibilityState=\{\{ selected: selectedCategory === cat\.id \}\}[^>]*?\{\.\.\.\(Platform\.OS === 'web' \? \{ 'aria-pressed': selectedCategory === cat\.id \} : \{\}\)\}/);
+    });
+});
+
+describe('C-031 — no toggle chip leaves its state to accessibilityState alone', () => {
+    // react-native-web drops accessibilityState.selected, so a filter chip, a pager dot or
+    // a language option whose only state is that prop is a plain button to a web screen
+    // reader. Each must carry the web attribute beside it.
+    it.each<[string, string[]]>([
+        ['src/screens/ArticlesListScreen.tsx', ['favoritesActive', 'selected']],
+        ['src/screens/SupplementsListScreen.tsx', ['favoritesActive', 'allSelected', 'selected']],
+        ['src/screens/BabyEvolutionScreen.tsx', ['activeMonth === index + 1']],
+        ['src/components/common/LanguageSelector.tsx', ['i18n.language === lang.code']],
+    ])('%s', (file, states) => {
+        const src = read(file);
+        expect(src).toMatch(/import \{[^}]*\bPlatform\b[^}]*\} from 'react-native';/);
+        for (const state of states) {
+            expect(src).toContain(`{...(Platform.OS === 'web' ? { 'aria-pressed': ${state} } : {})}`);
+        }
+        const native = src.match(/accessibilityState=\{\{ selected\b/g) ?? [];
+        const web = src.match(/Platform\.OS === 'web' \? \{ 'aria-pressed':/g) ?? [];
+        // The bookmark and show-password buttons are not counted here: none lives in these files.
+        expect(web).toHaveLength(native.length);
+    });
+});
+
+describe('ForbiddenFoods — rating badges are readable', () => {
+    const src = read('src/screens/ForbiddenFoodsScreen.tsx');
+
+    it('pairs dark text with a light tint of the same hue (pairs pinned in the theme contrast test)', () => {
+        const map = src.slice(src.indexOf('const severityBadgeColors'), src.indexOf('};', src.indexOf('const severityBadgeColors')));
+        expect(map).toMatch(/critical: \{ text: theme\.colors\.red800, background: theme\.colors\.surfaceRose \}/);
+        expect(map).toMatch(/high: \{ text: theme\.colors\.deepOrange900, background: theme\.colors\.surfaceOrangeTint \}/);
+        expect(map).toMatch(/medium: \{ text: theme\.colors\.warningTextDark, background: theme\.colors\.surfaceAmberTint \}/);
+        expect(map).toMatch(/low: \{ text: theme\.colors\.green800, background: theme\.colors\.surfaceGreenTint \}/);
+    });
+
+    it('no longer washes the label colour into its own background', () => {
+        expect(src).not.toMatch(/severityColors\[food\.severity\] \+ '20'/);
+        expect(src).toMatch(/backgroundColor: severityBadgeColors\[food\.severity\]\.background/);
+        expect(src).toMatch(/color: severityBadgeColors\[food\.severity\]\.text/);
+    });
 });
 
 describe('ArticleDetail — an article that is hidden or gone', () => {

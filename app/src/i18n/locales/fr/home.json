@@ -62,5 +62,6 @@
     "enable": "Activer les notifications",
     "later": "Plus tard"
   },
+  "postTermTitle": "Bébé se fait attendre",
   "postTermNote": "Vous êtes à {{ga}} : la date prévue d'accouchement est passée. Restez en lien avec votre maternité ou votre sage-femme."
 }

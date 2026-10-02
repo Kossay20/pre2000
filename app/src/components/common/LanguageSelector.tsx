@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Modal } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Modal, Platform } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { theme } from '../../theme';
 import { useAuth } from '../../context/AuthContext';
@@ -77,6 +77,9 @@ export const LanguageSelector = ({ isCompact }: { isCompact?: boolean }) => {
                                 accessibilityRole="button"
                                 accessibilityLabel={lang.label}
                                 accessibilityState={{ selected: i18n.language === lang.code }}
+                                // react-native-web drops accessibilityState; the current
+                                // language was only a background tint to a web screen reader.
+                                {...(Platform.OS === 'web' ? { 'aria-pressed': i18n.language === lang.code } : {})}
                             >
                                 <Text style={styles.optionFlag} accessibilityElementsHidden importantForAccessibility="no">{lang.flag}</Text>
                                 <Text style={[

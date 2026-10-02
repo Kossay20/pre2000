@@ -50,8 +50,6 @@
   "step4": {
     "defaultName": "ماما المستقبل",
     "youAreAt": "أنتِ في",
-    "weekCaps": "الأسبوع",
-    "dayCaps": "اليوم",
     "babySize": "طفلك بحجم\n{{label}} {{emoji}}",
     "createAccountTitle": "📧 أنشئي حسابك",
     "createAccountSubtitle": "زامني بياناتك على جميع أجهزتك",

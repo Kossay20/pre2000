@@ -123,6 +123,29 @@ describe('bagItemLabel — administrative papers follow the profile country', ()
         }
     });
 
+    // Round 4: the partner's line still read "CIN de l'accompagnant" for a France profile.
+    it("the partner's identity document follows the country like the mother's", () => {
+        expect(bagItemLabel(item('partner-papers'), 'fr', 'france')).toBe("Pièce d'identité de l'accompagnant");
+        expect(bagItemLabel(item('partner-papers'), 'fr', 'tunisia')).toBe("CIN de l'accompagnant");
+        expect(bagItemLabel(item('partner-papers'), 'tn', 'tunisia')).toMatch(/CIN/);
+        // A list seeded with the old wording is read from the shipped defaults.
+        const stored: HospitalBagItem = { ...item('partner-papers'), label_fr: "CIN de l'accompagnant", labels_by_country: undefined, custom: false };
+        expect(bagItemLabel(stored, 'fr', 'france')).toBe("Pièce d'identité de l'accompagnant");
+    });
+
+    it('no item of the default list names a Tunisian document outside Tunisia, in any language', () => {
+        const tunisian = /CIN|CNAM|الكنام|بطاقة التعريف|الضمان الاجتماعي/;
+        for (const d of defaults) {
+            for (const lang of LANGS) {
+                for (const country of ['france', 'belgium', 'other', '', undefined, null]) {
+                    const label = bagItemLabel(d, lang, country);
+                    expect({ id: d.id, lang, country, label, tunisian: tunisian.test(label) })
+                        .toEqual({ id: d.id, lang, country, label, tunisian: false });
+                }
+            }
+        }
+    });
+
     it('every country wording exists in the four languages', () => {
         for (const d of defaults) {
             for (const [country, labels] of Object.entries(d.labels_by_country ?? {})) {

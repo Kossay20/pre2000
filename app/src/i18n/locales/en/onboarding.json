@@ -50,8 +50,6 @@
   "step4": {
     "defaultName": "Mom-to-be",
     "youAreAt": "You are at",
-    "weekCaps": "WEEK",
-    "dayCaps": "DAY",
     "babySize": "Your baby is the size of\n{{label}} {{emoji}}",
     "createAccountTitle": "📧 Create your account",
     "createAccountSubtitle": "Sync your data across all your devices",

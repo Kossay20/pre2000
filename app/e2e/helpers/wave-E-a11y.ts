@@ -27,7 +27,22 @@
  *  - placeholders: a placeholder painted in the input's own text colour (RN-web's default
  *    when placeholderTextColor is unset) is flagged `placeholderUnstyled`, not scored as a pass;
  *  - hitSlop: RN-web does not render it, so the DOM box understates native targets.
- *    The React props of the pressable are read and `small44Native` uses the slop box.
+ *    The React props of the pressable are read and `small44Native` uses the slop box;
+ *  - hidden screens (E-042): a tab that lost focus stays mounted on web under an
+ *    `aria-hidden=true`, `z-index:-1` wrapper. Nothing inside such a screen-sized
+ *    aria-hidden subtree is a sample for contrast, layout or overlaps (interactive
+ *    elements already skipped every aria-hidden subtree). A small aria-hidden node (a
+ *    decorative label) is still measured for contrast: sighted users read it;
+ *  - toasts / banners (E-042): a positioned `role=status|alert` box is a transient
+ *    overlay, never chrome. Hit-tests look through it to decide which SCREEN owns a
+ *    point, and what it covers is listed in `layout.overlayCovers` (E-043);
+ *  - painted-over samples (E-021): every text sample is hit-tested at its visible centre
+ *    with `document.elementFromPoint`. A sample whose centre is painted by an unrelated,
+ *    opaque element (a toast, the FAB) is not scored for contrast (the user cannot read
+ *    it) and is listed in `probeSkips.occludedText`. Interactive elements in that
+ *    situation are KEPT (they are still reachable) and carry `occludedBy`;
+ *  - nested duplicates (E-021): an interactive element whose box equals the box of an
+ *    interactive ancestor is one control, counted once (`probeSkips.nestedDuplicates`).
  *
  * Strings are cut by code point (`cut`), never mid surrogate pair, so the JSON stays
  * valid for strict parsers.
@@ -64,6 +79,8 @@ export type InteractiveEl = {
   hitSlop: { top: number; bottom: number; left: number; right: number } | null;
   /** small44 re-evaluated on the DOM box grown by hitSlop — the native touch area */
   small44Native: boolean;
+  /** label of the unrelated opaque element painted over this control's visible centre (toast, FAB) */
+  occludedBy: string | null;
   html: string;
 };
 
@@ -99,6 +116,12 @@ export type LayoutProbe = {
   /** pairs of distinct, non-nested visible interactive elements whose boxes intersect */
   overlaps: Array<{ a: string; b: string; area: number; ra: Rect; rb: Rect }>;
   tablist: null | { rect: Rect; tabs: Array<{ name: string; rect: Rect; truncated: boolean }> ; fullyInViewport: boolean };
+  /** inputs whose value is wider than the field (E-019: "2026-10-0") */
+  clippedInputs: Array<{ name: string; value: string; scrollW: number; clientW: number; rect: Rect }>;
+  /** positioned role=status|alert boxes (toast, offline banner) and what they sit on (E-043) */
+  overlayCovers: Array<{ role: string | null; text: string; rect: Rect; position: string; covers: Array<{ kind: 'control' | 'text'; label: string; area: number; rect: Rect }> }>;
+  /** screen-sized aria-hidden subtrees still mounted (inactive tabs, E-022): a sample of each */
+  hiddenScreens: Array<{ sample: string; zIndex: string; rect: Rect }>;
   htmlDir: string | null;
   htmlLang: string | null;
 };
@@ -135,12 +158,47 @@ export type A11yReport = {
     offscreenX: number;
     clippedLabels: number;
     overlaps: number;
+    clippedInputs: number;
+    hiddenScreens: number;
+    switchesOn: number;
+    switchesOnTealThumb: number;
   };
+  /** what the probes left out, and why (reviewable: nothing is dropped silently) */
+  probeSkips: {
+    /** interactive elements merged into an interactive ancestor with the same box */
+    nestedDuplicates: number;
+    nestedDuplicateSample: string[];
+    /** text nodes inside a hidden (aria-hidden, screen-sized) screen */
+    textInHiddenScreen: number;
+    /** text whose visible centre is painted by an unrelated opaque element */
+    occludedText: Array<{ text: string; by: string }>;
+  };
+  probes: ExtraProbes;
   contrast: ContrastSample[];
   /** names of the controls behind `summary.hiddenMounted`, to identify the screen */
   hiddenMountedSample: string[];
   extra?: Record<string, unknown>;
 };
+
+export type SwitchSample = { name: string; checked: boolean; disabled: boolean; track: string; thumb: string; rect: Rect; inViewport: boolean };
+export type ExtraProbes = {
+  /** every visible RN-web Switch: computed colour of its track and thumb (E-016) */
+  switches: SwitchSample[];
+  /** visible text made of / containing emoji glyphs, with the control it sits in (E-027/028/044) */
+  emojiText: Array<{ text: string; rect: Rect; inControl: string | null }>;
+  /** icon-font glyphs (Ionicons etc.) on screen: count only */
+  iconFontGlyphs: number;
+  /** punctuation that wrapped alone to the next line, away from its word (E-040) */
+  orphanPunct: Array<{ text: string; punct: string; spaceCodePoint: string }>;
+  /** fr only: ' :', ' ?', ' !', ' ;' written with a plain U+0020 (can wrap) */
+  plainSpaceBeforePunct: string[];
+  /** headings (role=heading / h1-h3) and big bold lines, and the titles that appear more than once (E-026) */
+  headings: Array<{ text: string; level: string | null; rect: Rect }>;
+  duplicateTitles: string[];
+};
+
+/** RN-web's default ON thumb colour: what a Switch shows when activeThumbColor is unset. */
+export const RNW_DEFAULT_ACTIVE_THUMB = 'rgb(0, 150, 136)';
 
 const INTERACTIVE_SELECTOR = [
   'button',
@@ -168,7 +226,10 @@ const INTERACTIVE_SELECTOR = [
  *    its nearest screen-sized ancestor is sampled at 5 points (≥4 must show another
  *    layer). Points landing on fixed chrome are ignored (E-021, E-037);
  *  - visibleRect(el): el's box clipped by the viewport and overflow ancestors;
- *  - inChrome(el): inside a tablist or a small fixed/sticky box;
+ *  - inChrome(el): inside a tablist or a small fixed/sticky box, toasts excluded (E-042);
+ *  - transientRoot(el): the positioned role=status|alert box el belongs to (toast, banner);
+ *  - hiddenScreenOf(el): the screen-sized aria-hidden ancestor of el (inactive tab);
+ *  - paintedOver(el): the unrelated opaque element drawn over el's visible centre (E-021);
  *  - hasRealText(s): letters/digits left once emoji glyphs are removed;
  *  - gradientAt(bi, rect, x, y): colour of a CSS linear-gradient at a point (E-020);
  *  - hitSlopOf(el): hitSlop prop of the pressable that rendered el (E-023).
@@ -212,7 +273,19 @@ async function installPageHelpers(page: Page) {
     };
     // Fixed chrome (the tab bars, a pinned header or footer): content passes under it on
     // purpose and comes back with a scroll, so it never makes anything "covered".
+    // A toast or a banner: a role=status|alert box taken out of the flow. It is a
+    // transient overlay, NOT chrome (E-042): what it covers is covered.
+    const transientRoot = (n: Element): Element | null => {
+      const live = n.closest('[role=status],[role=alert]');
+      if (!live) return null;
+      for (let cur: Element | null = live, i = 0; cur && cur !== document.body && i < 3; cur = cur.parentElement, i++) {
+        const pos = getComputedStyle(cur).position;
+        if (pos === 'fixed' || pos === 'absolute' || pos === 'sticky') return live;
+      }
+      return null;
+    };
     const inChrome = (n: Element) => {
+      if (transientRoot(n)) return false;
       for (let cur: Element | null = n; cur && cur !== document.body; cur = cur.parentElement) {
         if (cur.getAttribute('role') === 'tablist') return true;
         const pos = getComputedStyle(cur).position;
@@ -220,10 +293,54 @@ async function installPageHelpers(page: Page) {
       }
       return false;
     };
+    // Inside a screen the user cannot see: a screen-sized aria-hidden subtree (an inactive
+    // tab on web is aria-hidden and z-index:-1, E-042).
+    const hiddenScreenOf = (n: Element): Element | null => {
+      let found: Element | null = null;
+      for (let cur: Element | null = n; cur && cur !== document.body; cur = cur.parentElement) {
+        if (cur.getAttribute('aria-hidden') === 'true' && isLayer(cur)) found = cur;
+      }
+      return found;
+    };
+    const inHiddenScreen = (n: Element) => !!hiddenScreenOf(n);
+    const label = (el: Element) =>
+      cut((el.getAttribute('aria-label') || (el as HTMLElement).innerText || el.getAttribute('placeholder') || el.tagName).trim().replace(/\s+/g, ' '), 50);
+    const paints = (n: Element) => {
+      if (/^(img|svg|canvas|video)$/i.test(n.tagName)) return true;
+      const cs = getComputedStyle(n);
+      if (cs.backgroundImage && cs.backgroundImage !== 'none') return true;
+      const m = cs.backgroundColor.match(/rgba?\(([^)]+)\)/);
+      if (!m) return false;
+      const p = m[1].split(/[,\s/]+/).filter(Boolean).map((x) => parseFloat(x));
+      return (p[3] === undefined ? 1 : p[3]) >= 0.5;
+    };
+    // The unrelated, opaque element painted over el's visible centre (a toast, the FAB), or
+    // null: el itself / an ancestor / a descendant is hit, or the hit is fixed chrome, or the
+    // thing on top is transparent (an absolute-fill pressable over a card). E-021.
+    const paintedOver = (el: Element): Element | null => {
+      if (getComputedStyle(el).pointerEvents === 'none') return null; // not hit-testable: unknown, keep
+      const vr = visibleRect(el);
+      if (!vr) return null;
+      const top = document.elementFromPoint((vr.x0 + vr.x1) / 2, (vr.y0 + vr.y1) / 2);
+      if (!top || el.contains(top) || top.contains(el) || inChrome(top)) return null;
+      for (let cur: Element | null = top; cur && !cur.contains(el); cur = cur.parentElement) {
+        // The bar that holds the bottom tab bar is chrome too (its painted wrapper sits outside
+        // role=tablist): content under it comes back with a scroll, as before.
+        if (!isLayer(cur) && cur.querySelector('[role=tablist]')) return null;
+        if (paints(cur)) return transientRoot(top) || cur;
+      }
+      return null;
+    };
     // What paints over (x, y) instead of `own`: null when the point shows `own`, chrome, or
     // a sibling inside own's screen (a badge, the FAB); otherwise the overlay's kind.
     const overlayAt = (own: Element, x: number, y: number): 'modal' | 'screen' | null => {
-      const top = document.elementFromPoint(x, y);
+      // Look through a toast / banner: it does not say which screen owns the point (E-042:
+      // a hidden tab's header under the toast used to come back "visible").
+      const ownToast = transientRoot(own);
+      const top = document.elementsFromPoint(x, y).find((n) => {
+        const tr = transientRoot(n);
+        return !tr || tr === ownToast;
+      });
       if (!top || own.contains(top) || top.contains(own) || inChrome(top)) return null;
       for (let cur: Element | null = top; cur && cur !== document.body; cur = cur.parentElement) {
         if (cur.contains(own)) return null;
@@ -362,7 +479,7 @@ async function installPageHelpers(page: Page) {
     // but renders as an emoji), keycaps like '1️⃣' and ZWJ sequences are glyphs, not text.
     const hasRealText = (s: string) =>
       /[\p{L}\p{N}]/u.test((s || '').replace(/[\p{N}#*]️?⃣|\p{Extended_Pictographic}|️|‍/gu, ''));
-    w.__e2eA11y = { cut, covered, layerState, visibleRect, inChrome, hasRealText, gradientAt, hitSlopOf };
+    w.__e2eA11y = { cut, covered, layerState, visibleRect, inChrome, hasRealText, gradientAt, hitSlopOf, transientRoot, hiddenScreenOf, inHiddenScreen, paintedOver, label, isLayer };
   });
 }
 
@@ -400,9 +517,29 @@ async function collectInteractive(page: Page) {
     const hiddenMountedSample = Array.from(
       new Set(hiddenEls.map((el) => H.cut((el.getAttribute('aria-label') || (el as HTMLElement).innerText || el.tagName).trim().replace(/\s+/g, ' '), 40))),
     ).slice(0, 12);
-    const all = reachable.filter((_, i) => states[i] === 'visible');
-    // Drop an element if an interactive ancestor already covers it with the same box
-    // (RN-web nests a tabindex div inside a button in a few components).
+    const visibleEls = reachable.filter((_, i) => states[i] === 'visible');
+    // One control, counted once (E-021): an element whose box equals the box of an
+    // interactive ancestor (RN-web nests a tabindex div inside a button in a few
+    // components) is merged into the one that carries the semantics (a role or a native
+    // control); with no semantics on either, the outer one is kept.
+    const inSet = new Set<Element>(visibleEls);
+    const sameBox = (a: Element, b: Element) => {
+      const ra = a.getBoundingClientRect();
+      const rb = b.getBoundingClientRect();
+      return Math.abs(ra.left - rb.left) <= 1 && Math.abs(ra.top - rb.top) <= 1 && Math.abs(ra.width - rb.width) <= 1 && Math.abs(ra.height - rb.height) <= 1;
+    };
+    const semantic = (e: Element) => !!e.getAttribute('role') || /^(button|a|input|textarea|select)$/i.test(e.tagName);
+    const dropped = new Set<Element>();
+    for (const el of visibleEls) {
+      for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) {
+        if (!inSet.has(p) || dropped.has(p) || !sameBox(p, el)) continue;
+        if (semantic(p) || !semantic(el)) dropped.add(el);
+        else dropped.add(p);
+        break;
+      }
+    }
+    const nestedDuplicateSample = Array.from(dropped).slice(0, 8).map((e) => H.cut(e.outerHTML.replace(/\s+class="[^"]*"/g, ''), 120));
+    const all = visibleEls.filter((e) => !dropped.has(e));
     const out: any[] = [];
     all.forEach((el, i) => {
       el.setAttribute('data-e2e-a11y-idx', String(i));
@@ -424,10 +561,14 @@ async function collectInteractive(page: Page) {
         disabled,
         roleless: !role && tag === 'div' && el.getAttribute('tabindex') === '0',
         hitSlop: H.hitSlopOf(el),
+        occludedBy: (() => {
+          const by = H.paintedOver(el);
+          return by ? H.label(by) : null;
+        })(),
         html: H.cut(el.outerHTML.replace(/\s+class="[^"]*"/g, ''), 220),
       });
     });
-    return { items: out, coveredCount, coveredByModal, hiddenMounted: hiddenEls.length, hiddenMountedSample };
+    return { items: out, coveredCount, coveredByModal, hiddenMounted: hiddenEls.length, hiddenMountedSample, nestedDuplicates: dropped.size, nestedDuplicateSample };
   }, INTERACTIVE_SELECTOR);
 }
 
@@ -516,7 +657,7 @@ async function layoutProbe(page: Page): Promise<LayoutProbe> {
     const de = document.documentElement;
     const offscreenX: any[] = [];
     const leafs = Array.from(document.body.querySelectorAll('*')).filter((el) => {
-      if (!vis(el)) return false;
+      if (!vis(el) || HP.inHiddenScreen(el)) return false;
       const hasText = Array.from(el.childNodes).some((n) => n.nodeType === 3 && (n.textContent || '').trim());
       const interactive = el.matches('button,[role=button],[role=tab],[role=link],[role=checkbox],[role=switch],input,textarea,[tabindex="0"]');
       return hasText || interactive;
@@ -531,7 +672,9 @@ async function layoutProbe(page: Page): Promise<LayoutProbe> {
 
     // clipped labels inside controls
     const clippedLabels: any[] = [];
-    const controls = Array.from(document.querySelectorAll('button,[role=button],[role=tab],[role=link],[role=checkbox],[role=switch],[role=radio]')).filter(vis);
+    const controls = Array.from(document.querySelectorAll('button,[role=button],[role=tab],[role=link],[role=checkbox],[role=switch],[role=radio]'))
+      .filter(vis)
+      .filter((c) => !c.closest('[aria-hidden=true]'));
     for (const c of controls) {
       const texts = [c, ...Array.from(c.querySelectorAll('*'))].filter((el) =>
         Array.from(el.childNodes).some((n) => n.nodeType === 3 && (n.textContent || '').trim()),
@@ -564,11 +707,11 @@ async function layoutProbe(page: Page): Promise<LayoutProbe> {
       .filter(vis)
       .filter((el) => {
         const r = el.getBoundingClientRect();
-        return r.bottom > 0 && r.top < vh && r.right > 0 && r.left < vw && !clippedAway(el) && !HP.covered(el);
+        // aria-hidden subtrees are not controls the user has (E-042), same rule as collectInteractive
+        return r.bottom > 0 && r.top < vh && r.right > 0 && r.left < vw && !el.closest('[aria-hidden=true]') && !clippedAway(el) && !HP.covered(el);
       });
     const overlaps: any[] = [];
-    const label = (el: Element) =>
-      HP.cut((el.getAttribute('aria-label') || (el as HTMLElement).innerText || el.getAttribute('placeholder') || el.tagName).trim().replace(/\s+/g, ' '), 50);
+    const label = HP.label as (el: Element) => string;
     for (let i = 0; i < inter.length; i++) {
       for (let j = i + 1; j < inter.length; j++) {
         const a = inter[i];
@@ -595,7 +738,7 @@ async function layoutProbe(page: Page): Promise<LayoutProbe> {
 
     // bottom tab bar
     let tablist: any = null;
-    const tls = Array.from(document.querySelectorAll('[role=tablist]')).filter(vis);
+    const tls = Array.from(document.querySelectorAll('[role=tablist]')).filter(vis).filter((t) => !HP.inHiddenScreen(t));
     // the bottom one = largest top
     const bottom = tls.sort((a, b) => b.getBoundingClientRect().top - a.getBoundingClientRect().top)[0];
     if (bottom) {
@@ -610,6 +753,43 @@ async function layoutProbe(page: Page): Promise<LayoutProbe> {
       tablist = { rect: R(r), tabs, fullyInViewport: r.top >= 0 && r.bottom <= vh + 0.5 && r.left >= -0.5 && r.right <= vw + 0.5 };
     }
 
+    // inputs whose value does not fit the field (E-019)
+    const clippedInputs = (Array.from(document.querySelectorAll('input:not([type=hidden]):not([type=checkbox]):not([type=radio]),textarea')) as HTMLInputElement[])
+      .filter(vis)
+      .filter((i) => !HP.inHiddenScreen(i) && !HP.covered(i) && !!i.value && i.tagName !== 'TEXTAREA' && i.scrollWidth > i.clientWidth + 1)
+      .map((i) => ({ name: HP.cut(i.getAttribute('aria-label') || i.getAttribute('placeholder') || i.type, 50), value: HP.cut(i.value, 40), scrollW: i.scrollWidth, clientW: i.clientWidth, rect: R(i.getBoundingClientRect()) }));
+
+    // toasts / banners and what they sit on (E-043)
+    const roots = Array.from(new Set(Array.from(document.querySelectorAll('[role=status],[role=alert]')).filter(vis).map((n) => HP.transientRoot(n)).filter(Boolean))) as Element[];
+    const textLeafs = leafs.filter((el) => Array.from(el.childNodes).some((n) => n.nodeType === 3 && (n.textContent || '').trim()));
+    const overlayCovers = roots
+      .filter((root) => !HP.inHiddenScreen(root) && parseFloat(getComputedStyle(root).opacity || '1') > 0.05)
+      .map((root) => {
+        const rr = root.getBoundingClientRect();
+        const covers: any[] = [];
+        const hit = (el: Element, kind: 'control' | 'text') => {
+          if (root.contains(el) || el.contains(root)) return;
+          if (HP.covered(el)) return;
+          const v = HP.visibleRect(el);
+          if (!v) return;
+          const w = Math.min(v.x1, rr.right) - Math.max(v.x0, rr.left);
+          const h = Math.min(v.y1, rr.bottom) - Math.max(v.y0, rr.top);
+          if (w > 2 && h > 2) covers.push({ kind, label: label(el), area: Math.round(w * h), rect: R(el.getBoundingClientRect()) });
+        };
+        inter.forEach((el) => hit(el, 'control'));
+        textLeafs.filter((el) => !inter.some((c) => c.contains(el))).forEach((el) => hit(el, 'text'));
+        return { role: root.getAttribute('role'), text: HP.cut(((root as HTMLElement).innerText || '').trim().replace(/\s+/g, ' '), 120), rect: R(rr), position: getComputedStyle(root).position, covers: covers.slice(0, 20) };
+      });
+
+    // hidden screens still mounted (E-022)
+    const hs = new Set<Element>();
+    document.querySelectorAll('[aria-hidden=true]').forEach((n) => {
+      if (!vis(n)) return;
+      const top = HP.hiddenScreenOf(n);
+      if (top) hs.add(top);
+    });
+    const hiddenScreens = Array.from(hs).map((n) => ({ sample: HP.cut(((n as HTMLElement).innerText || '').trim().replace(/\s+/g, ' '), 60), zIndex: getComputedStyle(n).zIndex, rect: R(n.getBoundingClientRect()) }));
+
     return {
       viewport: { w: vw, h: vh, dpr: window.devicePixelRatio },
       doc: { scrollWidth: de.scrollWidth, clientWidth: de.clientWidth, scrollHeight: de.scrollHeight, clientHeight: de.clientHeight },
@@ -618,6 +798,9 @@ async function layoutProbe(page: Page): Promise<LayoutProbe> {
       clippedLabels: clippedLabels.slice(0, 40),
       overlaps: overlaps.slice(0, 40),
       tablist,
+      clippedInputs,
+      overlayCovers,
+      hiddenScreens,
       htmlDir: de.getAttribute('dir'),
       htmlLang: de.getAttribute('lang'),
     };
@@ -625,7 +808,7 @@ async function layoutProbe(page: Page): Promise<LayoutProbe> {
 }
 
 /** In-page contrast walker. Exact composition for normal blending along the ancestor chain. */
-async function contrastProbe(page: Page): Promise<ContrastSample[]> {
+async function contrastProbe(page: Page): Promise<{ samples: ContrastSample[]; textInHiddenScreen: number; occludedText: Array<{ text: string; by: string }> }> {
   return page.evaluate(() => {
     const HP = (window as any).__e2eA11y;
     type C = { r: number; g: number; b: number; a: number };
@@ -765,17 +948,30 @@ async function contrastProbe(page: Page): Promise<ContrastSample[]> {
     }
 
     const samples: any[] = [];
+    let textInHiddenScreen = 0;
+    const occludedText: Array<{ text: string; by: string }> = [];
     const els = Array.from(document.body.querySelectorAll('*')) as HTMLElement[];
     for (const el of els) {
       if (!Array.from(el.childNodes).some((n) => n.nodeType === 3 && HP.hasRealText(n.textContent || ''))) continue;
       if (!vis(el)) continue;
       const r = el.getBoundingClientRect();
       if (r.right <= 0 || r.left >= vw) continue; // off-canvas horizontally (carousel pages etc.)
+      // A screen the user cannot see (inactive tab: aria-hidden + z-index:-1) is not a sample (E-042).
+      if (HP.inHiddenScreen(el)) {
+        textInHiddenScreen++;
+        continue;
+      }
       if (HP.covered(el)) continue; // a layer painted over (see installPageHelpers)
+      // Painted over at its own centre by a toast / the FAB: unreadable, so not scored, but listed (E-021).
+      const by = HP.paintedOver(el);
+      if (by) {
+        if (occludedText.length < 30) occludedText.push({ text: HP.cut((el.innerText || '').trim().replace(/\s+/g, ' '), 60), by: HP.label(by) });
+        continue;
+      }
       samples.push(measure(el, getComputedStyle(el).color));
     }
     for (const inp of Array.from(document.querySelectorAll('input[placeholder],textarea[placeholder]')) as HTMLInputElement[]) {
-      if (!vis(inp) || inp.value || HP.covered(inp)) continue;
+      if (!vis(inp) || inp.value || HP.inHiddenScreen(inp) || HP.covered(inp)) continue;
       const pc = getComputedStyle(inp, '::placeholder').color;
       const sample: any = measure(inp, pc, true);
       // RN-web paints the placeholder in the input's text colour when placeholderTextColor
@@ -795,13 +991,124 @@ async function contrastProbe(page: Page): Promise<ContrastSample[]> {
       if (prev) prev.count++;
       else byKey.set(k, s);
     }
-    return Array.from(byKey.values());
+    return { samples: Array.from(byKey.values()), textInHiddenScreen, occludedText };
+  });
+}
+
+/**
+ * Finding-specific measurements, taken on what the user can see (hidden screens and
+ * layers painted over are left out with the same helpers as the other probes):
+ * Switch colours (E-016), emoji glyphs (E-027/028/044), punctuation wrapped away from
+ * its word (E-040), duplicated titles (E-026).
+ */
+async function extraProbes(page: Page): Promise<ExtraProbes> {
+  return page.evaluate(() => {
+    const HP = (window as any).__e2eA11y;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const R = (r: DOMRect) => ({ x: Math.round(r.left), y: Math.round(r.top), w: Math.round(r.width * 10) / 10, h: Math.round(r.height * 10) / 10 });
+    const vis = (el: Element) => {
+      const anyEl = el as any;
+      if (typeof anyEl.checkVisibility === 'function' && !anyEl.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })) return false;
+      const r = el.getBoundingClientRect();
+      return r.width > 0 && r.height > 0 && r.right > 0 && r.left < vw;
+    };
+    const seen = (el: Element) => vis(el) && !HP.inHiddenScreen(el) && !HP.covered(el);
+    const norm = (t: string) => (t || '').replace(/[\s\u00a0\u202f]+/g, ' ').trim();
+
+    // RN-web Switch: <div root><div track/><div thumb/><input type=checkbox role=switch/></div>
+    const switches = (Array.from(document.querySelectorAll('input[role=switch],input[type=checkbox][role=switch]')) as HTMLInputElement[])
+      .filter((i) => !i.closest('[aria-hidden=true]') && !!i.parentElement && seen(i.parentElement))
+      .map((i) => {
+        const kids = Array.from(i.parentElement!.children).filter((k) => k !== i) as HTMLElement[];
+        const r = i.parentElement!.getBoundingClientRect();
+        return {
+          name: HP.cut(i.getAttribute('aria-label') || '', 60),
+          checked: i.checked,
+          disabled: i.disabled,
+          track: kids[0] ? getComputedStyle(kids[0]).backgroundColor : '',
+          thumb: kids[1] ? getComputedStyle(kids[1]).backgroundColor : '',
+          rect: R(r),
+          inViewport: r.bottom > 0 && r.top < vh,
+        };
+      });
+
+    const leafs = (Array.from(document.body.querySelectorAll('*')) as HTMLElement[]).filter(
+      (el) => Array.from(el.childNodes).some((n) => n.nodeType === 3 && (n.textContent || '').trim()) && seen(el),
+    );
+    const ownText = (el: Element) => Array.from(el.childNodes).filter((n) => n.nodeType === 3).map((n) => n.textContent || '').join('');
+    const emojiText: any[] = [];
+    let iconFontGlyphs = 0;
+    for (const el of leafs) {
+      const t = ownText(el);
+      if (/[\uE000-\uF8FF]|[\u{F0000}-\u{FFFFD}]/u.test(t)) {
+        iconFontGlyphs++;
+        continue;
+      }
+      // Not text-presentation symbols typed as letters (→ ← ✓ ✕ • are Extended_Pictographic-free or plain)
+      if (/\p{Extended_Pictographic}/u.test(t.replace(/[\u2190-\u21FF\u2713\u2715\u2717\u00A9\u00AE\u2122]/g, ''))) {
+        const ctl = el.closest('button,[role=button],[role=tab],[role=link],[role=checkbox],[role=switch]');
+        if (emojiText.length < 60) emojiText.push({ text: HP.cut(norm(t), 50), rect: R(el.getBoundingClientRect()), inControl: ctl ? HP.label(ctl) : null });
+      }
+    }
+
+    // punctuation wrapped away from its word, and fr plain-space punctuation
+    const fr = /^fr/i.test(document.documentElement.getAttribute('lang') || '');
+    const orphanPunct: any[] = [];
+    const plain = new Set<string>();
+    for (const el of leafs) {
+      for (const node of Array.from(el.childNodes)) {
+        if (node.nodeType !== 3) continue;
+        const s = node.textContent || '';
+        const re = /(\S)([ \u00a0\u202f])([:;?!»])/g;
+        let m: RegExpExecArray | null;
+        while ((m = re.exec(s))) {
+          const iPrev = m.index;
+          const iPunct = m.index + 2;
+          const a = document.createRange();
+          a.setStart(node, iPrev);
+          a.setEnd(node, iPrev + 1);
+          const b = document.createRange();
+          b.setStart(node, iPunct);
+          b.setEnd(node, iPunct + 1);
+          const ra = a.getBoundingClientRect();
+          const rb = b.getBoundingClientRect();
+          const snippet = HP.cut(norm(s.slice(Math.max(0, m.index - 24), m.index + 20)), 50);
+          if (ra.height > 0 && rb.height > 0 && rb.top > ra.top + ra.height * 0.5) {
+            orphanPunct.push({ text: snippet, punct: m[3], spaceCodePoint: 'U+' + m[2].charCodeAt(0).toString(16).toUpperCase().padStart(4, '0') });
+          }
+          if (fr && m[2] === ' ' && plain.size < 40) plain.add(snippet);
+        }
+      }
+    }
+
+    // headings and duplicated titles: role=heading / h1-h3, plus any big bold line (≥18px,
+    // ≥600) — a markdown H2 is a plain Text on RN-web
+    const headEls = (Array.from(document.querySelectorAll('[role=heading],h1,h2,h3')) as HTMLElement[]).filter(seen);
+    const bigEls = leafs.filter((el) => {
+      if (headEls.some((h) => h === el || h.contains(el))) return false;
+      const cs = getComputedStyle(el);
+      return parseFloat(cs.fontSize) >= 18 && (parseInt(cs.fontWeight, 10) || 400) >= 600;
+    });
+    const headings = [
+      ...headEls.map((h) => ({ text: HP.cut(norm(h.innerText), 80), level: h.getAttribute('aria-level') || (/^H\d$/.test(h.tagName) ? h.tagName.slice(1) : 'heading'), rect: R(h.getBoundingClientRect()) })),
+      ...bigEls.map((h) => ({ text: HP.cut(norm(h.innerText), 80), level: 'big-bold-text', rect: R(h.getBoundingClientRect()) })),
+    ].filter((h) => h.text.length >= 4 && /\p{L}{3}/u.test(h.text));
+    const dup = new Set<string>();
+    for (let i = 0; i < headings.length; i++) {
+      for (let j = i + 1; j < headings.length; j++) {
+        const a = headings[i].text.toLowerCase();
+        const b = headings[j].text.toLowerCase();
+        if (a === b || (a.length >= 8 && b.startsWith(a)) || (b.length >= 8 && a.startsWith(b))) dup.add(`${headings[i].text} [${headings[i].level}] ⇄ ${headings[j].text} [${headings[j].level}]`);
+      }
+    }
+    return { switches, emojiText, iconFontGlyphs, orphanPunct: orphanPunct.slice(0, 20), plainSpaceBeforePunct: Array.from(plain), headings: headings.slice(0, 40), duplicateTitles: Array.from(dup).slice(0, 20) };
   });
 }
 
 export async function measureA11y(page: Page, state: string, extra?: Record<string, unknown>): Promise<A11yReport> {
   await installPageHelpers(page);
-  const { items: raw, coveredCount, coveredByModal, hiddenMounted, hiddenMountedSample } = await collectInteractive(page);
+  const { items: raw, coveredCount, coveredByModal, hiddenMounted, hiddenMountedSample, nestedDuplicates, nestedDuplicateSample } = await collectInteractive(page);
   const cdp = await page.context().newCDPSession(page);
   let names = new Map<number, { role: string | null; name: string }>();
   try {
@@ -830,7 +1137,9 @@ export async function measureA11y(page: Page, state: string, extra?: Record<stri
     };
   });
   const layout = await layoutProbe(page);
-  const contrast = await contrastProbe(page);
+  const { samples: contrast, textInHiddenScreen, occludedText } = await contrastProbe(page);
+  const probes = await extraProbes(page);
+  const switchesOn = probes.switches.filter((s) => s.checked);
   const fails = contrast.filter((c) => c.pass === false && !c.disabled);
   return {
     state,
@@ -858,7 +1167,13 @@ export async function measureA11y(page: Page, state: string, extra?: Record<stri
       offscreenX: layout.offscreenX.length,
       clippedLabels: layout.clippedLabels.filter((c) => !c.intentionalTruncation).length,
       overlaps: layout.overlaps.length,
+      clippedInputs: layout.clippedInputs.length,
+      hiddenScreens: layout.hiddenScreens.length,
+      switchesOn: switchesOn.length,
+      switchesOnTealThumb: switchesOn.filter((s) => s.thumb === RNW_DEFAULT_ACTIVE_THUMB).length,
     },
+    probeSkips: { nestedDuplicates, nestedDuplicateSample, textInHiddenScreen, occludedText },
+    probes,
     contrast,
     hiddenMountedSample,
     ...(extra ? { extra } : {}),

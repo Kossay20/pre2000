@@ -22,7 +22,7 @@ import { format } from 'date-fns';
 import { useAuth } from '../context/AuthContext';
 import { usePregnancy } from '../context/PregnancyContext';
 import { theme } from '../theme';
-import { styles } from './WeightTrackerScreen.styles';
+import { styles, BMI_CATEGORY_TONE } from './WeightTrackerScreen.styles';
 import {
     WeightEntry,
     saveWeightEntry,
@@ -41,7 +41,7 @@ import { showAlert } from '../utils/alert';
 import { confirmAction } from '../utils/uiUtils';
 import { useDateLocale } from '../hooks/useDateLocale';
 import { isOnLocalDay, toLocalDateKey } from '../utils/localDate';
-import { displayedAgeOf } from '../utils/pregnancyCalculator';
+import { displayedAgeOf, trimesterFromWeek } from '../utils/pregnancyCalculator';
 import { formatDecimal } from '../utils/localizedFormat';
 import { useTranslation } from 'react-i18next';
 import { trackPositiveAction } from '../services/inAppReviewService';
@@ -400,18 +400,13 @@ export const WeightTrackerScreen = () => {
         ? calculateBMICategory(prePregnancyWeight, height)
         : { category: 'normal' as const, minGain: 0, maxGain: 0, weeklyGainT2T3: 0 };
 
-    // PERFECT-FIX-2: derive BMI numeric value + map OMS category → semantic theme color.
+    // PERFECT-FIX-2: derive BMI numeric value + map OMS category → an AA (text, fill) pair.
     // bmiCategory was previously computed but never surfaced in the UI; users now
     // see both their pre-pregnancy BMI and the WHO/OMS classification.
     const bmiValue = hasValidData
         ? prePregnancyWeight / Math.pow(height / 100, 2)
         : null;
-    const BMI_CATEGORY_COLOR: Record<typeof bmiCategory.category, string> = {
-        underweight: theme.colors.warning,
-        normal: theme.colors.success,
-        overweight: theme.colors.warning,
-        obese: theme.colors.error,
-    };
+    const bmiTone = BMI_CATEGORY_TONE[bmiCategory.category];
 
     // Intelligence: Detect trend and generate smart suggestions
     const trend = React.useMemo(() => detectTrend(weightHistory), [weightHistory]);
@@ -423,6 +418,9 @@ export const WeightTrackerScreen = () => {
         return getSmartSuggestions(currentWeek, validStatus, trend || undefined);
     }, [currentWeek, weightStatus?.status, trend]);
     const trimesterMessage = currentWeek ? getTrimesterMessage(currentWeek) : null;
+    // Same label as Home and Reminders ("3ème Trimestre"); the message used to spell
+    // its own ("3e trimestre").
+    const trimesterLabel = currentWeek ? t('common.trimester_' + trimesterFromWeek(currentWeek)) : null;
 
     return (
         <ScrollView
@@ -596,15 +594,15 @@ export const WeightTrackerScreen = () => {
                                     style={[
                                         styles.bmiCategoryBadge,
                                         {
-                                            backgroundColor: BMI_CATEGORY_COLOR[bmiCategory.category] + '22',
-                                            borderColor: BMI_CATEGORY_COLOR[bmiCategory.category],
+                                            backgroundColor: bmiTone.bg,
+                                            borderColor: bmiTone.fg,
                                         },
                                     ]}
                                 >
                                     <Text
                                         style={[
                                             styles.bmiCategoryText,
-                                            { color: BMI_CATEGORY_COLOR[bmiCategory.category] },
+                                            { color: bmiTone.fg },
                                         ]}
                                     >
                                         {t(`weight.bmiCategory.${bmiCategory.category}`)}
@@ -729,6 +727,7 @@ export const WeightTrackerScreen = () => {
                         hasValidData={hasValidData}
                         historyCount={weightHistory.length}
                         trimesterMessage={trimesterMessage}
+                        trimesterLabel={trimesterLabel}
                         trend={trend}
                         suggestions={suggestions}
                         t={t}

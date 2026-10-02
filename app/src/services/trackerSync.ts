@@ -19,23 +19,56 @@ export interface SyncedRecord {
 /** Server document id: owner-prefixed, so no user can create ids in another's namespace. */
 export const ownedDocId = (uid: string, id: string): string => `${uid}_${id}`;
 
+/** The metadata Firestore puts on a query snapshot and on each document in it. */
+export interface ListingMetadata {
+    fromCache?: boolean;
+    hasPendingWrites?: boolean;
+}
+
 /**
- * Merge a server listing into the device's records.
+ * Whether a listing is the server's answer. With the offline cache on, a listing made
+ * without signal still resolves — from the cache — and anything else than an explicit
+ * "not from cache" is treated as such.
+ */
+export const isServerListing = (snapshot?: ListingMetadata | null): boolean => snapshot?.fromCache === false;
+
+/**
+ * Whether a listed document is one the server has acknowledged. A write made here that has
+ * not gone out yet is listed too, flagged `hasPendingWrites`: that is this device's own
+ * record handed back, not the server's.
+ */
+export const isAcknowledged = (document?: ListingMetadata | null): boolean => document?.hasPendingWrites === false;
+
+/**
+ * Merge a listing into the device's records. Each listed record says in `synced` whether
+ * the server has acknowledged it (see isAcknowledged).
  *
  * The server is the reference for everything it has acknowledged: a synced record missing
  * from it was deleted elsewhere (cleared on another phone) and goes. Unsynced records are
  * kept — the server has not seen them yet. A listing answered from the offline cache is not
  * a reference for anything, so then nothing local is dropped.
+ *
+ * Nor does it prove anything about a record this device holds: the cache contains the
+ * device's own unsent writes. A session recorded without signal came back in the cached
+ * listing and was marked synced, so the logout warning did not count it. A record held
+ * here is marked synced only by the server's own listing, for a document without a
+ * pending write; otherwise the device's copy stays as it is.
  */
 export const mergeSyncedList = <T extends SyncedRecord>(
     local: T[],
-    server: T[],
+    listed: T[],
     authoritative: boolean,
 ): T[] => {
-    const serverIds = new Set(server.map((s) => s.id));
-    const fromServer = server.map((s) => ({ ...s, synced: true }));
-    const localOnly = local.filter((l) => !serverIds.has(l.id) && (!authoritative || !l.synced));
-    return [...fromServer, ...localOnly];
+    const localById = new Map(local.map((l) => [l.id, l]));
+    const listedIds = new Set(listed.map((s) => s.id));
+    const fromListing = listed.map((s) => {
+        const acknowledged = s.synced === true;
+        const mine = localById.get(s.id);
+        if (mine && !(authoritative && acknowledged)) return mine;
+        return { ...s, synced: acknowledged };
+    });
+    const localOnly = local.filter((l) => !listedIds.has(l.id) && (!authoritative || !l.synced));
+    return [...fromListing, ...localOnly];
 };
 
 /** Mark the given ids as held by the server. */

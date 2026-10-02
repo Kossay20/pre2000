@@ -268,6 +268,12 @@ describe('D-023 — the legal documents are tabs', () => {
         expect(screen).toMatch(/style=\{styles\.tabContainer\} accessibilityRole="tablist"/);
         expect(screen).toMatch(/accessibilityRole="tab"\s*accessibilityState=\{\{ selected: activeTab === tab \}\}/);
     });
+
+    it('says so on web too, where react-native-web drops accessibilityState', () => {
+        // aria-selected is the state of a role=tab (aria-pressed belongs to toggle buttons).
+        expect(screen).toMatch(/import \{[^}]*\bPlatform\b[^}]*\} from 'react-native';/);
+        expect(screen).toMatch(/accessibilityState=\{\{ selected: activeTab === tab \}\}[^>]*?\{\.\.\.\(Platform\.OS === 'web' \? \{ 'aria-selected': activeTab === tab \} : \{\}\)\}/);
+    });
 });
 
 describe('D-022 / D-028 / D-033 — small leaks', () => {

@@ -2,6 +2,30 @@ import { StyleSheet } from 'react-native';
 import { theme } from '../theme';
 import { getShadowStyle } from '../utils/styleUtils';
 
+/**
+ * Badge colours as opaque (text, fill) token pairs. The badges used to tint their own
+ * text colour at ~13% over the card (`color + '22'`), which left "Poids normal" at
+ * 3.81:1 on the blue info card and the amber categories far lower. Each pair below is
+ * AA (4.5:1) and locked in theme/__tests__/contrast.test.ts.
+ */
+type BadgeTone = { fg: string; bg: string };
+const TONE_OK: BadgeTone = { fg: theme.colors.green800, bg: theme.colors.surfaceGreenTint };
+const TONE_WATCH: BadgeTone = { fg: theme.colors.warningTextDark, bg: theme.colors.surfaceAmberTint };
+const TONE_ALERT: BadgeTone = { fg: theme.colors.red800, bg: theme.colors.surfaceRose };
+
+export const BMI_CATEGORY_TONE: Record<'underweight' | 'normal' | 'overweight' | 'obese', BadgeTone> = {
+    underweight: TONE_WATCH,
+    normal: TONE_OK,
+    overweight: TONE_WATCH,
+    obese: TONE_ALERT,
+};
+
+export const TREND_SEVERITY_TONE: Record<'normal' | 'attention' | 'warning', BadgeTone> = {
+    normal: TONE_OK,
+    attention: TONE_WATCH,
+    warning: TONE_ALERT,
+};
+
 export const styles = StyleSheet.create({
     container: {
         flex: 1,

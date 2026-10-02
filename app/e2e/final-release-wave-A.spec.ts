@@ -91,6 +91,10 @@ type Copy = {
   week: string;
   trimester3: string;
   completeProfileCta: string;
+  /** A-032: how the consent sentences name the app (ar/tn: Arabic script, never the Latin brand). */
+  brandInText?: string;
+  /** Consent sheet, "you do not want to agree?" block. */
+  decline?: { title: string; exportLabel: RegExp; logout: string; logoutNote: RegExp; erase: string };
   titles: { language: string; authChoice: string; register: string; login: string; onboarding: string; home: string; privacy: string };
 };
 
@@ -141,6 +145,13 @@ const COPY: Record<'fr' | 'ar' | 'en', Copy> = {
     week: 'Semaine',
     trimester3: '3ème Trimestre',
     completeProfileCta: 'Compléter mon profil',
+    decline: {
+      title: 'Vous ne souhaitez pas donner votre accord ?',
+      exportLabel: /Exporter mes données/,
+      logout: 'Se déconnecter',
+      logoutNote: /Vous déconnecter ne supprime rien\s: vos données restent enregistrées sur nos serveurs/,
+      erase: 'Supprimer mon compte',
+    },
     titles: {
       language: `Choisir la langue · ${BRAND}`,
       authChoice: `Commençons · ${BRAND}`,
@@ -195,6 +206,14 @@ const COPY: Record<'fr' | 'ar' | 'en', Copy> = {
     week: 'الأسبوع',
     trimester3: 'الثلث الثالث',
     completeProfileCta: 'أكملي ملفي الشخصي',
+    brandInText: 'ماما وبيبي',
+    decline: {
+      title: 'لا تريدين الموافقة؟',
+      exportLabel: /تصدير/,
+      logout: 'تسجيل الخروج',
+      logoutNote: /تسجيل الخروج لا يحذف شيئاً: تبقى بياناتكِ محفوظة على خوادمنا/,
+      erase: 'حذف حسابي',
+    },
     titles: {
       language: `اختر اللغة · ${BRAND}`,
       authChoice: `هيا نبدأ · ${BRAND}`,
@@ -542,6 +561,53 @@ async function callRowOverlap(page: Page): Promise<{ overlapPx: number; culprit:
   });
 }
 
+/**
+ * A-033: how a button's label reads against its own fill. The label colour comes from
+ * the deepest text leaf; the fill is the first opaque background colour or gradient stop
+ * walking up from that leaf to the button. Also returns the button's box-shadow and the
+ * product of the opacities on the way (RN-web disabled styles often dim with opacity).
+ */
+async function buttonLegibility(page: Page, testId: string) {
+  return page.getByTestId(testId).evaluate((btn: HTMLElement) => {
+    const rgb = (v: string) => {
+      const m = v.match(/rgba?\(([^)]+)\)/);
+      if (!m) return null;
+      const [r, g, b, a = '1'] = m[1].split(',').map((x) => x.trim());
+      return { r: +r, g: +g, b: +b, a: +a };
+    };
+    const lum = (c: { r: number; g: number; b: number }) => {
+      const f = (x: number) => {
+        const v = x / 255;
+        return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+      };
+      return 0.2126 * f(c.r) + 0.7152 * f(c.g) + 0.0722 * f(c.b);
+    };
+    const leaf = Array.from(btn.querySelectorAll<HTMLElement>('*')).find((el) => el.children.length === 0 && (el.innerText || '').trim().length > 0) || btn;
+    const color = getComputedStyle(leaf).color;
+    let fill: string | null = null;
+    let opacity = 1;
+    for (let n: HTMLElement | null = leaf; n; n = n.parentElement) {
+      const cs = getComputedStyle(n);
+      opacity *= parseFloat(cs.opacity || '1');
+      if (!fill) {
+        const img = cs.backgroundImage && cs.backgroundImage !== 'none' ? cs.backgroundImage.match(/rgba?\([^)]+\)/)?.[0] ?? null : null;
+        const bg = rgb(cs.backgroundColor);
+        if (img) fill = img;
+        else if (bg && bg.a > 0.99) fill = cs.backgroundColor;
+      }
+      if (n === btn) break;
+    }
+    const fg = rgb(color);
+    const bg = fill ? rgb(fill) : null;
+    let ratio: number | null = null;
+    if (fg && bg) {
+      const [hi, lo] = [lum(fg), lum(bg)].sort((a, b) => b - a);
+      ratio = Math.round(((hi + 0.05) / (lo + 0.05)) * 100) / 100;
+    }
+    return { label: (leaf.innerText || '').trim(), color, fill, ratio, opacity, boxShadow: getComputedStyle(btn).boxShadow };
+  });
+}
+
 async function registerViaUi(page: Page, email: string, pw: string, confirm = pw) {
   await page.getByTestId('register_email_input').fill(email);
   await page.getByTestId('register_password_input').fill(pw);
@@ -680,6 +746,20 @@ async function onboardingSteps1to3(
   await expect.soft(save, `${prefix} step4: saving is disabled until the health-data consent is ticked`).toBeDisabled();
   // A-030b: the unticked step 4 is a state of its own (both save buttons gated).
   await expect.soft(page.getByTestId('health_consent_checkbox'), `${prefix} step4: consent starts unticked`).toHaveAttribute('aria-checked', 'false');
+  // A-033: the disabled save button must stay readable (it was white on light grey with a
+  // pink shadow, ≈1.6:1): a dark label on its grey fill, no shadow, not dimmed further.
+  const off = await buttonLegibility(page, 'onboarding_step4_submit');
+  r.note(`${prefix}-step4-disabled-button-style`, off);
+  expect.soft(off.color, `${prefix} step4 A-033: disabled label is not white (${JSON.stringify(off)})`).not.toMatch(/^rgba?\(255, 255, 255/);
+  expect.soft(off.ratio ?? 0, `${prefix} step4 A-033: disabled label legible on its fill (${JSON.stringify(off)})`).toBeGreaterThanOrEqual(3);
+  expect.soft(off.opacity, `${prefix} step4 A-033: disabled button is not dimmed on top of its grey pair`).toBe(1);
+  expect.soft(off.boxShadow === 'none' || /rgba\(\d+, \d+, \d+, 0\)/.test(off.boxShadow), `${prefix} step4 A-033: no drop shadow on the disabled button (${off.boxShadow})`).toBe(true);
+  if (c.brandInText) {
+    // A-032: the consent sentence names the app in its own script, not the Latin brand.
+    const consentText = await page.getByTestId('health_consent_checkbox').innerText();
+    expect.soft(consentText, `${prefix} step4 A-032: consent names the app in Arabic`).toContain(c.brandInText);
+    expect.soft(consentText, `${prefix} step4 A-032: no Latin brand inside the Arabic consent sentence`).not.toContain(BRAND);
+  }
   await r.snap(`${prefix}-step4-consent-unticked`);
   await tickHealthConsent(page);
   return { countrySel, navLang };
@@ -1137,6 +1217,16 @@ test.describe('Wave A — fr', () => {
     expect.soft(overlap.overlapPx, `36: nothing runs under the call row (${overlap.culprit})`).toBeLessThanOrEqual(1);
     r.note('36-fr-no-country', { number, overlap, server: await serverDoc(`userProfiles/${acct.uid}`) });
     await r.snap('36-fr-no-country-contraction-112');
+    // The note and the link sit under the call row, below the first screen: scrolled to,
+    // they must be really on screen (toBeVisible alone ignores the scroll position).
+    await setCountry.scrollIntoViewIfNeeded();
+    await expect.soft(setCountry, '36: the "set my country" link can be scrolled into view').toBeInViewport({ ratio: 1 });
+    await expect.soft(page.getByTestId('emergency_number_note'), '36: the 112 note can be scrolled into view').toBeInViewport({ ratio: 1 });
+    const tabTop = (await page.getByRole('tablist').last().boundingBox())?.y ?? 844;
+    const linkBox = await setCountry.boundingBox();
+    r.note('36-fr-no-country-link-position', { linkBox, tabTop, label: (await setCountry.innerText()).trim() });
+    expect.soft(linkBox ? linkBox.y + linkBox.height : Infinity, '36: the link is not hidden behind the tab bar').toBeLessThanOrEqual(tabTop);
+    await r.snap('36-fr-no-country-contraction-112-note');
     await setCountry.click();
     await expect.soft(page, '36: the link opens the Profile, where the country is set').toHaveURL(/\/profile/, { timeout: 15_000 });
     await r.snap('36-fr-no-country-set-country-profile');
@@ -1247,14 +1337,8 @@ test.describe('Wave A — fr', () => {
  * A-030a: a profile saved before the health-data consent question existed lands on
  * the consent sheet (App.tsx needsHealthDataConsent) instead of Home.
  */
-async function consentGate(page: Page, browser: Browser, testInfo: TestInfo, locale: 'fr' | 'ar') {
-  const r = rig(page, testInfo);
-  const c = COPY[locale];
-  const email = newAccountEmail('A', `${locale}-consent-gate`);
-  const acct = await createAccount(email, E2E_PASSWORD);
-  await seedProfile(acct.uid, acct.idToken, { week: 32, firstName: 'Ancienne', consent: false });
-  const before = await serverDoc(`userProfiles/${acct.uid}`);
-  expect(before?.healthDataConsent, 'seed: no consent on the server').toBeUndefined();
+/** Sets the app language (and skips the Home welcome) once per tab, before the first load. */
+async function seedLocaleOnce(page: Page, locale: AppLocale) {
   await page.addInitScript((l) => {
     try {
       if (sessionStorage.getItem('__e2e_gate')) return;
@@ -1265,6 +1349,10 @@ async function consentGate(page: Page, browser: Browser, testInfo: TestInfo, loc
       /* storage blocked */
     }
   }, locale);
+}
+
+/** Signs in through /login with a profile that has no consent record; returns the sheet's Continue. */
+async function loginToConsentSheet(page: Page, email: string) {
   await page.goto('/login', { waitUntil: 'load' });
   await expect(page.getByTestId('login_email_input')).toBeVisible({ timeout: 60_000 });
   await page.getByTestId('login_email_input').fill(email);
@@ -1272,6 +1360,51 @@ async function consentGate(page: Page, browser: Browser, testInfo: TestInfo, loc
   await page.getByTestId('login_submit_button').click();
   const cont = page.getByTestId('health_consent_continue');
   await expect(cont).toBeVisible({ timeout: 45_000 });
+  return cont;
+}
+
+/**
+ * The "you do not want to agree?" block of the consent sheet: Export, Sign out (with the
+ * note that signing out deletes nothing), then Delete as the last and quietest action.
+ * Returns the vertical order of the four so the caller can note it.
+ */
+async function assertDeclineOptions(page: Page, tag: string, d: NonNullable<Copy['decline']> | null) {
+  const ids = ['health_consent_export', 'health_consent_logout', 'health_consent_logout_note', 'health_consent_erase'] as const;
+  await page.getByTestId('health_consent_erase').scrollIntoViewIfNeeded();
+  for (const id of ids) await expect.soft(page.getByTestId(id), `${tag}: ${id} is offered`).toBeVisible();
+  const tops: Record<string, number | null> = {};
+  for (const id of ids) tops[id] = (await page.getByTestId(id).boundingBox())?.y ?? null;
+  const order = ids.map((id) => tops[id] ?? -1);
+  expect.soft(order, `${tag}: Export, then Sign out + its note, then Delete last (${JSON.stringify(tops)})`).toEqual([...order].sort((a, b) => a - b));
+  expect.soft(order.every((y) => y >= 0), `${tag}: all four decline controls are laid out`).toBe(true);
+  const note = page.getByTestId('health_consent_logout_note');
+  await expect.soft(note, `${tag}: the note's {{deleteLabel}} is interpolated`).not.toContainText('{{');
+  const eraseLabel = (await page.getByTestId('health_consent_erase').innerText()).trim();
+  await expect.soft(note, `${tag}: the note names the delete action by its button label ("${eraseLabel}")`).toContainText(eraseLabel);
+  if (d) {
+    await expect.soft(page.getByText(d.title, { exact: true }), `${tag}: decline title`).toBeVisible();
+    await expect.soft(page.getByTestId('health_consent_export'), `${tag}: export label`).toContainText(d.exportLabel);
+    await expect.soft(page.getByTestId('health_consent_logout'), `${tag}: sign-out label`).toContainText(d.logout);
+    await expect.soft(note, `${tag}: signing out deletes nothing — data stays on the servers`).toContainText(d.logoutNote);
+    await expect.soft(page.getByTestId('health_consent_erase'), `${tag}: delete label`).toHaveText(d.erase);
+  }
+  // Delete is a secondary action: it must not be the filled primary button of the sheet.
+  const erase = await buttonLegibility(page, 'health_consent_erase');
+  const eraseBg = await page.getByTestId('health_consent_erase').evaluate((el) => getComputedStyle(el).backgroundColor);
+  expect.soft(eraseBg, `${tag}: Delete is not a filled button (${eraseBg})`).toMatch(/rgba\(0, 0, 0, 0\)|transparent/);
+  return { tops, eraseLabel, erase, eraseBg };
+}
+
+async function consentGate(page: Page, browser: Browser, testInfo: TestInfo, locale: 'fr' | 'ar') {
+  const r = rig(page, testInfo);
+  const c = COPY[locale];
+  const email = newAccountEmail('A', `${locale}-consent-gate`);
+  const acct = await createAccount(email, E2E_PASSWORD);
+  await seedProfile(acct.uid, acct.idToken, { week: 32, firstName: 'Ancienne', consent: false });
+  const before = await serverDoc(`userProfiles/${acct.uid}`);
+  expect(before?.healthDataConsent, 'seed: no consent on the server').toBeUndefined();
+  await seedLocaleOnce(page, locale);
+  const cont = await loginToConsentSheet(page, email);
   await expect.soft(page.getByRole('tablist'), `34-${locale}: Home must not be reachable before consent`).toHaveCount(0);
   await expect.soft(page.getByTestId('health_consent_checkbox')).toHaveAttribute('aria-checked', 'false');
   await expect.soft(cont, `34-${locale}: Continue disabled while unticked`).toBeDisabled();
@@ -1280,7 +1413,33 @@ async function consentGate(page: Page, browser: Browser, testInfo: TestInfo, loc
   if (locale === 'ar') expect.soft(await htmlDirLang(page)).toEqual({ dir: 'rtl', lang: 'ar' });
   const body = await page.locator('body').innerText();
   if (locale === 'ar') expect.soft(body.match(FR_LEAK)?.[0] ?? null, '34-ar: no French fallback').toBeNull();
+  if (c.brandInText) {
+    // A-032: the Arabic sheet names the app in Arabic script — no Latin brand splitting the sentence.
+    expect.soft(body, `34-${locale} A-032: sheet + consent label say "${c.brandInText}"`).toContain(c.brandInText);
+    expect.soft(body.split(c.brandInText).length - 1, `34-${locale} A-032: both sentences (sheet text + checkbox label)`).toBeGreaterThanOrEqual(2);
+    expect.soft(body, `34-${locale} A-032: no Latin brand on the Arabic consent sheet`).not.toContain(BRAND);
+  }
   await r.snap(`34-${locale}-health-consent-gate`);
+
+  // Decline flow: Export / Sign out (+ "nothing is deleted" note) / Delete as secondary.
+  const decline = await assertDeclineOptions(page, `34-${locale} decline`, c.decline ?? null);
+  r.note(`34-${locale}-health-consent-decline-options`, decline);
+  await r.snap(`34-${locale}-health-consent-decline-options`);
+  // Sign out: she leaves without consenting, nothing is recorded and nothing is deleted.
+  await page.getByTestId('health_consent_logout').click();
+  await expect(page.getByTestId('health_consent_continue'), `34-${locale}: signing out leaves the sheet`).toHaveCount(0, { timeout: 30_000 });
+  await expect.soft(page.getByRole('tablist'), `34-${locale}: signing out never opens Home`).toHaveCount(0);
+  await expect
+    .soft(page.getByTestId('auth_login_button').or(page.getByTestId('login_email_input')).or(page.getByTestId('lang_card_fr')).first(), `34-${locale}: signed out → back on the public funnel`)
+    .toBeVisible({ timeout: 30_000 });
+  const afterLogout = await serverDoc(`userProfiles/${acct.uid}`);
+  r.note(`34-${locale}-health-consent-signed-out`, { url: page.url(), serverLmp: afterLogout?.lmp ?? null, healthDataConsent: afterLogout?.healthDataConsent ?? null, authAccountExists: await authAccountExists(acct.uid) });
+  expect.soft(afterLogout?.lmp, `34-${locale}: as the note says, signing out leaves her data on the server`).toBe(before?.lmp);
+  expect.soft(afterLogout?.healthDataConsent, `34-${locale}: signing out records no consent`).toBeUndefined();
+  await r.snap(`34-${locale}-health-consent-signed-out`);
+  // Signing back in asks again.
+  await loginToConsentSheet(page, email);
+  await expect.soft(page.getByTestId('health_consent_checkbox'), `34-${locale}: the question is asked again, unticked`).toHaveAttribute('aria-checked', 'false');
   await tickHealthConsent(page);
   await expect.soft(cont).toBeEnabled();
   await r.snap(`34-${locale}-health-consent-ticked`);
@@ -1491,6 +1650,51 @@ test.describe('Wave A — ar (RTL)', () => {
     expect.soft(after?.lmp, '30: login must not overwrite server lmp').toBe(seeded.lmp);
     fr.dispose();
     await fresh.context().close();
+    r.dispose();
+  });
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+// tn — Tunisian: published language tag + consent wording (37)
+// ═════════════════════════════════════════════════════════════════════════════
+
+test.describe('Wave A — tn', () => {
+  test.use(waveUse('tn'));
+  test.describe.configure({ timeout: WAVE_TIMEOUT });
+
+  test('A-tn language → html lang="ar-TN"; consent sheet names the app in Arabic (37, A-032)', async ({ page }, testInfo) => {
+    const r = rig(page, testInfo);
+    const TN_BRAND = COPY.ar.brandInText!;
+    // 37 — the Tunisian card publishes a real language tag (the key "tn" is Setswana).
+    await pickLanguage(page, 'tn');
+    const dl = await htmlDirLang(page);
+    r.note('37-tn-language-html', dl);
+    expect.soft(dl, '37: Tunisian is published as html[dir=rtl][lang=ar-TN]').toEqual({ dir: 'rtl', lang: 'ar-TN' });
+    await r.snap('37-tn-language');
+
+    // The tag survives navigation to the next screen.
+    await langContinue(page, COPY.ar).dispatchEvent('click');
+    await expect(page.getByTestId('auth_guest_button')).toBeVisible({ timeout: 20_000 });
+    expect.soft(await htmlDirLang(page), '37: AuthChoice keeps lang=ar-TN').toEqual({ dir: 'rtl', lang: 'ar-TN' });
+
+    // Pre-consent account → the consent sheet in Tunisian.
+    const email = newAccountEmail('A', 'tn-consent-gate');
+    const acct = await createAccount(email, E2E_PASSWORD);
+    await seedProfile(acct.uid, acct.idToken, { week: 32, firstName: 'Ancienne', consent: false });
+    await loginToConsentSheet(page, email);
+    expect.soft(await htmlDirLang(page), '37: consent sheet is rtl / ar-TN').toEqual({ dir: 'rtl', lang: 'ar-TN' });
+    const body = await page.locator('body').innerText();
+    expect.soft(body, `37 A-032: tn sheet + consent label say "${TN_BRAND}"`).toContain(TN_BRAND);
+    expect.soft(body.split(TN_BRAND).length - 1, '37 A-032: both sentences (sheet text + checkbox label)').toBeGreaterThanOrEqual(2);
+    expect.soft(body, '37 A-032: no Latin brand on the Tunisian consent sheet').not.toContain(BRAND);
+    expect.soft(body.match(FR_LEAK)?.[0] ?? null, '37: no French fallback in tn').toBeNull();
+    await expect.soft(page.getByTestId('health_consent_continue'), '37: Continue disabled while unticked').toBeDisabled();
+    await r.snap('37-tn-health-consent-gate');
+    const decline = await assertDeclineOptions(page, '37-tn decline', null);
+    r.note('37-tn-health-consent-decline-options', decline);
+    await r.snap('37-tn-health-consent-decline-options');
+    const after = await serverDoc(`userProfiles/${acct.uid}`);
+    expect.soft(after?.healthDataConsent, '37: looking at the sheet records no consent').toBeUndefined();
     r.dispose();
   });
 });

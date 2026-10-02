@@ -1,21 +1,29 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Dimensions, Platform } from 'react-native';
-import { useNetInfo } from '@react-native-community/netinfo';
+import React, { useEffect } from 'react';
+import { View, Text, StyleSheet, Platform } from 'react-native';
+import NetInfo, { useNetInfo } from '@react-native-community/netinfo';
 import { theme } from '../../theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
-import { isDefinitelyOffline } from './OfflineNotice.helpers';
+import { bridgeBrowserConnectivity, isDefinitelyOffline } from './OfflineNotice.helpers';
 
 export const OfflineNotice = () => {
     const netInfo = useNetInfo();
     const insets = useSafeAreaInsets();
     const { t } = useTranslation();
 
+    useEffect(() => bridgeBrowserConnectivity(
+        Platform.OS === 'web' && typeof window !== 'undefined' ? window : null,
+        NetInfo.refresh,
+    ), []);
+
     if (!isDefinitelyOffline(netInfo)) {
         return null;
     }
 
     return (
+        // In the layout flow, above the app (see App.tsx): the banner takes its own
+        // row and pushes the navigator down. It used to float at top 0 over the header
+        // title, the greeting and the avatar.
         // W9: announce the connectivity change to assistive tech — a banner that appears
         // silently is invisible to screen-reader users (RN-Web → role=status + aria-live=polite).
         <View
@@ -39,9 +47,6 @@ const styles = StyleSheet.create({
     container: {
         backgroundColor: theme.colors.error,
         width: '100%',
-        zIndex: 9999,
-        position: 'absolute',
-        top: 0,
     },
     contentContainer: {
         paddingVertical: 10,

@@ -4,8 +4,10 @@ import { LineChart, BarChart } from 'react-native-chart-kit';
 import { useNavigation } from '@react-navigation/native';
 import { theme } from '../../theme';
 import { hexToRgba } from '../../utils/styleUtils';
-import { getHistoricalData } from '../../services/dailyChecklistService';
+import { getHistoricalData, generateDailyChecklist, loadDailyProgress, buildMyDayItems, myDayProgress } from '../../services/dailyChecklistService';
 import { getUserTasks } from '../../services/taskService';
+import { loadUserEvents } from '../../services/calendarService';
+import { usePregnancy } from '../../context/PregnancyContext';
 // F5: use getEssentialReminders (already filters rem_hyd_water + sorts by essential_rank)
 import { getReminderCompletions, calculateStreak, getEssentialReminders } from '../../services/remindersV2Service';
 import { getLocalizedTrilang } from '../../utils/i18nHelpers';
@@ -32,6 +34,7 @@ export const StatisticsScreen = () => {
     const { t, i18n } = useTranslation();
     const dateLocale = useDateLocale();
     const { user } = useAuth();
+    const { pregnancyInfo } = usePregnancy();
     const [loading, setLoading] = useState(true);
     const [timeRange, setTimeRange] = useState<'week' | 'month'>('week');
     const [data, setData] = useState<{
@@ -60,7 +63,14 @@ export const StatisticsScreen = () => {
             // Checklist historical data (completion rates, hydration, vitamins), with the
             // user's own tasks folded in — they live on the server, not in the checklist.
             const tasks = userId ? await getUserTasks(userId) : [];
-            const stats = await getHistoricalData(days, tasks);
+            // Today's rate is counted on the same "Ma Journée" list as the Home pill and
+            // the Tasks tab: untouched reminders and appointments are part of it.
+            const events = user?.uid ? await loadUserEvents(user.uid) : [];
+            const checklist = await loadDailyProgress(
+                await generateDailyChecklist(events, pregnancyInfo?.week ?? 1, user?.uid, undefined, user)
+            );
+            const today = myDayProgress(buildMyDayItems(checklist, tasks));
+            const stats = await getHistoricalData(days, tasks, today);
             setData(stats);
 
             // F5: align KEY_REMINDERS with the actual catalogue shown in UI.
@@ -97,7 +107,7 @@ export const StatisticsScreen = () => {
         } finally {
             setLoading(false);
         }
-    }, [timeRange, user?.uid, i18n.language]);
+    }, [timeRange, user?.uid, i18n.language, pregnancyInfo?.week]);
 
     useEffect(() => {
         loadStats();
@@ -116,7 +126,12 @@ export const StatisticsScreen = () => {
     // card on the navigator's grey with no title and no way back.
     const header = (
         <View style={styles.header}>
-            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+            <TouchableOpacity
+                onPress={() => navigation.goBack()}
+                style={styles.backButton}
+                accessibilityRole="button"
+                accessibilityLabel={t('a11y.back')}
+            >
                 <View style={styles.backRow}>
                     <RtlAwareChevron direction="back" variant="arrow" size={16} color={theme.colors.primary} />
                     <Text style={styles.backButtonText}>{t('back')}</Text>
@@ -322,8 +337,13 @@ const styles = StyleSheet.create({
         borderBottomWidth: 1,
         borderBottomColor: theme.colors.disabled,
     },
+    // The row is 18pt of text: the box itself is the 44pt target (RN-web does not
+    // render hitSlop), with the label centred in it.
     backButton: {
         marginEnd: 16,
+        minHeight: 44,
+        minWidth: 44,
+        justifyContent: 'center',
     },
     backRow: {
         flexDirection: 'row',

@@ -120,9 +120,9 @@ describe('HYP-B1 — Suggestions never open onto nothing', () => {
 });
 
 describe('20 — Statistics include the user\'s tasks', () => {
-    it('StatisticsScreen passes the server tasks to getHistoricalData', () => {
+    it('StatisticsScreen passes the server tasks and today\'s "Ma Journée" progress to getHistoricalData', () => {
         const stats = read('src/screens/reminders/StatisticsScreen.tsx');
-        expect(stats).toMatch(/getHistoricalData\(days, tasks\)/);
+        expect(stats).toMatch(/getHistoricalData\(days, tasks, today\)/);
         expect(stats).toMatch(/getUserTasks\(userId\)/);
     });
 });

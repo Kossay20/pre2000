@@ -109,6 +109,88 @@ describe('settleTrackersBeforeLogout', () => {
     });
 });
 
+/**
+ * Round 4, states 55 and 57: without signal the warning said 1 record while the server
+ * lacked 2 (a kick session and the bag), and said nothing at all for one unsent session.
+ * The kick session had been marked synced by a listing answered from the cache. Here the
+ * count is checked against what the server (`fakeFirestore.store`) really holds.
+ */
+describe('without signal, the warning counts every record the server does not have', () => {
+    const firebaseMock = jest.requireMock('../../config/firebase') as { auth: { currentUser: { uid: string } | null } };
+    const flush = async () => {
+        for (let i = 0; i < 20; i++) await new Promise((r) => setImmediate(r));
+    };
+    const kickSession = async () => {
+        await kicks.startSession();
+        await kicks.recordKick();
+        await kicks.endSession(UID);
+    };
+    /** Records on the device minus records on the server, the bag counting for one. */
+    const serverLacks = async () => {
+        const k = (await kicks.loadState()).history.length - fakeFirestore.docsIn('kickSessions').length;
+        const c = (await contractions.loadState()).history.length - fakeFirestore.docsIn('contractions').length;
+        const device = await bag.loadState();
+        const ticks = Object.values(device.checked).filter(Boolean).length;
+        const serverTicks = Object.keys(((fakeFirestore.store.get(`hospitalBags/${UID}`) as any)?.checked ?? {})).length;
+        return k + c + (ticks !== serverTicks ? 1 : 0);
+    };
+
+    beforeEach(() => {
+        firebaseMock.auth.currentUser = { uid: UID };
+    });
+
+    it('a kick session, two contractions and the bag, each screen reopened offline: 4 are announced', async () => {
+        const initial = await bag.loadState(UID);
+        fakeFirestore.disconnect();
+        await kickSession();
+        await contractions.startContraction();
+        await contractions.stopContraction(UID);
+        await contractions.startContraction();
+        await contractions.stopContraction(UID);
+        await bag.toggleItem(initial.items[0].id, UID);
+        await flush();
+        // Each screen lists again on focus; the cache answers with her own unsent writes.
+        await kicks.loadState(UID);
+        await contractions.loadState(UID);
+        await bag.loadState(UID);
+        await flush();
+
+        expect(await serverLacks()).toBe(4);
+        const confirm = jest.fn((_count: number) => Promise.resolve(false));
+        await expect(settleTrackersBeforeLogout(UID, confirm, 20)).resolves.toBe(false);
+        expect(confirm).toHaveBeenCalledWith(4);
+    });
+
+    it('one more session after everything else was synced: 1 is announced, not silence', async () => {
+        await kickSession();
+        await flush();
+        expect(await countUnsyncedTrackerRecords()).toBe(0);
+
+        fakeFirestore.disconnect();
+        await kickSession();
+        await flush();
+        await kicks.loadState(UID);
+        await flush();
+
+        expect(await serverLacks()).toBe(1);
+        const confirm = jest.fn((_count: number) => Promise.resolve(true));
+        await expect(settleTrackersBeforeLogout(UID, confirm, 20)).resolves.toBe(true);
+        expect(confirm).toHaveBeenCalledWith(1);
+    });
+
+    it('back online the same logout sends everything and asks nothing', async () => {
+        fakeFirestore.disconnect();
+        await kickSession();
+        await flush();
+        await kicks.loadState(UID);
+        fakeFirestore.reconnect();
+        const confirm = jest.fn((_count: number) => Promise.resolve(false));
+        await expect(settleTrackersBeforeLogout(UID, confirm, 1000)).resolves.toBe(true);
+        expect(confirm).not.toHaveBeenCalled();
+        expect(await serverLacks()).toBe(0);
+    });
+});
+
 describe('wiring', () => {
     const read = (rel: string) => fs.readFileSync(path.resolve(__dirname, '../../..', rel), 'utf8');
 

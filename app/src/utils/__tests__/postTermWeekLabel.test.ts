@@ -91,7 +91,7 @@ describe('A-025 — the screens print the shared helper, not the content week', 
 
     it('Onboarding, Profile, Health and Reminders print the displayed week', () => {
         expect(read('src/screens/OnboardingScreen.tsx')).toMatch(
-            /const \{ week: displayWeek, day: displayDay \} = displayedPregnancyAge\(pregnancyInfo\.completedWeeks, pregnancyInfo\.completedDays\);/,
+            /const \{ week: displayWeek, dayOfPregnancy \} = displayedPregnancyAge\(pregnancyInfo\.completedWeeks, pregnancyInfo\.completedDays\);/,
         );
         expect(read('src/screens/ProfileScreen.tsx')).toMatch(/\{t\('common\.week'\)\} \{displayWeek \|\| '—'\}/);
         expect(read('src/screens/HealthDashboardScreen.tsx')).toMatch(/displayedAgeOf\(pregnancyInfo\)\.week/);

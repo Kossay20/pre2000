@@ -11,7 +11,7 @@ import { expect, test, type Locator, type Page, type TestInfo } from '@playwrigh
 import { attachConsoleStrict, RAW_KEY } from './audit-guards';
 import { attachMegaAuditRecorder } from './mega-audit-snap';
 import { attachDialogRecorder, type DialogRecorder, type DialogRecord } from './dialog-recorder';
-import { FIRESTORE_EMULATOR, PROJECT_ID } from './emulator-account';
+import { E2E_PASSWORD, FIRESTORE_EMULATOR, PROJECT_ID, createAccount, newAccountEmail, seedProfile, type CreatedAccount } from './emulator-account';
 
 const DOCS = `${FIRESTORE_EMULATOR}/v1/projects/${PROJECT_ID}/databases/(default)/documents`;
 
@@ -30,7 +30,13 @@ export type Instrumented = {
   dialogs: DialogRecorder;
   recordEvent: ReturnType<typeof attachMegaAuditRecorder>['recordEvent'];
   popups: string[];
-  /** Quartet + strict-console slice (soft) + raw-key check (soft). */
+  /** Snaps whose surface was still moving when the settle budget ran out (name → ms waited). */
+  unsettled: Array<{ name: string; ms: number; changed: number }>;
+  /** Console lines the strict slice must not count (harness-induced, e.g. while the context is offline). */
+  tolerate: RegExp[];
+  /** Strict lines dropped by `tolerate`, kept as evidence. */
+  tolerated: string[];
+  /** Settle (no pulse / fade / slide) → quartet + strict-console slice (soft) + raw-key check (soft). */
   snap: (name: string) => Promise<void>;
   dispose: () => void;
 };
@@ -50,10 +56,20 @@ export function instrument(page: Page, testInfo: TestInfo): Instrumented {
       .catch(() => undefined);
   });
   let consumed = 0;
+  const unsettled: Array<{ name: string; ms: number; changed: number }> = [];
+  const tolerate: RegExp[] = [];
+  const tolerated: string[] = [];
   async function snap(name: string) {
+    // B-021: a quartet is evidence only when the surface has stopped moving — loading
+    // skeletons pulse, screens fade in over 500 ms, tab panes slide.
+    const settled = await settleVisual(page);
+    mega.recordEvent({ level: 'settle', text: `[settle] ${name}: ${settled.stable ? 'stable' : 'STILL MOVING'} after ${settled.ms} ms (last frame-to-frame change ${(settled.changed * 100).toFixed(2)} % of the viewport)` });
+    if (!settled.stable) unsettled.push({ name, ms: settled.ms, changed: settled.changed });
     await mega.snap(name);
-    const fresh = strict.slice(consumed);
+    const slice = strict.slice(consumed);
     consumed = strict.length;
+    const fresh = slice.filter((l) => !tolerate.some((re) => re.test(l)));
+    tolerated.push(...slice.filter((l) => tolerate.some((re) => re.test(l))));
     expect.soft(fresh, `${name}: strict console errors`).toEqual([]);
     const text = (await page.locator('body').innerText().catch(() => '')) || '';
     const leak = text.split('\n').find((l) => RAW_KEY.test(l));
@@ -65,6 +81,9 @@ export function instrument(page: Page, testInfo: TestInfo): Instrumented {
     dialogs,
     recordEvent: mega.recordEvent,
     popups,
+    unsettled,
+    tolerate,
+    tolerated,
     snap,
     dispose: () => {
       mega.dispose();
@@ -107,6 +126,52 @@ export async function withDialogPolicy(
   }
   return seen;
 }
+
+// pngjs ships without type declarations; only PNG.sync.read is used.
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { PNG } = require('pngjs') as { PNG: { sync: { read(b: Buffer): { width: number; height: number; data: Buffer } } } };
+
+/** Share of viewport pixels that differ between two same-size PNG screenshots (1 when sizes differ). */
+function changedFraction(a: Buffer, b: Buffer): number {
+  if (a.equals(b)) return 0;
+  const A = PNG.sync.read(a);
+  const B = PNG.sync.read(b);
+  if (A.width !== B.width || A.height !== B.height) return 1;
+  let changed = 0;
+  for (let i = 0; i < A.data.length; i += 4) {
+    if (Math.abs(A.data[i] - B.data[i]) > 8 || Math.abs(A.data[i + 1] - B.data[i + 1]) > 8 || Math.abs(A.data[i + 2] - B.data[i + 2]) > 8) changed++;
+  }
+  return changed / (A.width * A.height);
+}
+
+/** Home's profile button pulses forever (≈1 % of the viewport, decorative): below this share the surface counts as still. */
+export const SETTLE_TOLERANCE = 0.02;
+
+/**
+ * Wait until two consecutive viewport screenshots 250 ms apart show (almost) the same
+ * pixels — no loading skeleton pulsing, no screen fading in, no tab pane sliding — up to
+ * `maxMs`. A change confined to under SETTLE_TOLERANCE of the viewport (Home's pulsing
+ * avatar) is not movement of the surface. A screen with a live timer over a larger area
+ * never settles; the caller records that instead of pretending.
+ */
+export async function settleVisual(page: Page, maxMs = 8000): Promise<{ stable: boolean; ms: number; changed: number }> {
+  const t0 = Date.now();
+  let prev = await page.screenshot().catch(() => null);
+  let changed = 1;
+  while (Date.now() - t0 < maxMs) {
+    await page.waitForTimeout(250);
+    const cur = await page.screenshot().catch(() => null);
+    if (prev && cur) {
+      changed = changedFraction(prev, cur);
+      if (changed <= SETTLE_TOLERANCE) return { stable: true, ms: Date.now() - t0, changed };
+    }
+    prev = cur;
+  }
+  return { stable: false, ms: Date.now() - t0, changed };
+}
+
+/** Fold the French no-break spaces (U+00A0 / U+202F before ": ; ? !") to plain spaces. */
+export const fold = (s: string): string => s.replace(/[\u00a0\u202f]/g, ' ');
 
 /**
  * One audit state. Runs `fn` as a test.step; an exception (a navigation that could
@@ -168,7 +233,7 @@ export const vis = (l: Locator) => l.filter({ visible: true }).first();
 // French strings carry a no-break space before ":", "?" and "!"; fold it to a plain
 // space so the literal expectations in the specs keep reading naturally.
 export async function bodyText(page: Page): Promise<string> {
-  return ((await page.locator('body').innerText().catch(() => '')) || '').replace(/[\u00a0\u202f]/g, ' ');
+  return fold((await page.locator('body').innerText().catch(() => '')) || '');
 }
 
 /** Bottom tab bar (the tablist that owns "Accueil"). */
@@ -242,23 +307,52 @@ export async function laterTodayHHMM(page: Page, minutes: number): Promise<strin
   }, minutes);
 }
 
-/** date-fns isToday / isTomorrow / isThisWeek (weekStartsOn 0) evaluated in the browser tz. */
-export async function relDay(page: Page, iso: string): Promise<'today' | 'tomorrow' | 'thisWeek' | 'other'> {
+/**
+ * Where `iso` falls for the Home pill: today, tomorrow, or inside the pregnancy week in
+ * progress — the seven local days starting at `weekStartKey` (yyyy-MM-dd), which is the
+ * week the app counts "cette semaine" in (DailyRoutinesTracker → getCurrentPregnancyWeekRange).
+ */
+export async function relDay(page: Page, iso: string, weekStartKey: string): Promise<'today' | 'tomorrow' | 'thisWeek' | 'other'> {
+  return page.evaluate(
+    ([s, ws]) => {
+      const d = new Date(s);
+      const now = new Date();
+      const same = (a: Date, b: Date) => a.toDateString() === b.toDateString();
+      if (same(d, now)) return 'today';
+      const tm = new Date(now);
+      tm.setDate(now.getDate() + 1);
+      if (same(d, tm)) return 'tomorrow';
+      const [y, m, dd] = ws.split('-').map(Number);
+      const start = new Date(y, m - 1, dd, 0, 0, 0, 0);
+      const end = new Date(y, m - 1, dd + 7, 0, 0, 0, 0);
+      return d >= start && d < end ? 'thisWeek' : 'other';
+    },
+    [iso, weekStartKey] as const,
+  );
+}
+
+/** Local yyyy-MM-dd of an ISO instant in the browser's timezone. */
+export async function localKeyOf(page: Page, iso: string): Promise<string> {
   return page.evaluate((s) => {
-    const d = new Date(s);
-    const now = new Date();
-    const same = (a: Date, b: Date) => a.toDateString() === b.toDateString();
-    if (same(d, now)) return 'today';
-    const tm = new Date(now);
-    tm.setDate(now.getDate() + 1);
-    if (same(d, tm)) return 'tomorrow';
-    const start = new Date(now);
-    start.setHours(0, 0, 0, 0);
-    start.setDate(start.getDate() - start.getDay());
-    const end = new Date(start);
-    end.setDate(start.getDate() + 7);
-    return d >= start && d < end ? 'thisWeek' : 'other';
+    const t = new Date(s);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${t.getFullYear()}-${pad(t.getMonth() + 1)}-${pad(t.getDate())}`;
   }, iso);
+}
+
+/**
+ * A week-32 account whose LMP is dated from the user's LOCAL calendar day in `tz`
+ * (the app dates the pregnancy by local day), so "today" is day 1 of week 32 there.
+ */
+export async function newWeek32Account(scenario: string, tz = 'Europe/Paris', extra: Record<string, unknown> = {}): Promise<CreatedAccount> {
+  const acct = await createAccount(newAccountEmail('B', scenario), E2E_PASSWORD);
+  const [y, m, d] = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' })
+    .format(new Date())
+    .split('-')
+    .map(Number);
+  const now = new Date(Date.UTC(y, m - 1, d));
+  await seedProfile(acct.uid, acct.idToken, { week: 32, now, country: 'France', lastName: 'Testeur', firstName: 'Wave', ...extra });
+  return acct;
 }
 
 // ── User-token REST writes (seeding; rules apply) ─────────────────────────────

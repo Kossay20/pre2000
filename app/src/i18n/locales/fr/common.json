@@ -422,13 +422,13 @@
       "title": "7. Vos droits (RGPD)",
       "text": "Vous exercez vos droits directement dans l'application :",
       "access": "Accès et portabilité :",
-      "accessDesc": "« {{settings}} » → « {{dataSection}} » → « {{export}} » vous remet une copie de vos données de profil et de santé, suivi médical déclaré compris.",
+      "accessDesc": "« {{settings}} » → « {{dataSection}} » → « {{export}} » vous remet une copie de vos données de profil et de santé, suivi médical déclaré compris.",
       "rectification": "Rectification :",
       "rectificationDesc": "toute donnée saisie peut être modifiée dans l'application.",
       "deletion": "Effacement :",
-      "deletionDesc": "« {{profile}} » → « {{dangerZone}} » → « {{deleteFromProfile}} », ou « {{settings}} » → « {{dataSection}} » → « {{deleteFromSettings}} ». La suppression est immédiate et définitive : votre compte, les données enregistrées sur nos serveurs et la copie locale sur votre téléphone.",
+      "deletionDesc": "« {{profile}} » → « {{dangerZone}} » → « {{deleteFromProfile}} », ou « {{settings}} » → « {{dataSection}} » → « {{deleteFromSettings}} ». La suppression est immédiate et définitive : votre compte, les données enregistrées sur nos serveurs et la copie locale sur votre téléphone.",
       "consent": "Retrait du consentement :",
-      "consentDesc": "vous pouvez retirer à tout moment l'accord donné à la création de votre profil en effaçant vos données : « {{settings}} » → « {{dataSection}} » → « {{deleteFromSettings}} » avec un compte, ou « {{eraseGuest}} » sans compte. Le suivi médical déclaré se désactive à part dans « {{settings}} » → « {{medical}} », sans supprimer le reste de votre compte."
+      "consentDesc": "vous pouvez retirer à tout moment l'accord donné à la création de votre profil en effaçant vos données : « {{settings}} » → « {{dataSection}} » → « {{deleteFromSettings}} » avec un compte, ou « {{eraseGuest}} » sans compte. Le suivi médical déclaré se désactive à part dans « {{settings}} » → « {{medical}} », sans supprimer le reste de votre compte."
     },
     "contact": {
       "title": "8. Contact",
@@ -436,7 +436,7 @@
     },
     "guestMode": {
       "title": "9. Mode Invité",
-      "text": "Sans compte, vous ne donnez aucune adresse e-mail. Ce que vous enregistrez est conservé sur votre téléphone. Une partie (par exemple les données de santé, les rendez-vous et les rappels) peut aussi être enregistrée sur nos serveurs sous un identifiant anonyme, sans adresse e-mail, pour que l'application fonctionne ; en dehors de cela, seuls les rapports d'erreur techniques (section 2) quittent votre téléphone. Les mouvements du bébé, les contractions et la valise de maternité restent uniquement sur votre téléphone jusqu'à ce que vous créiez un compte ; ils y sont alors enregistrés. Pour tout effacer, sur votre téléphone et sur nos serveurs : « {{settings}} » → « {{dataSection}} » → « {{eraseGuest}} ». Désinstaller l'application n'efface que ce qui se trouve sur votre téléphone."
+      "text": "Sans compte, vous ne donnez aucune adresse e-mail. Ce que vous enregistrez est conservé sur votre téléphone. Une partie (par exemple les données de santé, les rendez-vous et les rappels) peut aussi être enregistrée sur nos serveurs sous un identifiant anonyme, sans adresse e-mail, pour que l'application fonctionne ; en dehors de cela, seuls les rapports d'erreur techniques (section 2) quittent votre téléphone. Les mouvements du bébé, les contractions et la valise de maternité restent uniquement sur votre téléphone jusqu'à ce que vous créiez un compte ; ils y sont alors enregistrés. Pour tout effacer, sur votre téléphone et sur nos serveurs : « {{settings}} » → « {{dataSection}} » → « {{eraseGuest}} ». Désinstaller l'application n'efface que ce qui se trouve sur votre téléphone."
     },
     "footer": "Mama & Bébé © {{year}} KSA MEDIA LLC - Tous droits réservés"
   },
@@ -474,7 +474,7 @@
     "createMyAccount": "Créer mon compte",
     "termsDisclaimer": "En créant un compte, vous acceptez nos Conditions Générales d'Utilisation et notre Politique de Confidentialité.",
     "guestDisclaimer": "En continuant, vous acceptez nos CGU et Politique de Confidentialité.",
-    "export": "Exporter mes données (JSON)",
+    "export": "Exporter mes données",
     "exportDesc": "Récupérer une copie brute de vos données",
     "deleteAccount": "Supprimer mon compte",
     "deleteAccountDesc": "Efface définitivement votre compte et toutes vos données",

@@ -108,9 +108,9 @@
         "listenBody": "Listen to your body and your hunger/fullness cues"
     },
     "trimester": {
-        "t1": "1st trimester: Variations are normal with nausea. Stay hydrated! 💛",
-        "t2": "2nd trimester: Baby is growing fast. Balanced nutrition is key! 🌱",
-        "t3": "3rd trimester: Water retention is common. Rest and hydrate! 💧"
+        "t1": "{{trimester}}: Variations are normal with nausea. Stay hydrated! 💛",
+        "t2": "{{trimester}}: Baby is growing fast. Balanced nutrition is key! 🌱",
+        "t3": "{{trimester}}: Water retention is common. Rest and hydrate! 💧"
     },
     "errorReset": "Unable to reset data.",
     "weekShort": "W",

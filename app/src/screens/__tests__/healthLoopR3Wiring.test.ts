@@ -150,6 +150,26 @@ describe('B-013 — the weight tip states no hydration figure of its own', () =>
     });
 });
 
+// Round 4: "Mesure hors objectif ce mois-ci" ran on one line into the card's right edge.
+describe('the Glycémie month label stays inside its card', () => {
+    const healthStyles = read('src/screens/HealthDashboardScreen.styles.ts');
+
+    it('each half of the summary takes an equal share of the row, so the label wraps', () => {
+        const box = healthStyles.slice(healthStyles.indexOf('glucoseStatBox: {'), healthStyles.indexOf('glucoseStatText: {'));
+        expect(box).toMatch(/flex: 1,/);
+        expect(box).toMatch(/minWidth: 0,/);
+        const glucose = health.slice(health.indexOf('Section 3: Glycémie'), health.indexOf('glucoseHistory.slice(1, 3)'));
+        expect(glucose.match(/<View style=\{styles\.glucoseStatBox\}>/g)).toHaveLength(2);
+        expect(glucose).not.toMatch(/styles\.statBox\b/);
+        expect(glucose).toMatch(/\[styles\.statLabel, styles\.glucoseStatText\]\}>\{glucoseMonthLabel\}/);
+    });
+
+    it('the label is never held on one line', () => {
+        const glucose = health.slice(health.indexOf('Section 3: Glycémie'), health.indexOf('glucoseHistory.slice(1, 3)'));
+        expect(glucose).not.toMatch(/numberOfLines/);
+    });
+});
+
 describe('B-011 — "Ma Journée" has the Tasks tab\'s gutter', () => {
     const myDay = read('src/components/tasks/MyDaySection.tsx');
 

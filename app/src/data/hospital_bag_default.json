@@ -224,9 +224,17 @@
   {
     "id": "partner-papers",
     "section": "partner",
-    "label_fr": "CIN de l'accompagnant",
+    "label_fr": "Pièce d'identité de l'accompagnant",
     "label_en": "Partner ID card",
     "label_ar": "بطاقة هوية المرافق",
-    "label_tn": "كارط ايدنتيتي للمرافق"
+    "label_tn": "كارط ايدنتيتي للمرافق",
+    "labels_by_country": {
+      "tunisia": {
+        "label_fr": "CIN de l'accompagnant",
+        "label_en": "Partner's national ID card (CIN)",
+        "label_ar": "بطاقة التعريف الوطنية للمرافق",
+        "label_tn": "بطاقة التعريف (CIN) للمرافق"
+      }
+    }
   }
 ]

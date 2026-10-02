@@ -374,4 +374,52 @@ describe('buildMyDayItems / myDayProgress (B-008)', () => {
         expect(tasks).toMatch(/buildMyDayItems\(mergedReminders, userTasks/);
         expect(tasks).toMatch(/myDayProgress\(items\)/);
     });
+
+    // Statistics said "Aujourd'hui : 100 % réalisé" beside the Tasks tab's 33 % (1 of 3):
+    // its rate came from the progress saved on the device, which has no entry for a
+    // reminder or an appointment nobody has ticked yet.
+    describe('Statistics counts today on the same list', () => {
+        const todayStr = format(new Date(), 'yyyy-MM-dd');
+        const doneTask = task({ completed: true, completed_at: new Date() } as Partial<UserTask>);
+        const untouched: DailyChecklistItem[] = [
+            { id: 'apt-e2e', type: 'appointment', title: 'RDV du jour E2E', completed: false, icon: '📅', priority: 1 },
+            { id: 'walk', type: 'reminder', title: 'Marche douce', completed: false, icon: '🚶', priority: 10 },
+        ];
+        const rateToday = (stats: { dates: string[]; completionRates: number[] }) =>
+            stats.completionRates[stats.dates.indexOf(todayStr)];
+
+        beforeEach(() => {
+            // Nothing ticked in the checklist today: no progress saved on the device.
+            jest.mocked(AsyncStorage.getAllKeys).mockResolvedValue([]);
+            jest.mocked(AsyncStorage.getItem).mockResolvedValue(null);
+        });
+
+        test('one task done, a reminder and an appointment untouched: 33 %, as Home (1/3) and Tasks', async () => {
+            const myDay = myDayProgress(buildMyDayItems(untouched, [doneTask], new Date()));
+            expect(myDay).toEqual({ done: 1, total: 3 });
+            const stats = await getHistoricalData(7, [doneTask], myDay);
+            expect(rateToday(stats)).toBe(Math.round((myDay.done / myDay.total) * 100));
+            expect(rateToday(stats)).toBe(33);
+        });
+
+        test('nothing done yet still shows today, at 0 %', async () => {
+            const myDay = myDayProgress(buildMyDayItems(untouched, [], new Date()));
+            const stats = await getHistoricalData(7, [], myDay);
+            expect(stats.dates).toEqual([todayStr]);
+            expect(rateToday(stats)).toBe(0);
+        });
+
+        test('an empty list adds no day', async () => {
+            expect((await getHistoricalData(7, [], { done: 0, total: 0 })).dates).toEqual([]);
+        });
+
+        test('the screen passes the shared builder\'s count, from the same checklist as Home', () => {
+            const fs = require('fs');
+            const path = require('path');
+            const stats = fs.readFileSync(path.join(__dirname, '../../screens/reminders/StatisticsScreen.tsx'), 'utf8');
+            expect(stats).toMatch(/loadDailyProgress\(\s*await generateDailyChecklist\(events, pregnancyInfo\?\.week \?\? 1, user\?\.uid, undefined, user\)/);
+            expect(stats).toMatch(/const today = myDayProgress\(buildMyDayItems\(checklist, tasks\)\)/);
+            expect(stats).toMatch(/getHistoricalData\(days, tasks, today\)/);
+        });
+    });
 });

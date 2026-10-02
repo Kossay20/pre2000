@@ -50,8 +50,6 @@
   "step4": {
     "defaultName": "Future Maman",
     "youAreAt": "Vous êtes à la",
-    "weekCaps": "SEMAINE",
-    "dayCaps": "JOUR",
     "babySize": "Votre bébé fait la taille\nd'{{label}} {{emoji}}",
     "createAccountTitle": "📧 Créez votre compte",
     "createAccountSubtitle": "Synchronisez vos données sur tous vos appareils",
@@ -133,7 +131,7 @@
     "sheetTitle": "Vos données de santé",
     "sheetText": "Mama & Bébé a besoin de votre accord pour continuer à utiliser vos données de grossesse et de santé. Cochez la case pour continuer, ou choisissez plus bas de ne pas donner votre accord.",
     "declineTitle": "Vous ne souhaitez pas donner votre accord ?",
-    "logoutNote": "Vous déconnecter ne supprime rien : vos données restent enregistrées sur nos serveurs. Pour les effacer, choisissez « {{deleteLabel}} » ci-dessous.",
+    "logoutNote": "Vous déconnecter ne supprime rien : vos données restent enregistrées sur nos serveurs. Pour les effacer, choisissez « {{deleteLabel}} » ci-dessous.",
     "saveError": "Votre accord n'a pas pu être enregistré. Vérifiez votre connexion et réessayez."
   }
 }

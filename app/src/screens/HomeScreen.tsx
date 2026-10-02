@@ -42,7 +42,7 @@ import { format, differenceInCalendarDays } from 'date-fns';
 import { useTranslation } from 'react-i18next';
 import { getLocalizedContent } from '../utils/i18nHelpers';
 import { fetalLengthLabelKey, formatFetalComparison, formatFetalLength, formatFetalWeight, getFetalGrowth } from '../utils/fetalGrowth';
-import { trimesterFromWeek } from '../utils/pregnancyCalculator';
+import { displayedPregnancyAge, trimesterFromWeek } from '../utils/pregnancyCalculator';
 import { quickAddDateKey } from '../utils/appointmentDate';
 import { formatGestationalAge } from '../utils/gestationalAge';
 import { getReducedMotionSync } from '../hooks/usePrefersReducedMotion';
@@ -388,6 +388,12 @@ export const HomeScreen = () => {
     // they follow her real week, not the week being previewed: previewing week 27 at 32
     // used to hide the labour tools she needs now.
     const toolsWeek = pregnancyInfo?.week ?? currentWeekNumber;
+    // Her own week, past 40+0 SA (post-term, or beyond 42+0): the content shown is week
+    // 40's, clamped, so what it says about "this week" must not be printed as today's.
+    const isPastDueToday = overrideWeek === null && (isPostTerm || isInvalid);
+    const todayAge = completedWeeks != null && completedDays != null
+        ? displayedPregnancyAge(completedWeeks, completedDays)
+        : null;
 
 
 
@@ -569,10 +575,17 @@ export const HomeScreen = () => {
                             </TouchableOpacity>
                         )}
 
-                        {/* Week Title (without repeating 'Semaine X') */}
-                        <Text style={styles.weekSubtitle}>
-                            {cleanTitle.replace(/^(Semaine|Week|الأسبوع)\s*\d+\s*[-–]\s*/i, '').trim()} {growth.emoji}
-                        </Text>
+                        {/* Week Title (without repeating 'Semaine X'). Past the due date her own
+                            week still shows the week-40 content, but not its title: "Le grand
+                            jour approche" sat right above "la date prévue … est passée".
+                            Beyond 42+0 the "have you had your baby?" banner speaks alone. */}
+                        {!(isPastDueToday && isInvalid) && (
+                            <Text style={styles.weekSubtitle}>
+                                {isPastDueToday
+                                    ? t('home.postTermTitle')
+                                    : cleanTitle.replace(/^(Semaine|Week|الأسبوع)\s*\d+\s*[-–]\s*/i, '').trim()} {growth.emoji}
+                            </Text>
+                        )}
 
 
 
@@ -758,8 +771,10 @@ export const HomeScreen = () => {
                     {babyMessage && (
                         <BabyMessageCard
                             message={getLocalizedContent(babyMessage, 'message', i18n.language)}
-                            week={currentWeekNumber}
-                            day={overrideDay || currentDay}
+                            // Past term the message is week 40's last, but the footer names
+                            // her real week and day, like the hero ("Semaine 43", not 40).
+                            week={isPastDueToday && todayAge ? todayAge.week : currentWeekNumber}
+                            day={isPastDueToday && todayAge ? todayAge.day : overrideDay || currentDay}
                         />
                     )}
 

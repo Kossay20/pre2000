@@ -476,6 +476,12 @@ export const styles = StyleSheet.create({
         color: theme.colors.textLight,
         textDecorationLine: 'underline' as const,
     },
+    // Disabled until the consent box is ticked. The grey of the disabled save button
+    // above it, at full opacity: dimming the link to 0.6 left the guest's only way
+    // forward at about 2.6:1.
+    skipAccountTextDisabled: {
+        color: theme.colors.neutral700,
+    },
     ageRangeContainer: {
         flexDirection: 'row' as const,
         flexWrap: 'wrap' as const,

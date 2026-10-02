@@ -72,19 +72,41 @@ const USER_COLLECTIONS: string[] = (() => {
   const names = [...rules.matchAll(/^ {4}match \/(\w+)\/\{\w+\} \{(.*)$/gm)]
     .filter(([, , rest]) => !/allow write: if false/.test(rest))
     .map(([, name]) => name)
-    .filter((n) => n !== 'users' && n !== 'userProfiles');
+    // deletionRequests/{uid} is not user data keyed by user_id: it is the deletion marker
+    // (id = uid, D-031), tracked on its own in footprint().marker and asserted absent after
+    // every finished deletion.
+    .filter((n) => n !== 'users' && n !== 'userProfiles' && n !== 'deletionRequests');
+  if (!/match \/deletionRequests\/\{\w+\}/.test(rules)) throw new Error('firestore.rules has no deletionRequests match (old rules?)');
   if (names.length < 9) throw new Error(`firestore.rules parse found only ${names.length} user collections`);
   return names;
 })();
 
-/** Legacy nested docs the purge must also sweep (users/{uid}/events is still written by DemoDataService). */
+/**
+ * The only subcollection names firestore.rules accepts under users/{uid} and
+ * userProfiles/{uid} (D-014), read from the rules file itself — not from gdprPurge's list.
+ */
+const LEGACY_SUBCOLLECTIONS: string[] = (() => {
+  const rules = fs.readFileSync(path.resolve(__dirname, '..', 'firestore.rules'), 'utf8');
+  const m = rules.match(/function isPurgedSubcollection\(sub\) \{\s*return sub in \[([^\]]+)\]/);
+  if (!m) throw new Error('firestore.rules: isPurgedSubcollection list not found (old rules?)');
+  const names = [...m[1].matchAll(/'(\w+)'/g)].map(([, n]) => n);
+  if (names.length < 4) throw new Error(`firestore.rules: only ${names.length} purged subcollections`);
+  return names;
+})();
+const LEGACY_PARENTS = ['userProfiles', 'users'] as const;
+
+/** Every parent × subcollection pair the rules allow (incl. users/{uid}/weights), + users/{uid}. */
 const LEGACY_DOCS = (uid: string) => [
-  `userProfiles/${uid}/weights/seed-d`,
-  `userProfiles/${uid}/chatbot_history/seed-d`,
-  `users/${uid}/journal/seed-d`,
-  `users/${uid}/events/seed-d`,
+  ...LEGACY_PARENTS.flatMap((parent) => LEGACY_SUBCOLLECTIONS.map((sub) => `${parent}/${uid}/${sub}/seed-d`)),
   `users/${uid}`,
 ];
+
+const MARKER_DOC = (uid: string) => `deletionRequests/${uid}`;
+
+/** French typography puts U+00A0 / U+202F before `: ; ? !` — compare on plain spaces. */
+const norm = (s: string | null | undefined) => (s ?? '').replace(/[\u00A0\u202F]/g, ' ');
+
+const PERMISSION_SIGNAL = /permission[-_ ]denied|insufficient permissions/i;
 
 // ── Recorder plumbing ─────────────────────────────────────────────────────────
 
@@ -93,6 +115,9 @@ type Ctx = {
   rec: ReturnType<typeof attachMegaAuditRecorder>;
   strict: string[];
   cursor: number;
+  /** Every console line of ANY level (and page error) that smells of a rules refusal (D-014). */
+  permission: string[];
+  permCursor: number;
   dialogs: DialogRecorder;
 };
 
@@ -105,7 +130,34 @@ function instrument(page: Page, testInfo: TestInfo): Ctx {
   const strict = attachConsoleStrict(page);
   const rec = attachMegaAuditRecorder(page, quartetDirs(testInfo));
   const dialogs = attachDialogRecorder(page, rec);
-  return { page, rec, strict, cursor: 0, dialogs };
+  const permission: string[] = [];
+  page.on('console', (msg) => {
+    const text = msg.text();
+    if (PERMISSION_SIGNAL.test(text)) permission.push(`${msg.type()}: ${text.slice(0, 400)}`);
+  });
+  page.on('pageerror', (err) => {
+    if (PERMISSION_SIGNAL.test(err.message)) permission.push(`pageerror: ${err.message.slice(0, 400)}`);
+  });
+  return { page, rec, strict, cursor: 0, permission, permCursor: 0, dialogs };
+}
+
+/**
+ * Let finite animations (modal fade, screen transition) finish before a capture, so no state
+ * is snapped mid-fade (D-025). Infinite ones (spinners) are ignored. A wait, not a check.
+ */
+async function settle(page: Page) {
+  await page
+    .waitForFunction(
+      () =>
+        document.getAnimations().every((a) => {
+          const timing = a.effect?.getComputedTiming();
+          return a.playState !== 'running' || timing?.iterations === Infinity;
+        }),
+      null,
+      { timeout: 5_000 },
+    )
+    .catch(() => undefined);
+  await page.waitForTimeout(350);
 }
 
 /**
@@ -117,6 +169,7 @@ async function state(ctx: Ctx, name: string, expectedNetworkErrors: RegExp[] = [
   expect.soft(body.trim().length, `${name}: screen should not be blank`).toBeGreaterThan(0);
   const leak = body.split('\n').find((l) => RAW_KEY.test(l));
   expect.soft(leak, `${name}: raw i18n key leaked → "${leak}"`).toBeFalsy();
+  await settle(ctx.page);
   await ctx.rec.snap(name);
   // Only the browser's own resource-load line for a request the test itself provoked
   // (simulated CREDENTIAL_TOO_OLD refusal, deliberate wrong password) may be allowed —
@@ -126,6 +179,10 @@ async function state(ctx: Ctx, name: string, expectedNetworkErrors: RegExp[] = [
     .filter((e) => !(/^Failed to load resource/.test(e) && expectedNetworkErrors.some((re) => re.test(e))));
   ctx.cursor = ctx.strict.length;
   expect.soft(fresh, `${name}: strict console errors: ${fresh.join(' | ')}`).toEqual([]);
+  // D-014: the tightened rules must never refuse an ordinary flow — any level, any wording.
+  const denied = ctx.permission.slice(ctx.permCursor);
+  ctx.permCursor = ctx.permission.length;
+  expect.soft(denied, `${name}: Firestore permission error in console: ${denied.join(' | ')}`).toEqual([]);
 }
 
 function note(testInfo: TestInfo, type: string, description: string) {
@@ -210,7 +267,8 @@ async function seedEverything(uid: string) {
     weight_entries: { user_id: uid, weight: 62, date: iso, createdAt: iso },
     glucoseMetrics: { user_id: uid, value: 0.92, context: 'fasting', date: iso, createdAt: iso },
     symptomsLog: { user_id: uid, symptoms: ['nausea'], date: day, createdAt: iso },
-    userReminderSettings: { user_id: uid, enabled: true, updatedAt: iso },
+    // The shape reminderPersistence writes (reminder_id / times_per_day / last_modified).
+    userReminderSettings: { user_id: uid, reminder_id: 'rem_med_iron_supplement', enabled: true, times_per_day: 1, last_modified: iso },
     userTaskStatuses: { user_id: uid, taskId: 'seed-d', completed: true, updatedAt: iso },
     reminder_settings_v2: { user_id: uid, reminders: {}, updatedAt: iso },
   };
@@ -220,23 +278,39 @@ async function seedEverything(uid: string) {
     await ownerWrite(`${col}/seed-d-${uid}`, docs[col] ?? { user_id: uid, seed: 'D', createdAt: iso, updatedAt: iso });
   }
   await ownerWrite(`users/${uid}`, { legacy: true });
-  await ownerWrite(`userProfiles/${uid}/weights/seed-d`, { weight: 60, date: iso });
-  await ownerWrite(`userProfiles/${uid}/chatbot_history/seed-d`, { text: 'seed', date: iso });
-  await ownerWrite(`users/${uid}/journal/seed-d`, { text: 'seed', date: iso });
-  await ownerWrite(`users/${uid}/events/seed-d`, { title: 'seed', date: iso });
+  // D-014: one doc in EVERY parent × subcollection pair the rules allow (8 pairs).
+  for (const parent of LEGACY_PARENTS)
+    for (const sub of LEGACY_SUBCOLLECTIONS)
+      await ownerWrite(`${parent}/${uid}/${sub}/seed-d`, { text: 'seed', title: 'seed', weight: 60, date: iso });
 }
 
-type ServerFootprint = { profile: boolean; counts: Record<string, number>; legacy: Record<string, boolean>; auth: boolean };
+type ServerFootprint = {
+  profile: boolean;
+  counts: Record<string, number>;
+  legacy: Record<string, boolean>;
+  auth: boolean;
+  /** deletionRequests/{uid} — the server-side deletion marker (D-031). Not part of totalDocs. */
+  marker: boolean;
+};
 
 async function footprint(uid: string): Promise<ServerFootprint> {
   const counts: Record<string, number> = {};
   for (const c of USER_COLLECTIONS) counts[c] = (await serverQuery(c, 'user_id', uid)).length;
   const legacy: Record<string, boolean> = {};
   for (const p of LEGACY_DOCS(uid)) legacy[p] = (await serverDoc(p)) !== null;
-  return { profile: (await serverDoc(`userProfiles/${uid}`)) !== null, counts, legacy, auth: await authAccountExists(uid) };
+  return {
+    profile: (await serverDoc(`userProfiles/${uid}`)) !== null,
+    counts,
+    legacy,
+    auth: await authAccountExists(uid),
+    marker: (await serverDoc(MARKER_DOC(uid))) !== null,
+  };
 }
 
-const totalDocs = (f: ServerFootprint) =>
+/** Deleted for good: no data, no login, no deletion marker. */
+const fullyGone = (f: ServerFootprint) => totalDocs(f) === 0 && !f.auth && !f.marker;
+
+const totalDocs = (f: ServerFootprint): number =>
   Object.values(f.counts).reduce((a, b) => a + b, 0) + Object.values(f.legacy).filter(Boolean).length + (f.profile ? 1 : 0);
 
 /** Auth emulator user record (for the email attached after an upgrade). */
@@ -255,6 +329,90 @@ async function newSeededAccount(scenario: string, fields: Record<string, unknown
   await seedProfile(acct.uid, acct.idToken, { week: 32, country: 'france', ...fields });
   return acct;
 }
+
+/** Password-reset mails the Auth emulator "sent" (server truth for the forgot-password path). */
+async function passwordResetCodes(email: string): Promise<any[]> {
+  const res = await fetch(`${AUTH_EMULATOR}/emulator/v1/projects/${PROJECT_ID}/oobCodes`, { headers: { Authorization: 'Bearer owner' } });
+  if (!res.ok) throw new Error(`oobCodes: ${res.status} ${await res.text()}`);
+  const body: any = await res.json();
+  return (body.oobCodes ?? []).filter((c: any) => c.email === email && c.requestType === 'PASSWORD_RESET');
+}
+
+/** A Firestore REST write/read AS THE USER (rules apply) — returns the HTTP status. */
+async function userRest(method: 'GET' | 'PATCH', docPath: string, idToken: string): Promise<number> {
+  const res = await fetch(`${DOCS}/${docPath}`, {
+    method,
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+    ...(method === 'PATCH' ? { body: JSON.stringify({ fields: { probe: { stringValue: 'wave-D' } } }) } : {}),
+  });
+  await res.text();
+  return res.status;
+}
+
+/**
+ * The login form in a context that has no session — for sign-ins that must NOT end on
+ * MainTabs (consent sheet, pending deletion), where uiLogin's tablist wait does not apply.
+ */
+async function openLoginForm(page: Page, locale: AppLocale) {
+  await page.addInitScript((l) => {
+    try {
+      if (sessionStorage.getItem('__e2e_waveD_locale') === '1') return;
+      sessionStorage.setItem('__e2e_waveD_locale', '1');
+      localStorage.setItem('app_locale', l);
+      localStorage.setItem('@home_welcome_seen_v1', '1');
+    } catch {
+      /* storage blocked */
+    }
+  }, locale);
+  await page.goto('/login', { waitUntil: 'load' });
+  await expect(page.getByTestId('login_email_input'), 'login form').toBeVisible({ timeout: 60_000 });
+}
+
+async function submitLogin(page: Page, email: string, pw: string) {
+  await page.getByTestId('login_email_input').fill(email);
+  await page.getByTestId('login_password_input').fill(pw);
+  await page.getByTestId('login_submit_button').click();
+}
+
+/**
+ * D-020: record, from inside the page, whether the blocking "deleting…" modal was ever
+ * mounted — independent of screenshot timing. Install before the click that starts the erase.
+ */
+async function watchDeletionProgress(page: Page) {
+  await page.evaluate(() => {
+    const w = window as any;
+    w.__waveDProgress = { seen: false };
+    const check = () => {
+      const el = document.querySelector('[data-testid="deletion_progress"]') as HTMLElement | null;
+      if (!el || w.__waveDProgress.seen) return;
+      w.__waveDProgress = {
+        seen: true,
+        text: el.innerText,
+        role: el.getAttribute('role'),
+        busy: el.getAttribute('aria-busy'),
+        label: el.getAttribute('aria-label'),
+        inModal: !!el.closest('[aria-modal="true"]'),
+      };
+    };
+    w.__waveDProgressObs?.disconnect();
+    w.__waveDProgressObs = new MutationObserver(check);
+    w.__waveDProgressObs.observe(document.body, { childList: true, subtree: true });
+    check();
+  });
+}
+
+type ProgressSeen = { seen: boolean; text?: string; role?: string | null; busy?: string | null; label?: string | null; inModal?: boolean };
+
+async function assertProgressSeen(page: Page, testInfo: TestInfo, name: string, label: RegExp) {
+  const seen = (await page.evaluate(() => (window as any).__waveDProgress ?? { seen: false })) as ProgressSeen;
+  note(testInfo, `${name}-progress-modal`, JSON.stringify(seen));
+  expect.soft(seen.seen, `${name} (D-020): blocking progress modal mounted during the erase`).toBe(true);
+  expect.soft(norm(seen.text) + ' | ' + norm(seen.label), `${name} (D-020): progress modal carries a label`).toMatch(label);
+  expect.soft(seen.inModal, `${name} (D-020): progress is a modal (blocks the screen)`).toBe(true);
+}
+
+/** The Firestore backend becomes unreachable for this page (the app itself still loads). */
+const FIRESTORE_TRAFFIC = /:8080\//;
 
 // ── Stale-session simulation (auth/requires-recent-login) ─────────────────────
 
@@ -371,6 +529,12 @@ test('D-profile: load, save, empty last name, unsaved-edit wipe, emergency conta
   const dpaExpected = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', day: '2-digit', month: 'long', year: 'numeric' })
     .format(new Date(Date.parse(seed.lmp as string) + 280 * 864e5));
   await expect.soft(page.getByText(dpaExpected, { exact: true }), `01: DPA "${dpaExpected}"`).toBeVisible();
+  // D-022: the French abbreviation is DDR; the English "LMP" must not be shown to her.
+  const body01 = norm(await page.locator('body').innerText());
+  note(testInfo, '01-ddr-lines', JSON.stringify(body01.split('\n').filter((l) => /DDR|LMP/.test(l))));
+  expect.soft(/\bLMP\b/.test(body01), '01 (D-022): "LMP" shown on the French Profile').toBe(false);
+  expect.soft(/\(DDR\)/.test(body01), '01 (D-022): the dating field is labelled "(DDR)"').toBe(true);
+  expect.soft(/DDR \+ 280 jours/.test(body01), '01 (D-022): DPA hint reads "DDR + 280 jours"').toBe(true);
   await state(ctx, '01-profile-loaded');
 
   // 02 — first name → Amira (+ country → Tunisie, SYNC-16 D-side) → "Succès" + server + fresh context.
@@ -485,14 +649,30 @@ test('D-settings: dev surfaces, medical flag, daily message, permissions, export
   await expect.soft(page.getByText('Lancer le diagnostic')).toHaveCount(0);
   note(testInfo, '07-test-notifications-present', String(await page.getByRole('button', { name: 'Tester les notifications' }).count()));
   note(testInfo, '07-settings-delete-row-present', String(await page.getByRole('button', { name: /Supprimer (le|mon) compte/ }).count()));
+  // D-026: a phone is touched, not clicked.
+  const body07 = norm(await page.locator('body').innerText());
+  expect.soft(/Cliquez ici/.test(body07), '07 (D-026): "Cliquez ici" on a phone screen').toBe(false);
+  expect.soft(/Touchez ici si vous ne recevez pas/.test(body07), '07 (D-026): permission hint reads "Touchez ici…"').toBe(true);
   await state(ctx, '07-settings-loaded');
   await page.goto('/diagnostic', { waitUntil: 'load' });
   await expect.soft(page.getByRole('tablist').first(), '07: /diagnostic must land on the app (Home)').toBeVisible({ timeout: 20_000 });
+  // D-025: Home's own content, not its skeleton (the tab bar alone proves nothing).
+  await expect.soft(page.getByTestId('home_quick_search'), '07b: /diagnostic falls back to the real Home').toBeVisible({ timeout: 30_000 });
   await expect.soft(page.getByText('Lancer le diagnostic')).toHaveCount(0);
+  note(testInfo, '07b-url', page.url());
   await state(ctx, '07b-diagnostic-deeplink');
 
   // 08 — medical flag on → server + fresh context; content effect (SYNC-15); off → gone.
   const remBefore = await remindersText(page);
+  // D-028: an iron tablet is a pill, not a syringe.
+  {
+    const i = remBefore.text.indexOf('Fer (supplément)');
+    const around = i < 0 ? '(row not found)' : remBefore.text.slice(Math.max(0, i - 14), i + 16);
+    note(testInfo, '08a-iron-row', JSON.stringify(around));
+    expect.soft(i, '08a (D-028): "Fer (supplément)" reminder listed').toBeGreaterThanOrEqual(0);
+    expect.soft(around.includes('💊'), `08a (D-028): iron supplement icon is 💊 (${JSON.stringify(around)})`).toBe(true);
+    expect.soft(around.includes('💉'), '08a (D-028): iron supplement still shows a syringe').toBe(false);
+  }
   await state(ctx, '08a-reminders-baseline');
   await openSettings(page);
   const diabetes = page.getByRole('switch', { name: 'Diabète gestationnel' }).first();
@@ -590,11 +770,20 @@ test('D-settings: dev surfaces, medical flag, daily message, permissions, export
   const terms = page.getByText('CGU', { exact: true }).first();
   note(testInfo, '13-terms-tab-role', String(await page.getByRole('tab', { name: 'CGU' }).count() + await page.getByRole('button', { name: 'CGU' }).count()));
   // D-023: the three legal documents are a tab list with a selected tab, not bare divs.
+  // Scoped to the legal tab list: the app's bottom tab bar is a tablist with its own
+  // selected tab on this same screen, so a page-wide "selected" count would count both.
   await expect.soft(page.getByRole('tab', { name: 'CGU' }), '13: CGU is a tab').toHaveCount(1);
-  await expect.soft(page.getByRole('tab', { selected: true }), '13: exactly one tab is selected').toHaveCount(1);
+  const legalTabs = page.getByRole('tablist').filter({ has: page.getByRole('tab', { name: 'CGU' }) });
+  await expect.soft(legalTabs, '13 (D-023): the legal documents sit in a tablist').toHaveCount(1);
+  await expect.soft(legalTabs.getByRole('tab'), '13 (D-023): three legal tabs').toHaveCount(3);
+  await expect.soft(legalTabs.getByRole('tab', { selected: true }), '13: exactly one legal tab is selected').toHaveCount(1);
+  await expect.soft(legalTabs.getByRole('tab', { name: 'Confidentialité' }), '13 (D-023): the open document is the selected tab').toHaveAttribute('aria-selected', 'true');
+  await expect.soft(legalTabs.getByRole('tab', { name: 'CGU' }), '13 (D-023): CGU not selected yet').toHaveAttribute('aria-selected', 'false');
   if (await terms.count()) {
     await terms.click();
     await expect.soft(page.getByText(/AVERTISSEMENT MÉDICAL/).first(), '13: Terms carry the medical disclaimer').toBeVisible({ timeout: 10_000 });
+    await expect.soft(legalTabs.getByRole('tab', { name: 'CGU' }), '13b (D-023): selection follows the tap').toHaveAttribute('aria-selected', 'true');
+    await expect.soft(legalTabs.getByRole('tab', { selected: true }), '13b: still exactly one legal tab selected').toHaveCount(1);
     await state(ctx, '13b-privacy-terms-tab');
   } else {
     expect.soft(false, '13: no Terms tab found on the privacy screen').toBe(true);
@@ -623,7 +812,7 @@ async function htmlDirLang(page: Page) {
   return page.evaluate(() => ({ dir: document.documentElement.dir, lang: document.documentElement.lang, title: document.title }));
 }
 
-test('D-lang: live switch fr→ar→tn→fr, /language deep link, persistence', async ({ page }, testInfo) => {
+test('D-lang: live switch fr→ar→tn→fr, /language deep link, persistence', async ({ page, browser }, testInfo) => {
   const acct = await newSeededAccount('lang', { firstName: 'Nour', lastName: 'Lang' });
   const ctx = instrument(page, testInfo);
   await uiLogin(page, acct.email, acct.password, 'fr');
@@ -684,7 +873,26 @@ test('D-lang: live switch fr→ar→tn→fr, /language deep link, persistence', 
   const stillOnLanguage = (await page.locator('[data-testid="lang_card_fr"]').count()) > 0 && page.url() === urlBefore16;
   note(testInfo, '16-language-continue', `url=${page.url()} stillOnLanguage=${stillOnLanguage}`);
   expect.soft(stillOnLanguage, '16 (HYP-D5): "Continuer" on /language does nothing').toBe(false);
+  // D-033: Home's address is the root, not the internal route name.
+  expect.soft(new URL(page.url()).pathname, '16 (D-033): Home URL path after "Continuer"').toBe('/');
+  await expect.soft(page.getByTestId('home_quick_search'), '16: "Continuer" lands on Home').toBeVisible({ timeout: 20_000 });
   await state(ctx, '16-language-deeplink-continue');
+
+  // 16b — D-033: that address survives a reload, works as a deep link, and the old
+  // /HomeMain link (bookmarks, the previous build's address bar) still opens Home.
+  await page.reload({ waitUntil: 'load' });
+  await expect.soft(page.getByTestId('home_quick_search'), '16b (D-033): reload of "/" shows Home').toBeVisible({ timeout: 30_000 });
+  expect.soft(new URL(page.url()).pathname, '16b (D-033): path after reload').toBe('/');
+  await expect.soft(page.getByText('Semaine 32', { exact: true }).first(), '16b: Home content after reload').toBeVisible({ timeout: 20_000 });
+  await state(ctx, '16b-home-root-reload');
+  await page.goto('/profile', { waitUntil: 'load' });
+  await expect(page.getByRole('button', { name: 'Enregistrer les modifications' })).toBeVisible({ timeout: 30_000 });
+  await page.goto('/', { waitUntil: 'load' });
+  await expect.soft(page.getByTestId('home_quick_search'), '16c (D-033): deep link "/" opens Home').toBeVisible({ timeout: 30_000 });
+  await page.goto('/HomeMain', { waitUntil: 'load' });
+  await expect.soft(page.getByTestId('home_quick_search'), '16c (D-033): legacy /HomeMain link still opens Home').toBeVisible({ timeout: 30_000 });
+  note(testInfo, '16c-legacy-homemain-url', page.url());
+  await state(ctx, '16c-home-deeplinks');
 
   // 17 — persistence: local (same-context reload, recorded) and server (profile `locale`).
   await openProfile(page);
@@ -698,6 +906,19 @@ test('D-lang: live switch fr→ar→tn→fr, /language deep link, persistence', 
   note(testInfo, '17-server-locale', JSON.stringify(s17?.locale ?? null));
   expect.soft(s17?.locale ?? null, '17 (P2): language is not synced to the account (another device resets it)').toBe('ar');
   await state(ctx, '17-language-persist');
+
+  // 17b — D-025: the other half of the oracle. A new phone set to French signs in: the
+  // account's language (ar) must follow her there.
+  {
+    const f = await freshCtx(browser, acct, 'fr', testInfo);
+    await expect.soft(f.page.getByRole('tab', { name: /الرئيسية/ }).first(), '17b: account language applied on a new device').toBeVisible({ timeout: 20_000 });
+    const fresh17 = await htmlDirLang(f.page);
+    note(testInfo, '17b-fresh-context', JSON.stringify(fresh17));
+    expect.soft(fresh17.lang, '17b: html lang on a new device').toMatch(/^ar/);
+    expect.soft(fresh17.dir, '17b: html dir on a new device').toBe('rtl');
+    await state(f, '17b-language-fresh-context');
+    await closeCtx(f);
+  }
 });
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -758,6 +979,41 @@ test('D-upgrade: real anonymous guest → account keeps uid, data and a complete
   await task.scrollIntoViewIfNeeded();
   await task.click();
   await expect.soft(task, '18: weekly task completed').toBeChecked({ timeout: 10_000 });
+  // D-032: the "remaining tasks" counter agrees in number ("1 tâche restante").
+  {
+    const counters = [...norm(await page.locator('body').innerText()).matchAll(/(\d+) (tâches? restantes?)/g)].map(([all, n, words]) => ({ all, n: Number(n), words }));
+    note(testInfo, '18a-remaining-counters', JSON.stringify(counters.map((c) => c.all)));
+    for (const c of counters) {
+      const expected = c.n <= 1 ? 'tâche restante' : 'tâches restantes';
+      expect.soft(c.words, `18a (D-032): "${c.all}" must read "${c.n} ${expected}"`).toBe(expected);
+    }
+    // Drive "Ma Journée" down to exactly one remaining item so the singular is really shown.
+    const myDay = page.getByRole('checkbox', { checked: false });
+    let guard = 12;
+    let last = counters[0]?.n ?? -1;
+    while (last > 1 && guard-- > 0) {
+      const before = last;
+      const boxes = await myDay.all();
+      let moved = false;
+      for (const box of boxes) {
+        await box.scrollIntoViewIfNeeded();
+        await box.click();
+        await page.waitForTimeout(700);
+        const m = norm(await page.locator('body').innerText()).match(/(\d+) tâches? restantes?/);
+        last = m ? Number(m[1]) : -1;
+        if (last !== before) {
+          moved = true;
+          break;
+        }
+      }
+      if (!moved) break;
+    }
+    const final = norm(await page.locator('body').innerText()).match(/(\d+) (tâches? restantes?)/);
+    const singularSeen = counters.some((c) => c.n === 1) || final?.[1] === '1';
+    note(testInfo, '18a-remaining-final', JSON.stringify({ final: final?.[0] ?? null, singularSeen }));
+    // Only when the screen really shows one remaining task (it depends on the day's list).
+    if (final?.[1] === '1') expect.soft(final[0], '18a (D-032): singular counter').toBe('1 tâche restante');
+  }
   await state(ctx, '18a-guest-task-toggle');
 
   await page.goto('/weight', { waitUntil: 'load' });
@@ -796,6 +1052,14 @@ test('D-upgrade: real anonymous guest → account keeps uid, data and a complete
   await page.reload({ waitUntil: 'load' });
   await openProfile(page);
   await expect.soft(page.getByRole('button', { name: 'Appeler Sage-femme' }), '19 (HYP-D6): guest emergency contact lost on reload').toBeVisible({ timeout: 15_000 });
+  // D-026: the guest is addressed in the feminine, like every other screen.
+  {
+    const body19 = norm(await page.locator('body').innerText());
+    note(testInfo, '19-guest-copy', JSON.stringify(body19.split('\n').filter((l) => /invité/i.test(l))));
+    expect.soft(/Utilisatrice invitée/.test(body19), '19 (D-026): "Utilisatrice invitée"').toBe(true);
+    expect.soft(/Mode Invitée/.test(body19), '19 (D-026): "Mode Invitée"').toBe(true);
+    expect.soft(/Utilisateur invité|Mode Invité(?!e)/.test(body19), '19 (D-026): masculine guest copy left').toBe(false);
+  }
   await state(ctx, '19-guest-reload');
 
   // 20 — upgrade from Profile → /create-account → "Compte créé" → same uid + email.
@@ -816,6 +1080,14 @@ test('D-upgrade: real anonymous guest → account keeps uid, data and a complete
   await page.getByTestId('register_confirm_input').fill(E2E_PASSWORD);
   await page.getByTestId('register_submit_button').click();
   await expect.soft(page.getByText('Compte créé', { exact: true }).first(), '20: upgrade toast').toBeVisible({ timeout: 20_000 });
+  // D-026: one check mark, not "✅ Compte créé ✅".
+  {
+    const body20 = await page.locator('body').innerText();
+    const i = body20.indexOf('Compte créé');
+    const around = i < 0 ? '' : body20.slice(Math.max(0, i - 6), i + 16);
+    note(testInfo, '20-toast-text', JSON.stringify(around));
+    expect.soft((around.match(/✅/g) ?? []).length, `20 (D-026): check marks around the toast (${JSON.stringify(around)})`).toBeLessThanOrEqual(1);
+  }
   await page.waitForTimeout(2000);
   const upgraded = await page.evaluate(() => JSON.parse(localStorage.getItem('user_profile') || '{}'));
   const rec20 = await authLookup(guestUid);
@@ -848,6 +1120,8 @@ test('D-upgrade: real anonymous guest → account keeps uid, data and a complete
   const acct: CreatedAccount = { uid: guestUid, idToken: '', email, password: E2E_PASSWORD };
   const f = await freshCtx(browser, acct, 'fr', testInfo);
   await expect.soft(f.page.getByText('Semaine 32', { exact: true }).first(), '22: fresh login keeps pregnancy dating (week 32)').toBeVisible({ timeout: 20_000 });
+  // D-025: Home's own content, fully faded in, before the capture.
+  await expect.soft(f.page.getByTestId('home_quick_search'), '22: fresh login lands on Home').toBeVisible({ timeout: 20_000 });
   await state(f, '22-upgrade-fresh-login');
   await openProfile(f.page);
   await expect.soft(firstNameBox(f.page), '22: fresh login keeps the first name').toHaveValue('Invitée', { timeout: 15_000 });
@@ -876,10 +1150,18 @@ test('D-logout: logout wipes private data, no cross-user leak, relogin restores 
 
   // 23 — logout → /welcome, no private key left.
   await openProfile(page);
+  const dialogsBefore23 = ctx.dialogs.dialogs.length;
   const d23 = await clickForDialog(ctx, () => page.getByRole('button', { name: 'Se déconnecter' }).click());
   expect.soft(d23?.message ?? '(no dialog)', '23: logout confirm').toMatch(/^Déconnexion/);
   await page.waitForURL((u) => onAuthSurface(u.pathname), { timeout: 20_000 }).catch(() => {});
   note(testInfo, '23-landing', page.url());
+  // B-018: online, everything was sent — a plain logout stays ONE confirmation.
+  const dialogs23 = ctx.dialogs.dialogs.slice(dialogsBefore23).map((d) => norm(d.message));
+  note(testInfo, '23-dialogs', JSON.stringify(dialogs23));
+  expect.soft(dialogs23.length, `23 (B-018): online logout asks once (${JSON.stringify(dialogs23)})`).toBe(1);
+  // …and what she packed before logging out reached the server first.
+  const bag23 = await pollServer(() => serverDoc(`hospitalBags/${x.uid}`), (d) => d !== null, 5_000);
+  expect.soft(bag23, '23 (B-018): the bag edit made before logout is on the server').not.toBeNull();
   expect.soft(new URL(page.url()).pathname, '23: lands on the welcome/language screen').toBe('/welcome');
   await page.waitForTimeout(1500);
   const leftover = privateKeysIn(await localKeys(page));
@@ -947,16 +1229,62 @@ test('D-delete-A: cancel keeps everything; confirm leaves zero server data and n
   ctx.dialogs.next('dismiss');
   const d26 = await clickForDialog(ctx, () => page.getByRole('button', { name: 'Supprimer le compte' }).click());
   expect.soft(d26?.message ?? '(no dialog)', '26: delete confirm').toMatch(/^Supprimer le compte\n\n.*irréversible/s);
+  // From Profile the export lives in Settings — the confirm must say so (and not "on this screen").
+  expect.soft(norm(d26?.message), '26: confirm points to the Settings export').toMatch(/Paramètres → « Exporter mes données \(JSON\) »/);
   await page.waitForTimeout(3000);
   const after26 = await footprint(acct.uid);
   expect.soft(after26, '26: cancel must leave the server untouched').toEqual(seeded);
   await expect.soft(page.getByRole('button', { name: 'Enregistrer les modifications' }), '26: still on Profile').toBeVisible();
   await state(ctx, '26-delete-confirm-cancel');
 
-  // 27 — accept → zero server docs, no auth user, auth surface, no private local keys.
+  // 27a — D-020: the blocking "Suppression en cours…" modal. The last step of the erase (the
+  // Auth delete) is held at the network so the modal can be captured while the deletion is
+  // really in flight; nothing is faked, the request is released untouched afterwards.
+  let releaseAuthDelete!: () => void;
+  const authDeleteGate = new Promise<void>((r) => (releaseAuthDelete = r));
+  let authDeleteHeld = false;
+  await page.route(/accounts:delete/, async (route) => {
+    if (route.request().method() === 'POST') {
+      authDeleteHeld = true;
+      await authDeleteGate;
+    }
+    await route.continue();
+  });
+  await watchDeletionProgress(page);
+  const dialogsBefore27 = ctx.dialogs.dialogs.length;
   await clickForDialog(ctx, () => page.getByRole('button', { name: 'Supprimer le compte' }).click());
+  const progress = page.getByTestId('deletion_progress');
+  await expect.soft(progress, '27a (D-020): blocking progress modal while the account is being erased').toBeVisible({ timeout: 20_000 });
+  await expect.soft(progress.getByText('Suppression en cours…'), '27a (D-020): the modal says what is happening').toBeVisible();
+  await expect.soft(progress, '27a (D-020): announced as a progress indicator').toHaveAttribute('role', 'progressbar');
+  await expect.soft(progress, '27a (D-020): the indicator is labelled').toHaveAttribute('aria-label', 'Suppression en cours…');
+  // aria-busy is recorded, not asserted (react-native-web drops accessibilityState.busy).
+  note(testInfo, '27a-aria-busy', String(await progress.getAttribute('aria-busy').catch(() => null)));
+  await expect.poll(() => authDeleteHeld, { message: '27a: the Auth delete request was reached and held', timeout: 30_000 }).toBe(true);
+  // Server truth at that instant: data erased, the login is all that is left.
+  const mid27 = await footprint(acct.uid);
+  note(testInfo, '27a-footprint-mid-deletion', JSON.stringify(mid27));
+  expect.soft(totalDocs(mid27), '27a: data erased before the Auth delete').toBe(0);
+  expect.soft(mid27.auth, '27a: Auth user not deleted yet (request held)').toBe(true);
+  // The modal blocks the screen: the delete row under it cannot be pressed again.
+  const blocked = await page
+    .getByRole('button', { name: 'Supprimer le compte' })
+    .click({ trial: true, timeout: 1_500 })
+    .then(() => false, () => true);
+  expect.soft(blocked, '27a (D-020): the screen under the progress modal is not clickable').toBe(true);
+  await state(ctx, '27a-delete-progress-modal');
+  releaseAuthDelete();
+
+  // 27 — zero server docs, no auth user, no marker, auth surface, no private local keys.
   await page.waitForURL((u) => onAuthSurface(u.pathname), { timeout: 30_000 }).catch(() => {});
-  const after27 = await pollServer(() => footprint(acct.uid), (f) => totalDocs(f) === 0 && !f.auth, 20_000);
+  const after27 = await pollServer(() => footprint(acct.uid), fullyGone, 20_000);
+  await page.unroute(/accounts:delete/);
+  await assertProgressSeen(page, testInfo, '27', /Suppression en cours/);
+  await expect.soft(page.getByTestId('deletion_progress'), '27 (D-020): progress modal gone once the deletion is finished').toHaveCount(0, { timeout: 10_000 });
+  const dialogs27 = ctx.dialogs.dialogs.slice(dialogsBefore27).map((d) => norm(d.message));
+  note(testInfo, '27-dialogs', JSON.stringify(dialogs27));
+  expect.soft(dialogs27.some((m) => /^Compte supprimé/.test(m)), '27 (D-019): the finished deletion is confirmed').toBe(true);
+  expect.soft(after27.marker, '27 (D-031): deletionRequests/{uid} left behind after a finished deletion').toBe(false);
   note(testInfo, '27-footprint', JSON.stringify(after27));
   for (const c of USER_COLLECTIONS) expect.soft(after27.counts[c], `27: ${c} docs left`).toBe(0);
   for (const [p, exists] of Object.entries(after27.legacy)) expect.soft(exists, `27: legacy ${p} left`).toBe(false);
@@ -1007,6 +1335,7 @@ test('D-reauth-cancel: cancelling the re-auth prompt must not leave a half-purge
   // Coherent = nothing happened (account + all data) — or everything happened. Never half.
   expect.soft(after30.auth, '30: cancel keeps the account').toBe(true);
   expect.soft(after30, '30 (HYP-D10): cancel after re-auth prompt left a half-purged account').toEqual(seeded);
+  expect.soft(after30.marker, '30 (D-031): a cancelled, never-started deletion must leave no deletion request').toBe(false);
   await state(ctx, '30-delete-reauth-cancel');
 
   // Cold start: what the (possibly zombie) account now sees.
@@ -1014,6 +1343,9 @@ test('D-reauth-cancel: cancelling the re-auth prompt must not leave a half-purge
   await page.waitForTimeout(4000);
   const cachedProfile = await page.evaluate(() => localStorage.getItem('user_profile'));
   note(testInfo, '30b-coldstart', `url=${page.url()} tablist=${await page.getByRole('tablist').count()} cachedProfile=${!!cachedProfile} serverProfile=${after30.profile}`);
+  // The account she kept is still hers after a cold start: nothing "finishes" a deletion she cancelled.
+  await expect.soft(page.getByRole('tablist').first(), '30b: cold start reopens the kept account').toBeVisible({ timeout: 30_000 });
+  expect.soft(await footprint(acct.uid), '30b: cold start after a cancelled deletion changes nothing on the server').toEqual(seeded);
   await state(ctx, '30b-reauth-cancel-coldstart');
 });
 
@@ -1034,7 +1366,35 @@ test('D-reauth: wrong password → localized error; right password completes the
   await expect(field, '29: re-auth prompt').toBeVisible({ timeout: 20_000 });
   const label = await field.getAttribute('aria-label');
   expect.soft(label ?? '', '29: password field is labelled').not.toBe('');
+  await expect.soft(page.getByText('Confirmez votre identité', { exact: true }), '29: prompt title').toBeVisible();
   await state(ctx, '29-delete-reauth-required', [/status of 400/]);
+
+  // 29a — D-018: she can check what she typed, and has a way out if she forgot the password.
+  await field.fill('Visible-Passw0rd9');
+  await expect.soft(field, '29a (D-018): password hidden by default').toHaveAttribute('type', 'password');
+  const eye = page.getByRole('button', { name: 'Afficher', exact: true });
+  await expect.soft(eye, '29a (D-018): show-password toggle on the re-auth prompt').toBeVisible();
+  if (await eye.count()) {
+    await eye.click();
+    await expect.soft(field, '29a (D-018): the toggle reveals the password').toHaveAttribute('type', 'text');
+    await expect.soft(page.getByRole('button', { name: 'Masquer', exact: true }), '29a (D-018): the toggle label flips').toBeVisible();
+    await state(ctx, '29a-reauth-password-shown');
+    await page.getByRole('button', { name: 'Masquer', exact: true }).click();
+    await expect.soft(field, '29a (D-018): hidden again').toHaveAttribute('type', 'password');
+  }
+  const forgot = page.getByRole('link', { name: /Mot de passe oublié/ });
+  await expect.soft(forgot, '29a (D-018): forgot-password path on the re-auth prompt').toBeVisible();
+  if (await forgot.count()) {
+    const resetsBefore = (await passwordResetCodes(acct.email)).length;
+    const dForgot = await clickForDialog(ctx, () => forgot.click(), 15_000);
+    note(testInfo, '29a-forgot-dialog', JSON.stringify(dForgot?.message ?? null));
+    expect.soft(norm(dForgot?.message), '29a (D-018): forgot-password feedback').toMatch(/^Mot de passe oublié \?\n\nSi un compte existe/);
+    const resets = await pollServer(() => passwordResetCodes(acct.email), (c) => c.length > resetsBefore, 10_000);
+    expect.soft(resets.length, '29a (D-018): the Auth server issued a password-reset mail for her address').toBe(resetsBefore + 1);
+    expect.soft(await footprint(acct.uid), '29a: asking for a reset link erases nothing').toEqual(seeded);
+    await expect.soft(field, '29a: the prompt is still open after the reset request').toBeVisible();
+    await state(ctx, '29a-reauth-forgot-password');
+  }
 
   // Wrong password → a French error, prompt stays, nothing deleted.
   await field.fill('Wrong-Passw0rd9');
@@ -1054,10 +1414,11 @@ test('D-reauth: wrong password → localized error; right password completes the
   await field.fill(acct.password);
   await page.getByRole('button', { name: 'Supprimer définitivement', exact: true }).last().click();
   await page.waitForURL((u) => onAuthSurface(u.pathname), { timeout: 30_000 }).catch(() => {});
-  const after = await pollServer(() => footprint(acct.uid), (f) => totalDocs(f) === 0 && !f.auth, 20_000);
+  const after = await pollServer(() => footprint(acct.uid), fullyGone, 20_000);
   note(testInfo, '29-footprint', JSON.stringify(after));
   expect.soft(totalDocs(after), '29: server docs left after re-auth deletion').toBe(0);
   expect.soft(after.auth, '29: auth user still exists after re-auth deletion').toBe(false);
+  expect.soft(after.marker, '29 (D-031): deletion request left after re-auth deletion').toBe(false);
   expect.soft(onAuthSurface(new URL(page.url()).pathname), `29: lands on an auth surface (${page.url()})`).toBe(true);
   expect.soft(privateKeysIn(await localKeys(page)), '29: private keys left').toEqual([]);
   await state(ctx, '29c-reauth-delete-complete');
@@ -1083,6 +1444,11 @@ test('D-reauth-after-purge: a refusal after the erase never leaves an emptied ac
   note(testInfo, '35-footprint', JSON.stringify({ refusals: stale.refusals.length, after35 }));
   expect.soft(totalDocs(after35), '35: data erased before the refusal').toBe(0);
   expect.soft(after35.auth, '35: the Auth user is what is left').toBe(true);
+  // D-031: the request is on the SERVER, so any device she signs in on can finish it.
+  const marker35 = await pollServer(() => serverDoc(MARKER_DOC(acct.uid)), (d) => d !== null, 10_000);
+  note(testInfo, '35-server-marker', JSON.stringify(marker35));
+  expect.soft(marker35, '35 (D-031): deletionRequests/{uid} exists while only the login is left').not.toBeNull();
+  expect.soft(Object.keys(marker35 ?? {}), '35 (D-031): the marker holds only when she asked').toEqual(['requestedAt']);
   await state(ctx, '35-delete-refused-after-purge', [/status of 400/]);
 
   // 35b — cancel → signed out (not the emptied account), marker kept for the next sign-in.
@@ -1092,6 +1458,7 @@ test('D-reauth-after-purge: a refusal after the erase never leaves an emptied ac
   await expect.soft(page.getByRole('tablist'), '35b: cancel left the emptied account open').toHaveCount(0);
   const marker = await page.evaluate(() => localStorage.getItem('@account_deletion_pending_v1'));
   expect.soft(marker, '35b: pending-deletion marker survives the logout').toBe(acct.uid);
+  expect.soft(await serverDoc(MARKER_DOC(acct.uid)), '35b (D-031): server marker survives the logout').not.toBeNull();
   await state(ctx, '35b-cancel-signs-out');
 
   // 35c — sign in again → the deletion finishes and says so.
@@ -1101,12 +1468,86 @@ test('D-reauth-after-purge: a refusal after the erase never leaves an emptied ac
   const done = await clickForDialog(ctx, () => page.getByTestId('login_submit_button').click(), 30_000);
   note(testInfo, '35c-dialog', JSON.stringify(done?.message ?? null));
   expect.soft(done?.message ?? '(no dialog)', '35c: deletion confirmed').toMatch(/^Compte supprimé/);
-  const after = await pollServer(() => footprint(acct.uid), (f) => totalDocs(f) === 0 && !f.auth, 20_000);
+  const after = await pollServer(() => footprint(acct.uid), fullyGone, 20_000);
   expect.soft(after.auth, '35c: auth user deleted on the next sign-in').toBe(false);
   expect.soft(totalDocs(after), '35c: server docs').toBe(0);
+  expect.soft(after.marker, '35c (D-031): server marker removed once the login is deleted').toBe(false);
   await expect.soft(page.getByRole('tablist')).toHaveCount(0);
   expect.soft(await page.evaluate(() => localStorage.getItem('@account_deletion_pending_v1')), '35c: marker cleared').toBeNull();
+  // D-034: the deleted account's credentials must not stay in the form (it read as "try again").
+  await expect.soft(page.getByTestId('login_email_input'), '35c (D-034): e-mail cleared').toHaveValue('');
+  await expect.soft(page.getByTestId('login_password_input'), '35c (D-034): password cleared').toHaveValue('');
   await state(ctx, '35c-deletion-finished-on-sign-in');
+});
+
+// D-031: the same refusal, but she never comes back to that phone. The request recorded on
+// the server must let ANY device finish the deletion at sign-in — a second phone has no
+// local marker, and used to walk her into Onboarding inside the account she asked to delete.
+test('D-delete-second-phone: a deletion left unfinished on one phone is finished at sign-in on another', async ({ page, browser }, testInfo) => {
+  const acct = await newSeededAccount('second-phone', { firstName: 'Dorra', lastName: 'Deux' });
+  await seedEverything(acct.uid);
+  const ctx = instrument(page, testInfo);
+  await uiLogin(page, acct.email, acct.password, 'fr');
+  await openProfile(page);
+  const stale = await makeSessionStale(page, { waitMs: 0, shiftClock: false });
+
+  // 38 — phone 1: purge runs, the Auth delete is refused, she abandons the prompt.
+  await clickForDialog(ctx, () => page.getByRole('button', { name: 'Supprimer le compte' }).click());
+  await expect(reauthField(page), '38: finish-deletion prompt on phone 1').toBeVisible({ timeout: 30_000 });
+  expect(stale.refusals.length, '38: the forced CREDENTIAL_TOO_OLD refusal actually fired').toBeGreaterThan(0);
+  const marker38 = await pollServer(() => serverDoc(MARKER_DOC(acct.uid)), (d) => d !== null, 10_000);
+  const after38 = await footprint(acct.uid);
+  note(testInfo, '38-footprint', JSON.stringify({ refusals: stale.refusals.length, after38, marker38 }));
+  expect.soft(totalDocs(after38), '38: clean purge before the refusal').toBe(0);
+  expect.soft(after38.auth, '38: the login survived the refused delete').toBe(true);
+  expect.soft(marker38, '38 (D-031): server-side deletion marker exists').not.toBeNull();
+  await state(ctx, '38-phone1-delete-refused', [/status of 400/]);
+  await page.getByRole('button', { name: 'Annuler', exact: true }).last().click();
+  await page.waitForURL((u) => onAuthSurface(u.pathname), { timeout: 20_000 }).catch(() => {});
+  await page.waitForTimeout(1500);
+  await expect.soft(page.getByRole('tablist'), '38b: phone 1 signed out').toHaveCount(0);
+  expect.soft(await serverDoc(MARKER_DOC(acct.uid)), '38b (D-031): marker still on the server after phone 1 signed out').not.toBeNull();
+  expect.soft(await authAccountExists(acct.uid), '38b: login still exists (nothing finished yet)').toBe(true);
+  await state(ctx, '38b-phone1-abandoned');
+
+  // 38c — phone 2: a brand-new context, no local storage, no device marker.
+  const context2 = await browser.newContext({ baseURL: E2E_BASE_URL, ...waveUse('fr') });
+  const page2 = await context2.newPage();
+  const phone2 = instrument(page2, testInfo);
+  await openLoginForm(page2, 'fr');
+  expect(await page2.evaluate(() => localStorage.getItem('@account_deletion_pending_v1')), '38c: phone 2 has no device marker').toBeNull();
+  await page2.getByTestId('login_email_input').fill(acct.email);
+  await page2.getByTestId('login_password_input').fill(acct.password);
+  const done = await clickForDialog(phone2, () => page2.getByTestId('login_submit_button').click(), 30_000);
+  note(testInfo, '38c-dialog', JSON.stringify(done?.message ?? null));
+  expect.soft(norm(done?.message) || '(no dialog)', '38c (D-031): the second phone says the account is deleted').toMatch(/^Compte supprimé\n\nVotre compte et toutes vos données ont été supprimés définitivement/);
+  const after = await pollServer(() => footprint(acct.uid), fullyGone, 20_000);
+  note(testInfo, '38c-footprint', JSON.stringify(after));
+  expect.soft(after.auth, '38c (D-031): Auth account gone (accounts:lookup) after the sign-in on phone 2').toBe(false);
+  expect.soft(after.marker, '38c (D-031): deletion marker gone').toBe(false);
+  expect.soft(totalDocs(after), '38c (D-031): zero server docs').toBe(0);
+  await page2.waitForTimeout(1500);
+  note(testInfo, '38c-landing', page2.url());
+  // Never inside the account: no tabs, no Onboarding, no consent sheet.
+  await expect.soft(page2.getByRole('tablist'), '38c: MainTabs opened on the deleted account').toHaveCount(0);
+  expect.soft(new URL(page2.url()).pathname, '38c (D-031): she must never land in Onboarding inside that account').not.toMatch(/onboarding/i);
+  await expect.soft(page2.getByRole('button', { name: 'Je suis enceinte' }), '38c (D-031): Onboarding shown on the deleted account').toHaveCount(0);
+  await expect.soft(page2.getByTestId('health_consent_continue'), '38c: consent sheet shown on the deleted account').toHaveCount(0);
+  // D-034: the form is cleared.
+  await expect.soft(page2.getByTestId('login_email_input'), '38c (D-034): e-mail cleared').toHaveValue('');
+  await expect.soft(page2.getByTestId('login_password_input'), '38c (D-034): password cleared').toHaveValue('');
+  expect.soft(privateKeysIn(await localKeys(page2)), '38c: private keys left on phone 2').toEqual([]);
+  expect.soft(await page2.evaluate(() => localStorage.getItem('@account_deletion_pending_v1')), '38c: no device marker left on phone 2').toBeNull();
+  await state(phone2, '38c-phone2-deletion-finished');
+
+  // 38d — the credentials are dead everywhere.
+  if (await page2.getByTestId('login_email_input').count()) {
+    await submitLogin(page2, acct.email, acct.password);
+    await expect.soft(page2.getByText('Email ou mot de passe incorrect').first(), '38d: the deleted account cannot sign in again').toBeVisible({ timeout: 15_000 });
+    await expect.soft(page2.getByRole('tablist')).toHaveCount(0);
+    await state(phone2, '38d-phone2-relogin-refused', [/status of 400/]);
+  }
+  await closeCtx(phone2);
 });
 
 // The second deletion entry point named by the privacy policy: Settings → Data & Privacy.
@@ -1118,15 +1559,20 @@ test('D-delete-settings: deleting from Settings erases everything and confirms i
   await openSettings(page);
   const row = page.getByRole('button', { name: 'Supprimer mon compte' }).first();
   await row.scrollIntoViewIfNeeded();
+  // No network hold here: the modal must show on its own during an ordinary erase (D-020).
+  await watchDeletionProgress(page);
   const confirm = await clickForDialog(ctx, () => row.click());
   expect.soft(confirm?.message ?? '(no dialog)', '36: confirm names what is erased and offers the export').toMatch(/irréversible[\s\S]*Exporter mes données/);
   const doneDialog = await ctx.dialogs.waitForNext(30_000).catch(() => null);
   note(testInfo, '36-done', JSON.stringify(doneDialog?.message ?? null));
   expect.soft(doneDialog?.message ?? '(no dialog)', '36: a finished deletion is confirmed (not just a logout)').toMatch(/^Compte supprimé/);
-  const after = await pollServer(() => footprint(acct.uid), (f) => totalDocs(f) === 0 && !f.auth, 20_000);
+  const after = await pollServer(() => footprint(acct.uid), fullyGone, 20_000);
   note(testInfo, '36-footprint', JSON.stringify(after));
   expect.soft(totalDocs(after), '36: server docs left').toBe(0);
+  for (const [p, exists] of Object.entries(after.legacy)) expect.soft(exists, `36 (D-014): legacy ${p} left`).toBe(false);
   expect.soft(after.auth, '36: auth user left').toBe(false);
+  expect.soft(after.marker, '36 (D-031): deletion request left').toBe(false);
+  await assertProgressSeen(page, testInfo, '36', /Suppression en cours/);
   expect.soft(privateKeysIn(await localKeys(page)), '36: private keys left').toEqual([]);
   await state(ctx, '36-delete-from-settings');
 });
@@ -1135,7 +1581,7 @@ test('D-delete-settings: deleting from Settings erases everything and confirms i
 // D-reset — state 31
 // ══════════════════════════════════════════════════════════════════════════════
 
-test('D-reset: "Réinitialiser mon profil" must not orphan server data', async ({ page }, testInfo) => {
+test('D-reset: "Réinitialiser mon profil" must not orphan server data', async ({ page, browser }, testInfo) => {
   const acct = await newSeededAccount('reset', { firstName: 'Reem', lastName: 'Reset' });
   await seedEverything(acct.uid);
   const ctx = instrument(page, testInfo);
@@ -1147,17 +1593,406 @@ test('D-reset: "Réinitialiser mon profil" must not orphan server data', async (
     await state(ctx, '31-reset-profile');
     return;
   }
+  await watchDeletionProgress(page);
   const d31 = await clickForDialog(ctx, () => reset.click());
   note(testInfo, '31-confirm', JSON.stringify(d31?.message ?? null));
+  expect.soft(norm(d31?.message), '31: the reset confirm says the account is kept').toMatch(/Votre compte est conservé/);
   await page.waitForTimeout(4000);
-  const after = await footprint(acct.uid);
+  const after = await pollServer(() => footprint(acct.uid), (f) => totalDocs(f) === 0, 15_000);
   note(testInfo, '31-footprint', JSON.stringify(after) + ` url=${page.url()} dialogs=${JSON.stringify(ctx.dialogs.messages())}`);
   const orphans = Object.entries(after.counts).filter(([, n]) => n > 0).map(([c]) => c);
   if (!after.profile) {
     expect.soft(orphans, '31: reset deleted the profile but orphaned these collections').toEqual([]);
     expect.soft(Object.values(after.legacy).some(Boolean), '31: reset orphaned legacy docs').toBe(false);
   }
+  // D-014: after a reset every allowed subcollection (all 8 parent × name pairs) and every
+  // collection is empty; the account itself is kept, with no deletion request against it.
+  for (const c of USER_COLLECTIONS) expect.soft(after.counts[c], `31 (D-014): ${c} docs left after reset`).toBe(0);
+  for (const [p, exists] of Object.entries(after.legacy)) expect.soft(exists, `31 (D-014): legacy ${p} left after reset`).toBe(false);
+  expect.soft(after.profile, '31: profile document left after reset').toBe(false);
+  expect.soft(after.auth, '31: reset keeps the account (login still exists)').toBe(true);
+  expect.soft(after.marker, '31 (D-031): reset left a deletion request against the kept account').toBe(false);
+  await assertProgressSeen(page, testInfo, '31', /Suppression en cours|en cours/);
+  await page.waitForURL((u) => onAuthSurface(u.pathname), { timeout: 20_000 }).catch(() => {});
+  await expect.soft(page.getByRole('tablist'), '31: signed out after the reset').toHaveCount(0);
+  expect.soft(privateKeysIn(await localKeys(page)), '31: private keys left after reset').toEqual([]);
   await state(ctx, '31-reset-profile');
+
+  // 31b — D-031 counter-case: a reset account has no profile either, which is what a pending
+  // deletion looks like. Signing in on another device must start her over (Onboarding),
+  // never "finish a deletion" she did not ask for.
+  const context2 = await browser.newContext({ baseURL: E2E_BASE_URL, ...waveUse('fr') });
+  const page2 = await context2.newPage();
+  const f = instrument(page2, testInfo);
+  await openLoginForm(page2, 'fr');
+  await submitLogin(page2, acct.email, acct.password);
+  await expect.soft(page2.getByRole('button', { name: 'Je suis enceinte' }), '31b: a reset account signs in to a fresh start (Onboarding)').toBeVisible({ timeout: 30_000 });
+  await page2.waitForTimeout(2500);
+  note(testInfo, '31b-relogin', `url=${page2.url()} dialogs=${JSON.stringify(f.dialogs.messages())}`);
+  expect.soft(f.dialogs.messages().some((m) => /Compte supprimé/.test(m)), '31b (D-031): a reset account was deleted at sign-in').toBe(false);
+  expect.soft(await authAccountExists(acct.uid), '31b (D-031): the kept account still exists after signing in again').toBe(true);
+  await state(f, '31b-reset-relogin-fresh-start');
+  await closeCtx(f);
+});
+
+
+// ══════════════════════════════════════════════════════════════════════════════
+// D-consent — states 37 (D-030, D-035): the health-data consent sheet, decline path
+// ══════════════════════════════════════════════════════════════════════════════
+
+/** Top edge of each decline-block control, to prove their order on screen. */
+async function consentLayout(page: Page) {
+  return page.evaluate(() => {
+    const box = (id: string) => {
+      const el = document.querySelector(`[data-testid="${id}"]`) as HTMLElement | null;
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      const cs = getComputedStyle(el);
+      return {
+        top: Math.round(r.top + window.scrollY),
+        text: (el.innerText || '').trim(),
+        border: cs.borderTopWidth,
+        borderColor: cs.borderTopColor,
+        background: cs.backgroundColor,
+        disabled: el.getAttribute('aria-disabled'),
+      };
+    };
+    return {
+      continue: box('health_consent_continue'),
+      export: box('health_consent_export'),
+      logout: box('health_consent_logout'),
+      note: box('health_consent_logout_note'),
+      erase: box('health_consent_erase'),
+    };
+  });
+}
+
+test('D-consent: declining health-data consent — export on the sheet, logout keeps server data, delete is secondary', async ({ page }, testInfo) => {
+  // A profile saved before the consent question existed.
+  const acct = await newSeededAccount('consent', { firstName: 'Chadia', lastName: 'Consent', consent: false });
+  await seedEverything(acct.uid);
+  const seeded = await footprint(acct.uid);
+  const ctx = instrument(page, testInfo);
+  await openLoginForm(page, 'fr');
+  await submitLogin(page, acct.email, acct.password);
+
+  // 37 — the sheet replaces the app until she answers.
+  await expect(page.getByTestId('health_consent_continue'), '37: consent sheet shown to a profile without consent').toBeVisible({ timeout: 60_000 });
+  await expect.soft(page.getByRole('tablist'), '37: the app is not reachable before she answers').toHaveCount(0);
+  await expect.soft(page.getByTestId('health_consent_checkbox'), '37: unticked by default').toHaveAttribute('aria-checked', 'false');
+  await expect.soft(page.getByTestId('health_consent_continue'), '37: "Continuer" disabled until ticked').toHaveAttribute('aria-disabled', 'true');
+  await state(ctx, '37-consent-sheet');
+
+  // 37b — the decline block: export, logout + note, delete last and quiet.
+  const layout = await consentLayout(page);
+  note(testInfo, '37b-consent-layout', JSON.stringify(layout));
+  await expect.soft(page.getByText('Vous ne souhaitez pas donner votre accord', { exact: false }), '37b: decline heading').toBeVisible();
+  expect.soft(layout.export?.text, '37b (D-030): export offered on the sheet itself').toBe('Exporter mes données (JSON)');
+  expect.soft(layout.logout?.text, '37b: logout offered').toBe('Se déconnecter');
+  expect.soft(norm(layout.note?.text), '37b (D-035): the note says signing out keeps the data on the servers').toMatch(/Vous déconnecter ne supprime rien : vos données restent enregistrées sur nos serveurs\. Pour les effacer, choisissez « Supprimer mon compte » ci-dessous\./);
+  expect.soft(layout.erase?.text, '37b: delete offered').toBe('Supprimer mon compte');
+  const tops = [layout.export?.top ?? -1, layout.logout?.top ?? -1, layout.note?.top ?? -1, layout.erase?.top ?? -1];
+  expect.soft(tops.every((t, i) => t >= 0 && (i === 0 || t > tops[i - 1])), `37b (D-030): order export → logout → note → delete (tops ${JSON.stringify(tops)})`).toBe(true);
+  // Delete is the secondary action: no outline, unlike the export button (the old sheet made
+  // it the only outlined, enabled control).
+  expect.soft(parseFloat(layout.export?.border ?? '0'), '37b: export is the outlined button').toBeGreaterThan(0);
+  expect.soft(parseFloat(layout.erase?.border ?? '1'), '37b (D-030): delete is not an outlined call-to-action').toBe(0);
+  await page.getByTestId('health_consent_erase').scrollIntoViewIfNeeded();
+  await state(ctx, '37b-consent-decline-block');
+
+  // 37c — the export works from here (Settings is unreachable): confirm + a real file with her data.
+  const download = page.waitForEvent('download', { timeout: 20_000 }).catch(() => null);
+  const dExport = await clickForDialog(ctx, () => page.getByTestId('health_consent_export').click());
+  expect.soft(norm(dExport?.message) || '(no dialog)', '37c: sensitive-data confirm').toMatch(/^Données sensibles/);
+  const dl = await download;
+  note(testInfo, '37c-export', `download=${dl ? dl.suggestedFilename() : null}`);
+  expect.soft(dl?.suggestedFilename() ?? '(no download)', '37c (D-030): the sheet export produces her file').toMatch(/^mama-bebe-export-.*\.json$/);
+  if (dl) {
+    const file = await dl.path();
+    const raw = fs.readFileSync(file, 'utf8');
+    let parsed: unknown = null;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      /* asserted below */
+    }
+    expect.soft(parsed, '37c: the export is valid JSON').not.toBeNull();
+    expect.soft(raw.includes('Chadia'), '37c: the export carries her profile').toBe(true);
+    expect.soft(raw.includes('RDV seed D'), '37c: the export carries her appointments').toBe(true);
+    note(testInfo, '37c-export-size', String(raw.length));
+  }
+  await expect.soft(page.getByTestId('health_consent_continue'), '37c: still on the sheet after the export').toBeVisible();
+  expect.soft(await footprint(acct.uid), '37c: exporting changes nothing on the server').toEqual(seeded);
+  await state(ctx, '37c-consent-export');
+
+  // 37d — delete → the confirm points to the export ON THIS SCREEN, not to Settings. Dismissed.
+  ctx.dialogs.next('dismiss');
+  const dDel = await clickForDialog(ctx, () => page.getByTestId('health_consent_erase').click());
+  note(testInfo, '37d-confirm', JSON.stringify(dDel?.message ?? null));
+  expect.soft(norm(dDel?.message) || '(no dialog)', '37d: delete confirm').toMatch(/^Supprimer le compte\n\n[\s\S]*irréversible/);
+  expect.soft(norm(dDel?.message), '37d (D-030): the confirm points to the export on this screen').toMatch(/annulez et touchez d'abord « Exporter mes données \(JSON\) » sur cet écran\.$/);
+  expect.soft(norm(dDel?.message), '37d (D-030): the confirm must not send her to Settings (unreachable here)').not.toMatch(/Paramètres/);
+  await page.waitForTimeout(2500);
+  expect.soft(await footprint(acct.uid), '37d: a dismissed confirm erases nothing').toEqual(seeded);
+  await expect.soft(page.getByTestId('health_consent_continue'), '37d: still on the sheet').toBeVisible();
+  await state(ctx, '37d-consent-delete-cancelled');
+
+  // 37e — logout: signed out, device wiped, and — as the note says — everything still on the servers.
+  const dialogsBefore = ctx.dialogs.dialogs.length;
+  await page.getByTestId('health_consent_logout').click();
+  await page.waitForURL((u) => onAuthSurface(u.pathname), { timeout: 20_000 }).catch(() => {});
+  await page.waitForTimeout(1500);
+  note(testInfo, '37e-logout', `url=${page.url()} dialogs=${JSON.stringify(ctx.dialogs.dialogs.slice(dialogsBefore).map((d) => d.message))}`);
+  expect.soft(onAuthSurface(new URL(page.url()).pathname), `37e: logout from the sheet lands on an auth surface (${page.url()})`).toBe(true);
+  await expect.soft(page.getByTestId('health_consent_continue'), '37e: sheet gone after logout').toHaveCount(0);
+  expect.soft(privateKeysIn(await localKeys(page)), '37e: private keys left after logout').toEqual([]);
+  const after37e = await footprint(acct.uid);
+  expect.soft(after37e, '37e (D-035): logout keeps every document on the server (what the note says)').toEqual(seeded);
+  expect.soft((await serverDoc(`userProfiles/${acct.uid}`))?.healthDataConsent ?? null, '37e: logging out is not consent').toBeNull();
+  await state(ctx, '37e-consent-logout');
+
+  // 37f — signing in again asks again (declining was not remembered as consent).
+  await page.goto('/login', { waitUntil: 'load' });
+  await expect(page.getByTestId('login_email_input')).toBeVisible({ timeout: 30_000 });
+  await submitLogin(page, acct.email, acct.password);
+  await expect(page.getByTestId('health_consent_continue'), '37f: the sheet is shown again').toBeVisible({ timeout: 60_000 });
+  await expect.soft(page.getByRole('tablist')).toHaveCount(0);
+  await state(ctx, '37f-consent-sheet-again');
+
+  // 37g — delete for real, from the sheet.
+  await watchDeletionProgress(page);
+  const dDel2 = await clickForDialog(ctx, () => page.getByTestId('health_consent_erase').click());
+  expect.soft(norm(dDel2?.message) || '(no dialog)', '37g: delete confirm').toMatch(/^Supprimer le compte/);
+  const doneDialog = await ctx.dialogs.waitForNext(30_000).catch(() => null);
+  note(testInfo, '37g-done', JSON.stringify(doneDialog?.message ?? null));
+  expect.soft(norm(doneDialog?.message) || '(no dialog)', '37g: the deletion is confirmed').toMatch(/^Compte supprimé/);
+  const gone = await pollServer(() => footprint(acct.uid), fullyGone, 20_000);
+  note(testInfo, '37g-footprint', JSON.stringify(gone));
+  expect.soft(totalDocs(gone), '37g: server docs left').toBe(0);
+  expect.soft(gone.auth, '37g: auth user left').toBe(false);
+  expect.soft(gone.marker, '37g (D-031): deletion request left').toBe(false);
+  await assertProgressSeen(page, testInfo, '37g', /Suppression en cours/);
+  await page.waitForURL((u) => onAuthSurface(u.pathname), { timeout: 20_000 }).catch(() => {});
+  await expect.soft(page.getByTestId('health_consent_continue'), '37g: sheet gone').toHaveCount(0);
+  expect.soft(privateKeysIn(await localKeys(page)), '37g: private keys left').toEqual([]);
+  await state(ctx, '37g-consent-delete-done');
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// D-rules — states 40 (D-014): the tightened rules in ordinary use
+// ══════════════════════════════════════════════════════════════════════════════
+
+test('D-rules: tightened subcollection rules refuse unknown names and never disturb ordinary screens', async ({ page }, testInfo) => {
+  const acct = await newSeededAccount('rules', { firstName: 'Rahma', lastName: 'Rules' });
+  const other = await createAccount(newAccountEmail(WAVE, 'rules-other'), E2E_PASSWORD);
+  await seedEverything(acct.uid);
+
+  // Premise (hard): the emulator really runs the NEW rules.
+  const probes = {
+    allowedUsersWeights: await userRest('PATCH', `users/${acct.uid}/weights/rules-probe`, acct.idToken),
+    allowedProfileHistory: await userRest('PATCH', `userProfiles/${acct.uid}/chatbot_history/rules-probe`, acct.idToken),
+    unknownUnderUsers: await userRest('PATCH', `users/${acct.uid}/notes/rules-probe`, acct.idToken),
+    unknownUnderProfile: await userRest('PATCH', `userProfiles/${acct.uid}/notes/rules-probe`, acct.idToken),
+    strangerSubcollection: await userRest('PATCH', `users/${acct.uid}/weights/stranger`, other.idToken),
+    ownMarkerRead: await userRest('GET', MARKER_DOC(acct.uid), acct.idToken),
+    strangerMarkerRead: await userRest('GET', MARKER_DOC(acct.uid), other.idToken),
+    forgedMarker: await userRest('PATCH', MARKER_DOC(acct.uid), acct.idToken),
+  };
+  note(testInfo, '40-rules-probes', JSON.stringify(probes));
+  expect(probes.allowedUsersWeights, 'rules: users/{uid}/weights is writable by its owner').toBe(200);
+  expect(probes.allowedProfileHistory, 'rules: userProfiles/{uid}/chatbot_history is writable by its owner').toBe(200);
+  expect(probes.unknownUnderUsers, 'rules (D-014): an unlisted subcollection under users/{uid} is refused').toBe(403);
+  expect(probes.unknownUnderProfile, 'rules (D-014): an unlisted subcollection under userProfiles/{uid} is refused').toBe(403);
+  expect(probes.strangerSubcollection, 'rules: another user cannot write her subcollections').toBe(403);
+  expect(probes.ownMarkerRead, 'rules (D-031): she can read her own (absent) deletion request').toBe(404);
+  expect(probes.strangerMarkerRead, 'rules (D-031): nobody else can read it').toBe(403);
+  expect(probes.forgedMarker, 'rules (D-031): a marker with arbitrary fields is refused').toBe(403);
+  expect(await serverDoc(`users/${acct.uid}/notes/rules-probe`), 'rules: the refused write left nothing').toBeNull();
+
+  const ctx = instrument(page, testInfo);
+  await uiLogin(page, acct.email, acct.password, 'fr');
+
+  // Every account screen, read path: any permission error (any console level) fails the state.
+  const screens: Array<[string, string, (p: Page) => Promise<unknown>]> = [
+    ['40-rules-home', '/', (p) => expect(p.getByTestId('home_quick_search')).toBeVisible({ timeout: 30_000 })],
+    ['40-rules-weight', '/weight', (p) => expect(p.getByRole('tablist').first()).toBeVisible({ timeout: 30_000 })],
+    ['40-rules-calendar', '/calendar', (p) => expect(p.getByRole('tablist').first()).toBeVisible({ timeout: 30_000 })],
+    ['40-rules-health', '/health', (p) => expect(p.getByRole('tablist').first()).toBeVisible({ timeout: 30_000 })],
+    ['40-rules-reminders', '/reminders', (p) => expect(p.getByRole('switch').first()).toBeVisible({ timeout: 30_000 })],
+    ['40-rules-chatbot', '/chatbot', (p) => expect(p.getByRole('tablist').first()).toBeVisible({ timeout: 30_000 })],
+    ['40-rules-hospital-bag', '/hospital-bag', (p) => expect(p.getByRole('checkbox').first()).toBeVisible({ timeout: 30_000 })],
+    ['40-rules-kick-counter', '/kick-counter', (p) => expect(p.getByRole('tablist').first()).toBeVisible({ timeout: 30_000 })],
+    ['40-rules-contraction-timer', '/contraction-timer', (p) => expect(p.getByRole('tablist').first()).toBeVisible({ timeout: 30_000 })],
+    ['40-rules-profile', '/profile', (p) => expect(p.getByRole('button', { name: 'Enregistrer les modifications' })).toBeVisible({ timeout: 30_000 })],
+    ['40-rules-settings', '/settings', (p) => expect(p.getByRole('switch').first()).toBeVisible({ timeout: 30_000 })],
+  ];
+  for (const [name, url, ready] of screens) {
+    await page.goto(url, { waitUntil: 'load' });
+    await ready(page);
+    // Let the screen's own Firestore reads come back before judging its console.
+    await page.waitForTimeout(2500);
+    await state(ctx, name);
+  }
+
+  // Write paths under the new rules, proven on the server.
+  // Weight: a weighing.
+  await page.goto('/weight', { waitUntil: 'load' });
+  const pre = page.getByRole('textbox', { name: 'Votre poids avant grossesse (kg)' });
+  await expect(pre.or(page.getByRole('button', { name: 'Ajouter une pesée' })).first()).toBeVisible({ timeout: 30_000 });
+  if (await pre.count()) {
+    await pre.fill('60');
+    await page.getByRole('textbox', { name: 'Votre taille (cm)' }).fill('165');
+    await clickForDialog(ctx, () => page.getByRole('button', { name: 'Enregistrer' }).click(), 5_000);
+  }
+  await page.getByRole('button', { name: 'Ajouter une pesée' }).click({ timeout: 15_000 });
+  await page.getByRole('textbox', { name: /Ajouter mon poids/ }).fill('68.4');
+  const dW = await clickForDialog(ctx, () => page.getByRole('button', { name: 'Enregistrer', exact: true }).click(), 5_000);
+  note(testInfo, '40-weight-dialog', JSON.stringify(dW?.message ?? null));
+  const weights = await pollServer(
+    () => serverQuery('weight_entries', 'user_id', acct.uid),
+    (rows) => rows.some((r) => Number(r.data.weight) === 68.4),
+    15_000,
+  );
+  expect.soft(weights.some((r) => Number(r.data.weight) === 68.4), `40 (D-014): weighing saved on the server (${JSON.stringify(weights.map((r) => r.data.weight))})`).toBe(true);
+  await state(ctx, '40-rules-weight-write');
+
+  // Hospital bag: one item packed.
+  await page.goto('/hospital-bag', { waitUntil: 'load' });
+  await page.getByRole('checkbox').first().click({ timeout: 20_000 });
+  const bag = await pollServer(() => serverDoc(`hospitalBags/${acct.uid}`), (d) => d !== null, 15_000);
+  expect.soft(bag, '40 (D-014): hospital bag saved on the server').not.toBeNull();
+
+  // Chatbot: one question asked and answered (its history must not hit a refused path).
+  await page.goto('/chatbot', { waitUntil: 'load' });
+  await expect(page.getByRole('tablist').first()).toBeVisible({ timeout: 30_000 });
+  await page.waitForTimeout(1500);
+  const chatInput = page.getByRole('textbox').last();
+  note(testInfo, '40-chatbot-input', String(await chatInput.count()));
+  if (await chatInput.count()) {
+    await chatInput.fill('Puis-je manger du fromage ?');
+    await chatInput.press('Enter');
+  }
+  await page.waitForTimeout(4000);
+  await state(ctx, '40-rules-chatbot-question');
+  await page.reload({ waitUntil: 'load' });
+  await expect(page.getByRole('tablist').first()).toBeVisible({ timeout: 30_000 });
+  await page.waitForTimeout(2500);
+  await state(ctx, '40-rules-chatbot-history-reload');
+
+  // Journal (PDF) from Settings.
+  await openSettings(page);
+  await page.getByRole('button', { name: 'Mon Journal (PDF)' }).click();
+  await page.waitForTimeout(5000);
+  await state(ctx, '40-rules-journal-pdf');
+
+  // Medical flag (profile write through validMedicalFlags).
+  await openSettings(page);
+  await page.getByRole('switch', { name: /Hypertension/ }).first().click({ timeout: 15_000 });
+  const prof = await pollServer(() => serverDoc(`userProfiles/${acct.uid}`), (d) => d?.hasHypertension === true, 15_000);
+  expect.soft(prof?.hasHypertension, '40 (D-014): profile write accepted').toBe(true);
+  await state(ctx, '40-rules-profile-write');
+
+  note(testInfo, '40-permission-lines', JSON.stringify(ctx.permission));
+  expect.soft(ctx.permission, '40 (D-014): Firestore permission errors over the whole account tour').toEqual([]);
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// D-logout-unsynced — states 41 (B-018, lives on the Profile logout)
+// ══════════════════════════════════════════════════════════════════════════════
+
+// What the test's own disconnection provokes: the browser's failed-request lines and the
+// Firestore SDK's "backend unreachable" notice. Nothing else is excused.
+const OFFLINE_CONSOLE = [/net::ERR_INTERNET_DISCONNECTED/, /Could not reach Cloud Firestore backend/];
+
+/** state() for a deliberately disconnected page. */
+async function offlineState(ctx: Ctx, name: string) {
+  const fresh = ctx.strict.splice(ctx.cursor);
+  ctx.strict.push(...fresh.filter((e) => !OFFLINE_CONSOLE.some((re) => re.test(e))));
+  await state(ctx, name);
+}
+
+test('D-logout-unsynced: logging out with unsent tracker records asks first; she can stay and nothing is lost', async ({ page }, testInfo) => {
+  const acct = await newSeededAccount('logout-unsynced', { firstName: 'Ons', lastName: 'Offline' });
+  const ctx = instrument(page, testInfo);
+  await uiLogin(page, acct.email, acct.password, 'fr');
+  await page.goto('/hospital-bag', { waitUntil: 'load' });
+  const firstItem = page.getByRole('checkbox').first();
+  await expect(firstItem).toBeVisible({ timeout: 20_000 });
+  await page.waitForTimeout(1500);
+  expect(await serverDoc(`hospitalBags/${acct.uid}`), 'harness: no bag on the server yet').toBeNull();
+
+  // The server becomes unreachable (the app itself still loads) → the edit stays on the device.
+  await page.route(FIRESTORE_TRAFFIC, (route) => route.abort('internetdisconnected'));
+  const itemLabel = (await firstItem.getAttribute('aria-label')) || '';
+  await firstItem.click();
+  await expect.soft(firstItem, '41: item packed on the device').toBeChecked({ timeout: 5_000 });
+  await page.waitForTimeout(1000);
+  expect.soft(await serverDoc(`hospitalBags/${acct.uid}`), '41: harness — the edit did not reach the server').toBeNull();
+  await offlineState(ctx, '41-unsynced-bag-edit');
+
+  // 41a — logout: the usual confirm, then a second one that says what would be lost. She stays.
+  await openProfile(page);
+  const before = ctx.dialogs.dialogs.length;
+  const second = ctx.dialogs.waitForNext(30_000).then(async (first) => {
+    ctx.dialogs.next('dismiss');
+    return { first, second: await ctx.dialogs.waitForNext(20_000).catch(() => null) };
+  });
+  await page.getByRole('button', { name: 'Se déconnecter' }).click();
+  const asked = await second;
+  note(testInfo, '41a-dialogs', JSON.stringify(ctx.dialogs.dialogs.slice(before).map((d) => ({ m: d.message, a: d.action }))));
+  expect.soft(norm(asked.first.message), '41a: ordinary logout confirm first').toMatch(/^Déconnexion/);
+  expect.soft(norm(asked.second?.message) || '(no second dialog)', '41a (B-018): unsent records → a second confirmation that counts them').toMatch(/^Données pas encore sauvegardées\n\nEnregistrements pas encore sauvegardés en ligne : 1 \(/);
+  expect.soft(norm(asked.second?.message), '41a (B-018): it says they would be lost').toMatch(/Ils seront perdus si vous vous déconnectez maintenant/);
+  await page.waitForTimeout(2000);
+  await expect.soft(page.getByRole('button', { name: 'Enregistrer les modifications' }), '41a (B-018): declining keeps her signed in, on Profile').toBeVisible();
+  await expect.soft(page.getByRole('tablist').first(), '41a: session untouched').toBeVisible();
+  expect.soft(await authAccountExists(acct.uid)).toBe(true);
+  await offlineState(ctx, '41a-logout-unsynced-declined');
+
+  // 41b — back online: the record she kept goes up (server truth), and logout is one confirm again.
+  await page.unroute(FIRESTORE_TRAFFIC);
+  await page.goto('/hospital-bag', { waitUntil: 'load' });
+  await expect.soft(page.getByRole('checkbox').first(), '41b: the packed item survived').toBeChecked({ timeout: 20_000 });
+  const bag = await pollServer(() => serverDoc(`hospitalBags/${acct.uid}`), (d) => d !== null, 30_000);
+  note(testInfo, '41b-server-bag', JSON.stringify({ item: itemLabel, checked: bag?.checked ?? null }));
+  expect.soft(bag, '41b (B-018): the unsent record reached the server once online').not.toBeNull();
+  expect.soft(Object.values((bag?.checked as Record<string, unknown>) ?? {}).filter((v) => v === true).length, '41b: the packed item is on the server').toBe(1);
+  await offlineState(ctx, '41b-back-online-synced');
+  await openProfile(page);
+  const before41c = ctx.dialogs.dialogs.length;
+  await clickForDialog(ctx, () => page.getByRole('button', { name: 'Se déconnecter' }).click());
+  await page.waitForURL((u) => onAuthSurface(u.pathname), { timeout: 20_000 }).catch(() => {});
+  await page.waitForTimeout(1500);
+  const dialogs41c = ctx.dialogs.dialogs.slice(before41c).map((d) => norm(d.message));
+  expect.soft(dialogs41c.length, `41c (B-018): synced → a single confirm (${JSON.stringify(dialogs41c)})`).toBe(1);
+  expect.soft(new URL(page.url()).pathname, '41c: lands on the sign-in surface').toBe('/welcome');
+  await expect.soft(page.getByRole('tablist')).toHaveCount(0);
+  expect.soft(privateKeysIn(await localKeys(page)), '41c: private keys left after logout').toEqual([]);
+  await state(ctx, '41c-logout-synced-single-confirm');
+
+  // 41d — "Se déconnecter quand même": told, she may still leave; the device is wiped.
+  const acct2 = await newSeededAccount('logout-anyway', { firstName: 'Olfa', lastName: 'Anyway' });
+  await uiLogin(page, acct2.email, acct2.password, 'fr');
+  await page.goto('/hospital-bag', { waitUntil: 'load' });
+  await expect(page.getByRole('checkbox').first()).toBeVisible({ timeout: 20_000 });
+  await page.waitForTimeout(1500);
+  await page.route(FIRESTORE_TRAFFIC, (route) => route.abort('internetdisconnected'));
+  await page.getByRole('checkbox').first().click();
+  await page.waitForTimeout(1000);
+  await openProfile(page);
+  const before41d = ctx.dialogs.dialogs.length;
+  const both = ctx.dialogs.waitForNext(30_000).then(async (first) => ({ first, second: await ctx.dialogs.waitForNext(20_000).catch(() => null) }));
+  await page.getByRole('button', { name: 'Se déconnecter' }).click();
+  const anyway = await both;
+  await page.waitForURL((u) => onAuthSurface(u.pathname), { timeout: 20_000 }).catch(() => {});
+  await page.waitForTimeout(1500);
+  note(testInfo, '41d-dialogs', JSON.stringify(ctx.dialogs.dialogs.slice(before41d).map((d) => ({ m: d.message, a: d.action }))));
+  expect.soft(norm(anyway.second?.message) || '(no second dialog)', '41d (B-018): second confirmation').toMatch(/^Données pas encore sauvegardées/);
+  expect.soft(new URL(page.url()).pathname, '41d: "log out anyway" signs her out').toBe('/welcome');
+  await expect.soft(page.getByRole('tablist')).toHaveCount(0);
+  expect.soft(privateKeysIn(await localKeys(page)), '41d: private keys left after logout').toEqual([]);
+  await page.unroute(FIRESTORE_TRAFFIC);
+  await offlineState(ctx, '41d-logout-anyway');
 });
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -1204,9 +2039,29 @@ test.describe('ar', () => {
     expect.soft(/Paramètres|Diabète|Exporter/.test(settingsText), '33: French strings left on the ar Settings screen').toBe(false);
     await state(ctx, '33-ar-settings');
 
+    // 33b — D-025: the privacy policy in Arabic, with its legal tab list (D-023).
+    await page.getByRole('button', { name: 'سياسة الخصوصية' }).first().click();
+    const arLegalTabs = page.getByRole('tablist').filter({ has: page.getByRole('tab', { name: 'الشروط' }) });
+    await expect.soft(arLegalTabs, '33b: legal tablist in Arabic').toHaveCount(1, { timeout: 15_000 });
+    await expect.soft(arLegalTabs.getByRole('tab', { selected: true }), '33b (D-023): one legal tab selected').toHaveCount(1);
+    await expect.soft(arLegalTabs.getByRole('tab', { name: 'الخصوصية' }), '33b (D-023): privacy tab selected').toHaveAttribute('aria-selected', 'true');
+    expect.soft((await htmlDirLang(page)).dir, '33b: rtl').toBe('rtl');
+    await state(ctx, '33b-ar-privacy');
+    await page.getByRole('tab', { name: 'الشروط' }).click();
+    await expect.soft(arLegalTabs.getByRole('tab', { name: 'الشروط' }), '33c (D-023): selection follows the tap').toHaveAttribute('aria-selected', 'true');
+    await state(ctx, '33c-ar-privacy-terms');
+
     // 34 — delete confirm text in Arabic (dismissed → server intact).
     await page.goto('/profile', { waitUntil: 'load' });
     await expect(firstAr).toBeVisible({ timeout: 30_000 });
+    // 34a — the danger zone itself, in view (reset, delete), RTL.
+    const arDelete = page.getByRole('button', { name: 'حذف الحساب' });
+    await arDelete.scrollIntoViewIfNeeded();
+    await expect.soft(page.getByText('منطقة الخطر', { exact: true }), '34a: danger zone title in Arabic').toBeVisible();
+    const dangerText = await page.locator('body').innerText();
+    expect.soft(/Zone de danger|Supprimer|Réinitialiser|Se déconnecter/.test(dangerText), '34a: French strings left in the ar danger zone').toBe(false);
+    await state(ctx, '34a-ar-danger-zone');
+
     ctx.dialogs.next('dismiss');
     const d34 = await clickForDialog(ctx, () => page.getByRole('button', { name: 'حذف الحساب' }).click());
     expect.soft(d34?.message ?? '(no dialog)', '34: delete confirm in Arabic').toMatch(/حذف الحساب[\s\S]*هل أنت متأكد/);
@@ -1214,5 +2069,107 @@ test.describe('ar', () => {
     expect.soft(await authAccountExists(acct.uid), '34: dismissed confirm keeps the account').toBe(true);
     expect.soft(await serverDoc(`userProfiles/${acct.uid}`), '34: dismissed confirm keeps the profile').not.toBeNull();
     await state(ctx, '34-ar-delete-dialog');
+
+    // 34b — D-025: the logout confirm in Arabic, then the Arabic welcome screen.
+    const d34b = await clickForDialog(ctx, () => page.getByRole('button', { name: 'تسجيل الخروج' }).first().click());
+    expect.soft(d34b?.message ?? '(no dialog)', '34b: logout confirm in Arabic').toMatch(/^تسجيل الخروج\n\nهل أنت متأكدة/);
+    await page.waitForURL((u) => onAuthSurface(u.pathname), { timeout: 20_000 }).catch(() => {});
+    await page.waitForTimeout(1500);
+    expect.soft(new URL(page.url()).pathname, '34b: lands on the welcome screen').toBe('/welcome');
+    await expect.soft(page.getByRole('tablist')).toHaveCount(0);
+    expect.soft((await htmlDirLang(page)).dir, '34b: still rtl after logout').toBe('rtl');
+    expect.soft(await authAccountExists(acct.uid), '34b: logout keeps the account').toBe(true);
+    await state(ctx, '34b-ar-logout');
+  });
+
+  // D-025 / D-018: the re-auth modal in Arabic (the "finish deletion" variant: the server
+  // refuses the Auth delete after the purge), then the deletion completes with the password.
+  test('D-ar-reauth: the re-auth prompt in Arabic, with show-password and forgot-password', async ({ page }, testInfo) => {
+    const acct = await newSeededAccount('ar-reauth', { firstName: 'Abir', lastName: 'Reauth' });
+    await seedEverything(acct.uid);
+    const ctx = instrument(page, testInfo);
+    await uiLogin(page, acct.email, acct.password, 'ar');
+    await page.goto('/profile', { waitUntil: 'load' });
+    await expect(page.getByRole('textbox', { name: 'الاسم الأول' })).toBeVisible({ timeout: 30_000 });
+    const stale = await makeSessionStale(page, { waitMs: 0, shiftClock: false });
+    await watchDeletionProgress(page);
+    await clickForDialog(ctx, () => page.getByRole('button', { name: 'حذف الحساب' }).click());
+    const field = page.getByRole('textbox', { name: 'كلمة المرور' }).last();
+    await expect(field, '34c: re-auth prompt in Arabic').toBeVisible({ timeout: 30_000 });
+    expect(stale.refusals.length, '34c: the forced refusal fired').toBeGreaterThan(0);
+    await expect.soft(page.getByText('تأكيد الهوية', { exact: true }), '34c: prompt title in Arabic').toBeVisible();
+    await expect.soft(page.getByText(/تم مسح بياناتك مسبقاً/).first(), '34c: the prompt says the data is already erased').toBeVisible();
+    await expect.soft(page.getByRole('button', { name: 'إظهار', exact: true }), '34c (D-018): show-password toggle (ar)').toBeVisible();
+    await expect.soft(page.getByRole('link', { name: /هل نسيت كلمة المرور/ }), '34c (D-018): forgot-password link (ar)').toBeVisible();
+    await expect.soft(page.getByRole('button', { name: 'حذف نهائياً', exact: true }).last(), '34c: destructive button in Arabic').toBeVisible();
+    expect.soft((await htmlDirLang(page)).dir, '34c: rtl').toBe('rtl');
+    await assertProgressSeen(page, testInfo, '34c', /جارٍ الحذف/);
+    expect.soft(await serverDoc(MARKER_DOC(acct.uid)), '34c (D-031): server marker while only the login is left').not.toBeNull();
+    await state(ctx, '34c-ar-reauth-modal', [/status of 400/]);
+
+    await field.fill(acct.password);
+    const done = await clickForDialog(ctx, () => page.getByRole('button', { name: 'حذف نهائياً', exact: true }).last().click(), 30_000);
+    note(testInfo, '34d-done', JSON.stringify(done?.message ?? null));
+    expect.soft(done?.message ?? '(no dialog)', '34d: deletion confirmed in Arabic').toMatch(/^تم حذف الحساب/);
+    const after = await pollServer(() => footprint(acct.uid), fullyGone, 20_000);
+    note(testInfo, '34d-footprint', JSON.stringify(after));
+    expect.soft(totalDocs(after), '34d: server docs left').toBe(0);
+    expect.soft(after.auth, '34d: auth user left').toBe(false);
+    expect.soft(after.marker, '34d (D-031): deletion request left').toBe(false);
+    await page.waitForURL((u) => onAuthSurface(u.pathname), { timeout: 20_000 }).catch(() => {});
+    await expect.soft(page.getByRole('tablist')).toHaveCount(0);
+    await state(ctx, '34d-ar-reauth-delete-complete');
+  });
+
+  // D-030 / D-035 in Arabic, and the accept path (server + fresh context).
+  test('D-ar-consent: the consent sheet in Arabic — decline block, then agreeing opens the app', async ({ page, browser }, testInfo) => {
+    const acct = await newSeededAccount('ar-consent', { firstName: 'Asma', lastName: 'Consent', consent: false });
+    const ctx = instrument(page, testInfo);
+    await openLoginForm(page, 'ar');
+    await submitLogin(page, acct.email, acct.password);
+    await expect(page.getByTestId('health_consent_continue'), '39: consent sheet (ar)').toBeVisible({ timeout: 60_000 });
+    expect.soft((await htmlDirLang(page)).dir, '39: rtl').toBe('rtl');
+    await expect.soft(page.getByRole('tablist')).toHaveCount(0);
+    await state(ctx, '39-ar-consent-sheet');
+
+    const layout = await consentLayout(page);
+    note(testInfo, '39b-consent-layout', JSON.stringify(layout));
+    expect.soft(layout.export?.text, '39b (D-030): export on the sheet (ar)').toBe('تصدير');
+    expect.soft(layout.logout?.text, '39b: logout (ar)').toBe('تسجيل الخروج');
+    expect.soft(layout.note?.text ?? '', '39b (D-035): logout note (ar)').toMatch(/تسجيل الخروج لا يحذف شيئاً: تبقى بياناتكِ محفوظة على خوادمنا/);
+    expect.soft(layout.erase?.text, '39b: delete (ar)').toBe('حذف حسابي');
+    const tops = [layout.export?.top ?? -1, layout.logout?.top ?? -1, layout.note?.top ?? -1, layout.erase?.top ?? -1];
+    expect.soft(tops.every((t, i) => t >= 0 && (i === 0 || t > tops[i - 1])), `39b: order export → logout → note → delete (${JSON.stringify(tops)})`).toBe(true);
+    expect.soft(parseFloat(layout.erase?.border ?? '1'), '39b (D-030): delete is not an outlined call-to-action').toBe(0);
+    const sheetText = await page.locator('body').innerText();
+    expect.soft(/Exporter|Supprimer|déconnecter|Continuer/.test(sheetText), '39b: French strings left on the ar sheet').toBe(false);
+    await page.getByTestId('health_consent_erase').scrollIntoViewIfNeeded();
+    await state(ctx, '39b-ar-consent-decline-block');
+
+    ctx.dialogs.next('dismiss');
+    const dDel = await clickForDialog(ctx, () => page.getByTestId('health_consent_erase').click());
+    note(testInfo, '39c-confirm', JSON.stringify(dDel?.message ?? null));
+    expect.soft(dDel?.message ?? '(no dialog)', '39c: delete confirm in Arabic').toMatch(/^حذف الحساب\n\nهل أنت متأكدة/);
+    expect.soft(dDel?.message ?? '', '39c (D-030): the confirm points to the export on this screen (ar)').toMatch(/اضغطي أولاً على «تصدير» في هذه الشاشة\.$/);
+    expect.soft(dDel?.message ?? '', '39c (D-030): no pointer to Settings').not.toMatch(/الإعدادات/);
+    await page.waitForTimeout(1500);
+    expect.soft(await authAccountExists(acct.uid), '39c: dismissed confirm keeps the account').toBe(true);
+    expect.soft(await serverDoc(`userProfiles/${acct.uid}`), '39c: dismissed confirm keeps the profile').not.toBeNull();
+    await state(ctx, '39c-ar-consent-delete-cancelled');
+
+    // Agreeing: recorded on the server, Home opens, and a new device no longer asks.
+    await tickHealthConsent(page);
+    await expect.soft(page.getByTestId('health_consent_continue'), '39d: "continue" enabled once ticked').not.toHaveAttribute('aria-disabled', 'true');
+    await page.getByTestId('health_consent_continue').click();
+    await expect.soft(page.getByRole('tablist').first(), '39d: agreeing opens the app').toBeVisible({ timeout: 30_000 });
+    const prof = await pollServer(() => serverDoc(`userProfiles/${acct.uid}`), (d) => !!d?.healthDataConsent, 15_000);
+    note(testInfo, '39d-server-consent', JSON.stringify(prof?.healthDataConsent ?? null));
+    expect.soft(typeof (prof?.healthDataConsent as any)?.at, '39d: consent timestamp on the server').toBe('string');
+    expect.soft(typeof (prof?.healthDataConsent as any)?.version, '39d: consent version on the server').toBe('string');
+    await state(ctx, '39d-ar-consent-accepted');
+    const f = await freshCtx(browser, acct, 'ar', testInfo);
+    await expect.soft(f.page.getByTestId('health_consent_continue'), '39e: a new device does not ask again').toHaveCount(0);
+    await state(f, '39e-ar-consent-fresh-context');
+    await closeCtx(f);
   });
 });

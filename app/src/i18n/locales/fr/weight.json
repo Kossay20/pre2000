@@ -108,9 +108,9 @@
         "listenBody": "Écoutez votre corps et vos sensations de faim/satiété"
     },
     "trimester": {
-        "t1": "1er trimestre : Les variations sont normales avec les nausées. Restez hydratée ! 💛",
-        "t2": "2e trimestre : Croissance active du bébé. Alimentation équilibrée essentielle ! 🌱",
-        "t3": "3e trimestre : Rétention d'eau fréquente. Reposez-vous et hydratez-vous ! 💧"
+        "t1": "{{trimester}} : Les variations sont normales avec les nausées. Restez hydratée ! 💛",
+        "t2": "{{trimester}} : Croissance active du bébé. Alimentation équilibrée essentielle ! 🌱",
+        "t3": "{{trimester}} : Rétention d'eau fréquente. Reposez-vous et hydratez-vous ! 💧"
     },
     "errorReset": "Impossible de réinitialiser les données.",
     "weekShort": "S",

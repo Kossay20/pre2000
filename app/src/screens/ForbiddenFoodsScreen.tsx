@@ -16,6 +16,7 @@ import {
     ScrollView,
     TextInput,
     TouchableOpacity,
+    Platform,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -54,11 +55,22 @@ const categories = [
     { id: 'herbs', icon: '🌿' },
 ];
 
+// The card's edge stripe: decorative, the rating itself is spelled out in the badge.
 const severityColors = {
     critical: theme.colors.red700,
     high: theme.colors.accentOrangeDeep,
     medium: theme.colors.orange400,
     low: theme.colors.green400,
+};
+
+// Text and fill of the rating badge. Dark text on a light tint of the same hue, each pair
+// at least 4.5:1 (pinned in the theme contrast test). The badge used to print the stripe
+// colour on a 12 % wash of itself — 1.8:1 for "Limit", 2.4:1 for "Avoid".
+const severityBadgeColors = {
+    critical: { text: theme.colors.red800, background: theme.colors.surfaceRose },
+    high: { text: theme.colors.deepOrange900, background: theme.colors.surfaceOrangeTint },
+    medium: { text: theme.colors.warningTextDark, background: theme.colors.surfaceAmberTint },
+    low: { text: theme.colors.green800, background: theme.colors.surfaceGreenTint },
 };
 
 // Removed hardcoded severityLabels, will use t() directly
@@ -176,6 +188,9 @@ export const ForbiddenFoodsScreen = () => {
                     onPress={() => setSelectedCategory(null)}
                     accessibilityRole="button"
                     accessibilityState={{ selected: selectedCategory === null }}
+                    // react-native-web drops accessibilityState, so on web the lit chip is
+                    // exposed as aria-pressed (the ARIA state for an on/off button).
+                    {...(Platform.OS === 'web' ? { 'aria-pressed': selectedCategory === null } : {})}
                 >
                     <Text style={[
                         styles.categoryChipText,
@@ -194,6 +209,7 @@ export const ForbiddenFoodsScreen = () => {
                         )}
                         accessibilityRole="button"
                         accessibilityState={{ selected: selectedCategory === cat.id }}
+                        {...(Platform.OS === 'web' ? { 'aria-pressed': selectedCategory === cat.id } : {})}
                     >
                         <Text style={[
                             styles.categoryChipText,
@@ -234,11 +250,11 @@ export const ForbiddenFoodsScreen = () => {
                                     <Text style={[styles.foodName, isRTL && { textAlign: 'right' }]}>{getLocalizedContent(food, 'name', i18n.language)}</Text>
                                     <View style={[
                                         styles.severityBadge,
-                                        { backgroundColor: severityColors[food.severity] + '20' }
+                                        { backgroundColor: severityBadgeColors[food.severity].background }
                                     ]}>
                                         <Text style={[
                                             styles.severityText,
-                                            { color: severityColors[food.severity] }
+                                            { color: severityBadgeColors[food.severity].text }
                                         ]}>{t(`forbiddenFoods.severity.${food.severity}`)}</Text>
                                     </View>
                                 </View>

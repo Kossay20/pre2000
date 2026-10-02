@@ -1,7 +1,7 @@
 import { createLogger } from '../utils/logger';
 const log = createLogger('SupplementsListScreen');
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, TextInput, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, TextInput, ScrollView, Platform } from 'react-native';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { Supplement } from '../types';
@@ -261,6 +261,9 @@ export const SupplementsListScreen = () => {
                         ]}
                         accessibilityRole="button"
                         accessibilityState={{ selected: favoritesActive }}
+                        // react-native-web drops accessibilityState, so on web the lit chip is
+                        // exposed as aria-pressed (the ARIA state for an on/off button).
+                        {...(Platform.OS === 'web' ? { 'aria-pressed': favoritesActive } : {})}
                         accessibilityLabel={t('common.favorites')}
                     >
                         <Text style={[styles.chipText, favoritesActive ? styles.chipTextActive : styles.chipTextInactive]}>
@@ -281,6 +284,7 @@ export const SupplementsListScreen = () => {
                                 ]}
                                 accessibilityRole="button"
                                 accessibilityState={{ selected: allSelected }}
+                                {...(Platform.OS === 'web' ? { 'aria-pressed': allSelected } : {})}
                                 accessibilityLabel={t('categories.all', { defaultValue: 'Tout' })}
                             >
                                 <Text style={[styles.chipText, allSelected ? styles.chipTextActive : styles.chipTextInactive]}>
@@ -304,6 +308,7 @@ export const SupplementsListScreen = () => {
                                 ]}
                                 accessibilityRole="button"
                                 accessibilityState={{ selected }}
+                                {...(Platform.OS === 'web' ? { 'aria-pressed': selected } : {})}
                                 accessibilityLabel={safetyFilter.label}
                             >
                                 <Text style={[styles.chipText, selected ? styles.chipTextActive : styles.chipTextInactive]}>

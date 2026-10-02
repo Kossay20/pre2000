@@ -424,12 +424,13 @@ const styles = StyleSheet.create({
         marginBottom: 28,
         marginTop: 8,
     },
+    // White label: the text-bearing pink (4.6:1), not pink400ui (3.76:1).
     saveButton: {
-        backgroundColor: theme.colors.pink400ui,
+        backgroundColor: theme.colors.primaryStrong,
         padding: 16,
         borderRadius: 16,
         alignItems: 'center',
-        shadowColor: theme.colors.pink400ui,
+        shadowColor: theme.colors.primaryStrong,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 8,

@@ -3,7 +3,7 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
 import { createLogger } from '../utils/logger';
 import defaultData from '../data/hospital_bag_default.json';
-import { createSerialQueue } from './trackerSync';
+import { createSerialQueue, isAcknowledged, isServerListing } from './trackerSync';
 
 const log = createLogger('HospitalBagService');
 const STORAGE_KEY = 'hospital_bag_v1';
@@ -171,7 +171,10 @@ const syncWithServer = async (uid: string): Promise<HospitalBagState> => {
     let server: HospitalBagState | null;
     try {
         const snap = await getDoc(bagDoc(uid));
-        if (snap.metadata?.fromCache) return serial(readState);
+        // The cache, or a document still carrying an edit of this device that has not gone
+        // out, is this device's own version handed back: taking it for the server's would
+        // mark the list synced before the server has it.
+        if (!isServerListing(snap.metadata) || !isAcknowledged(snap.metadata)) return serial(readState);
         server = snap.exists() ? fromServer(snap.data() as Record<string, unknown>) : null;
     } catch (error) {
         log.warn('Hospital bag: server unreachable, showing the copy on this device', error);

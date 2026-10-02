@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { collection, doc, getDocs, query, setDoc, where, writeBatch } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
 import { createLogger } from '../utils/logger';
-import { createSerialQueue, markSynced, mergeSyncedList, ownedDocId } from './trackerSync';
+import { createSerialQueue, isAcknowledged, isServerListing, markSynced, mergeSyncedList, ownedDocId } from './trackerSync';
 
 const log = createLogger('ContractionTimerService');
 const STORAGE_KEY = 'contraction_timer_v1';
@@ -70,9 +70,11 @@ const toServer = (uid: string, c: Contraction) => ({
     endedAt: c.endedAt,
 });
 
-const fromServer = (d: Record<string, unknown>): Contraction | null => {
+// `acknowledged`: the server holds this document — false for a write of this device that
+// is still waiting to go out, which a listing hands back too.
+const fromServer = (d: Record<string, unknown>, acknowledged: boolean): Contraction | null => {
     if (typeof d.id !== 'string' || typeof d.startedAt !== 'number' || typeof d.endedAt !== 'number') return null;
-    return { id: d.id, startedAt: d.startedAt, endedAt: d.endedAt, synced: true };
+    return { id: d.id, startedAt: d.startedAt, endedAt: d.endedAt, synced: acknowledged };
 };
 
 const newestFirst = (a: Contraction, b: Contraction) => b.startedAt - a.startedAt;
@@ -83,7 +85,7 @@ const isSignedInAs = (uid: string) => auth.currentUser?.uid === uid;
 
 const listServer = async (uid: string) => {
     const snap = await getDocs(query(collection(db, 'contractions'), where('user_id', '==', uid)));
-    return { snap, authoritative: !snap.metadata?.fromCache };
+    return { snap, authoritative: isServerListing(snap.metadata) };
 };
 
 /** Delete on the server what a "clear all" removed here, then forget the pending clear. */
@@ -144,7 +146,9 @@ const syncWithServer = async (uid: string): Promise<ContractionTimerState> => {
     let authoritative: boolean;
     try {
         const listed = await listServer(uid);
-        server = listed.snap.docs.map((d) => fromServer(d.data())).filter((c): c is Contraction => c !== null);
+        server = listed.snap.docs
+            .map((d) => fromServer(d.data(), isAcknowledged(d.metadata)))
+            .filter((c): c is Contraction => c !== null);
         authoritative = listed.authoritative;
     } catch (error) {
         log.warn('Contraction history: server unreachable, showing the copy on this device', error);

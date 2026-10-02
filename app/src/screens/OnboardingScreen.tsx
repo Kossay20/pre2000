@@ -196,7 +196,7 @@ export const OnboardingScreen = () => {
     // The week and day in progress for display, unclamped: a post-term pregnancy reads
     // "Semaine 41" here, while pregnancyInfo.week stays on 40 for the week content. The
     // same helper feeds Home, Profile and the dashboards, so they all print the same week.
-    const { week: displayWeek, day: displayDay } = displayedPregnancyAge(pregnancyInfo.completedWeeks, pregnancyInfo.completedDays);
+    const { week: displayWeek, dayOfPregnancy } = displayedPregnancyAge(pregnancyInfo.completedWeeks, pregnancyInfo.completedDays);
     const gestationalAge = formatGestationalAge(t, pregnancyInfo.completedWeeks, pregnancyInfo.completedDays);
 
     // Animation for step transitions
@@ -799,8 +799,11 @@ export const OnboardingScreen = () => {
                         <Text style={styles.finalWeekLabel}>{t('onboarding.step4.youAreAt')}</Text>
 
                         <View style={styles.weekBadge}>
-                            <Text style={styles.weekNumber}>{t('onboarding.step4.weekCaps')} {displayWeek}</Text>
-                            <Text style={styles.dayNumber}>{t('onboarding.step4.dayCaps')} {displayDay}</Text>
+                            {/* The same two figures, in the same words, as the Home she lands on
+                                next: "JOUR 1" (day of the week) beside week 32 read as an error
+                                one tap before Home's "Jour 218". */}
+                            <Text style={styles.weekNumber}>{t('common.week')} {displayWeek}</Text>
+                            <Text style={styles.dayNumber}>{t('home.day')} {dayOfPregnancy}</Text>
                         </View>
 
                         <Text style={styles.comparisonText}>
@@ -908,7 +911,7 @@ export const OnboardingScreen = () => {
                             already finishes it under her account. */}
                         {!user && (
                             <TouchableOpacity
-                                style={[styles.skipAccountButton, (loading || !healthConsent) && styles.startButtonDisabled]}
+                                style={styles.skipAccountButton}
                                 onPress={() => handleFinish(false)}
                                 disabled={loading || !healthConsent}
                                 accessibilityRole="button"
@@ -916,7 +919,7 @@ export const OnboardingScreen = () => {
                                 accessibilityState={{ disabled: loading || !healthConsent }}
                                 testID="onboarding_step4_skip"
                             >
-                                <Text style={styles.skipAccountText}>{t('onboarding.step4.skipAccount')}</Text>
+                                <Text style={[styles.skipAccountText, (loading || !healthConsent) && styles.skipAccountTextDisabled]}>{t('onboarding.step4.skipAccount')}</Text>
                             </TouchableOpacity>
                         )}
 
@@ -1147,14 +1150,14 @@ export const OnboardingScreen = () => {
 
                         {!user && (
                             <TouchableOpacity
-                                style={[styles.skipAccountButton, (loading || !healthConsent) && styles.startButtonDisabled]}
+                                style={styles.skipAccountButton}
                                 onPress={() => handleFinishTTC(false)}
                                 disabled={loading || !healthConsent}
                                 accessibilityRole="button"
                                 accessibilityLabel={t('onboarding.step4.skipAccount')}
                                 accessibilityState={{ disabled: loading || !healthConsent }}
                             >
-                                <Text style={styles.skipAccountText}>{t('onboarding.step4.skipAccount')}</Text>
+                                <Text style={[styles.skipAccountText, (loading || !healthConsent) && styles.skipAccountTextDisabled]}>{t('onboarding.step4.skipAccount')}</Text>
                             </TouchableOpacity>
                         )}
 
@@ -1258,7 +1261,7 @@ export const OnboardingScreen = () => {
                     <Text style={styles.finalWeekLabel}>{t('onboarding.youExplore')}</Text>
 
                     <View style={styles.weekBadge}>
-                        <Text style={styles.weekNumber}>{t('onboarding.step4.weekCaps')} {exploreWeek}</Text>
+                        <Text style={styles.weekNumber}>{t('common.week')} {exploreWeek}</Text>
                     </View>
 
                     <Text style={styles.comparisonText}>

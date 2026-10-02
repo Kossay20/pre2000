@@ -422,8 +422,16 @@ export const taskStatsByDay = (tasks: UserTask[], todayStr: string = toLocalDate
  * @param tasks The user's own tasks (server-backed). The checklist progress kept on the
  *   device only covers reminders and appointments, so completing a task still showed
  *   "Pas encore de données" — and a fresh install showed nothing at all.
+ * @param myDay Done / total of today's "Ma Journée" list (myDayProgress of buildMyDayItems),
+ *   which then is today's rate. The progress kept on the device only exists once a
+ *   reminder or appointment has been ticked, so with one task done and two reminders
+ *   untouched the screen said "100 %" next to the Tasks tab's 33 % (1 of 3).
  */
-export const getHistoricalData = async (days: number = 30, tasks: UserTask[] = []) => {
+export const getHistoricalData = async (
+    days: number = 30,
+    tasks: UserTask[] = [],
+    myDay?: { done: number; total: number },
+) => {
     try {
         const keys = await AsyncStorage.getAllKeys();
         const checklistKeys = keys.filter(k => k.startsWith(DAILY_CHECKLIST_KEY_PREFIX)).sort();
@@ -468,6 +476,7 @@ export const getHistoricalData = async (days: number = 30, tasks: UserTask[] = [
         const allDays = new Set([
             ...Object.keys(checklistByDay),
             ...Object.keys(tasksByDay).filter((day) => day >= cutoffStr && day <= todayStr),
+            ...(myDay && myDay.total > 0 ? [todayStr] : []),
         ]);
 
         for (const dateStr of [...allDays].sort()) {
@@ -481,7 +490,9 @@ export const getHistoricalData = async (days: number = 30, tasks: UserTask[] = [
             const active = items.filter((i: any) => !i.skipped);
             const total = active.length + tasksTotal;
             const completed = active.filter((i: any) => i.completed).length + tasksDone;
-            const rate = total > 0 ? (completed / total) * 100 : 0;
+            const rate = myDay && dateStr === todayStr
+                ? (myDay.total > 0 ? (myDay.done / myDay.total) * 100 : 0)
+                : total > 0 ? (completed / total) * 100 : 0;
 
             // F-HS-02-REGR: REAL water (liters) from hydrationService for today only.
             // The checklist 'hyd' item is herbal tea (rem_hyd_water is excluded from the

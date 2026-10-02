@@ -574,24 +574,32 @@ function App() {
     <LocaleDirectionProvider>
       <SafeAreaProvider>
         <StatusBar style="dark" backgroundColor="#FFFFFF" />
+        {/* The offline banner is a row of its own above the app, not an overlay: it
+            used to cover the header title, the greeting and the avatar. The inner
+            provider re-measures the safe area for what sits below it, so while the
+            banner (which carries the status-bar inset itself) is shown the headers
+            do not add that inset a second time, and toasts anchor under the banner.
+            It is always mounted: adding it only while offline would remount the app. */}
         <OfflineNotice />
-        <AuthProvider>
-          <ToastProvider>
-            <ErrorBoundary>
-              <PregnancyProvider>
-                <AppInitializer />
-                {/* `ios.supportsTablet` is true, so this runs at 1032pt on an iPad
-                    while every screen is laid out for a phone. TabletFrame centres
-                    the app in a phone-width column above 700pt and is a no-op
-                    below it. See the component for why this rather than 33
-                    re-layouts. */}
-                <TabletFrame>
-                  <AppContent />
-                </TabletFrame>
-              </PregnancyProvider>
-            </ErrorBoundary>
-          </ToastProvider>
-        </AuthProvider>
+        <SafeAreaProvider>
+          <AuthProvider>
+            <ToastProvider>
+              <ErrorBoundary>
+                <PregnancyProvider>
+                  <AppInitializer />
+                  {/* `ios.supportsTablet` is true, so this runs at 1032pt on an iPad
+                      while every screen is laid out for a phone. TabletFrame centres
+                      the app in a phone-width column above 700pt and is a no-op
+                      below it. See the component for why this rather than 33
+                      re-layouts. */}
+                  <TabletFrame>
+                    <AppContent />
+                  </TabletFrame>
+                </PregnancyProvider>
+              </ErrorBoundary>
+            </ToastProvider>
+          </AuthProvider>
+        </SafeAreaProvider>
       </SafeAreaProvider>
     </LocaleDirectionProvider>
   );

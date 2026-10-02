@@ -3,7 +3,7 @@ import { isSameDay } from 'date-fns';
 import { collection, doc, getDocs, query, setDoc, where } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
 import { createLogger } from '../utils/logger';
-import { createSerialQueue, markSynced, mergeSyncedList, ownedDocId } from './trackerSync';
+import { createSerialQueue, isAcknowledged, isServerListing, markSynced, mergeSyncedList, ownedDocId } from './trackerSync';
 
 const log = createLogger('KickCounterService');
 const STORAGE_KEY = 'kick_counter_v1';
@@ -74,10 +74,12 @@ const toServer = (uid: string, s: KickSession) => ({
     kicks: s.kicks.map((k) => k.timestamp),
 });
 
-const fromServer = (d: Record<string, unknown>): KickSession | null => {
+// `acknowledged`: the server holds this document — false for a write of this device that
+// is still waiting to go out, which a listing hands back too.
+const fromServer = (d: Record<string, unknown>, acknowledged: boolean): KickSession | null => {
     if (typeof d.id !== 'string' || typeof d.startedAt !== 'number' || typeof d.endedAt !== 'number') return null;
     const kicks = Array.isArray(d.kicks) ? d.kicks.filter((k): k is number => typeof k === 'number') : [];
-    return { id: d.id, startedAt: d.startedAt, endedAt: d.endedAt, kicks: kicks.map((timestamp) => ({ timestamp })), synced: true };
+    return { id: d.id, startedAt: d.startedAt, endedAt: d.endedAt, kicks: kicks.map((timestamp) => ({ timestamp })), synced: acknowledged };
 };
 
 const newestFirst = (a: KickSession, b: KickSession) => b.startedAt - a.startedAt;
@@ -118,8 +120,10 @@ const syncWithServer = async (uid: string): Promise<KickCounterState> => {
     let authoritative: boolean;
     try {
         const snap = await getDocs(query(collection(db, 'kickSessions'), where('user_id', '==', uid)));
-        server = snap.docs.map((d) => fromServer(d.data())).filter((s): s is KickSession => s !== null);
-        authoritative = !snap.metadata?.fromCache;
+        server = snap.docs
+            .map((d) => fromServer(d.data(), isAcknowledged(d.metadata)))
+            .filter((s): s is KickSession => s !== null);
+        authoritative = isServerListing(snap.metadata);
     } catch (error) {
         log.warn('Kick history: server unreachable, showing the copy on this device', error);
         return serial(readState);
