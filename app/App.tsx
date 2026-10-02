@@ -259,11 +259,12 @@ const MainTabs = () => {
     <Tab.Navigator
       detachInactiveScreens
       screenOptions={({ route }) => ({
-        // P0-3 FIX (E2E audit 2026-05-08): on web, detachInactiveScreens is a
-        // no-op (depends on react-native-screens, native-only). Without this,
-        // every visited tab stayed in the DOM → 3-4 simultaneous H1, stale
-        // ErrorBoundary, leaking Firestore listeners.
-        unmountOnBlur: true,
+        // Visited tabs stay mounted: bottom-tabs v7 has no unmount-on-blur option (the v6
+        // `unmountOnBlur` it replaced was silently ignored here), and on web
+        // detachInactiveScreens does nothing since it relies on native-only
+        // react-native-screens. The inactive tabs are aria-hidden, so assistive tech does
+        // not reach them; screens that hold a subscription release it on blur with
+        // useFocusEffect.
         headerShown: false,
         // A11Y-CONTRAST-01: active-tab tint #FF6B9D on white = 2.68:1 (WCAG AA fail).
         // Route actionable tint to accent #C2185B = 5.5:1 (passes AA). Decorative

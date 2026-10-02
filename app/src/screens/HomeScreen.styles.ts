@@ -197,9 +197,13 @@ export const styles = StyleSheet.create({
         width: '100%',
         paddingBottom: 24,
     },
+    // The avatar is absolutely placed over the header's top-right corner; at 280pt the
+    // centred greeting ran under it. Padding both sides by the avatar's footprint (16 +
+    // 50 + 4) keeps the greeting centred and lets a long one wrap instead.
     headerTextContainer: {
         alignItems: 'center',
         marginBottom: 16,
+        paddingHorizontal: 70,
     },
     weekInfo: {
         fontSize: 14,
@@ -804,6 +808,16 @@ export const styles = StyleSheet.create({
     recommendationsList: {
         marginTop: 12,
         marginBottom: 16,
+    },
+    // The screen has no side padding of its own (each card brings marginHorizontal 16), so
+    // this section's heading and carousel carry the same 16pt gutter: the heading sat at
+    // x=0 and "Tout voir" touched the right edge.
+    recommendationsHeader: {
+        marginHorizontal: 16,
+    },
+    recommendationsContent: {
+        paddingStart: 16,
+        paddingEnd: 16,
     },
     recommendationCard: {
         width: width * 0.45,

@@ -14,6 +14,7 @@
     "sinceStart": "since start",
     "below": "💛 Slightly below",
     "above": "💛 Slightly above",
+    "aboveSignificant": "💛 Above the zone: talk to your midwife",
     "indicativeZone": "Indicative zone",
     "targetWeek": "🎯 Goal week",
     "targetWeekNumber": "🎯 Goal week {{week}}",

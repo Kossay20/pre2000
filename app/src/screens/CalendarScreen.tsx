@@ -440,7 +440,7 @@ export const CalendarScreen = () => {
                 t={t}
             />
 
-            <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
+            <Animated.View style={[{ flex: 1, opacity: fadeAnim }, calendarView === 'month' && styles.monthListWithFab]}>
                 <FlatList
                     data={filteredEvents}
                     keyExtractor={(item) => item.id}
@@ -505,6 +505,7 @@ export const CalendarScreen = () => {
                                         </Text>
                                         <TouchableOpacity
                                             onPress={() => setShowSuggestions(false)}
+                                            style={styles.suggestionsCloseButton}
                                             accessibilityRole="button"
                                             accessibilityLabel={t('a11y.close')}
                                         >
@@ -526,6 +527,7 @@ export const CalendarScreen = () => {
                                             </Text>
                                             <TouchableOpacity
                                                 onPress={() => setShowSuggestions(false)}
+                                                style={styles.suggestionsCloseButton}
                                                 accessibilityRole="button"
                                                 accessibilityLabel={t('a11y.close')}
                                             >

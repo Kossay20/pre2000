@@ -55,6 +55,13 @@ export const getLocalizedContent = <T>(
     if (isFrench && !options?.plainSpaces) content = frenchSpacing(content);
 
     if (options?.stripMarkdown && content) {
+        // A bundled summary is "# Title  First sentence…" (the heading's newline became a
+        // double space). Dropping only the "#" glued the title to the body in a card preview
+        // ("how to recognize them  Pregnancy is…"), so close the title as its own sentence.
+        content = content.replace(
+            /^\s*#{1,6}[ \t]*([^\n]*?)(?:[ \t]*\n+[ \t]*|[ \t]{2,})(?=\S)/,
+            (_m, title: string) => (/[.!?:;…؟]$/.test(title) ? `${title} ` : `${title}. `),
+        );
         return content
             .replace(/#{1,6}\s?/g, '') // Headers
             .replace(/\*\*(.*?)\*\*/g, '$1') // Bold
@@ -62,6 +69,7 @@ export const getLocalizedContent = <T>(
             .replace(/__(.*?)__/g, '$1') // Underline
             .replace(/`(.*?)`/g, '$1') // Code
             .replace(/\[(.*?)\]\(.*?\)/g, '$1') // Links
+            .replace(/[ \t]{2,}/g, ' ')
             .trim();
     }
 

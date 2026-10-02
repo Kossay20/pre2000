@@ -23,6 +23,7 @@ import { test, expect, type Browser, type Page, type TestInfo } from '@playwrigh
 import { attachConsoleStrict, RAW_KEY } from './helpers/audit-guards';
 import { attachMegaAuditRecorder } from './helpers/mega-audit-snap';
 import { attachDialogRecorder, type DialogRecorder } from './helpers/dialog-recorder';
+import { describeProblems, waitFrameClean, type FrameCheck } from './helpers/visual-settle';
 import {
   AUTH_EMULATOR,
   E2E_BASE_URL,
@@ -329,7 +330,8 @@ function rig(page: Page, testInfo: TestInfo): Rig {
       const leak = body.split('\n').find((l) => RAW_KEY.test(l));
       expect.soft(leak, `${name}: raw i18n key leaked → "${leak}"`).toBeFalsy();
       // A-012: capture after fade-ins have finished, not at 10-30 % opacity.
-      await settleVisuals(page);
+      const settled = await settleVisuals(page);
+      expect.soft(settled.ok, `${name}: frame not settled (${describeProblems(settled.problems)})`).toBe(true);
       await mega.snap(name);
       const fresh = strict.slice(cursor);
       cursor = strict.length;
@@ -341,6 +343,9 @@ function rig(page: Page, testInfo: TestInfo): Rig {
       }
     },
     dispose: () => {
+      const { requests, measured } = mega.measuredDurations();
+      // A-042: the recorder must see request durations, or "no slow call" proves nothing.
+      if (requests > 0) expect.soft(measured, `network recorder measured no request duration (${requests} requests)`).toBeGreaterThan(0);
       mega.dispose();
       dialogs.dispose();
     },
@@ -349,11 +354,14 @@ function rig(page: Page, testInfo: TestInfo): Rig {
 
 /**
  * A-012: Playwright "visible" ignores opacity, so Home was captured at the start of
- * its fade-in (ancestor opacity ≈ 0.1). Wait until the opacity of every element that
- * carries one inline (RN-web Animated writes it there) is stable across two samples
- * 250 ms apart, up to 4 s. Stable-not-1 on purpose: a disabled button's 0.5 is design.
+ * its fade-in (ancestor opacity ≈ 0.1). Two equal samples 250 ms apart are not enough
+ * either — a stalled frame (long task) is equal to itself and was accepted at 0.185.
+ * So after the inline opacities stop changing, the frame must also be clean: no visible
+ * text block still below full opacity, no finite animation running and no horizontal
+ * offset (B-032), polled up to the budget. A disabled button's 0.5 is design and is
+ * skipped by the check. The caller turns `ok:false` into a failing soft assertion.
  */
-async function settleVisuals(page: Page, timeoutMs = 4_000) {
+async function settleVisuals(page: Page, timeoutMs = 4_000): Promise<FrameCheck & { ms: number }> {
   const sample = () =>
     page
       .evaluate(() =>
@@ -367,9 +375,12 @@ async function settleVisuals(page: Page, timeoutMs = 4_000) {
   while (Date.now() - t0 < timeoutMs) {
     await page.waitForTimeout(250);
     const next = await sample();
-    if (next === prev) return;
+    if (next === prev) break;
     prev = next;
   }
+  const left = Math.max(1_500, timeoutMs - (Date.now() - t0));
+  const clean = await waitFrameClean(page, left);
+  return { ...clean, ms: Date.now() - t0 };
 }
 
 /**

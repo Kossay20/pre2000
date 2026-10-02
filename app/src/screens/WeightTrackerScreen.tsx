@@ -153,7 +153,7 @@ export const WeightTrackerScreen = () => {
         if (!isNaN(weight) && weight >= 120 && weight <= 200) {
             confirmAction(
                 t('weight.unitCheckTitle'),
-                t('weight.unitCheckMsg', { weight, converted: (weight * 0.453592).toFixed(1) }),
+                t('weight.unitCheckMsg', { weight: num(weight), converted: num(weight * 0.453592) }),
                 // Confirm = "Yes it's kg" → continue normal validation
                 () => {
                     continueValidation(weight);
@@ -162,7 +162,7 @@ export const WeightTrackerScreen = () => {
                 () => {
                     const convertedWeight = parseFloat((weight * 0.453592).toFixed(1));
                     setNewWeight(convertedWeight.toString());
-                    showAlert(t('weight.convertedTitle'), t('weight.convertedMsg', { original: weight, converted: convertedWeight }));
+                    showAlert(t('weight.convertedTitle'), t('weight.convertedMsg', { original: num(weight), converted: num(convertedWeight) }));
                 },
                 t('weight.oopsLb'),
                 t('weight.yesKg'),
@@ -180,7 +180,7 @@ export const WeightTrackerScreen = () => {
             if (weight > 200) {
                 showAlert(
                     t('weight.verifyTitle'),
-                    t('weight.highWeightMsg', { weight, converted: (weight * 0.453592).toFixed(1) }),
+                    t('weight.highWeightMsg', { weight: num(weight), converted: num(weight * 0.453592) }),
                     [{ text: t('weight.understood') }]
                 );
             } else {
@@ -537,7 +537,15 @@ export const WeightTrackerScreen = () => {
                                     {weightStatus?.status !== 'normal' && (
                                         <Text style={styles.miniStatus}>
                                             {weightStatus?.status === 'low' && t('weight.below')}
-                                            {weightStatus?.status === 'high' && t('weight.above')}
+                                            {/* Past 2 kg over the band (evaluateWeightStatus' own "significant"
+                                                tier) the soft "un peu au-dessus" understated it: +90 kg read
+                                                like a rounding error. Same threshold, plainer wording, and it
+                                                sends her to her midwife. */}
+                                            {weightStatus?.status === 'high' && t(
+                                                weightStatus.messageKey === 'weight.status.highSignificant'
+                                                    ? 'weight.aboveSignificant'
+                                                    : 'weight.above',
+                                            )}
                                         </Text>
                                     )}
                                 </View>

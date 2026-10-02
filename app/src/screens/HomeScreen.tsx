@@ -1078,18 +1078,20 @@ export const HomeScreen = () => {
                 {
                     ([...articles, ...supplements].length > 0) && (
                         <Animated.View style={{ opacity: fadeAnim }}>
-                            <SectionHeader
-                                title={t('common.recommendationsTitle')}
-                                actionLabel={t('common.seeAll')}
-                                onAction={() => navigation.navigate('Ressources')}
-                            />
+                            <View style={styles.recommendationsHeader}>
+                                <SectionHeader
+                                    title={t('common.recommendationsTitle')}
+                                    actionLabel={t('common.seeAll')}
+                                    onAction={() => navigation.navigate('Ressources')}
+                                />
+                            </View>
 
                             <ScrollView
                                 ref={recScrollRef}
                                 horizontal
                                 showsHorizontalScrollIndicator={false}
                                 style={styles.recommendationsList}
-                                contentContainerStyle={{ paddingEnd: 16 }}
+                                contentContainerStyle={styles.recommendationsContent}
                             >
                                 {[...articles, ...supplements].map((item, index) => (
                                     <View key={index} style={{ marginEnd: 12 }}>

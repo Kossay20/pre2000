@@ -91,6 +91,14 @@ export const displayedPregnancyAge = (completedWeeks: number, completedDays: num
 };
 
 /**
+ * Day of pregnancy (1-based) from the printed week and its day 1..7: week 32, day 1 is
+ * "Jour 218". For a screen that is handed the pair rather than the completed weeks and
+ * days, so it prints the same "Jour" as the baby card instead of a bare day-in-week.
+ */
+export const dayOfPregnancyFor = (week: number, day: number): number =>
+    Math.max(1, (week - 1) * 7 + day);
+
+/**
  * displayedPregnancyAge for what PregnancyContext publishes (`week`/`dayInWeek` plus the
  * completed weeks and days), falling back to the 1-based pair when those are absent.
  */

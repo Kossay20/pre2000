@@ -29,16 +29,22 @@ export const HealthBPModal: React.FC<HealthBPModalProps> = ({
             <View style={styles.modalOverlay}>
                 <View style={styles.modal}>
                     <Text style={styles.modalTitle}>{t('dashboard.addBP')}</Text>
+                    {/* A placeholder disappears once she types and is no accessible name:
+                        with "300" / "200" on screen nothing said which was which. */}
+                    <Text style={styles.inputLabel}>{t('dashboard.systolicLabel')}</Text>
                     <TextInput
                         style={styles.input}
+                        accessibilityLabel={t('dashboard.systolicLabel')}
                         placeholder={t('dashboard.systolic')}
                         placeholderTextColor={theme.colors.neutral400}
                         keyboardType="number-pad"
                         value={systolicInput}
                         onChangeText={onChangeSystolic}
                     />
+                    <Text style={styles.inputLabel}>{t('dashboard.diastolicLabel')}</Text>
                     <TextInput
                         style={styles.input}
+                        accessibilityLabel={t('dashboard.diastolicLabel')}
                         placeholder={t('dashboard.diastolic')}
                         placeholderTextColor={theme.colors.neutral400}
                         keyboardType="number-pad"

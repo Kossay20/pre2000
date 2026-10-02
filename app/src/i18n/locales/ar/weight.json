@@ -14,6 +14,7 @@
     "sinceStart": "منذ البداية",
     "below": "💛 أقل قليلاً",
     "above": "💛 أعلى قليلاً",
+    "aboveSignificant": "💛 أعلى من المنطقة الإرشادية: تحدثي مع القابلة",
     "indicativeZone": "المنطقة الإرشادية",
     "targetWeek": "🎯 هدف الأسبوع",
     "targetWeekNumber": "🎯 هدف الأسبوع {{week}}",

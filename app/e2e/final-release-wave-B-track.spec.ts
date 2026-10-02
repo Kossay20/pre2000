@@ -998,6 +998,20 @@ test.describe('Wave B — B-track offline', () => {
       return { total: kick + con + bag, kick, con, bag, device: dev, server: srv };
     };
 
+    // B-035: the strict sink never sees these (IGNORE_CONSOLE already drops net::ERR_*), so
+    // h.tolerated stayed at 0 while the quartets held dozens of ERR_INTERNET_DISCONNECTED lines.
+    // Watch the page console directly: count the disconnect lines, and fail on any other error.
+    const offlineDisconnects: string[] = [];
+    const offlineOtherNoise: string[] = [];
+    const offlineUnexpected: string[] = [];
+    const onOfflineConsole = (msg: import('@playwright/test').ConsoleMessage) => {
+      if (msg.type() !== 'error') return;
+      const text = msg.text();
+      if (/ERR_INTERNET_DISCONNECTED/i.test(text)) offlineDisconnects.push(text.slice(0, 240));
+      else if (OFFLINE_NOISE.some((re) => re.test(text)) && !/Failed to load resource/i.test(text)) offlineOtherNoise.push(text.slice(0, 240));
+      else offlineUnexpected.push(text.slice(0, 240));
+    };
+    const onOfflinePageError = (err: Error) => offlineUnexpected.push(`pageerror: ${String(err.message).slice(0, 240)}`);
     try {
       await uiLogin(page, acct.email, E2E_PASSWORD, 'fr');
       await expect(vis(page.getByText('Semaine 32', { exact: true })), 'Home week 32').toBeVisible({ timeout: 30_000 });
@@ -1016,6 +1030,8 @@ test.describe('Wave B — B-track offline', () => {
       // ── network cut ──
       await context.setOffline(true);
       h.tolerate.push(...OFFLINE_NOISE);
+      page.on('console', onOfflineConsole);
+      page.on('pageerror', onOfflinePageError);
 
       // 52 ── Offline: a kick session is recorded on the device, nothing reaches the server
       await state(h, '52-offline-kick-session', async () => {
@@ -1201,7 +1217,22 @@ test.describe('Wave B — B-track offline', () => {
       });
     } finally {
       await context.setOffline(false).catch(() => undefined);
-      obs.add('OFFLINE-CONSOLE-TOLERATED', 'INFO', 'B-track offline', { harnessInducedLines: h.tolerated.length, sample: h.tolerated.slice(0, 5), patterns: OFFLINE_NOISE.map(String) });
+      page.off('console', onOfflineConsole);
+      page.off('pageerror', onOfflinePageError);
+      // The cut must have produced disconnect errors (else this proves nothing), within a sane
+      // budget (59 over states 52-57 when measured; 3x headroom), and nothing else may leak.
+      const OFFLINE_DISCONNECT_BUDGET = 180;
+      expect.soft(offlineDisconnects.length, 'offline: the network cut surfaced ERR_INTERNET_DISCONNECTED errors (harness effective)').toBeGreaterThan(0);
+      expect.soft(offlineDisconnects.length, `offline: ERR_INTERNET_DISCONNECTED lines stay within ${OFFLINE_DISCONNECT_BUDGET}`).toBeLessThanOrEqual(OFFLINE_DISCONNECT_BUDGET);
+      expect.soft(offlineUnexpected, 'offline: no console error other than the disconnect noise').toEqual([]);
+      obs.add('OFFLINE-CONSOLE-TOLERATED', offlineUnexpected.length ? 'FAIL' : 'INFO', 'B-track offline', {
+        disconnectLines: offlineDisconnects.length,
+        otherOfflineNoiseLines: offlineOtherNoise.length,
+        unexpected: offlineUnexpected.slice(0, 5),
+        strictSliceDropped: h.tolerated.length,
+        sample: offlineDisconnects.slice(0, 3),
+        patterns: OFFLINE_NOISE.map(String),
+      });
       settleObs(obs, 'B-track offline', h);
       obs.flush();
       h.dispose();

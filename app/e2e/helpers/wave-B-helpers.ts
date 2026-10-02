@@ -10,6 +10,7 @@ import path from 'path';
 import { expect, test, type Locator, type Page, type TestInfo } from '@playwright/test';
 import { attachConsoleStrict, RAW_KEY } from './audit-guards';
 import { attachMegaAuditRecorder } from './mega-audit-snap';
+import { describeProblems, inspectFrame, type FrameProblems } from './visual-settle';
 import { attachDialogRecorder, type DialogRecorder, type DialogRecord } from './dialog-recorder';
 import { E2E_PASSWORD, FIRESTORE_EMULATOR, PROJECT_ID, createAccount, newAccountEmail, seedProfile, type CreatedAccount } from './emulator-account';
 
@@ -31,7 +32,7 @@ export type Instrumented = {
   recordEvent: ReturnType<typeof attachMegaAuditRecorder>['recordEvent'];
   popups: string[];
   /** Snaps whose surface was still moving when the settle budget ran out (name → ms waited). */
-  unsettled: Array<{ name: string; ms: number; changed: number }>;
+  unsettled: Array<{ name: string; ms: number; changed: number; problems?: string }>;
   /** Console lines the strict slice must not count (harness-induced, e.g. while the context is offline). */
   tolerate: RegExp[];
   /** Strict lines dropped by `tolerate`, kept as evidence. */
@@ -56,15 +57,19 @@ export function instrument(page: Page, testInfo: TestInfo): Instrumented {
       .catch(() => undefined);
   });
   let consumed = 0;
-  const unsettled: Array<{ name: string; ms: number; changed: number }> = [];
+  const unsettled: Instrumented['unsettled'] = [];
   const tolerate: RegExp[] = [];
   const tolerated: string[] = [];
   async function snap(name: string) {
     // B-021: a quartet is evidence only when the surface has stopped moving — loading
     // skeletons pulse, screens fade in over 500 ms, tab panes slide.
     const settled = await settleVisual(page);
-    mega.recordEvent({ level: 'settle', text: `[settle] ${name}: ${settled.stable ? 'stable' : 'STILL MOVING'} after ${settled.ms} ms (last frame-to-frame change ${(settled.changed * 100).toFixed(2)} % of the viewport)` });
-    if (!settled.stable) unsettled.push({ name, ms: settled.ms, changed: settled.changed });
+    const problems = describeProblems(settled.problems);
+    mega.recordEvent({ level: 'settle', text: `[settle] ${name}: ${settled.stable ? 'stable' : 'STILL MOVING'} after ${settled.ms} ms (last frame-to-frame change ${(settled.changed * 100).toFixed(2)} % of the viewport)${problems ? ` — ${problems}` : ''}` });
+    if (!settled.stable) unsettled.push({ name, ms: settled.ms, changed: settled.changed, problems: problems || undefined });
+    // B-032: two equal frames also describe a screen stuck 98 px left; an offset or a
+    // half-faded block makes the quartet unusable as evidence.
+    expect.soft(problems, `${name}: frame not clean at snap time`).toBe('');
     await mega.snap(name);
     const slice = strict.slice(consumed);
     consumed = strict.length;
@@ -153,21 +158,32 @@ export const SETTLE_TOLERANCE = 0.02;
  * `maxMs`. A change confined to under SETTLE_TOLERANCE of the viewport (Home's pulsing
  * avatar) is not movement of the surface. A screen with a live timer over a larger area
  * never settles; the caller records that instead of pretending.
+ *
+ * Equal frames are necessary, not sufficient (B-032): a pager stuck mid-slide is equal to
+ * itself. The frame must also have no horizontal offset (document scrolled, tab bar or app
+ * root partly outside the viewport) and no finite animation running; otherwise it keeps
+ * waiting and finally reports `stable: false` with the reason in `problems`. Opacity is
+ * not part of this gate — Home's decorative pulse keeps inline opacities moving forever.
  */
-export async function settleVisual(page: Page, maxMs = 8000): Promise<{ stable: boolean; ms: number; changed: number }> {
+export async function settleVisual(
+  page: Page,
+  maxMs = 8000,
+): Promise<{ stable: boolean; ms: number; changed: number; problems: FrameProblems }> {
   const t0 = Date.now();
   let prev = await page.screenshot().catch(() => null);
   let changed = 1;
+  let frame = await inspectFrame(page, { opacity: false });
   while (Date.now() - t0 < maxMs) {
     await page.waitForTimeout(250);
     const cur = await page.screenshot().catch(() => null);
+    frame = await inspectFrame(page, { opacity: false });
     if (prev && cur) {
       changed = changedFraction(prev, cur);
-      if (changed <= SETTLE_TOLERANCE) return { stable: true, ms: Date.now() - t0, changed };
+      if (changed <= SETTLE_TOLERANCE && frame.ok) return { stable: true, ms: Date.now() - t0, changed, problems: frame.problems };
     }
     prev = cur;
   }
-  return { stable: false, ms: Date.now() - t0, changed };
+  return { stable: false, ms: Date.now() - t0, changed, problems: frame.problems };
 }
 
 /** Fold the French no-break spaces (U+00A0 / U+202F before ": ; ? !") to plain spaces. */

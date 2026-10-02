@@ -399,7 +399,10 @@ const buildRedFlagResponse = async (topFlag: RedFlag, matchScore: number): Promi
     if (topFlag.severity?.toLowerCase() === 'emergency' || topFlag.severity?.toLowerCase() === 'critique') {
         redFlagMessage = `🚨 ${redFlagMessage}`;
     } else if (topFlag.severity?.toLowerCase() === 'urgent_consult' || topFlag.severity?.toLowerCase() === 'élevé') {
-        redFlagMessage = `⚠️ ${redFlagMessage}\n\n${i18n.t('common.chatResponse.redFlagHigh')}`;
+        // The reviewed standard message already carries the urgency, and the call action under
+        // it says "contact a professional now". A generic "discuss it with your midwife" tacked
+        // on here softened it and, for swelling (a pre-eclampsia sign), read three ways at once.
+        redFlagMessage = `⚠️ ${redFlagMessage}`;
     } else {
         redFlagMessage = `⚠️ ${redFlagMessage}\n\n${i18n.t('common.chatResponse.redFlagModerate')}`;
     }
@@ -1201,7 +1204,7 @@ export const _analyzeMessage = async (text: string): Promise<ChatResponse> => {
         if (linkedRedFlags.length > 0 && isExactChipClick) {
             const rfMessage = getLocalizedContent(linkedRedFlags[0], 'standard_message', i18n.language);
             message = rfMessage
-                ? `⚠️ ${rfMessage}\n\n${i18n.t('common.chatResponse.redFlagHigh')}`
+                ? `⚠️ ${rfMessage}`
                 : i18n.t('common.chatResponse.redFlagWithArticle');
         } else if (linkedArticles.length > 0) {
             // Topic-specific friendly messages via i18n keys

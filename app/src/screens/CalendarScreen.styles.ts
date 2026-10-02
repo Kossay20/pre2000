@@ -2,6 +2,21 @@ import { StyleSheet } from 'react-native';
 import { theme } from '../theme';
 import { getShadowStyle } from '../utils/styleUtils';
 
+// The add-appointment button floats 56pt high, 20pt in from the corner. The month grid is
+// taller than the screen, so a button over the list lands on day cells (11 and 18 Oct at
+// 375x667): the month list stops above the button instead, 12pt clear of it.
+export const FAB_SIZE = 56;
+export const FAB_INSET = 20;
+export const MONTH_FAB_CLEARANCE = FAB_SIZE + FAB_INSET + 12;
+
+// Header chips stay 44pt tall (WCAG 2.5.5 / Apple HIG); hitSlop does not widen the box a
+// pointer or a screen-reader focus ring sees.
+export const MIN_TAP_TARGET = 44;
+
+// Side gutter of the calendar list (listContent). The week strip cancels it to use the
+// full screen width: seven 44pt day chips need 308pt and a 320pt Slide Over only leaves 288.
+export const CALENDAR_LIST_GUTTER = 16;
+
 export const styles = StyleSheet.create({
     container: {
         flex: 1,
@@ -144,6 +159,12 @@ export const styles = StyleSheet.create({
         fontWeight: '600',
         color: theme.colors.deepOrange900,
     },
+    suggestionsCloseButton: {
+        minWidth: MIN_TAP_TARGET,
+        minHeight: MIN_TAP_TARGET,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
     suggestionsSectionClose: {
         fontSize: 18,
         color: theme.colors.textLight,
@@ -207,6 +228,9 @@ export const styles = StyleSheet.create({
         borderRadius: theme.borderRadius.xl,
         borderWidth: 1,
         borderColor: theme.colors.whiteAlpha50,
+        minHeight: MIN_TAP_TARGET,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     todayButtonText: {
         color: theme.colors.white,
@@ -408,7 +432,7 @@ export const styles = StyleSheet.create({
         fontWeight: '600',
     },
     listContent: {
-        paddingHorizontal: 16,
+        paddingHorizontal: CALENDAR_LIST_GUTTER,
         paddingBottom: 120,
     },
     // Centred copy kept out of the FAB's column (56pt button + 20pt inset − the 16pt
@@ -432,13 +456,17 @@ export const styles = StyleSheet.create({
         fontSize: 14,
         color: theme.colors.textLight,
     },
+    // Month view only: the list ends above the button (see MONTH_FAB_CLEARANCE).
+    monthListWithFab: {
+        paddingBottom: MONTH_FAB_CLEARANCE,
+    },
     fab: {
         position: 'absolute',
-        right: 20,
-        bottom: 20,
-        width: 56,
-        height: 56,
-        borderRadius: 28,
+        right: FAB_INSET,
+        bottom: FAB_INSET,
+        width: FAB_SIZE,
+        height: FAB_SIZE,
+        borderRadius: FAB_SIZE / 2,
         ...getShadowStyle(8, theme.colors.black, 0.3, 8, { width: 0, height: 4 }),
     },
     fabGradient: {
@@ -488,7 +516,11 @@ export const styles = StyleSheet.create({
     selectorButton: {
         paddingHorizontal: 12,
         paddingVertical: 6,
-        borderRadius: 18,
+        borderRadius: 22,
+        minHeight: MIN_TAP_TARGET,
+        minWidth: MIN_TAP_TARGET,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     selectorButtonActive: {
         backgroundColor: theme.colors.white,
@@ -508,6 +540,7 @@ export const styles = StyleSheet.create({
         paddingHorizontal: 10,
         paddingVertical: 6,
         borderRadius: theme.borderRadius.l,
+        minHeight: MIN_TAP_TARGET,
     },
     suggestionText: {
         fontSize: 11,

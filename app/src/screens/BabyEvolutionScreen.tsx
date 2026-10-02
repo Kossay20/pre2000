@@ -117,8 +117,8 @@ export const BabyEvolutionScreen = () => {
                     <View style={styles.factsContainer}>
                         <Text style={styles.factsTitle}>🌟 {t('babyEvolution.development')}</Text>
                         {monthData.facts.slice(0, 2).map((fact, i) => (
-                            <View key={i} style={[styles.factRow, isRTL && styles.factRowRtl]}>
-                                <Text style={[styles.factBullet, isRTL && styles.factBulletRtl]}>•</Text>
+                            <View key={i} style={styles.factRow}>
+                                <Text style={styles.factBullet}>•</Text>
                                 <Text style={[styles.factText, isRTL && styles.factTextRtl]}>{t(fact)}</Text>
                             </View>
                         ))}
@@ -377,23 +377,18 @@ const styles = StyleSheet.create({
         color: theme.colors.neutral900,
         marginBottom: 8,
     },
+    // The card is a single plain view now (the LTR-forced scroller is gone), so a bare row
+    // mirrors with the document under dir=rtl. The old reversed row flipped it a second time
+    // and parked the bullet ~300px from its line. `gap` is direction-neutral, unlike
+    // marginEnd, which resolves to the physical right edge on web where forceRTL is skipped.
     factRow: {
         flexDirection: 'row',
+        gap: 8,
         marginBottom: 4,
-    },
-    // RTL: the carousel scroller is forced to dir=ltr (scroll fix), so the card internals
-    // need explicit mirroring — bullet on the trailing (right) side next to the Arabic text.
-    factRowRtl: {
-        flexDirection: 'row-reverse',
     },
     factBullet: {
         fontSize: 14,
         color: theme.colors.accent,
-        marginEnd: 8,
-    },
-    factBulletRtl: {
-        marginEnd: 0,
-        marginStart: 8,
     },
     factText: {
         fontSize: 13,

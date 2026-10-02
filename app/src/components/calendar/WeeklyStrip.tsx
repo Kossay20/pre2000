@@ -4,6 +4,7 @@ import { theme } from '../../theme';
 import { getShadowStyle } from '../../utils/styleUtils';
 import { useTranslation } from 'react-i18next';
 import { getDateLocale } from '../../utils/i18nHelpers';
+import { CALENDAR_LIST_GUTTER, MIN_TAP_TARGET } from '../../screens/CalendarScreen.styles';
 
 interface WeeklyStripProps {
     weekStartDate: Date;
@@ -76,7 +77,7 @@ export const WeeklyStrip: React.FC<WeeklyStripProps> = React.memo(({
     };
 
     return (
-        <View>
+        <View style={styles.root}>
             {/* RDV Count Header */}
             <View style={styles.rdvHeader}>
                 <Text style={styles.rdvHeaderText}>
@@ -95,9 +96,13 @@ export const WeeklyStrip: React.FC<WeeklyStripProps> = React.memo(({
 });
 
 const styles = StyleSheet.create({
+    // Full-bleed: undo the list gutter so the 44pt chips fit a 320pt screen (see daysRow).
+    root: {
+        marginHorizontal: -CALENDAR_LIST_GUTTER,
+    },
     container: {
         paddingVertical: theme.spacing.m,
-        paddingHorizontal: theme.spacing.s,
+        paddingHorizontal: 6,
         backgroundColor: theme.colors.white,
         borderBottomWidth: 1,
         borderBottomColor: theme.colors.border,
@@ -112,14 +117,15 @@ const styles = StyleSheet.create({
         alignSelf: 'center',
     },
     // Seven fixed 45pt cells (315pt + gutters) ran off a 320pt screen (iPad Slide
-    // Over, iPhone SE 1st gen): share the row instead, capped at the old 45pt.
+    // Over, iPhone SE 1st gen): share the row instead, between the 44pt tap minimum
+    // (7 x 44 = 308 = 320 minus the 6pt paddings) and the old 45pt cap.
     dayContainer: {
         alignItems: 'center',
         justifyContent: 'center',
         flexGrow: 1,
         flexBasis: 0,
+        minWidth: MIN_TAP_TARGET,
         maxWidth: 45,
-        marginHorizontal: 1,
         height: 60,
         borderRadius: 12,
     },

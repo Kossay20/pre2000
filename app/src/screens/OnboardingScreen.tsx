@@ -512,6 +512,9 @@ export const OnboardingScreen = () => {
                         aria-label={dateMethod === 'ddr' ? t('onboarding.step2.labelDdr') : t('onboarding.step2.labelConception')}
                         style={{
                             width: '100%',
+                            // Padding and the 2px border sit inside the 100%, not on top of it
+                            // (the field ran past the column on web).
+                            boxSizing: 'border-box',
                             padding: 16,
                             fontSize: 18,
                             borderRadius: 12,
@@ -966,6 +969,9 @@ export const OnboardingScreen = () => {
                         aria-label={t('onboarding.step2Ttc.lastPeriodLabel')}
                         style={{
                             width: '100%',
+                            // Padding and the 2px border sit inside the 100%, not on top of it
+                            // (the field ran past the column on web).
+                            boxSizing: 'border-box',
                             padding: 16,
                             fontSize: 18,
                             borderRadius: 12,

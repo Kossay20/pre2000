@@ -265,6 +265,30 @@ describe('getLocalizedContent', () => {
             const data = { unrelated: 'x' };
             expect(getLocalizedContent(data, 'name', 'fr', { stripMarkdown: true })).toBe('');
         });
+        it('separates a leading heading from the body that follows it', () => {
+            const data = { summary_en: '# Different childbirth methods  Childbirth is a unique experience.' };
+            expect(getLocalizedContent(data, 'summary', 'en', { stripMarkdown: true }))
+                .toBe('Different childbirth methods. Childbirth is a unique experience.');
+        });
+        it('does not double the punctuation when the heading already ends with one', () => {
+            const data = { summary_en: '# Symptoms: how to recognize them?  Pregnancy is a time of change.' };
+            expect(getLocalizedContent(data, 'summary', 'en', { stripMarkdown: true }))
+                .toBe('Symptoms: how to recognize them? Pregnancy is a time of change.');
+        });
+        it('splits the heading from the body on a newline too, in Arabic as well', () => {
+            const data = { summary_ar: '# أعراض الحمل\n\nالحمل هو فترة تغيرات كبيرة.' };
+            expect(getLocalizedContent(data, 'summary', 'ar', { stripMarkdown: true }))
+                .toBe('أعراض الحمل. الحمل هو فترة تغيرات كبيرة.');
+        });
+        it('leaves a heading-only string as the bare title', () => {
+            const data = { summary_en: '# Only a title' };
+            expect(getLocalizedContent(data, 'summary', 'en', { stripMarkdown: true })).toBe('Only a title');
+        });
+        it('collapses leftover double spaces in the body', () => {
+            const data = { summary_en: 'First sentence.  Second sentence.' };
+            expect(getLocalizedContent(data, 'summary', 'en', { stripMarkdown: true }))
+                .toBe('First sentence. Second sentence.');
+        });
         it('plain text with no markdown is returned unchanged (just trimmed)', () => {
             const data = { name_fr: 'Plain text' };
             expect(getLocalizedContent(data, 'name', 'fr', { stripMarkdown: true })).toBe('Plain text');

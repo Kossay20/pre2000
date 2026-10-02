@@ -568,7 +568,6 @@
     "fallbackMessage": "Hmm, I couldn't find information on this topic.\n\nBut I can help you with:\n• 🍎 Diet & nutrition\n• 🤰 Pregnancy symptoms\n• 🩺 Medical exams\n• 😴 Sleep & fatigue\n• 🏃‍♀️ Sports & physical activity\n• 👶 Birth preparation\n\nTry rephrasing your question with these topics! ",
     "semanticMatch": "I found something that might interest you!\n\nThis article is about \"{{title}}\". I think it answers your question ",
     "foodsToAvoidIntro": "The main foods to avoid during pregnancy:",
-    "redFlagHigh": "I recommend discussing this with your midwife or doctor.",
     "redFlagModerate": "Monitor the situation and consult if it persists.",
     "redFlagDefault": "This symptom deserves special attention.",
     "redFlagWithArticle": "This symptom deserves attention. Consult if it persists.",

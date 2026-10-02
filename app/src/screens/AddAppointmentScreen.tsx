@@ -1,6 +1,6 @@
 import { createLogger } from '../utils/logger';
 const log = createLogger('AddAppointmentScreen');
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useMemo } from 'react';
 import {
     View,
     Text,
@@ -83,6 +83,14 @@ export const AddAppointmentScreen = () => {
         ? route.params.eventId
         : undefined;
     const [loaded, setLoaded] = useState<{ id: string; event: EditableEvent | null } | null>(null);
+
+    // The stack's static title says "Ajouter un RDV"; editing one must not. Set from the
+    // route param so it is right from the first frame, while the event is still loading.
+    useLayoutEffect(() => {
+        navigation.setOptions({
+            title: eventId ? t('addAppointment.editTitle') : t('common.screen.addAppointment'),
+        });
+    }, [navigation, eventId, t]);
 
     useEffect(() => {
         if (!eventId) return;

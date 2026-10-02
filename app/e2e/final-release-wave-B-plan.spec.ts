@@ -512,7 +512,15 @@ test.describe('Wave B — B-plan (Europe/Paris)', () => {
           valueAfter: after,
           readout,
         });
+        // fill() writes the string verbatim, so the value check alone can never fail: what
+        // matters is that the form says so and refuses to save.
         expect.soft(after, '06: 2026-02-31 must be rejected, not rolled over to 2026-03-03').not.toBe('2026-03-03');
+        expect.soft(after, '06: the typed impossible date stays as typed').toBe('2026-02-31');
+        await expect.soft(vis(page.getByRole('alert').filter({ hasText: 'Date invalide' })), '06: "Date invalide" error is shown').toBeVisible();
+        await expect.soft(f.save, '06: Save stays disabled on an invalid date').toBeDisabled();
+        await f.save.click({ force: true }).catch(() => undefined);
+        await page.waitForTimeout(500);
+        expect.soft(/Rendez-vous (ajouté|modifié) !/.test(await bodyText(page)), '06: a forced click on the disabled Save creates nothing').toBe(false);
       });
 
       // 07 ── Create the appointment (today+2 10:30) → week + month card + server

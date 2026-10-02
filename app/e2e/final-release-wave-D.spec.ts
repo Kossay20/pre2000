@@ -732,7 +732,7 @@ test('D-settings: dev surfaces, medical flag, daily message, permissions, export
   await openSettings(page);
   const dialogsBefore11 = ctx.dialogs.dialogs.length;
   const download11 = page.waitForEvent('download', { timeout: 10_000 }).catch(() => null);
-  const d11 = await clickForDialog(ctx, () => page.getByRole('button', { name: 'Exporter mes données (JSON)' }).click());
+  const d11 = await clickForDialog(ctx, () => page.getByRole('button', { name: 'Exporter mes données' }).click());
   expect.soft(d11?.message ?? '(no dialog)', '11: sensitive-data confirm').toMatch(/^Données sensibles/);
   const dl = await download11;
   const after11 = ctx.dialogs.dialogs.slice(dialogsBefore11 + 1).map((d) => d.message);
@@ -1230,7 +1230,7 @@ test('D-delete-A: cancel keeps everything; confirm leaves zero server data and n
   const d26 = await clickForDialog(ctx, () => page.getByRole('button', { name: 'Supprimer le compte' }).click());
   expect.soft(d26?.message ?? '(no dialog)', '26: delete confirm').toMatch(/^Supprimer le compte\n\n.*irréversible/s);
   // From Profile the export lives in Settings — the confirm must say so (and not "on this screen").
-  expect.soft(norm(d26?.message), '26: confirm points to the Settings export').toMatch(/Paramètres → « Exporter mes données \(JSON\) »/);
+  expect.soft(norm(d26?.message), '26: confirm points to the Settings export').toMatch(/Paramètres → « Exporter mes données »/);
   await page.waitForTimeout(3000);
   const after26 = await footprint(acct.uid);
   expect.soft(after26, '26: cancel must leave the server untouched').toEqual(seeded);
@@ -1376,7 +1376,7 @@ test('D-reauth: wrong password → localized error; right password completes the
   await expect.soft(eye, '29a (D-018): show-password toggle on the re-auth prompt').toBeVisible();
   if (await eye.count()) {
     await eye.click();
-    await expect.soft(field, '29a (D-018): the toggle reveals the password').toHaveAttribute('type', 'text');
+    await expect.soft(field, '29a (D-018): the toggle reveals the password').not.toHaveAttribute('type', 'password');
     await expect.soft(page.getByRole('button', { name: 'Masquer', exact: true }), '29a (D-018): the toggle label flips').toBeVisible();
     await state(ctx, '29a-reauth-password-shown');
     await page.getByRole('button', { name: 'Masquer', exact: true }).click();
@@ -1687,7 +1687,7 @@ test('D-consent: declining health-data consent — export on the sheet, logout k
   const layout = await consentLayout(page);
   note(testInfo, '37b-consent-layout', JSON.stringify(layout));
   await expect.soft(page.getByText('Vous ne souhaitez pas donner votre accord', { exact: false }), '37b: decline heading').toBeVisible();
-  expect.soft(layout.export?.text, '37b (D-030): export offered on the sheet itself').toBe('Exporter mes données (JSON)');
+  expect.soft(layout.export?.text, '37b (D-030): export offered on the sheet itself').toBe('Exporter mes données');
   expect.soft(layout.logout?.text, '37b: logout offered').toBe('Se déconnecter');
   expect.soft(norm(layout.note?.text), '37b (D-035): the note says signing out keeps the data on the servers').toMatch(/Vous déconnecter ne supprime rien : vos données restent enregistrées sur nos serveurs\. Pour les effacer, choisissez « Supprimer mon compte » ci-dessous\./);
   expect.soft(layout.erase?.text, '37b: delete offered').toBe('Supprimer mon compte');
@@ -1730,7 +1730,7 @@ test('D-consent: declining health-data consent — export on the sheet, logout k
   const dDel = await clickForDialog(ctx, () => page.getByTestId('health_consent_erase').click());
   note(testInfo, '37d-confirm', JSON.stringify(dDel?.message ?? null));
   expect.soft(norm(dDel?.message) || '(no dialog)', '37d: delete confirm').toMatch(/^Supprimer le compte\n\n[\s\S]*irréversible/);
-  expect.soft(norm(dDel?.message), '37d (D-030): the confirm points to the export on this screen').toMatch(/annulez et touchez d'abord « Exporter mes données \(JSON\) » sur cet écran\.$/);
+  expect.soft(norm(dDel?.message), '37d (D-030): the confirm points to the export on this screen').toMatch(/annulez et touchez d'abord « Exporter mes données » sur cet écran\.$/);
   expect.soft(norm(dDel?.message), '37d (D-030): the confirm must not send her to Settings (unreachable here)').not.toMatch(/Paramètres/);
   await page.waitForTimeout(2500);
   expect.soft(await footprint(acct.uid), '37d: a dismissed confirm erases nothing').toEqual(seeded);
@@ -2134,7 +2134,7 @@ test.describe('ar', () => {
 
     const layout = await consentLayout(page);
     note(testInfo, '39b-consent-layout', JSON.stringify(layout));
-    expect.soft(layout.export?.text, '39b (D-030): export on the sheet (ar)').toBe('تصدير');
+    expect.soft(layout.export?.text, '39b (D-030): export on the sheet (ar)').toBe('تصدير بياناتي');
     expect.soft(layout.logout?.text, '39b: logout (ar)').toBe('تسجيل الخروج');
     expect.soft(layout.note?.text ?? '', '39b (D-035): logout note (ar)').toMatch(/تسجيل الخروج لا يحذف شيئاً: تبقى بياناتكِ محفوظة على خوادمنا/);
     expect.soft(layout.erase?.text, '39b: delete (ar)').toBe('حذف حسابي');
@@ -2150,7 +2150,7 @@ test.describe('ar', () => {
     const dDel = await clickForDialog(ctx, () => page.getByTestId('health_consent_erase').click());
     note(testInfo, '39c-confirm', JSON.stringify(dDel?.message ?? null));
     expect.soft(dDel?.message ?? '(no dialog)', '39c: delete confirm in Arabic').toMatch(/^حذف الحساب\n\nهل أنت متأكدة/);
-    expect.soft(dDel?.message ?? '', '39c (D-030): the confirm points to the export on this screen (ar)').toMatch(/اضغطي أولاً على «تصدير» في هذه الشاشة\.$/);
+    expect.soft(dDel?.message ?? '', '39c (D-030): the confirm points to the export on this screen (ar)').toMatch(/اضغطي أولاً على «تصدير بياناتي» في هذه الشاشة\.$/);
     expect.soft(dDel?.message ?? '', '39c (D-030): no pointer to Settings').not.toMatch(/الإعدادات/);
     await page.waitForTimeout(1500);
     expect.soft(await authAccountExists(acct.uid), '39c: dismissed confirm keeps the account').toBe(true);

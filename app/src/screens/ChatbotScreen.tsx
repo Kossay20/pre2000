@@ -184,11 +184,13 @@ export const ChatbotScreen = () => {
                         accessibilityRole="alert"
                         accessibilityLiveRegion="assertive"
                     >
-                        <Text style={styles.alertTitle}>
-                            {item.data?.redFlag?.severity === 'emergency'
-                                ? t('common.chatEmergency')
-                                : `⚠️ ${t('common.chatResponse.redFlagHigh')}`}
-                        </Text>
+                        {/* Only an emergency gets a heading: for urgent_consult the bubble above
+                            already says what to do, and repeating it here (it used to be the same
+                            "discuss with your midwife" sentence) only stacked a second, softer
+                            urgency on the call action below. */}
+                        {item.data?.redFlag?.severity === 'emergency' && (
+                            <Text style={styles.alertTitle}>{t('common.chatEmergency')}</Text>
+                        )}
                         {/*
                             CB4-FIX (SAFETY):
                             - emergency AND urgent_consult both expose a call action.

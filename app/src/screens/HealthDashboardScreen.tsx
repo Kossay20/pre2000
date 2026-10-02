@@ -478,6 +478,11 @@ export const HealthDashboardScreen = () => {
 
     // A saved reading the clinical checks flag keeps its flag in the lists: 165/105 used
     // to sit in the history looking like any other line.
+    const remindersTotal = stats?.remindersTotalThisWeek ?? 0;
+    const remindersPercent = remindersTotal > 0
+        ? Math.round(((stats?.remindersCompletedThisWeek ?? 0) / remindersTotal) * 100)
+        : 0;
+
     const renderFlag = (flag: ClinicalAlert | null) =>
         flag ? <Text style={styles.historyFlag}>⚠️ {t(flag.titleKey)}</Text> : null;
 
@@ -743,29 +748,28 @@ export const HealthDashboardScreen = () => {
                     </TouchableOpacity>
                 </View>
 
-                <View style={styles.progressContainer}>
-                    <Text style={styles.progressText}>
-                        {stats?.remindersCompletedThisWeek || 0} / {stats?.remindersTotalThisWeek || 0} {t('dashboard.completed')}
-                    </Text>
-                    <View style={styles.progressBar}>
-                        <View
-                            style={[
-                                styles.progressFill,
-                                {
-                                    width: `${((stats?.remindersCompletedThisWeek || 0) /
-                                        (stats?.remindersTotalThisWeek || 1)) *
-                                        100}%`,
-                                },
-                            ]}
-                        />
+                {remindersTotal > 0 ? (
+                    <View style={styles.progressContainer}>
+                        <Text style={styles.progressText}>
+                            {stats?.remindersCompletedThisWeek || 0} / {stats?.remindersTotalThisWeek || 0} {t('dashboard.completed')}
+                        </Text>
+                        <View style={styles.progressBar}>
+                            <View
+                                style={[
+                                    styles.progressFill,
+                                    { width: `${remindersPercent}%` },
+                                ]}
+                            />
+                        </View>
+                        {/* The success green is for progress made: an untouched list stays neutral. */}
+                        <Text style={[styles.progressPercentage, remindersPercent === 0 && { color: theme.colors.textSecondary }]}>
+                            {remindersPercent}%
+                        </Text>
                     </View>
-                    <Text style={styles.progressPercentage}>
-                        {Math.round(
-                            ((stats?.remindersCompletedThisWeek || 0) / (stats?.remindersTotalThisWeek || 1)) * 100
-                        )}
-                        %
-                    </Text>
-                </View>
+                ) : (
+                    // Nothing to complete is not 0% done, let alone a green 0%: say so in words.
+                    <Text style={styles.progressText}>{t('dashboard.noRemindersThisWeek')}</Text>
+                )}
             </View>
 
             {/* Modal: Add Weight */}

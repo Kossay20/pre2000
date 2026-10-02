@@ -13,6 +13,7 @@ import { collection, addDoc, doc, getDocs, query, setDoc, where, orderBy, Timest
 import { HealthMetric, HealthStats } from '../types';
 import { loadUserEvents } from './calendarService';
 import { loadTaskStatusesAuth } from './reminderPersistence';
+import { fetchTasksForWeekV2 } from './remindersV2Service';
 import { getWeightHistory as getWeightHistoryV2 } from './weightService';
 import { createLogger } from '../utils/logger';
 import { toLocalDateKey } from '../utils/localDate';
@@ -383,12 +384,14 @@ export const getHealthStats = async (
             bpHistory,
             appointments,
             taskStatuses,
+            weeklyTasks,
         ] = await Promise.all([
             getWeightHistory(userId),
             getWeightHistoryV2(userId),
             getBloodPressureHistory(userId),
             loadUserEvents(userId),
             loadTaskStatusesAuth(userId, currentWeek),
+            fetchTasksForWeekV2(currentWeek),
         ]);
 
         // Convert weightService entries to HealthMetric-compatible format and merge
@@ -435,8 +438,14 @@ export const getHealthStats = async (
         const upcomingAppointments = appointments.filter(a => new Date(a.date) >= now).length;
         const pastAppointments = appointments.filter(a => new Date(a.date) < now).length;
 
-        const remindersCompletedThisWeek = Object.values(taskStatuses).filter(t => t.completed).length;
-        const remindersTotalThisWeek = Object.keys(taskStatuses).length;
+        // Same list the Tasks tab shows as "Tâches de la semaine". The status docs only
+        // exist once a task is ticked, so counting them gave "0 / 0" beside a tab listing
+        // five tasks. The total is the week's task list; a status counts when its task is
+        // in that list (statuses are keyed `${task_id}_w${week}`).
+        const remindersTotalThisWeek = weeklyTasks.length;
+        const remindersCompletedThisWeek = weeklyTasks.filter(
+            task => taskStatuses[`${task.task_id}_w${currentWeek}`]?.completed,
+        ).length;
 
         return {
             weightCurrent,

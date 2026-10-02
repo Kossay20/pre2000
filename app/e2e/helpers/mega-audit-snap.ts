@@ -37,6 +37,9 @@ export function attachMegaAuditRecorder(page: Page, screenshotDirs: string | str
 
   let consoleBuffer: ConsoleEntry[] = [];
   let networkBuffer: NetworkEntry[] = [];
+  /** Requests whose duration was measured; a run with 0 means the recorder is blind (A-042). */
+  let durationsSeen = 0;
+  let requestsSeen = 0;
 
   const onConsole = (msg: { type: () => string; text: () => string; location: () => ConsoleEntry['location'] }) => {
     try {
@@ -58,17 +61,28 @@ export function attachMegaAuditRecorder(page: Page, screenshotDirs: string | str
       ts: Date.now(),
     });
   };
-  const onResponse = (resp: { status: () => number; url: () => string; request: () => { method: () => string; timing: () => { responseEnd?: number } } }) => {
+  // Playwright reports a request's timing only once it has finished (inside the
+  // "response" event responseEnd is still -1), so the clock is ours: start on "request",
+  // stop on "requestfinished" / "requestfailed".
+  const startedAt = new WeakMap<object, number>();
+  const onRequest = (req: object) => {
+    requestsSeen++;
+    startedAt.set(req, Date.now());
+  };
+  const SLOW_MS = 2000;
+  type Req = { method: () => string; url: () => string; response: () => Promise<{ status: () => number } | null>; failure?: () => { errorText: string } | null };
+  const record = async (req: Req, failed: boolean) => {
     try {
-      const req = resp.request();
-      const timing = req.timing();
-      const duration = timing && typeof timing.responseEnd === 'number' && timing.responseEnd >= 0
-        ? Math.round(timing.responseEnd)
-        : null;
-      const status = resp.status();
-      if (status >= 400 || (duration !== null && duration > 2000)) {
+      const t0 = startedAt.get(req);
+      const duration = t0 === undefined ? null : Date.now() - t0;
+      startedAt.delete(req);
+      const resp = failed ? null : await req.response().catch(() => null);
+      const status = resp ? resp.status() : 0;
+      durationsSeen += duration === null ? 0 : 1;
+      // Aborted/failed requests (status 0) are page-lifecycle noise unless slow; HTTP errors and slow calls are evidence.
+      if (status >= 400 || (duration !== null && duration > SLOW_MS)) {
         networkBuffer.push({
-          url: resp.url().substring(0, 400),
+          url: req.url().substring(0, 400),
           method: req.method(),
           status,
           duration_ms: duration,
@@ -79,10 +93,14 @@ export function attachMegaAuditRecorder(page: Page, screenshotDirs: string | str
       /* ignore */
     }
   };
+  const onRequestFinished = (req: Req) => void record(req, false);
+  const onRequestFailed = (req: Req) => void record(req, true);
 
   page.on('console', onConsole);
   page.on('pageerror', onPageError);
-  page.on('response', onResponse);
+  page.on('request', onRequest);
+  page.on('requestfinished', onRequestFinished);
+  page.on('requestfailed', onRequestFailed);
 
   async function snap(name: string) {
     const html = await page.content().catch(() => '');
@@ -102,7 +120,9 @@ export function attachMegaAuditRecorder(page: Page, screenshotDirs: string | str
   function dispose() {
     page.off('console', onConsole);
     page.off('pageerror', onPageError);
-    page.off('response', onResponse);
+    page.off('request', onRequest);
+    page.off('requestfinished', onRequestFinished);
+    page.off('requestfailed', onRequestFailed);
   }
 
   /**
@@ -117,5 +137,8 @@ export function attachMegaAuditRecorder(page: Page, screenshotDirs: string | str
     });
   };
 
-  return { snap, dispose, recordEvent };
+  /** Requests seen vs. requests with a measured duration (a run with requests > 0 and measured 0 means the recorder is blind). */
+  const measuredDurations = () => ({ requests: requestsSeen, measured: durationsSeen });
+
+  return { snap, dispose, recordEvent, measuredDurations };
 }

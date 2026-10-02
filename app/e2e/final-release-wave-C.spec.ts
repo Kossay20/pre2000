@@ -147,6 +147,8 @@ type LocaleCfg = {
   normalMsg: string;
   redflag: string;
   negation?: string;
+  /** A typed report of reduced baby movements (urgent_consult red flag "ne sens plus le bébé"). */
+  movementTyped: string;
   /** chatbot_data.ts SUGGESTIONS labels (cs01 = first chip, cs06 = "Je saigne un peu"). */
   cs01: string;
   cs06: string;
@@ -157,24 +159,28 @@ const CFG: LocaleCfg[] = [
     L: 'fr', dir: 'ltr', country: 'France', emergency: '15',
     articleQ: 'Nausées', suppQ: 'fer', foodQ: ['fromage', 'alcool'],
     normalMsg: 'Quels aliments éviter ?', redflag: "j'ai des saignements abondants", negation: 'je ne saigne pas',
+    movementTyped: 'je ne sens plus mon bébé bouger',
     cs01: "J'ai des nausées matinales", cs06: 'Je saigne un peu',
   },
   {
     L: 'en', dir: 'ltr', country: 'France', emergency: '15',
     articleQ: 'morning', suppQ: 'iron', foodQ: ['cheese', 'sushi'],
     normalMsg: 'What foods to avoid?', redflag: 'I have heavy bleeding', negation: 'I am not bleeding',
+    movementTyped: 'my baby has stopped moving',
     cs01: 'I have morning sickness', cs06: "I'm bleeding a little",
   },
   {
     L: 'ar', dir: 'rtl', country: 'Tunisia', emergency: '190',
     articleQ: 'غثيان', suppQ: 'الحديد', foodQ: ['الكحول', 'سوشي'],
-    normalMsg: 'ما هي الأطعمة التي يجب تجنبها؟', redflag: 'عندي نزيف',
+    normalMsg: 'ما هي الأطعمة التي يجب تجنبها؟', redflag: 'عندي نزيف', negation: 'لا يوجد نزيف',
+    movementTyped: 'لا أشعر بحركة الجنين',
     cs01: 'لدي غثيان صباحي', cs06: 'لدي نزيف خفيف',
   },
   {
     L: 'tn', dir: 'rtl', country: 'Tunisia', emergency: '190',
     articleQ: 'غثيان', suppQ: 'الحديد', foodQ: ['الحوت', 'الكحول'],
-    normalMsg: 'شنوة ما ناكولش؟', redflag: '3andi nzif',
+    normalMsg: 'شنوة ما ناكولش؟', redflag: '3andi nzif', negation: 'ما عنديش نزيف',
+    movementTyped: 'bebe ma ybou3sh',
     cs01: 'عندي دوخة وغثيان', cs06: 'عندي شوية دم',
   },
 ];
@@ -1562,10 +1568,10 @@ for (const C of CFG) {
       await page.waitForTimeout(500);
       const alert15 = (await newAlert(page).count()) ? await newAlert(page).last().innerText() : '';
       w.note('15.alertText', alert15);
-      expect.soft(
-        alert15.includes(tr(L, 'common.chatEmergency')) || alert15.includes(tr(L, 'common.chatResponse.redFlagHigh')),
-        '15: triage block titled emergency or urgent-consult',
-      ).toBe(true);
+      // C-047: bleeding at 32 weeks is an EMERGENCY (hemorragie_antepartum); "urgent consult"
+      // would be a downgrade, so only the emergency title is accepted, in every language.
+      expect.soft(alert15.includes(tr(L, 'common.chatEmergency')), `15 C-047: bleeding chip block titled "${tr(L, 'common.chatEmergency')}" (not urgent-consult)`).toBe(true);
+      expect.soft(alert15.includes(tr(L, 'common.chatResponse.redFlagHigh')), '15 C-047: not downgraded to the urgent-consult title').toBe(false);
       w.note('15.chip.answer', { alerts: await newAlert(page).count(), alertLines: splitLines(alert15) });
       const bubbles15After = (await userMsgBoxes(page, C.cs06)).length;
       w.note('15.userBubbles', { before: bubbles15, after: bubbles15After });
@@ -1573,6 +1579,10 @@ for (const C of CFG) {
       const calls15 = await callsOnScreen(page, tr(L, 'a11y.emergencyCall'));
       w.note('15.C-041.calls', calls15);
       expect.soft(calls15.visible, `15 C-041: one call button visible at a time ${JSON.stringify(calls15)}`).toBe(1);
+      if (calls15.inDom) {
+        const txt15 = await page.getByRole('button', { name: tr(L, 'a11y.emergencyCall'), exact: true }).last().innerText();
+        expect.soft(txt15, `15 C-047 SYNC-16: emergency call button for ${C.country} → (${C.emergency})`).toContain(`(${C.emergency})`);
+      }
       await w.state('15-chatbot-chip');
 
       // ── 16 Swelling chip cs19 (C-022) ──────────────────────────────────────
@@ -1604,6 +1614,45 @@ for (const C of CFG) {
         expect.soft(txt16, `16 SYNC-16: country ${C.country} → (${C.emergency})`).toContain(`(${C.emergency})`);
       }
       await w.state('16-chatbot-swollen-chip');
+
+      // ── 17 Reduced baby movements (C-047): typed phrase + chip cs07 ──────────
+      // The week-32 key alarm. Its red flag is urgent_consult (chatbot_data "ne sens plus le
+      // bébé"), so the block carries the urgent-consult title, never plain reassurance.
+      await markAlerts(page);
+      const mv = await chatExchange(w, C.movementTyped);
+      w.note('17.movementTyped', { text: C.movementTyped, lines: mv.newLines });
+      await expect.soft(newAlert(page), `17: typed "${C.movementTyped}" raises a triage alert`).toHaveCount(1, { timeout: 10_000 });
+      const alert17 = (await newAlert(page).count()) ? await newAlert(page).last().innerText() : '';
+      w.note('17.typed.alertText', alert17);
+      expect.soft(
+        alert17.includes(tr(L, 'common.chatResponse.redFlagHigh')) || alert17.includes(tr(L, 'common.chatEmergency')),
+        `17 C-047: typed reduced-movements report is triaged (urgent-consult or emergency title) in ${L}`,
+      ).toBe(true);
+      await w.state('17-chatbot-movements-typed');
+
+      const cs07 = chipLabel('cs07', L);
+      const revealed07 = await revealChip(page, cs07, SUGGESTIONS.map((x) => chipLabel(x.suggestion_id, L)));
+      w.note('17.reveal', revealed07);
+      expect.soft(revealed07.ok, `17: reduced-movements chip reachable ${JSON.stringify(revealed07)}`).toBe(true);
+      if (revealed07.ok) {
+        await markAlerts(page);
+        w.typed.push(cs07);
+        const bubbles17 = (await userMsgBoxes(page, cs07)).length;
+        await page.getByRole('button', { name: cs07, exact: true }).click();
+        await expect.soft(newAlert(page), `17 C-047: tapping "${cs07}" raises its triage alert`).toHaveCount(1, { timeout: 15_000 });
+        await page.waitForTimeout(500);
+        const alert17c = (await newAlert(page).count()) ? await newAlert(page).last().innerText() : '';
+        w.note('17.chip.alertText', alert17c);
+        expect.soft(
+          alert17c.includes(tr(L, 'common.chatResponse.redFlagHigh')) || alert17c.includes(tr(L, 'common.chatEmergency')),
+          `17 C-047: chip block titled urgent-consult or emergency in ${L}`,
+        ).toBe(true);
+        expect.soft((await userMsgBoxes(page, cs07)).length, '17: chip text sent as a user message').toBe(bubbles17 + 1);
+        const calls17 = await callsOnScreen(page, tr(L, 'a11y.emergencyCall'));
+        w.note('17.calls', calls17);
+        expect.soft(calls17.visible, `17 C-041: never more than one call button visible ${JSON.stringify(calls17)}`).toBeLessThanOrEqual(1);
+        await w.state('17-chatbot-movements-chip');
+      }
 
       const analytics = foreign.filter((u) => ANALYTICS.test(u));
       const other = foreign.filter((u) => !ANALYTICS.test(u) && !/^GET tel:/.test(u));

@@ -14,6 +14,7 @@
     "sinceStart": "من البداية",
     "below": "💛 أقل شوية",
     "above": "💛 أعلى شوية",
+    "aboveSignificant": "💛 أعلى من الزون المرجعي: تكلمي مع القابلة",
     "indicativeZone": "الزون المرجعي",
     "targetWeek": "🎯 الهدف متاع الجمعة",
     "targetWeekNumber": "🎯 هدف الجمعة {{week}}",

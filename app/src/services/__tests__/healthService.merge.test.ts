@@ -14,6 +14,7 @@ import { getMergedWeightHistory, getHealthStats } from '../healthService';
 import { getWeightHistory as getWeightHistoryV2 } from '../weightService';
 import { loadUserEvents } from '../calendarService';
 import { loadTaskStatusesAuth } from '../reminderPersistence';
+import { fetchTasksForWeekV2 } from '../remindersV2Service';
 
 jest.mock('../../config/firebase', () => ({ db: {} }));
 
@@ -41,6 +42,10 @@ jest.mock('../calendarService', () => ({
 
 jest.mock('../reminderPersistence', () => ({
     loadTaskStatusesAuth: jest.fn(),
+}));
+
+jest.mock('../remindersV2Service', () => ({
+    fetchTasksForWeekV2: jest.fn(),
 }));
 
 jest.mock('../../utils/logger', () => ({
@@ -315,6 +320,7 @@ describe('healthService.getHealthStats — weight baseline (F-HS-04 / F-HS-05)',
         (getDocs as jest.Mock).mockResolvedValue({ docs: [] });
         (loadUserEvents as jest.Mock).mockResolvedValue([]);
         (loadTaskStatusesAuth as jest.Mock).mockResolvedValue({});
+        (fetchTasksForWeekV2 as jest.Mock).mockResolvedValue([]);
     });
 
     it('uses prePregnancyWeight as the gain baseline, not the first logged entry', async () => {
@@ -375,5 +381,45 @@ describe('healthService.getHealthStats — weight baseline (F-HS-04 / F-HS-05)',
         expect(stats.weightInitial).toBeUndefined();
         expect(stats.weightGain).toBeUndefined();
         expect(getDocs).not.toHaveBeenCalled();
+    });
+});
+
+/**
+ * B-031 — "Rappels cette semaine" counts the same weekly tasks the Tasks tab lists.
+ * Status docs only exist once a task is ticked, so counting them printed "0 / 0" beside
+ * a tab listing five tasks.
+ */
+describe('healthService.getHealthStats — weekly reminders (B-031)', () => {
+    const tasks = ['a', 'b', 'c', 'd', 'e'].map(id => ({ task_id: `task_${id}` }));
+
+    beforeEach(() => {
+        jest.clearAllMocks();
+        (getDocs as jest.Mock).mockResolvedValue({ docs: [] });
+        (loadUserEvents as jest.Mock).mockResolvedValue([]);
+        (getWeightHistoryV2 as jest.Mock).mockResolvedValue([]);
+        (fetchTasksForWeekV2 as jest.Mock).mockResolvedValue(tasks);
+    });
+
+    it('totals the week\'s task list even when nothing has been ticked yet', async () => {
+        (loadTaskStatusesAuth as jest.Mock).mockResolvedValue({});
+
+        const stats = await getHealthStats('u1', 32);
+
+        expect(fetchTasksForWeekV2).toHaveBeenCalledWith(32);
+        expect(stats.remindersTotalThisWeek).toBe(5);
+        expect(stats.remindersCompletedThisWeek).toBe(0);
+    });
+
+    it('counts a ticked task once, and ignores statuses of tasks not in the week\'s list', async () => {
+        (loadTaskStatusesAuth as jest.Mock).mockResolvedValue({
+            task_a_w32: { completed: true },
+            task_b_w32: { completed: false },
+            task_gone_w32: { completed: true },
+        });
+
+        const stats = await getHealthStats('u1', 32);
+
+        expect(stats.remindersTotalThisWeek).toBe(5);
+        expect(stats.remindersCompletedThisWeek).toBe(1);
     });
 });

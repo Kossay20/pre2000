@@ -259,6 +259,12 @@ export const styles = StyleSheet.create({
         marginBottom: 20,
         textAlign: 'center',
     },
+    inputLabel: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: theme.colors.text,
+        marginBottom: 6,
+    },
     input: {
         borderWidth: 1,
         borderColor: theme.colors.disabled,
