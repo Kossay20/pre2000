@@ -17,44 +17,13 @@ import { FIRESTORE_GUEST_TIMEOUT_MS, withTimeout } from '../utils/withTimeout';
 import { getBookmarks, subscribeBookmarks } from '../services/bookmarkService';
 import { emptyListMessage, FilterChip, FilterSelection, isFilterChipSelected, NO_FILTER, pressFilterChip } from '../utils/filterChips';
 import { theme } from '../theme';
+import { getCategoryIcon } from '../utils/categoryIcon';
 import { Card } from '../components/common/Card';
 import { Tag } from '../components/common/Tag';
 import { Skeleton } from '../components/common/Skeleton'; // D4
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
-
-type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
-
-// One vector icon per category in articles_db.json (pinned by a test); a category the
-// bundle does not know yet (a new Firestore one) gets the generic document icon.
-const CATEGORY_ICONS: Record<string, IoniconName> = {
-    nutrition: 'nutrition-outline',
-    examens: 'medkit-outline',
-    sante: 'heart-outline',
-    developpement: 'happy-outline',
-    preparation: 'bag-handle-outline',
-    lifestyle: 'flower-outline',
-    administratif: 'document-text-outline',
-    medical: 'medical-outline',
-    symptomes: 'thermometer-outline',
-    accouchement: 'body-outline',
-    sport: 'barbell-outline',
-    exercice: 'walk-outline',
-    allaitement: 'cafe-outline',
-    autres: 'ellipsis-horizontal-circle-outline',
-    bien_etre: 'leaf-outline',
-    droits: 'shield-checkmark-outline',
-    emotions: 'sad-outline',
-    famille: 'people-outline',
-    mouvements_bebe: 'footsteps-outline',
-    multiples: 'copy-outline',
-    post_partum: 'home-outline',
-    sexualite: 'heart-circle-outline',
-    sommeil: 'moon-outline',
-    travail: 'time-outline',
-};
-const DEFAULT_CATEGORY_ICON: IoniconName = 'document-text-outline';
 
 export const ArticlesListScreen = () => {
     useScreenAnalytics('ArticlesListScreen');
@@ -201,10 +170,6 @@ export const ArticlesListScreen = () => {
             ]);
         });
     }, [articles, searchQuery, selectedCategory, favoritesActive, bookmarkedIds, i18n.language]);
-
-    const getCategoryIcon = (category: string) => {
-        return CATEGORY_ICONS[(category || '').toLowerCase()] || DEFAULT_CATEGORY_ICON;
-    };
 
     const handleArticlePress = useCallback((articleId: string) => {
         navigation.navigate('ArticleDetail', { articleId });
@@ -382,9 +347,9 @@ export const ArticlesListScreen = () => {
     );
 };
 
-// Filter chips stay 32pt tall (a row of 44pt pills would crowd the list header);
-// the slop gives them a 44pt touch area on iOS/Android.
-const CHIP_HIT_SLOP = { top: 6, bottom: 6, left: 2, right: 2 };
+// Filter chips are 44pt tall in the style itself (hitSlop is ignored on web, so a 32pt chip
+// measured 32 there); the slop only widens the gap between neighbours.
+const CHIP_HIT_SLOP = { left: 2, right: 2 };
 
 const styles = StyleSheet.create({
     container: {
@@ -433,6 +398,8 @@ const styles = StyleSheet.create({
         paddingEnd: 4,
     },
     chip: {
+        minHeight: 44,
+        justifyContent: 'center',
         paddingHorizontal: 14,
         paddingVertical: 7,
         borderRadius: 999,
@@ -466,7 +433,9 @@ const styles = StyleSheet.create({
     },
     iconContainer: {
         width: 70,
-        backgroundColor: theme.colors.secondary,
+        // primaryStrong, not secondary (#FF8FA3): the white 32pt icon on it was 2.2:1, under the
+        // 3:1 non-text floor; this pink is 4.6:1 with white. Shared with WeekRecommendations.
+        backgroundColor: theme.colors.primaryStrong,
         alignItems: 'center',
         justifyContent: 'center',
     },

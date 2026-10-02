@@ -79,6 +79,11 @@ export const styles = StyleSheet.create({
         paddingHorizontal: 12,
         paddingVertical: 6,
         borderRadius: theme.borderRadius.m,
+        // 44pt tall in the box itself (hitSlop is ignored on web); the negative margin keeps the
+        // section header's height, as linkTouch does (E-006).
+        minHeight: 44,
+        justifyContent: 'center',
+        marginVertical: -8,
     },
     addButtonText: {
         color: theme.colors.white,

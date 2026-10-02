@@ -470,9 +470,18 @@ export const OnboardingScreen = () => {
                     accessibilityLabel={t('onboarding.step2.methodDdr')}
                     {...choiceA11y(dateMethod === 'ddr')}
                 >
-                    <Text style={[styles.methodText, dateMethod === 'ddr' && styles.methodTextActive]}>
-                        {t('onboarding.step2.methodDdr')}
-                    </Text>
+                    <View style={styles.methodContent}>
+                        <Ionicons
+                            name="calendar-outline"
+                            size={16}
+                            color={dateMethod === 'ddr' ? theme.colors.accent : theme.colors.textSecondary}
+                            accessibilityElementsHidden
+                            importantForAccessibility="no"
+                        />
+                        <Text style={[styles.methodText, dateMethod === 'ddr' && styles.methodTextActive]}>
+                            {t('onboarding.step2.methodDdr')}
+                        </Text>
+                    </View>
                 </TouchableOpacity>
                 <TouchableOpacity
                     style={[styles.methodButton, dateMethod === 'conception' && styles.methodButtonActive]}
@@ -481,9 +490,18 @@ export const OnboardingScreen = () => {
                     accessibilityLabel={t('onboarding.step2.methodConception')}
                     {...choiceA11y(dateMethod === 'conception')}
                 >
-                    <Text style={[styles.methodText, dateMethod === 'conception' && styles.methodTextActive]}>
-                        {t('onboarding.step2.methodConception')}
-                    </Text>
+                    <View style={styles.methodContent}>
+                        <Ionicons
+                            name="moon-outline"
+                            size={16}
+                            color={dateMethod === 'conception' ? theme.colors.accent : theme.colors.textSecondary}
+                            accessibilityElementsHidden
+                            importantForAccessibility="no"
+                        />
+                        <Text style={[styles.methodText, dateMethod === 'conception' && styles.methodTextActive]}>
+                            {t('onboarding.step2.methodConception')}
+                        </Text>
+                    </View>
                 </TouchableOpacity>
             </View>
 

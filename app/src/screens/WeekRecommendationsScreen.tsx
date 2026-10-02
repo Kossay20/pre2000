@@ -2,12 +2,14 @@ import { createLogger } from '../utils/logger';
 const log = createLogger('WeekRecommendationsScreen');
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useCurrentWeek } from '../services/useCurrentWeek';
 import { Article, Supplement } from '../types';
 import { getLocalizedContent } from '../utils/i18nHelpers';
 import { getCardExcerpt } from '../utils/cardExcerpt';
+import { getCategoryIcon } from '../utils/categoryIcon';
 import { normalizeSupplementSafety } from '../utils/supplementSafety';
 import { getLocalArticle, getLocalSupplement } from '../services/localContentFallback';
 import { withoutUnreviewedContent } from '../config/unreviewedContent';
@@ -166,7 +168,7 @@ export const WeekRecommendationsScreen = () => {
                         >
                             <Card style={styles.card}>
                                 <View style={styles.iconContainer}>
-                                    <Text style={styles.icon}>📚</Text>
+                                    <Ionicons name={getCategoryIcon(article.category)} size={32} color={theme.colors.white} />
                                 </View>
                                 <View style={styles.content}>
                                     <Text style={[theme.typography.h3, styles.title] as any}>{getLocalizedContent(article, 'title', i18n.language)}</Text>
@@ -244,8 +246,9 @@ const styles = StyleSheet.create({
         overflow: 'hidden',
     },
     iconContainer: {
-        width: 60,
-        backgroundColor: theme.colors.secondary,
+        width: 70, // the same block as the Articles list
+        // primaryStrong: the white icon is 4.6:1 on it (secondary #FF8FA3 was 2.2:1)
+        backgroundColor: theme.colors.primaryStrong,
         alignItems: 'center',
         justifyContent: 'center',
     },

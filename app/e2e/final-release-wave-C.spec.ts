@@ -44,6 +44,7 @@ import { lmpIsoForWeek } from './helpers/guest-profile';
 import { tickHealthConsent } from './helpers/health-consent';
 import { RED_FLAGS, SUGGESTIONS } from '../src/data/chatbot_data';
 import { waitFrameClean } from './helpers/visual-settle';
+import { babyEvolutionDots, greetingVsAvatar, placeholderEmojiCards } from './helpers/round11-guards';
 
 // ── i18n (read from the tree the web export is built from) ────────────────────
 
@@ -865,6 +866,19 @@ for (const C of CFG) {
         '00 C-026: no orphan sentence fragment around the comparison',
       ).toEqual([]);
       expect.soft(homeLines.filter((l) => RAW_MARKDOWN.test(l)), '00 C-028: no raw markdown in Home excerpts').toEqual([]);
+      // C-057 / A-049: the greeting never runs under the avatar (physical right in ltr and rtl alike).
+      const greet = await greetingVsAvatar(page, 'Lectrice');
+      w.note('00.C-057.greetingVsAvatar', greet);
+      expect.soft(greet.found, '00 C-057: greeting and avatar both found').toBe(true);
+      if (greet.found) {
+        expect.soft(greet.overlapArea, `00 C-057: the ${L} greeting does not overlap the avatar (${JSON.stringify(greet.ink)} vs ${JSON.stringify(greet.avatar)})`).toBe(0);
+        expect.soft(greet.gapPx, `00 C-057: the ${L} greeting stays >= 4 px clear of the avatar ring`).toBeGreaterThanOrEqual(4);
+        expect.soft(greet.insideViewport, `00 C-057: the ${L} greeting stays inside the viewport`).toBe(true);
+      }
+      // C-059: the Home recommendation cards draw no stand-in emoji (📰 📚 💊).
+      const homeStandIns = await placeholderEmojiCards(page);
+      w.note('00.C-059.placeholderEmoji', homeStandIns);
+      expect.soft(homeStandIns, '00 C-059: no stand-in emoji on the Home recommendation cards').toEqual([]);
       await w.state('00-home');
       // C-043: the "Baby this week" card sits below the hero fold and was DOM-only in every capture.
       const babyCard = page.getByText(tr(L, 'common.heroTitle')).first(); // the Home card heading is common.heroTitle in every locale
@@ -1459,6 +1473,12 @@ for (const C of CFG) {
       expect.soft(num(eg?.caption), '10: card quotes the user\'s own week (32)').toBe(32);
       const beSa = (await visibleLines(page)).filter((l) => /\(\s*\d+\s*SA\s*\)/.test(l));
       expect.soft(beSa, '10: no stray "(N SA)" aside').toEqual([]);
+      // C-058 / B-046: the nine month dots share one row (same top), inside the viewport.
+      const dots = await babyEvolutionDots(page, `^${esc(tr(L, 'common.monthLabel', { number: 1 })).replace(/1/, '[1-9]')}$`);
+      w.note('10.C-058.dots', dots);
+      expect.soft(dots.count, `10 C-058: nine month dots (${JSON.stringify(dots.names)})`).toBe(9);
+      expect.soft(dots.distinctTops, `10 C-058: the nine dots share one row (tops ${JSON.stringify(dots.tops)})`).toBe(1);
+      expect.soft(dots.insideViewport, `10 C-058: every dot inside the ${VW} pt viewport (${JSON.stringify(dots.lefts)}..${JSON.stringify(dots.rights)})`).toBe(true);
       await w.state('10-baby-evolution');
       await page.getByRole('button', { name: tr(L, 'common.monthLabel', { number: 3 }), exact: true }).click();
       await expect.soft(page.getByText(new RegExp(`${esc(tr(L, 'common.monthLabel', { number: 3 }))} / 9`)).first(), '10b: dot "Month 3" navigates').toBeVisible();

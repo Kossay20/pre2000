@@ -42,3 +42,5 @@ Also in the G7 pack (`docs/clinical-review/`): glucose 5,1 mmol/L and 140/90 thr
 - D-014: rules and purge already match and are test-pinned; see `docs/D014_RULES_PURGE_MATCH_2026-10-02.md`. Residual part is e2e coverage.
 - F-036: Sentry stays optional until G3 is done; crash rows in the store privacy answers overstate collection if the DSN is missing.
 - Guest-data retention duration (RELEASE_READINESS row 5 ter) is the owner's decision and must be written in the website policy section 6 and `privacy.retention.text` (4 languages) in the same commit as any server-side purge.
+- F-040: the country sits in `userProfiles/{uid}`, so `app.json` and `store/app-privacy.json` now declare Coarse Location as linked (pinned by `__tests__/releaseConfig.test.ts`). Owner action: re-enter that row in App Store Connect > App Privacy as "linked to the user".
+- F-042: transactions and breadcrumbs are scrubbed (`src/utils/sentryScrub.ts`). Owner action: decide whether the installation-scoped default user id the native Sentry SDK attaches before login counts as Device ID (both store files list it in `ownerChecklist`); declare it or record why it is out of scope.

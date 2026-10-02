@@ -523,7 +523,7 @@ export const HomeScreen = () => {
                     {/* Centered Content */}
                     <View style={styles.centerContent}>
                         <View style={styles.headerTextContainer}>
-                            <Text style={styles.greeting}>
+                            <Text style={styles.greeting} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.8}>
                                 {t('home.greeting', { name: displayName })}
                             </Text>
                         </View>

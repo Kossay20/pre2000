@@ -25,8 +25,8 @@
   "step2": {
     "title": "Pour calculer votre semaine",
     "subtitle": "Quelle méthode préférez-vous ?",
-    "methodDdr": "📆 Dernières règles",
-    "methodConception": "💫 Conception",
+    "methodDdr": "Dernières règles",
+    "methodConception": "Conception",
     "labelDdr": "Date de vos dernières règles",
     "labelConception": "Date estimée de conception",
     "previewLabel": "Vous seriez à la",

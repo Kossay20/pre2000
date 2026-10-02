@@ -38,6 +38,8 @@ import { attachDialogRecorder, type DialogRecorder } from './helpers/dialog-reco
 import {
   E2E_BASE_URL,
   E2E_PASSWORD,
+  FIRESTORE_EMULATOR,
+  PROJECT_ID,
   createAccount,
   newAccountEmail,
   seedProfile,
@@ -46,6 +48,7 @@ import {
   type AppLocale,
   type CreatedAccount,
 } from './helpers/emulator-account';
+import { babyEvolutionDots, greetingVsAvatar, headingAudit, placeholderEmojiCards, pillContainment } from './helpers/round11-guards';
 import {
   ctaFold,
   enlargeText,
@@ -1209,6 +1212,18 @@ test('E45-47 offline banner, bundled Resources, offline appointment → reconnec
     // A "success" (form closed) that never reaches the server after reconnect is a P0.
     if (uiClaimedSuccess) expect.soft(synced, '47-reconnect: UI accepted the offline appointment but it never reached the server after reconnect').toBe(true);
     const toastLive = await liveRegions(page);
+    // E-056: the "Enregistré hors ligne. Synchro à la reconnexion." toast must not outlive the
+    // reconnection. Whatever visible role=status is left must carry the success copy (replaceOnReconnect).
+    const statusTexts = await page.evaluate(() =>
+      (Array.from(document.querySelectorAll('[role=status]')) as HTMLElement[])
+        .filter((e) => e.getBoundingClientRect().width > 0 && !e.closest('[aria-hidden=true]'))
+        .map((e) => e.innerText.replace(/\s+/g, ' ').trim())
+        .filter(Boolean),
+    );
+    const staleOffline = statusTexts.filter((x) => /hors ligne|Synchro à la reconnexion/i.test(x));
+    const successCopy = statusTexts.filter((x) => /Rendez-vous (ajouté|modifié)/.test(x));
+    expect.soft(staleOffline, '47-reconnect (E-056): no stale "Enregistré hors ligne" toast after reconnecting').toEqual([]);
+    check('E-056', '47-reconnect', staleOffline.length === 0 && statusTexts.every((x) => successCopy.includes(x)), 'after reconnect the offline-save toast is gone or replaced by the success copy', { statusTexts, staleOffline, successCopy, synced });
     await snapState(c, '47-reconnect', 'E 34', { expectTabBar: true, extra: { bannerGone, goneRaw10s, synced, uiClaimedSuccess, toastLive, formClosedAfterReconnect: !(await page.getByPlaceholder(/Échographie/).isVisible().catch(() => false)), serverDocs: serverDocs.map((d) => ({ id: d.id, title: d.data.title, start: d.data.startDate ?? d.data.date })) } });
   } finally {
     await context.unrouteAll({ behavior: 'ignoreErrors' }).catch(() => undefined);
@@ -1452,6 +1467,164 @@ test('E64-65 WeightTracker 390×844 fr — tip chips and the chart stay inside t
     const chart = await containment('chart');
     await snapState(c, '65-weight-chart', 'B-014 (weight chart)', { extra: { chart } });
     check('B-014', '65-weight-chart', chart.length ? chart.every((x) => !x.pastViewport && x.exceededAncestors.length === 0) : null, 'the weight chart is drawn inside its card (no ancestor exceeded horizontally)', chart.length ? chart.map((x) => ({ rect: x.rect, exceededAncestors: x.exceededAncestors })) : 'no chart svg found');
+  } finally {
+    await closeCtx(c);
+  }
+});
+
+// ── 66-71: round-11 regression guards (the round-10 fixes broke these; nothing could fail) ──
+
+/** Create/overwrite a document as the emulator owner (rules bypassed: seeding only). */
+async function ownerWriteE(docPath: string, data: Record<string, string | number>) {
+  const fields = Object.fromEntries(Object.entries(data).map(([k, v]) => [k, typeof v === 'number' ? { integerValue: String(v) } : { stringValue: v }]));
+  const res = await fetch(`${FIRESTORE_EMULATOR}/v1/projects/${PROJECT_ID}/databases/(default)/documents/${docPath}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer owner' },
+    body: JSON.stringify({ fields }),
+  });
+  if (!res.ok) throw new Error(`ownerWriteE(${docPath}): ${res.status} ${await res.text()}`);
+}
+
+const MONTH_DOT_RE = '^(Mois|Month|شهر)\\s*[1-9]\\b';
+const HOME_PILL_ROW_RE = "^(Aujourd.hui|N.oubliez pas|Vous avez)[\\s\\S]*\\d+ rendez-vous|^Ma Journée \\d+/\\d+";
+
+test('E66-67 Baby Evolution dots on one row + Home / Resources cards (375 + 390, fr)', async ({ browser }) => {
+  test.setTimeout(300_000);
+  const c = await openCtx(browser, { viewport: VP.std, locale: 'fr', signedIn: true, label: 'round-11 guards fr' });
+  const { page } = c;
+  try {
+    // C-058 / B-046: nine dots, one row (same top), inside the viewport — at 390 and at 375.
+    await go(page, '/baby-evolution', page.getByRole('button', { name: /Mois 8/ }).first());
+    for (const vp of [VP.std, VP.se]) {
+      await page.setViewportSize(vp);
+      await settle(page, 600);
+      const dots = await babyEvolutionDots(page, MONTH_DOT_RE);
+      await c.mega.snap(`66-baby-evolution-dots-${vp.width}`);
+      check('B-046', `66-baby-evolution-dots-${vp.width}`, dots.count === 9 && dots.distinctTops === 1 && dots.insideViewport, `${vp.width} pt: the nine month dots share one row (same top) and stay inside the viewport`, dots);
+    }
+    await page.setViewportSize(VP.std);
+
+    // B-030 / C-059 / E-062: no stand-in emoji on the Home recommendation cards nor on the Articles cards.
+    await go(page, '/', page.getByText('Semaine 32', { exact: true }).first());
+    await waitMyDayPill(page, '67-home-cards');
+    for (const vp of [VP.std, VP.se]) {
+      await page.setViewportSize(vp);
+      await settle(page, 800);
+      const myDay = await pillContainment(page, HOME_PILL_ROW_RE);
+      check('B-045', `67-home-pill-myday-${vp.width}`, myDay.found ? myDay.outside.length === 0 : false, `${vp.width} pt: the "Ma Journée n/m" pill content sits inside its border`, myDay);
+    }
+    await page.setViewportSize(VP.std);
+    for (let i = 0; i < 6; i++) {
+      await page.evaluate(() => window.scrollBy(0, 500));
+      await page.waitForTimeout(150);
+    }
+    const homeEmoji = await placeholderEmojiCards(page);
+    check('C-059', '67-home-recommendations', homeEmoji.length === 0, 'Home recommendation cards draw no stand-in emoji (📰 📚 💊 …)', homeEmoji);
+    await go(page, '/resources', page.getByRole('tab', { name: /Articles/ }).first());
+    await expect.soft(page.getByRole('button').filter({ hasText: /grossesse|Grossesse/ }).first(), '67: Articles cards listed').toBeVisible({ timeout: 20_000 });
+    await settle(page, 600);
+    const listEmoji = await placeholderEmojiCards(page);
+    await c.mega.snap('67-resources-articles-cards');
+    check('B-030', '67-resources-articles', listEmoji.length === 0, 'Articles list cards draw no stand-in emoji (📰 📚 💊 …)', listEmoji);
+  } finally {
+    await closeCtx(c);
+  }
+});
+
+test('E68 one non-empty heading and no blank header band on the screens that draw their own title (375, fr)', async ({ browser }) => {
+  test.setTimeout(300_000);
+  const c = await openCtx(browser, { viewport: VP.se, locale: 'fr', signedIn: true, label: 'round-11 headings fr' });
+  const { page } = c;
+  try {
+    // Deep links: each is the root of its stack (no back control) — the case that left an empty band.
+    for (const [slug, p] of [
+      ['settings', '/settings'],
+      ['kick-counter', '/kick-counter'],
+      ['contraction-timer', '/contraction-timer'],
+      ['hospital-bag', '/hospital-bag'],
+    ] as const) {
+      await go(page, p);
+      await settle(page, 1200);
+      const h = await headingAudit(page);
+      await c.mega.snap(`68-headings-${slug}`);
+      check('E-057', `68-headings-${slug}`, h.empty === 0 && h.nonEmpty === 1, `${p}: exactly one non-empty role=heading and no empty heading element`, h.headings);
+      check('E-058', `68-headings-${slug}`, h.blankHeaderBand === null, `${p}: no blank header band (a top bar with neither a title nor a back control)`, h.band);
+    }
+  } finally {
+    await closeCtx(c);
+  }
+  // The same on the funnel screens that were de-duplicated with the same option (login, register).
+  const cold = await openCtx(browser, { viewport: VP.se, locale: 'fr', signedIn: false, label: 'round-11 headings cold fr' });
+  try {
+    for (const [slug, p] of [
+      ['login', '/login'],
+      ['register', '/register'],
+    ] as const) {
+      await go(cold.page, p);
+      await settle(cold.page, 1200);
+      const h = await headingAudit(cold.page);
+      await cold.mega.snap(`68-headings-${slug}`);
+      check('E-057', `68-headings-${slug}`, h.empty === 0 && h.nonEmpty === 1, `${p}: exactly one non-empty role=heading and no empty heading element`, h.headings);
+      check('E-058', `68-headings-${slug}`, h.blankHeaderBand === null, `${p}: no blank header band`, h.band);
+    }
+  } finally {
+    await closeCtx(cold);
+  }
+});
+
+for (const loc of ['fr', 'ar', 'tn'] as const) {
+  test(`E69 ${loc} Home greeting with a long first name stays clear of the avatar (390)`, async ({ browser }) => {
+    test.setTimeout(240_000);
+    // 10 letters: the longest the greeting must still fit beside the avatar without overlapping it.
+    const first = 'Abdelhakim';
+    const acct = await createAccount(newAccountEmail('E', `greeting-${loc}`), E2E_PASSWORD);
+    await seedProfile(acct.uid, acct.idToken, { week: 32, firstName: first, lastName: 'Longnom' });
+    const c = await openCtx(browser, { viewport: VP.std, locale: loc, signedIn: true, label: `greeting ${loc}`, account: acct });
+    const { page } = c;
+    try {
+      await go(page, '/', page.getByText(new RegExp(first)).first());
+      await settle(page, 800);
+      const g = await greetingVsAvatar(page, first);
+      await c.mega.snap(`69-greeting-${loc}-long-name`);
+      check('C-057', `69-greeting-${loc}-long-name`, g.found ? g.overlapArea === 0 && g.gapPx >= 4 && g.insideViewport : false, `${loc} 390 pt Home: the greeting "…${first}…" does not overlap the avatar (>= 4 px clear) and stays inside the viewport`, g);
+    } finally {
+      await closeCtx(c);
+    }
+  });
+}
+
+test('E70 Home pill: icon, text and chevron stay inside its border (390 + 375, fr; 4 appointments tomorrow)', async ({ browser }) => {
+  test.setTimeout(300_000);
+  const acct = await createAccount(newAccountEmail('E', 'pill'), E2E_PASSWORD);
+  await seedProfile(acct.uid, acct.idToken, { week: 32, firstName: 'Pilar', lastName: 'Pastille' });
+  // Tomorrow at 12:00 Paris time, four times: the long "N'oubliez pas ! 4 rendez-vous demain." row.
+  const parisHour = (t: number) => Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Paris', hour: '2-digit', hour12: false }).format(new Date(t)));
+  const base = Date.now() + 24 * 3600 * 1000;
+  const noon = base + (12 - parisHour(base)) * 3600 * 1000;
+  const nowIso = new Date().toISOString();
+  for (let i = 0; i < 4; i++) {
+    await ownerWriteE(`userEvents/pill-${acct.uid}-${i}`, {
+      user_id: acct.uid,
+      event_id: `pill-${acct.uid}-${i}`,
+      title: `RDV pastille ${i + 1}`,
+      date: new Date(noon + i * 60_000).toISOString(),
+      type: 'medical',
+      createdAt: nowIso,
+    });
+  }
+  const c = await openCtx(browser, { viewport: VP.std, locale: 'fr', signedIn: true, label: 'pill fr', account: acct });
+  const { page } = c;
+  try {
+    await go(page, '/', page.getByText('Semaine 32', { exact: true }).first());
+    for (const vp of [VP.std, VP.se]) {
+      await page.setViewportSize(vp);
+      await settle(page, 1500);
+      const row = page.getByRole('button', { name: new RegExp(HOME_PILL_ROW_RE) }).first();
+      const shown = await row.waitFor({ state: 'visible', timeout: 20_000 }).then(() => true, () => false);
+      const pill = await pillContainment(page, HOME_PILL_ROW_RE);
+      await c.mega.snap(`70-home-pill-${vp.width}`);
+      check('B-045', `70-home-pill-${vp.width}`, shown && pill.found ? pill.outside.length === 0 : false, `${vp.width} pt: everything in the Home pill (icon, text, chevron) sits inside its own border`, { shown, ...pill });
+    }
   } finally {
     await closeCtx(c);
   }

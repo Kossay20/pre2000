@@ -25,8 +25,8 @@
   "step2": {
     "title": "To calculate your week",
     "subtitle": "Which method do you prefer?",
-    "methodDdr": "📆 Last Period",
-    "methodConception": "💫 Conception Date",
+    "methodDdr": "Last Period",
+    "methodConception": "Conception Date",
     "labelDdr": "Date of your last period",
     "labelConception": "Estimated conception date",
     "previewLabel": "You would be at",

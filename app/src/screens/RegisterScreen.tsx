@@ -199,7 +199,7 @@ export const RegisterScreen = () => {
                         </TouchableOpacity>
                     )}
 
-                    <Text style={[styles.title, isRTL && styles.rtlText]}>{t('register')}</Text>
+                    <Text style={[styles.title, isRTL && styles.rtlText]} accessibilityRole="header">{t('register')}</Text>
                     <Text style={[styles.subtitle, isRTL && styles.rtlText]}>
                         {t('secureData')}
                     </Text>

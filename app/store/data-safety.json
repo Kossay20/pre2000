@@ -69,7 +69,7 @@
       "appleEquivalent": "NSPrivacyCollectedDataTypeOtherUserContent",
       "optional": true,
       "purposes": ["App functionality"],
-      "note": "Journal notes, appointments, reminders, chatbot history. Owner to decide whether Play's 'Other user-generated content' fits better."
+      "note": "Appointments (title, date, notes) and reminders stored under the account. The chatbot and the journal PDF keep nothing server side. Owner to decide whether Play's 'Other user-generated content' fits better."
     },
     {
       "playCategory": "Location",
@@ -77,7 +77,7 @@
       "appleEquivalent": "NSPrivacyCollectedDataTypeCoarseLocation",
       "optional": true,
       "purposes": ["App functionality"],
-      "note": "Country and city typed by the user; no location permission is declared."
+      "note": "Country selected by the user, stored on the profile under the account uid; no location permission is declared."
     },
     {
       "playCategory": "App info and performance",
@@ -116,6 +116,7 @@
     "Re-read each row in Play Console against the published privacy policy and the delete-account page, which must answer 200.",
     "Decide the retention period for anonymous guest data before enabling Anonymous Auth (RELEASE_READINESS row 5 ter).",
     "Confirm whether Firebase App Check (Play Integrity) needs a 'Device or other IDs' row in your reading of the Play definitions; it is not declared here.",
+    "Device ID: the native Sentry SDK attaches an installation-scoped default user id to events sent before login (Language, AuthChoice and Login screens), when logger.setUser has not run yet. Read Sentry's and Google's definitions and either add a 'Device or other IDs' row or confirm it is out of scope; it is not declared here. Events after login carry the hashed uid instead.",
     "If EXPO_PUBLIC_SENTRY_DSN is not set on the production EAS environment, the App info and performance rows overstate collection (finding F-036)."
   ]
 }

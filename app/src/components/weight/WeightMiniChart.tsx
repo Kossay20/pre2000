@@ -70,7 +70,7 @@ export const WeightMiniChart: React.FC<WeightMiniChartProps> = ({
                 }}
                 width={weightChartWidth(getContentWidth())}
                 height={220}
-                yAxisSuffix={t('common.kg')}
+                yAxisSuffix={`\u00A0${t('common.kg')}`}
                 formatYLabel={(y) => formatDecimal(Number(y))}
                 yAxisInterval={1}
                 chartConfig={{

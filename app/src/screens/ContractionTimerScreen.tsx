@@ -121,7 +121,7 @@ export const ContractionTimerScreen: React.FC = () => {
     return (
         <SafeAreaView style={styles.safe} edges={['bottom']}>
             <ScrollView contentContainerStyle={styles.content}>
-                <Text style={styles.title}>{t('cycle8.contractionTimer.title')}</Text>
+                <Text style={styles.title} accessibilityRole="header">{t('cycle8.contractionTimer.title')}</Text>
                 <Text style={styles.subtitle}>{t('cycle8.contractionTimer.subtitle')}</Text>
 
                 <Card style={styles.guideCard}>

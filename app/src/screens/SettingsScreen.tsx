@@ -157,7 +157,7 @@ export const SettingsScreen = () => {
             <View style={styles.header}>
                 <View style={styles.headerTitleRow}>
                     <Ionicons name="settings-outline" size={26} color={theme.colors.text} style={styles.headerIcon} />
-                    <Text style={styles.headerTitle}>{t('common.settings')}</Text>
+                    <Text style={styles.headerTitle} accessibilityRole="header">{t('common.settings')}</Text>
                 </View>
             </View>
 

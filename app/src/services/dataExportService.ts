@@ -5,6 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { createLogger } from '../utils/logger';
+import { EXPORT_FILE_PREFIX, sweepExportFiles } from './exportFileSweep';
 import { getWeightHistory as getWeightEntriesHistory } from './weightService';
 import { loadUserSettings } from './remindersV2Service';
 import { loadUserEvents } from './calendarService';
@@ -286,7 +287,7 @@ export const exportUserData = async (user: any, profile: any, t: any) => {
         const jsonString = JSON.stringify(data, null, 2);
 
         const dateStamp = new Date().toISOString().split('T')[0];
-        const fileName = `mama-bebe-export-${dateStamp}.json`;
+        const fileName = `${EXPORT_FILE_PREFIX}${dateStamp}.json`;
 
         // A browser has neither expo-file-system nor a share sheet: the write threw and the
         // native-only Alert below showed nothing, so the export silently did nothing. Hand
@@ -338,22 +339,5 @@ export const exportUserData = async (user: any, profile: any, t: any) => {
     }
 };
 
-/**
- * Remove any export file still in the cache — one left by a crash between the write and the
- * delete above. For the local wipe (logout / reset / deletion) to call: the file is her whole
- * record in plain text and must not outlive her account on the device.
- */
-export const sweepExportFiles = async (): Promise<void> => {
-    const dir = FileSystem.cacheDirectory;
-    if (Platform.OS === 'web' || !dir) return;
-    try {
-        const names = await FileSystem.readDirectoryAsync(dir);
-        await Promise.all(
-            names
-                .filter((name) => name.startsWith('mama-bebe-export-'))
-                .map((name) => FileSystem.deleteAsync(`${dir}${name}`, { idempotent: true })),
-        );
-    } catch (e) {
-        log.warn('Could not sweep the export cache', e);
-    }
-};
+// The cache sweep lives in exportFileSweep.ts so the local wipe can call it cheaply.
+export { sweepExportFiles };

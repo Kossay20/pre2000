@@ -107,6 +107,13 @@ export const styles = StyleSheet.create({
     methodButtonActive: {
         backgroundColor: theme.colors.surfacePinkSoft,
     },
+    // Vector glyph + label (the chips used to start with an emoji in the string).
+    methodContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 6,
+    },
     methodText: {
         fontSize: 14,
         fontWeight: '600',

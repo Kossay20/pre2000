@@ -56,9 +56,13 @@ describe('chatScrollTarget', () => {
         expect(chatScrollTarget([welcome, user, answer], short.lastHeight, short.listHeight)).toBe('end');
     });
 
-    it('keeps the end for an emergency, any red flag and an error, however long', () => {
-        expect(chatScrollTarget([welcome, user, emergency], long.lastHeight, long.listHeight)).toBe('end');
-        expect(chatScrollTarget([welcome, user, urgentConsult], long.lastHeight, long.listHeight)).toBe('end');
+    it('anchors a long red-flag reply on her question too: the call bar is pinned (C-064)', () => {
+        expect(chatScrollTarget([welcome, user, emergency], long.lastHeight, long.listHeight)).toEqual({ index: 1 });
+        expect(chatScrollTarget([welcome, user, urgentConsult], long.lastHeight, long.listHeight)).toEqual({ index: 1 });
+    });
+
+    it('keeps the end for a short red-flag reply and for an error, however long', () => {
+        expect(chatScrollTarget([welcome, user, emergency], short.lastHeight, short.listHeight)).toBe('end');
         expect(chatScrollTarget([welcome, user, networkError], long.lastHeight, long.listHeight)).toBe('end');
     });
 
@@ -89,7 +93,9 @@ describe('ChatbotScreen wiring', () => {
 
     it('anchors a long bot answer on her question instead of the end of the reply', () => {
         expect(src).toMatch(/chatScrollTarget\(all, lastHeight, listHeightRef\.current\)/);
-        expect(src).toMatch(/scrollToIndex\(\{ index: target\.index, viewPosition: 0, animated: true \}\)/);
+        // viewOffset 8: flush against the disclaimer the question's rounded top corners were cut (E-061)
+        expect(src).toMatch(/scrollToIndex\(\{ index: target\.index, viewPosition: 0, viewOffset: 8, animated: true \}\)/);
+        expect(src).toMatch(/scrollToIndex\(\{ index: info\.index, viewPosition: 0, viewOffset: 8, animated: true \}\)/);
         expect(src).toMatch(/onScrollToIndexFailed=\{onScrollToIndexFailed\}/);
     });
 

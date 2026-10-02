@@ -33,7 +33,7 @@ export const EventCard: React.FC<EventCardProps> = React.memo(({ event, onEdit, 
                 activeOpacity={0.7}
                 disabled={!onPress}
                 accessibilityRole="button"
-                accessibilityLabel={`${event.title}, ${format(event.date, 'EEEE dd MMM HH:mm', { locale: dateLocale })}`}
+                accessibilityLabel={`${event.title}, ${format(event.date, 'EEEE d MMM HH:mm', { locale: dateLocale })}`}
                 accessibilityHint={onPress ? t('a11y.openAppointment') : undefined}
                 accessibilityState={{ disabled: !onPress }}
             >
@@ -56,7 +56,7 @@ export const EventCard: React.FC<EventCardProps> = React.memo(({ event, onEdit, 
                         </Text>
                     </View>
                     <Text style={styles.dateText}>
-                        {format(event.date, 'EEEE dd MMM', { locale: dateLocale })}
+                        {format(event.date, 'EEEE d MMM', { locale: dateLocale })}
                     </Text>
                 </View>
 

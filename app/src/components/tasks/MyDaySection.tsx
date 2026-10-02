@@ -371,6 +371,8 @@ export const MyDaySection: React.FC<Props> = React.memo(({
 
 const styles = StyleSheet.create({
     container: {
+        // Air under the sticky "Mes Tâches" bar: the title sat ~3pt under its divider (B-050 / E-059).
+        paddingTop: 16,
         marginBottom: 24,
         // The same gutter as the sections around it in the Tasks tab (statistics link,
         // weekly tasks); without it the title and the cards ran edge to edge.

@@ -132,7 +132,7 @@ export const DailyRoutinesTracker: React.FC<UnifiedDaySummaryProps> = ({
             <TouchableOpacity
                 activeOpacity={0.6}
                 onPress={() => navigation.navigate('Calendrier')}
-                style={[styles.contentRow, isSharedContext && styles.sharedContentRow]}
+                style={[styles.contentRow, isSharedContext ? styles.sharedContentRow : styles.soloContentRow]}
                 accessibilityRole="button"
                 accessibilityLabel={appointmentMessage}
             >
@@ -240,7 +240,15 @@ const styles = StyleSheet.create({
         flex: 1, // Space evenly
         marginHorizontal: 4,
     },
+    // A solo row fills the pill (flex: 1) instead of sizing to its text: react-native-web items
+    // default to flexShrink 0, so a long "Vous avez 4 rendez-vous ..." line was wider than the
+    // pill and pushed the icon over its left border and the chevron outside the right one.
+    soloContentRow: {
+        flex: 1,
+    },
     contentRow: {
+        flexShrink: 1,
+        minWidth: 0,
         flexDirection: 'row',
         justifyContent: 'center', // Center entire block if solitary, or within flex:1 if shared
         alignItems: 'center',
@@ -257,6 +265,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         flexShrink: 1, // Allow text wrapping/shrinking if needed gracefully
+        minWidth: 0,
         // Cycle 2 F309 RTL : marginEnd flip auto.
         marginEnd: 4,
     },

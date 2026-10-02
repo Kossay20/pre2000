@@ -135,7 +135,7 @@ describe('accessible names and roles', () => {
             expect(src).toContain(`onPress={() => setPriority('${lvl}')}\n                                    accessibilityRole="radio"\n                                    aria-checked={priority === '${lvl}'}`);
         }
         expect(src).toMatch(/accessibilityLabel=\{t\('tasks\.modal\.routine'\)\}/);
-        expect(src).toMatch(/accessibilityLabel=\{t\('tasks\.modal\.addReminder'\)\}/);
+        expect(src).toMatch(/accessibilityLabel=\{plainLabel\(t\('tasks\.modal\.addReminder'\)\)\}/);
     });
 
     it('SectionHeader "See all" is a named button', () => {

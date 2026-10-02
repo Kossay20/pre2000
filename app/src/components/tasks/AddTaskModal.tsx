@@ -22,6 +22,7 @@ import { addDays, isSameDay } from 'date-fns';
 import { theme } from '../../theme';
 import { switchThumbProps } from '../../utils/styleUtils';
 import { RecurrenceRule } from '../../types';
+import { plainLabel } from '../../utils/a11yLabel';
 import { styles } from './AddTaskModal.styles';
 
 interface AddTaskModalProps {
@@ -383,7 +384,7 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
                                 <Switch
                                     value={reminderEnabled}
                                     onValueChange={setReminderEnabled}
-                                    accessibilityLabel={t('tasks.modal.addReminder')}
+                                    accessibilityLabel={plainLabel(t('tasks.modal.addReminder'))}
                                     trackColor={{ false: theme.colors.neutral200, true: theme.colors.primary }}
                                     {...switchThumbProps(reminderEnabled ? theme.colors.accent : theme.colors.iosGroupedBackground)}
                                 />
@@ -586,7 +587,7 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
                                             {/* Display selected date text if not today/tomorrow */}
                                             {!isSameDay(reminderDate, new Date()) && !isSameDay(reminderDate, addDays(new Date(), 1)) && (
                                                 <Text style={styles.selectedDateText}>
-                                                    {format(reminderDate, 'dd MMMM yyyy', { locale: dateLocale })}
+                                                    {format(reminderDate, 'd MMMM yyyy', { locale: dateLocale })}
                                                 </Text>
                                             )}
                                         </View>

@@ -628,6 +628,30 @@ test.describe('Wave B — B-track (Europe/Paris)', () => {
         await vis(page.getByRole('button', { name: 'Glycémie, Ajouter', exact: true })).scrollIntoViewIfNeeded();
       });
 
+      // 29b ── A g/L figure typed into the mmol/L field (A-054 / D-038). The seeds are in mmol/L (the
+      // unit the field accepts); 0,92 was a g/L number. The field has no unit switch, so it reads
+      // 0,92 as mmol/L: it must NOT be stored as a normal reading, it must raise the low-glucose alert
+      // (and "Annuler" on that alert leaves the server untouched).
+      await state(h, '29b-health-glucose-gl-value', async () => {
+        await openHealthModal(page, 'Glycémie, Ajouter');
+        const input = vis(page.getByPlaceholder(/de 3,5 à moins de 5,1 mmol\/L/));
+        await expect(input, '29b: glucose modal').toBeVisible({ timeout: 10_000 });
+        await input.fill('0.92');
+        const n = h.dialogs.dialogs.length;
+        h.dialogs.next('dismiss');
+        await vis(page.getByRole('button', { name: 'Enregistrer', exact: true })).click();
+        await poll(async () => h.dialogs.dialogs.length, (x) => x > n, 6000);
+        await page.waitForTimeout(1500);
+        const asked = h.dialogs.dialogs.slice(n).map((d) => `[${d.type}:${d.action}] ${fold(d.message)}`);
+        expect.soft(asked.join(' | '), '29b: 0,92 typed as mmol/L is flagged as a low glucose, never accepted silently as in range').toMatch(/Glycémie basse/);
+        expect.soft(asked.join(' | '), '29b: the low-glucose alert was answered "no"').toMatch(/dismissed/);
+        const server = await glucoseValues(acct.uid);
+        expect.soft(server, '29b: the dismissed 0,92 never reaches the server (still [5, 5,1])').toEqual([5, 5.1]);
+        await vis(page.getByRole('button', { name: 'Annuler', exact: true })).click();
+        await page.waitForTimeout(400);
+        obs.add('GLUCOSE-GL-UNIT', /Glycémie basse/.test(asked.join(' ')) && server.join() === '5,5.1' ? 'PASS' : 'FAIL', '29b-health-glucose-gl-value', { asked, server });
+      });
+
       // 30 ── Symptoms (local day vs doc id; on/off state exposed, B-017)
       await state(h, '30-health-symptom', async () => {
         const nausea = vis(page.getByRole('button', { name: 'Nausées', exact: true }));

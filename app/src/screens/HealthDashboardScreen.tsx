@@ -58,6 +58,9 @@ import { Button } from '../components/common/Button';
 import { styles } from './HealthDashboardScreen.styles';
 import { getContentWidth } from '../utils/layout';
 import { displayedAgeOf } from '../utils/pregnancyCalculator';
+import { plainLabel } from '../utils/a11yLabel';
+import { useDateLocale } from '../hooks/useDateLocale';
+import { format } from 'date-fns';
 
 const screenWidth = getContentWidth();
 
@@ -68,6 +71,7 @@ const ADD_PILL_HIT_SLOP = { top: 8, bottom: 8, left: 4, right: 4 };
 export const HealthDashboardScreen = () => {
     useScreenAnalytics('HealthDashboardScreen');
     const { t, i18n } = useTranslation();
+    const dateLocale = useDateLocale();
     // Decimals as the language writes them ("5,2 mmol/L" in French), like the target
     // line printed on the same card.
     const num = (value: number) => formatDecimal(Number(value), i18n.language);
@@ -495,7 +499,7 @@ export const HealthDashboardScreen = () => {
         <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
             {/* Header */}
             <LinearGradient colors={[theme.colors.primaryStrong, theme.colors.accent]} style={styles.header}>
-                <Text style={styles.headerTitle}>{t('dashboard.title')}</Text>
+                <Text style={styles.headerTitle} accessibilityRole="header">{t('dashboard.title')}</Text>
                 <Text style={styles.headerSubtitle}>{t('dashboard.week')} {pregnancyInfo?.week ? displayedAgeOf(pregnancyInfo).week : '—'}</Text>
             </LinearGradient>
 
@@ -596,7 +600,7 @@ export const HealthDashboardScreen = () => {
                         hitSlop={ADD_PILL_HIT_SLOP}
                         onPress={() => setShowBPModal(true)}
                         accessibilityRole="button"
-                        accessibilityLabel={`${t('dashboard.bloodPressure')}, ${t('a11y.addNew')}`}
+                        accessibilityLabel={`${plainLabel(t('dashboard.bloodPressure'))}, ${t('a11y.addNew')}`}
                     >
                         <Text style={styles.addButtonText}>{t('dashboard.add')}</Text>
                     </TouchableOpacity>
@@ -612,12 +616,13 @@ export const HealthDashboardScreen = () => {
                             {renderFlag(stats?.lastBP ? checkBloodPressure(stats.lastBP.systolic, stats.lastBP.diastolic) : null)}
                             <Text style={styles.bpDate}>
                                 {stats?.lastBP?.date
-                                    ? new Date(stats.lastBP.date).toLocaleDateString(i18n.language)
+                                    ? format(new Date(stats.lastBP.date), 'd MMM yyyy', { locale: dateLocale })
                                     : ''}
                             </Text>
                         </View>
 
-                        {bpHistory.slice(0, 3).map((bp, index) => {
+                        {/* The latest reading is the card above, as the glucose list below skips its own. */}
+                        {bpHistory.slice(1, 3).map((bp, index) => {
                             const value = bp.value as { systolic: number; diastolic: number };
                             return (
                                 <View key={bp.metric_id} style={styles.bpHistoryItem}>
@@ -628,7 +633,7 @@ export const HealthDashboardScreen = () => {
                                         {renderFlag(checkBloodPressure(value.systolic, value.diastolic))}
                                     </View>
                                     <Text style={styles.bpHistoryDate}>
-                                        {new Date(bp.date).toLocaleDateString(i18n.language)} • S{bp.week}
+                                        {format(new Date(bp.date), 'd MMM yyyy', { locale: dateLocale })} • S{bp.week}
                                     </Text>
                                 </View>
                             );
@@ -679,7 +684,7 @@ export const HealthDashboardScreen = () => {
                                     {renderFlag(checkGlucose(g.value))}
                                 </View>
                                 <Text style={styles.bpHistoryDate}>
-                                    {new Date(g.date).toLocaleDateString(i18n.language)}
+                                    {format(new Date(g.date), 'd MMM yyyy', { locale: dateLocale })}
                                 </Text>
                             </View>
                         ))}

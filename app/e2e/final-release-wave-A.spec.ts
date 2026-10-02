@@ -136,7 +136,7 @@ const COPY: Record<'fr' | 'ar' | 'en', Copy> = {
     resetSent: /Si un compte existe pour cet email, un lien de réinitialisation vient d'être envoyé/,
     pregnant: 'Je suis enceinte',
     stepper: (n) => `Étape ${n} sur 4`,
-    methodDdr: '📆 Dernières règles',
+    methodDdr: 'Dernières règles',
     onbContinue: 'Continuer',
     onbBackA11y: 'Étape précédente',
     firstNameLabel: 'Votre prénom (optionnel)',
@@ -197,7 +197,7 @@ const COPY: Record<'fr' | 'ar' | 'en', Copy> = {
     resetSent: /فقد أُرسل رابط لإعادة التعيين/,
     pregnant: 'أنا حامل',
     stepper: (n) => `الخطوة ${n} من 4`,
-    methodDdr: '📆 آخر دورة',
+    methodDdr: 'آخر دورة',
     onbContinue: 'متابعة',
     onbBackA11y: 'الخطوة السابقة',
     firstNameLabel: 'اسمك الأول (اختياري)',
@@ -1435,7 +1435,12 @@ async function assertDeclineOptions(page: Page, tag: string, d: NonNullable<Copy
 }
 
 const EXPORT_CONFIRM: Record<'fr' | 'ar' | 'tn', RegExp> = { fr: /^Données sensibles/, ar: /^بيانات حساسة/, tn: /^بيانات حساسة/ };
-const ERASE_CONFIRM: Record<'fr' | 'ar' | 'tn', RegExp> = { fr: /^Supprimer le compte\n\n[\s\S]*irréversible/, ar: /^حذف الحساب\n\nهل أنت متأكدة/, tn: /\S/ };
+const ERASE_CONFIRM: Record<'fr' | 'ar' | 'tn', RegExp> = {
+  fr: /^Supprimer le compte\n\n[\s\S]*irréversible/,
+  ar: /^حذف الحساب\n\nهل أنت متأكدة/,
+  // A-054 / C-062: pinned to tn/profile.json deleteAccountTitle + deleteAccountMsg (not /\S/, which passed on any text).
+  tn: /^تفسيخ الكونت\n\nمتأكدة؟[\s\S]*ما تنجميش/,
+};
 
 /**
  * A-030 (i): the sheet's Export and Delete controls are pressed, not just laid out. Each must ask
@@ -1464,6 +1469,35 @@ async function pressDeclineControls(r: Rig, page: Page, tag: string, locale: 'fr
   expect.soft(await serverDoc(`userProfiles/${uid}`), `${tag}: dismissed export / delete confirms change nothing on the server`).toEqual(before);
   expect.soft(await authAccountExists(uid), `${tag}: the login still exists`).toBe(true);
   await expect.soft(page.getByTestId('health_consent_continue'), `${tag}: still on the sheet`).toBeVisible();
+}
+
+/**
+ * A-030 (i), accepted path: answering "Continue" on the Export confirm hands her a real JSON file
+ * (web download) and changes nothing on the server; she stays on the sheet. Only the export is
+ * accepted: the delete confirm is never accepted here (it would end the account under test).
+ */
+async function pressAcceptedExport(r: Rig, page: Page, tag: string, uid: string) {
+  const before = await serverDoc(`userProfiles/${uid}`);
+  const download = page.waitForEvent('download', { timeout: 20_000 }).catch(() => null);
+  const dialog = r.dialogs.waitForNext(15_000).catch(() => null);
+  await page.getByTestId('health_consent_export').scrollIntoViewIfNeeded();
+  await page.getByTestId('health_consent_export').click();
+  const d = await dialog;
+  expect.soft(d?.action, `${tag}: the export confirm was accepted`).toBe('accepted');
+  const dl = await download;
+  expect.soft(dl?.suggestedFilename() ?? '(no download)', `${tag}: the accepted export produces her file`).toMatch(/^mama-bebe-export-.*\.json$/);
+  let parsed: unknown = null;
+  if (dl) {
+    try {
+      parsed = JSON.parse(fs.readFileSync((await dl.path()) as string, 'utf8'));
+    } catch {
+      /* asserted below */
+    }
+  }
+  expect.soft(parsed !== null && typeof parsed === 'object', `${tag}: the export file is valid JSON`).toBe(true);
+  r.note(`${tag}-accepted-export`.replace(/\s+/g, '-'), { filename: dl?.suggestedFilename() ?? null, dialog: d?.message ?? null });
+  expect.soft(await serverDoc(`userProfiles/${uid}`), `${tag}: exporting changes nothing on the server`).toEqual(before);
+  await expect.soft(page.getByTestId('health_consent_continue'), `${tag}: still on the sheet after the export`).toBeVisible();
 }
 
 async function consentGate(page: Page, browser: Browser, testInfo: TestInfo, locale: 'fr' | 'ar') {
@@ -1497,13 +1531,16 @@ async function consentGate(page: Page, browser: Browser, testInfo: TestInfo, loc
   r.note(`34-${locale}-health-consent-decline-options`, decline);
   await r.snap(`34-${locale}-health-consent-decline-options`);
   await pressDeclineControls(r, page, `34-${locale} decline`, locale, acct.uid);
+  await pressAcceptedExport(r, page, `34-${locale} decline`, acct.uid);
   // Sign out: she leaves without consenting, nothing is recorded and nothing is deleted.
   await page.getByTestId('health_consent_logout').click();
   await expect(page.getByTestId('health_consent_continue'), `34-${locale}: signing out leaves the sheet`).toHaveCount(0, { timeout: 30_000 });
   await expect.soft(page.getByRole('tablist'), `34-${locale}: signing out never opens Home`).toHaveCount(0);
-  await expect
-    .soft(page.getByTestId('auth_login_button').or(page.getByTestId('login_email_input')).or(page.getByTestId('lang_card_fr')).first(), `34-${locale}: signed out → back on the public funnel`)
-    .toBeVisible({ timeout: 30_000 });
+  // A-043 / A-054: a returning user lands on the sign-in choice, never on the cold language picker
+  // (lang_card_fr is no longer an accepted landing).
+  await expect.soft(page.getByTestId('auth_guest_button'), `34-${locale}: signed out → the sign-in choice (guest + login buttons)`).toBeVisible({ timeout: 30_000 });
+  await expect.soft(page.getByTestId('auth_login_button'), `34-${locale}: signed out → the sign-in choice offers login`).toBeVisible();
+  await expect.soft(page.getByTestId('lang_card_fr'), `34-${locale}: signed out must not drop her on the language picker`).toHaveCount(0);
   const afterLogout = await serverDoc(`userProfiles/${acct.uid}`);
   r.note(`34-${locale}-health-consent-signed-out`, { url: page.url(), serverLmp: afterLogout?.lmp ?? null, healthDataConsent: afterLogout?.healthDataConsent ?? null, authAccountExists: await authAccountExists(acct.uid) });
   expect.soft(afterLogout?.lmp, `34-${locale}: as the note says, signing out leaves her data on the server`).toBe(before?.lmp);

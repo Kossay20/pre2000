@@ -141,7 +141,10 @@ describe('D-024 — the temp export file is removed and the sweep exists', () =>
     const src = read('src/services/dataExportService.ts');
     it('deletes after the share sheet and can sweep leftovers', () => {
         expect(src).toMatch(/FileSystem\.deleteAsync\(fileUri, \{ idempotent: true \}\)/);
-        expect(src).toMatch(/export const sweepExportFiles/);
+        expect(src).toMatch(/export \{ sweepExportFiles \}/);
+        expect(read('src/services/exportFileSweep.ts')).toMatch(/export const sweepExportFiles/);
+        // D-024: the sweep is called by the local wipe, not dead code.
+        expect(read('src/context/localWipe.ts')).toMatch(/await sweepExportFiles\(\)/);
     });
 });
 
@@ -152,18 +155,46 @@ describe('E-006 — 44pt targets', () => {
         const weight = read('src/screens/WeightTrackerScreen.tsx');
         expect(weight).toMatch(/styles\.deleteButton, \{ minWidth: 44, minHeight: 44/);
         expect(weight).toMatch(/styles\.infoButton\}[\s\S]{0,900}hitSlop=\{\{ top: 10, bottom: 10, left: 10, right: 10 \}\}/);
-        expect(read('src/screens/BabyEvolutionScreen.tsx')).toMatch(/progressDotTouch: \{[^}]*minWidth: 44/);
+        // nine dots stay on one row (R11): each is up to 44 wide, 44 high, with 2pt hitSlop either side
+        expect(read('src/screens/BabyEvolutionScreen.tsx')).toMatch(/progressDotTouch: \{[^}]*flex: 1,[^}]*maxWidth: 44,[^}]*height: 44/);
+        expect(read('src/screens/BabyEvolutionScreen.tsx')).toMatch(/hitSlop=\{\{ left: 2, right: 2 \}\}/);
     });
 });
 
-describe('E-026 — one visible title on screens that draw their own H1', () => {
+describe('E-026 / A-048 / B-047 — one visible title, as a non-empty heading, and no blank header band', () => {
     const app = read('App.tsx');
-    it.each(['Register', 'Login', 'Settings', 'GuestUpgrade', 'KickCounter', 'ContractionTimer', 'HospitalBag'])('%s', (name) => {
-        const line = app.split('\n').find((l) => l.includes(`name="${name}"`)) ?? '';
-        expect(line).toContain('...BODY_TITLED');
+    const bodyTitledScreens = ['Register', 'Login', 'PrivacyPolicy', 'Settings', 'GuestUpgrade', 'HealthDashboard', 'WeightTracker', 'ForbiddenFoods', 'KickCounter', 'ContractionTimer', 'HospitalBag'];
+    it.each(bodyTitledScreens)('%s uses bodyTitled(...)', (name) => {
+        const lines = app.split('\n').filter((l) => l.includes(`name="${name}"`));
+        expect(lines.length).toBeGreaterThan(0);
+        lines.forEach((line) => expect(line).toContain('options={bodyTitled('));
     });
-    it('the header keeps its back button (headerTitle only blanked)', () => {
-        expect(app).toMatch(/const BODY_TITLED = \{ headerTitle: '' \} as const;/);
+    it('the header title is a render function returning null (no empty <h1>), not an empty string', () => {
+        expect(app).toMatch(/headerTitle: \(\) => null/);
+        expect(app).not.toMatch(/headerTitle: ''/);
+    });
+    it('the header is hidden on a stack root (no blank band) and the inset moves to the content', () => {
+        expect(app).toMatch(/const isStackRoot = navigation\.getState\(\)\.index === 0;/);
+        expect(app).toMatch(/headerShown: !isStackRoot/);
+        expect(app).toMatch(/contentStyle: isStackRoot \? \{ paddingTop: insets\.top \} : undefined/);
+    });
+    it('Reminders: both sub-tabs draw their own H1, so the header is dropped', () => {
+        const line = app.split('\n').findIndex((l) => l.includes('name="RemindersMain"'));
+        expect(app.split('\n').slice(line, line + 12).join('\n')).toContain('headerShown: false');
+    });
+    it.each([
+        ['RegisterScreen', /styles\.title, isRTL && styles\.rtlText\]\} accessibilityRole="header"/],
+        ['LoginScreen', /styles\.title, isRTL && styles\.rtlText\]\} accessibilityRole="header"/],
+        ['SettingsScreen', /styles\.headerTitle\} accessibilityRole="header"/],
+        ['KickCounterScreen', /styles\.title\} accessibilityRole="header"/],
+        ['ContractionTimerScreen', /styles\.title\} accessibilityRole="header"/],
+        ['HospitalBagChecklistScreen', /styles\.title\} accessibilityRole="header"/],
+        ['PrivacyPolicyScreen', /styles\.headerTitle\} accessibilityRole="header"/],
+        ['ForbiddenFoodsScreen', /styles\.title\} accessibilityRole="header"/],
+        ['HealthDashboardScreen', /styles\.headerTitle\} accessibilityRole="header"/],
+        ['WeightTrackerScreen', /styles\.title\} accessibilityRole="header"/],
+    ])('%s: the in-body title is a heading', (file, re) => {
+        expect(read(`src/screens/${file}.tsx`)).toMatch(re);
     });
 });
 

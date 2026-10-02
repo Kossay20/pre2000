@@ -196,6 +196,12 @@ async function state(ctx: Ctx, name: string, expectedNetworkErrors: RegExp[] = [
       fs.writeFileSync(path.join(dir, `${name}.dialogs.txt`), said.map((d) => `[${d.type}:${d.action}] ${d.message}`).join('\n---\n') + '\n');
     }
   }
+  // D-047: the visible text of the state goes beside its PNG too, so two states whose pixels are
+  // identical (same screen, different dialog or toggle) still differ on disk and in review.
+  for (const dir of ctx.dirs) {
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, `${name}.text.txt`), `${body}\n`);
+  }
   await ctx.rec.snap(name);
   // Only the browser's own resource-load line for a request the test itself provoked
   // (simulated CREDENTIAL_TOO_OLD refusal, deliberate wrong password) may be allowed —
@@ -2236,6 +2242,63 @@ test('D-logout-unsynced: logging out with unsent tracker records asks first; she
   expect.soft(privateKeysIn(await localKeys(page)), '41d: private keys left after logout').toEqual([]);
   await page.unroute(FIRESTORE_TRAFFIC);
   await offlineState(ctx, '41d-logout-anyway');
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// D-logout-onboarding — state 42 (D-044): the onboarding header's "Se déconnecter"
+// ══════════════════════════════════════════════════════════════════════════════
+
+test('D-logout-onboarding: the onboarding header logout asks, then warns about an unsent bag edit; she can stay', async ({ page }, testInfo) => {
+  // A signed-in account with no profile lands on Onboarding (ProfileSetupStack): the header link
+  // used to call logout() bare, with no confirm and no unsent-records guard.
+  const acct = await createAccount(newAccountEmail(WAVE, 'logout-onboarding'), E2E_PASSWORD);
+  const ctx = instrument(page, testInfo);
+  await openLoginForm(page, 'fr');
+  await submitLogin(page, acct.email, acct.password);
+  await expect(page.getByRole('button', { name: 'Je suis enceinte' }), '42: a profile-less account signs in to Onboarding').toBeVisible({ timeout: 30_000 });
+  const headerLogout = page.getByRole('button', { name: 'Se déconnecter' });
+  await expect(headerLogout, '42 (D-044): the Onboarding header offers "Se déconnecter"').toBeVisible({ timeout: 15_000 });
+
+  // An unsent bag edit on the device, the server unreachable → the edit cannot be flushed.
+  await page.route(FIRESTORE_TRAFFIC, (route) => route.abort('internetdisconnected'));
+  await page.evaluate(() => {
+    localStorage.setItem('hospital_bag_v1', JSON.stringify({ items: [], checked: { e2e_unsent_item: true }, updatedAt: Date.now(), synced: false }));
+  });
+  await offlineState(ctx, '42-onboarding-unsent-bag-edit');
+
+  // 42a — first press: the usual confirm, then the unsent-records one; she answers "Annuler" to the second.
+  const before = ctx.dialogs.dialogs.length;
+  const asked = ctx.dialogs.waitForNext(30_000).then(async (first) => {
+    ctx.dialogs.next('dismiss');
+    return { first, second: await ctx.dialogs.waitForNext(20_000).catch(() => null) };
+  });
+  await headerLogout.click();
+  const a = await asked;
+  note(testInfo, '42a-dialogs', JSON.stringify(ctx.dialogs.dialogs.slice(before).map((d) => ({ m: d.message, a: d.action }))));
+  expect.soft(norm(a.first.message), '42a (D-044): the header logout asks "Déconnexion" first (no bare logout)').toMatch(/^Déconnexion/);
+  expect.soft(norm(a.second?.message) || '(no second dialog)', '42a (D-044): an unsent bag edit → a second confirmation that counts it').toMatch(/^Données pas encore sauvegardées\n\nEnregistrements pas encore sauvegardés en ligne : 1 \(/);
+  expect.soft(norm(a.second?.message), '42a (D-044): it says they would be lost').toMatch(/Ils risquent d.être perdus si vous vous déconnectez maintenant/);
+  await page.waitForTimeout(2000);
+  await expect.soft(page.getByRole('button', { name: 'Je suis enceinte' }), '42a: declining keeps her on Onboarding, signed in').toBeVisible();
+  expect.soft(await authAccountExists(acct.uid), '42a: the account is untouched').toBe(true);
+  expect.soft(await page.evaluate(() => localStorage.getItem('hospital_bag_v1')), '42a: the unsent bag edit is still on the device').toContain('e2e_unsent_item');
+  await offlineState(ctx, '42a-onboarding-logout-declined');
+
+  // 42b — "Se déconnecter quand même": both confirms accepted, she is signed out and the device is wiped.
+  const before42b = ctx.dialogs.dialogs.length;
+  const both = ctx.dialogs.waitForNext(30_000).then(async (first) => ({ first, second: await ctx.dialogs.waitForNext(20_000).catch(() => null) }));
+  await headerLogout.click();
+  const accepted = await both;
+  await page.waitForURL((u) => onAuthSurface(u.pathname), { timeout: 20_000 }).catch(() => {});
+  await page.waitForTimeout(1500);
+  note(testInfo, '42b-dialogs', JSON.stringify(ctx.dialogs.dialogs.slice(before42b).map((d) => ({ m: d.message, a: d.action }))));
+  expect.soft(norm(accepted.first.message), '42b: ordinary confirm first').toMatch(/^Déconnexion/);
+  expect.soft(norm(accepted.second?.message) || '(no second dialog)', '42b (D-044): second confirmation').toMatch(/^Données pas encore sauvegardées/);
+  expect.soft(new URL(page.url()).pathname, '42b: "log out anyway" signs her out (sign-in choice)').toBe('/auth');
+  await expect.soft(page.getByRole('button', { name: 'Je suis enceinte' }), '42b: Onboarding is gone').toHaveCount(0);
+  expect.soft(privateKeysIn(await localKeys(page)), '42b: private keys left after logout').toEqual([]);
+  await page.unroute(FIRESTORE_TRAFFIC);
+  await offlineState(ctx, '42b-onboarding-logout-anyway');
 });
 
 // ══════════════════════════════════════════════════════════════════════════════

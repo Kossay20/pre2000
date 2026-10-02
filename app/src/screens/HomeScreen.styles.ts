@@ -198,14 +198,18 @@ export const styles = StyleSheet.create({
         paddingBottom: 24,
     },
     // The avatar is absolutely placed over the header's top-right corner (its left edge sits
-    // ~86pt from the right). Wide screens keep only that side clear (a symmetric 90pt on both
-    // sides left 170pt, and a name of 8+ letters wrapped onto a second line) so the greeting is
-    // centred in the space beside the avatar; a narrow one has no room for a greeting next to a 50pt avatar (at 280pt
-    // it still touched), so the greeting starts below the avatar instead.
+    // ~66pt from the right edge, physical `right: 16`). The greeting is centred on the page axis
+    // (like "Semaine N" and the buttons below) with the SAME physical clearance on both sides:
+    // logical paddingStart/End flip with the document direction while the avatar's `right` does
+    // not (the Arabic greeting ran under the avatar), and one-sided padding shifted the line off
+    // the axis. 76pt (avatar 66 + 10 gap) keeps ~220pt of width at 375pt; a longer name wraps
+    // (numberOfLines 2) or shrinks natively instead of moving the block. A narrow screen has no
+    // room for a greeting next to a 50pt avatar (at 280pt it still touched), so the greeting
+    // starts below the avatar instead.
     headerTextContainer: {
         alignItems: 'center',
         marginBottom: 16,
-        ...(width < 340 ? { marginTop: 54 } : { paddingStart: 0, paddingEnd: 90 }),
+        ...(width < 340 ? { marginTop: 54 } : { paddingLeft: 76, paddingRight: 76 }),
     },
     weekInfo: {
         fontSize: 14,

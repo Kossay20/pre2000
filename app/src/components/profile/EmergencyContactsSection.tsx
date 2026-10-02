@@ -336,12 +336,13 @@ const styles = StyleSheet.create({
     },
     actions: {
         flexDirection: 'row',
-        gap: 8,
+        // The emergency call sits next to a destructive control: keep them clearly apart (D-055).
+        gap: 16,
     },
     actionButton: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
+        width: 44,
+        height: 44,
+        borderRadius: 22,
         alignItems: 'center',
         justifyContent: 'center',
     },

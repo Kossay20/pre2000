@@ -136,7 +136,7 @@ export const ForbiddenFoodsScreen = () => {
         <ScrollView style={styles.container} contentContainerStyle={styles.content}>
             {/* Header */}
             <View style={styles.header}>
-                <Text style={styles.title}>🍽️ {t('common.toAvoid')}</Text>
+                <Text style={styles.title} accessibilityRole="header">🍽️ {t('common.toAvoid')}</Text>
                 <Text style={styles.subtitle}>
                     {t('forbiddenFoods.subtitle')}
                 </Text>

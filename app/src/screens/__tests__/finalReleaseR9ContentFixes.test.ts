@@ -55,16 +55,26 @@ describe('C-048: Foods to avoid screen matches the app chrome', () => {
 
 describe('E-027: every article category has a vector icon', () => {
     const src = read('../ArticlesListScreen.tsx');
+    const map = read('../../utils/categoryIcon.ts');
 
     it('maps each category of the bundled articles', () => {
         const categories = Array.from(new Set((articles as any[]).map(a => a.category)));
-        const missing = categories.filter(c => !new RegExp(`\\b${c}: '[a-z-]+-outline'`).test(src));
+        const missing = categories.filter(c => !new RegExp(`\\b${c}: '[a-z-]+-outline'`).test(map));
         expect(missing).toEqual([]);
     });
 
     it('draws an Ionicons glyph, not the book emoji placeholder', () => {
         expect(src).not.toMatch(/\|\| '📚'/);
         expect(src).toMatch(/<Ionicons name=\{getCategoryIcon\(item\.category\)\}/);
+    });
+
+    it('is the same icon on the week recommendations cards, on a >=3:1 block (C-059 / C-061 / E-062)', () => {
+        const rec = read('../WeekRecommendationsScreen.tsx');
+        expect(rec).toMatch(/<Ionicons name=\{getCategoryIcon\(article\.category\)\}/);
+        expect(rec).not.toContain('>📚<');
+        // white on the old #FF8FA3 secondary pink was 2.2:1; primaryStrong is 4.6:1
+        expect(src).toMatch(/iconContainer: \{[^}]*primaryStrong/s);
+        expect(rec).toMatch(/iconContainer: \{[^}]*width: 70[^}]*primaryStrong/s);
     });
 });
 

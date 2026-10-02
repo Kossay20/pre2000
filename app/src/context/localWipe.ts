@@ -13,6 +13,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { PRIVATE_STORAGE_KEYS, PRIVATE_STORAGE_KEY_PREFIXES } from './storageKeys';
 import { cancelAllNotifications } from '../services/notificationService';
 import { clearContentCache } from '../services/contentService';
+import { sweepExportFiles } from '../services/exportFileSweep';
 import { createLogger } from '../utils/logger';
 
 const log = createLogger('localWipe');
@@ -44,4 +45,10 @@ export const wipeLocalUserData = async (): Promise<void> => {
     await AsyncStorage.multiRemove([...PRIVATE_STORAGE_KEYS]);
     await purgeDynamicPrivateKeys();
     clearContentCache();
+    // A JSON export left in the cache by a crash is her whole record in plain text.
+    try {
+        await sweepExportFiles();
+    } catch (err) {
+        log.warn('Failed to sweep export files:', err);
+    }
 };

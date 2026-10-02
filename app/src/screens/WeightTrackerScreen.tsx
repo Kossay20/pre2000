@@ -49,6 +49,7 @@ import { trackPositiveAction } from '../services/inAppReviewService';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
 import { WeightIntelligenceCard } from '../components/weight/WeightIntelligenceCard';
 import { WeightMiniChart } from '../components/weight/WeightMiniChart';
+import { plainLabel } from '../utils/a11yLabel';
 
 const log = createLogger('WeightTrackerScreen');
 
@@ -436,7 +437,7 @@ export const WeightTrackerScreen = () => {
                     would just be a dead stop for screen-reader and keyboard users. */}
                 {__DEV__ ? (
                     <TouchableOpacity onPress={handleTitlePress}>
-                        <Text style={styles.title}>{t('weight.title')}</Text>
+                        <Text style={styles.title} accessibilityRole="header">{t('weight.title')}</Text>
                         <Text style={styles.subtitle}>{t('common.weekLabel', { number: shownWeek || '?' })}</Text>
                     </TouchableOpacity>
                 ) : (
@@ -588,7 +589,7 @@ export const WeightTrackerScreen = () => {
                                     [{ text: t('weight.understood') }]
                                 )}
                                 accessibilityRole="button"
-                                accessibilityLabel={t('weight.howItWorks')}
+                                accessibilityLabel={plainLabel(t('weight.howItWorks'))}
                                 // The 24pt badge keeps its look; the slop makes the touch target 44pt.
                                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                             >
@@ -708,7 +709,7 @@ export const WeightTrackerScreen = () => {
                                         <View style={styles.historyLeft}>
                                             <Text style={styles.historyWeight}>{num(entry.weight)} {t('common.kg')}</Text>
                                             <Text style={styles.historyDate}>
-                                                {format(new Date(entry.date), 'dd MMM yyyy', { locale: dateLocale })} • {t('common.weekLabel', { number: entry.week_of_pregnancy })}
+                                                {format(new Date(entry.date), 'd MMM yyyy', { locale: dateLocale })} • {t('common.weekLabel', { number: entry.week_of_pregnancy })}
                                             </Text>
                                         </View>
                                         <View style={styles.historyRight}>
@@ -726,7 +727,7 @@ export const WeightTrackerScreen = () => {
                                                 onPress={() => handleDeleteEntry(entry)}
                                                 accessibilityRole="button"
                                                 accessibilityLabel={t('a11y.deleteWeight')}
-                                                accessibilityHint={`${num(entry.weight)} ${t('common.kg')}, ${format(new Date(entry.date), 'dd MMM yyyy', { locale: dateLocale })}`}
+                                                accessibilityHint={`${num(entry.weight)} ${t('common.kg')}, ${format(new Date(entry.date), 'd MMM yyyy', { locale: dateLocale })}`}
                                             >
                                                 <Text style={styles.deleteButtonText}>🗑️</Text>
                                             </TouchableOpacity>

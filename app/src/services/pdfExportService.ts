@@ -29,7 +29,7 @@ interface JournalData {
 
 const generateHTML = (data: JournalData, t: TFunction, locale: Locale, langCode: string = 'fr') => {
     const { profile, weightHistory, appointments, notes } = data;
-    const today = format(new Date(), 'dd MMMM yyyy', { locale });
+    const today = format(new Date(), 'd MMMM yyyy', { locale });
     const displayName = profile.firstName || t('common.futureMom');
     const isRTL = langCode === 'ar' || langCode === 'tn';
 
@@ -250,17 +250,17 @@ const generateHTML = (data: JournalData, t: TFunction, locale: Locale, langCode:
                     </div>
                     <div class="profile-item">
                         <div class="profile-label">${t('pdf.country')}</div>
-                        <div class="profile-value">${profile.country === 'tunisia' ? t('common.countries.tunisia') : profile.country || '-'}</div>
+                        <div class="profile-value">${profile.country ? t(`common.countries.${profile.country}`, { defaultValue: profile.country }) : '-'}</div>
                     </div>
                     ${profile.lmp ? `
                     <div class="profile-item">
                         <div class="profile-label">${t('pdf.lmp')}</div>
-                        <div class="profile-value">${format(calendarDay(profile.lmp), 'dd MMM yyyy', { locale })}</div>
+                        <div class="profile-value">${format(calendarDay(profile.lmp), 'd MMM yyyy', { locale })}</div>
                     </div>` : ''}
                     ${profile.dpa ? `
                     <div class="profile-item">
                         <div class="profile-label">${t('pdf.dpa')}</div>
-                        <div class="profile-value">${format(calendarDay(profile.dpa), 'dd MMM yyyy', { locale })}</div>
+                        <div class="profile-value">${format(calendarDay(profile.dpa), 'd MMM yyyy', { locale })}</div>
                     </div>` : ''}
                 </div>
             </div>
@@ -279,8 +279,8 @@ const generateHTML = (data: JournalData, t: TFunction, locale: Locale, langCode:
                     <tbody>
                         ${sortedWeight.map(w => `
                         <tr>
-                            <td>${format(new Date(w.date), 'dd MMMM yyyy', { locale })}</td>
-                            <td><strong>${w.weight} kg</strong></td>
+                            <td>${format(new Date(w.date), 'd MMMM yyyy', { locale })}</td>
+                            <td><strong><span dir="ltr">${w.weight}&nbsp;kg</span></strong></td>
                         </tr>
                         `).join('')}
                     </tbody>
@@ -303,7 +303,7 @@ const generateHTML = (data: JournalData, t: TFunction, locale: Locale, langCode:
                     <tbody>
                         ${sortedApps.map(a => `
                         <tr>
-                            <td>${format(new Date(a.date), 'dd/MM/yyyy HH:mm')}</td>
+                            <td>${format(new Date(a.date), 'd MMMM yyyy HH:mm', { locale })}</td>
                             <td><span style="color: var(--primary-dark); font-weight: 500;">${a.title}</span></td>
                             <td style="font-size: 13px; color: ${theme.colors.textSecondary};">${a.notes || '-'}</td>
                         </tr>
@@ -319,7 +319,7 @@ const generateHTML = (data: JournalData, t: TFunction, locale: Locale, langCode:
                 <h2><span class="icon">📝</span> ${t('pdf.personalNotes')}</h2>
                 ${sortedNotes.map(n => `
                 <div class="note-item">
-                    <div class="note-date">${format(new Date(n.date), 'dd MMMM yyyy HH:mm', { locale })}</div>
+                    <div class="note-date">${format(new Date(n.date), 'd MMMM yyyy HH:mm', { locale })}</div>
                     <div class="note-content">${n.content}</div>
                 </div>
                 `).join('')}

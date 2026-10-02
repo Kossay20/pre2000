@@ -27,7 +27,7 @@
         "enableReminders": "Enable reminders",
         "save": "Save",
         "concept": "On conception date",
-        "outOf": "of {{goalL}}L",
+        "outOf": "of {{goalL}} L",
         "unitLitre": "L"
     },
     "frequenciesShort": {

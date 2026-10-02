@@ -201,7 +201,10 @@ export const loadCalendarTemplates = async (): Promise<CalendarTemplate[]> => {
         const templates = snapshot.docs.map((doc) => doc.data() as CalendarTemplate);
         log.success(`Loaded ${templates.length} calendar templates`);
         if (templates.length === 0) {
-            log.warn('No calendar templates found! Check Firestore data import.');
+            // Offline with persistence, getDocs resolves with an empty cache instead of
+            // rejecting; an empty collection is never a reason to show no suggestions.
+            log.warn('No calendar templates found, using the bundled templates.');
+            return getBundledCalendarTemplates();
         }
         return templates;
     } catch (error) {

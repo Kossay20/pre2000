@@ -166,7 +166,7 @@ export const CompletedTasksScreen = () => {
                                 </Text>
                                 {task.completed_at && (
                                     <Text style={styles.completedDate}>
-                                        {t('common.completedOn', { date: format(task.completed_at, 'dd MMMM yyyy', { locale: dateLocale }) })}
+                                        {t('common.completedOn', { date: format(task.completed_at, 'd MMMM yyyy', { locale: dateLocale }) })}
                                     </Text>
                                 )}
                             </View>

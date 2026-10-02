@@ -20,6 +20,8 @@ const mockCancelAll = jest.fn(async () => undefined);
 jest.mock('../../services/notificationService', () => ({ cancelAllNotifications: () => mockCancelAll() }));
 const mockClearCache = jest.fn();
 jest.mock('../../services/contentService', () => ({ clearContentCache: () => mockClearCache() }));
+const mockSweepExports = jest.fn(async () => undefined);
+jest.mock('../../services/exportFileSweep', () => ({ sweepExportFiles: () => mockSweepExports() }));
 jest.mock('../../utils/logger', () => ({
   createLogger: () => ({ info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn(), success: jest.fn() }),
 }));
@@ -146,6 +148,20 @@ describe('wipeLocalUserData covers every key the app writes', () => {
     mockStore.set('kick_counter_v1', 'x');
     mockCancelAll.mockRejectedValueOnce(new Error('native module missing'));
     await wipeLocalUserData();
+    expect(mockStore.has('kick_counter_v1')).toBe(false);
+  });
+
+  it('sweeps the leftover export files from the cache (D-024)', async () => {
+    mockSweepExports.mockClear();
+    await wipeLocalUserData();
+    expect(mockSweepExports).toHaveBeenCalledTimes(1);
+  });
+
+  it('still finishes when the export sweep fails', async () => {
+    mockStore.clear();
+    mockStore.set('kick_counter_v1', 'x');
+    mockSweepExports.mockRejectedValueOnce(new Error('cache unreadable'));
+    await expect(wipeLocalUserData()).resolves.toBeUndefined();
     expect(mockStore.has('kick_counter_v1')).toBe(false);
   });
 });

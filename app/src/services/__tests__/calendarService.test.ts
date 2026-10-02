@@ -364,10 +364,11 @@ describe('loadCalendarTemplates', () => {
         expect(mockLog.success).toHaveBeenCalled();
     });
 
-    test('warns when the snapshot is empty and returns []', async () => {
+    test('warns when the snapshot is empty and returns the bundled templates', async () => {
+        // E-052: offline with persistence, getDocs resolves with an empty cache snapshot.
         mockedGetDocs.mockResolvedValueOnce(makeSnapshot([]) as never);
         const result = await loadCalendarTemplates();
-        expect(result).toEqual([]);
+        expect(result).toEqual(getBundledCalendarTemplates());
         expect(mockLog.warn).toHaveBeenCalledWith(
             expect.stringContaining('No calendar templates found')
         );

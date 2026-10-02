@@ -79,7 +79,7 @@ export const ChatbotScreen = () => {
             if (target === 'end') {
                 flatListRef.current?.scrollToEnd({ animated: true });
             } else {
-                flatListRef.current?.scrollToIndex({ index: target.index, viewPosition: 0, animated: true });
+                flatListRef.current?.scrollToIndex({ index: target.index, viewPosition: 0, viewOffset: 8, animated: true });
             }
         });
     }, []);
@@ -88,7 +88,7 @@ export const ChatbotScreen = () => {
     const onScrollToIndexFailed = useCallback((info: { index: number; averageItemLength: number }) => {
         flatListRef.current?.scrollToOffset({ offset: info.index * info.averageItemLength, animated: false });
         setTimeout(() => {
-            flatListRef.current?.scrollToIndex({ index: info.index, viewPosition: 0, animated: true });
+            flatListRef.current?.scrollToIndex({ index: info.index, viewPosition: 0, viewOffset: 8, animated: true });
         }, 100);
     }, []);
 

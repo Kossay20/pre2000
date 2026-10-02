@@ -152,7 +152,7 @@ export const BabyEvolutionScreen = () => {
                         <Text style={styles.backText}>{t('common.back')}</Text>
                     </View>
                 </TouchableOpacity>
-                <Text style={styles.title}>{t('home.babyEvolution')}</Text>
+                <Text style={styles.title} numberOfLines={1} adjustsFontSizeToFit>{t('home.babyEvolutionTitle')}</Text>
                 <View style={styles.placeholder} />
             </View>
 
@@ -178,6 +178,7 @@ export const BabyEvolutionScreen = () => {
                         // is the same "Month n" button and none is announced as the open one.
                         {...(Platform.OS === 'web' ? { 'aria-pressed': activeMonth === index + 1 } : {})}
                         style={styles.progressDotTouch}
+                        hitSlop={{ left: 2, right: 2 }}
                     >
                         <View
                             style={[
@@ -252,15 +253,15 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'center',
         paddingVertical: 4,
-        // Nine 44pt boxes are 396pt: on a phone narrower than that the last dots wrap onto a
-        // second row rather than leaving the viewport.
-        flexWrap: 'wrap',
+        // No flexWrap: the nine dots stay on ONE row at 375/390pt (a wrap orphaned Month 9).
     },
-    // The dot stays 10pt; its pressable box is 44 x 44pt (hitSlop alone is ignored on web).
+    // The dot stays 10pt; its pressable box is 44pt tall and shares the row's width: nine boxes
+    // of up to 44pt do not fit a phone (~41-43pt each at 375/390pt, the full 44pt on a tablet),
+    // so the missing 1-3pt of width comes back through hitSlop (ignored on web, where the
+    // box itself is the target).
     progressDotTouch: {
-        width: 44,
-        minWidth: 44,
-        flexShrink: 0,
+        flex: 1,
+        maxWidth: 44,
         height: 44,
         alignItems: 'center',
         justifyContent: 'center',

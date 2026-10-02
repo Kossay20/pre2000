@@ -181,7 +181,7 @@ export const LoginScreen = () => {
                         </TouchableOpacity>
                     )}
 
-                    <Text style={[styles.title, isRTL && styles.rtlText]}>{t('loginTitle')}</Text>
+                    <Text style={[styles.title, isRTL && styles.rtlText]} accessibilityRole="header">{t('loginTitle')}</Text>
                     <Text style={[styles.subtitle, isRTL && styles.rtlText]}>
                         {t('loginSubtitle')}
                     </Text>
@@ -352,7 +352,12 @@ const styles = StyleSheet.create({
         borderWidth: 1.5,
         borderColor: theme.colors.border,
         borderRadius: theme.borderRadius.m,
-        padding: theme.spacing.m,
+        paddingVertical: theme.spacing.m,
+        // The address is LTR data even in ar/tn, so its end is the physical right. It ran
+        // into the right padding and its last characters were cut ("...@e2e.te"): less
+        // padding on that side so the whole address fits the field.
+        paddingLeft: theme.spacing.m,
+        paddingRight: theme.spacing.s,
         fontSize: 16,
         backgroundColor: theme.colors.white,
     },

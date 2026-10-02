@@ -3,7 +3,7 @@ import { Platform, Text, TextInput, TouchableOpacity, useWindowDimensions, View 
 import { StatusBar } from 'expo-status-bar';
 import * as Sentry from '@sentry/react-native';
 import { logger } from './src/utils/logger';
-import { scrubSentryEvent } from './src/utils/sentryScrub';
+import { scrubSentryEvent, scrubSentryTransaction, scrubSentryBreadcrumb } from './src/utils/sentryScrub';
 
 // ACCESSIBILITY: Prevent text from scaling too large and breaking layout
 // (Standard practice for complex layouts not fully optimized for A11y yet)
@@ -20,20 +20,25 @@ interface TextWithDefaultProps extends Text {
 // design: without EXPO_PUBLIC_SENTRY_DSN the SDK starts disabled and reports nothing, which
 // is safe for the user (the privacy policy only says reports are sent when enabled).
 // beforeSend removes `extra`, request bodies and user e-mail/IP: logger.error forwards
-// whatever the caller held as extras.
+// whatever the caller held as extras. beforeSendTransaction and beforeBreadcrumb do the same
+// for sampled transactions and for breadcrumb data.
 if (!__DEV__) {
   Sentry.init({
     dsn: process.env.EXPO_PUBLIC_SENTRY_DSN || '',
     debug: false,
     tracesSampleRate: 0.2, // Capture 20% of transactions for performance monitoring
     beforeSend: (event) => scrubSentryEvent(event),
+    // Transactions (span URLs, request data) and breadcrumbs are separate paths: beforeSend
+    // never sees them.
+    beforeSendTransaction: (event) => scrubSentryTransaction(event),
+    beforeBreadcrumb: (breadcrumb) => scrubSentryBreadcrumb(breadcrumb),
   });
 }
 import { NavigationContainer, useNavigation, getStateFromPath } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import './src/i18n'; // Initialize i18n
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { needsProfileSetup } from './src/context/loginHelpers';
@@ -93,10 +98,27 @@ import './src/types/navigation'; // Activate global navigation type augmentation
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
-// The screen draws its own H1 with the same words; a second title in the header said it twice
-// (E-026). `title` stays for the web document title and the back button's name; the header
-// keeps the way back and shows no text.
-const BODY_TITLED = { headerTitle: '' } as const;
+// The screen draws its own H1 (a heading with the same words as the route title), so the stack
+// header must not say it a second time (E-026) and must not be an empty heading either (A-048:
+// an empty-string header title still rendered an empty <h1>). The header keeps only the way back: with a
+// title render function that returns null no heading is drawn at all. `title` stays for the web
+// document title and the back button's name. When the screen is the root of its stack (a web
+// deep link, a reload, a cold-start link) there is no back control, so the header would be a
+// blank band: it is hidden and the body H1 is the only title. The status-bar inset the header
+// used to add then moves to the screen container (`contentStyle`).
+type StackRootProbe = { navigation: { getState: () => { index: number } } };
+const useBodyTitled = () => {
+  const insets = useSafeAreaInsets();
+  return (title: string) => ({ navigation }: StackRootProbe) => {
+    const isStackRoot = navigation.getState().index === 0;
+    return {
+      title,
+      headerTitle: () => null,
+      headerShown: !isStackRoot,
+      contentStyle: isStackRoot ? { paddingTop: insets.top } : undefined,
+    };
+  };
+};
 
 // True once an account has been signed in during this run. A sign-out (or a wiped account)
 // then lands on AuthChoice, not on the cold-start language picker: the language is already
@@ -105,6 +127,7 @@ let signedInThisRun = false;
 
 const AuthStack = () => {
   const { t } = useTranslation();
+  const bodyTitled = useBodyTitled();
   return (
     // The titles on Language and AuthChoice are never shown (no header) but they are
     // what the next screen's back button is named after; without them the header back
@@ -122,10 +145,10 @@ const AuthStack = () => {
     >
       <Stack.Screen name="Language" component={LanguageSelectScreen} options={{ title: t('common.chooseLanguage') }} />
       <Stack.Screen name="AuthChoice" component={AuthChoiceScreen} options={{ title: t('startJourney') }} />
-      <Stack.Screen name="Register" component={RegisterScreen} options={{ headerShown: true, title: t('common.screen.createAccount'), ...BODY_TITLED }} />
-      <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: true, title: t('common.screen.login'), ...BODY_TITLED }} />
+      <Stack.Screen name="Register" component={RegisterScreen} options={bodyTitled(t('common.screen.createAccount'))} />
+      <Stack.Screen name="Login" component={LoginScreen} options={bodyTitled(t('common.screen.login'))} />
       <Stack.Screen name="Onboarding" component={OnboardingScreen} options={{ headerShown: true, title: t('common.screen.onboarding') }} />
-      <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} options={{ headerShown: true, title: t('common.screen.legalNotice') }} />
+      <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} options={bodyTitled(t('common.screen.legalNotice'))} />
     </Stack.Navigator>
   );
 };
@@ -139,6 +162,7 @@ const AuthStack = () => {
 // without answering it. Both can open the privacy policy they are asked to accept.
 const ProfileSetupStack = ({ initialRouteName }: { initialRouteName: 'Onboarding' | 'HealthDataConsent' }) => {
   const { t } = useTranslation();
+  const bodyTitled = useBodyTitled();
   // The same confirmation + unsent-records guard as the Profile screen's logout.
   const confirmedLogout = useConfirmedLogout();
   return (
@@ -171,13 +195,14 @@ const ProfileSetupStack = ({ initialRouteName }: { initialRouteName: 'Onboarding
         component={HealthDataConsentScreen}
         options={{ title: t('onboarding.healthConsent.sheetTitle'), headerBackVisible: false, gestureEnabled: false }}
       />
-      <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} options={{ headerShown: true, title: t('common.screen.legalNotice') }} />
+      <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} options={bodyTitled(t('common.screen.legalNotice'))} />
     </Stack.Navigator>
   );
 };
 
 const HomeStack = () => {
   const { t } = useTranslation();
+  const bodyTitled = useBodyTitled();
   return (
     <Stack.Navigator screenOptions={{
       headerStyle: { backgroundColor: theme.colors.background },
@@ -189,12 +214,12 @@ const HomeStack = () => {
       <Stack.Screen name="ArticleDetail" component={ArticleDetailScreen} options={{ title: t('common.screen.article') }} />
       <Stack.Screen name="SupplementDetail" component={SupplementDetailScreen} options={{ title: t('common.screen.supplement') }} />
       <Stack.Screen name="Profile" component={ProfileScreen} options={{ title: t('common.screen.myProfile') }} />
-      <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: t('common.screen.settings'), ...BODY_TITLED }} />
+      <Stack.Screen name="Settings" component={SettingsScreen} options={bodyTitled(t('common.screen.settings'))} />
       {/* NAV-01: guest-upgrade entry reachable from INSIDE MainTabs (the AuthStack
           Register lives in a stack that is unmounted for a logged-in guest, so the old
           navigate('AuthChoice') silently no-op'd). RegisterScreen in upgradeMode links the
           anonymous account in place — no re-onboarding. */}
-      <Stack.Screen name="GuestUpgrade" component={RegisterScreen} initialParams={{ upgradeMode: true }} options={{ headerShown: true, title: t('common.screen.createAccount'), ...BODY_TITLED }} />
+      <Stack.Screen name="GuestUpgrade" component={RegisterScreen} initialParams={{ upgradeMode: true }} options={bodyTitled(t('common.screen.createAccount'))} />
       {/* PRIVACY-REACHABILITY FIX. AuthStack and MainTabs are mutually exclusive
           (`user ? <MainTabs/> : <AuthStack/>`), so registering PrivacyPolicy only in
           AuthStack made it unreachable for every logged-in user: the links in
@@ -203,10 +228,10 @@ const HomeStack = () => {
           lives on that screen too. Apple requires an in-app privacy policy, so this is
           a store blocker as much as a broken link. Same fix already applied to
           GuestUpgrade just above. */}
-      <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} options={{ headerShown: true, title: t('common.screen.legalNotice') }} />
-      <Stack.Screen name="HealthDashboard" component={HealthDashboardScreen} options={{ title: t('common.screen.myHealth') }} />
-      <Stack.Screen name="WeightTracker" component={WeightTrackerScreen} options={{ title: t('common.screen.weightTracking') }} />
-      <Stack.Screen name="ForbiddenFoods" component={ForbiddenFoodsScreen} options={{ title: t('common.screen.forbiddenFoods') }} />
+      <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} options={bodyTitled(t('common.screen.legalNotice'))} />
+      <Stack.Screen name="HealthDashboard" component={HealthDashboardScreen} options={bodyTitled(t('common.screen.myHealth'))} />
+      <Stack.Screen name="WeightTracker" component={WeightTrackerScreen} options={bodyTitled(t('common.screen.weightTracking'))} />
+      <Stack.Screen name="ForbiddenFoods" component={ForbiddenFoodsScreen} options={bodyTitled(t('common.screen.forbiddenFoods'))} />
       {/* DEV-SURFACE FIX: the Settings entry point is already __DEV__-gated, but the
           screen itself was registered unconditionally AND deep-linkable at
           /diagnostic, so a production build still shipped an internal data-dump
@@ -216,9 +241,9 @@ const HomeStack = () => {
       )}
       <Stack.Screen name="LanguageSelect" component={LanguageSelectScreen} options={{ title: t('common.screen.language') }} />
       <Stack.Screen name="BabyEvolution" component={BabyEvolutionScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="KickCounter" component={KickCounterScreen} options={{ title: t('cycle8.kickCounter.title'), ...BODY_TITLED }} />
-      <Stack.Screen name="ContractionTimer" component={ContractionTimerScreen} options={{ title: t('cycle8.contractionTimer.title'), ...BODY_TITLED }} />
-      <Stack.Screen name="HospitalBag" component={HospitalBagChecklistScreen} options={{ title: t('cycle8.hospitalBag.title'), ...BODY_TITLED }} />
+      <Stack.Screen name="KickCounter" component={KickCounterScreen} options={bodyTitled(t('cycle8.kickCounter.title'))} />
+      <Stack.Screen name="ContractionTimer" component={ContractionTimerScreen} options={bodyTitled(t('cycle8.contractionTimer.title'))} />
+      <Stack.Screen name="HospitalBag" component={HospitalBagChecklistScreen} options={bodyTitled(t('cycle8.hospitalBag.title'))} />
       {/* Gated until the guidance is clinically signed off — see featureFlags.ts.
           The registration is gated, not just the Home entry point: DiagnosticScreen
           taught us that a menu-hidden screen stays reachable by URL otherwise. */}
@@ -263,13 +288,21 @@ import { StatisticsScreen } from './src/screens/reminders/StatisticsScreen'; // 
 // V1.2 NEW: Reminders Stack
 const RemindersStack = () => {
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
   return (
     <Stack.Navigator screenOptions={{
       headerStyle: { backgroundColor: theme.colors.background },
       headerTintColor: theme.colors.text,
       ...localizedHeaderBack(t),
     }}>
-      <Stack.Screen name="RemindersMain" component={RemindersScreen} options={{ title: t('common.nav.reminders') }} />
+      <Stack.Screen name="RemindersMain" component={RemindersScreen} options={{
+        title: t('common.nav.reminders'),
+        // Both sub-tabs (Rappels, Tâches) draw their own H1 below the tab bar; the header said
+        // "Rappels" a second time (B-048/E-026). The screen is the root of the Rappels tab, so
+        // there is no back control to keep either: no header, and the inset moves to the content.
+        headerShown: false,
+        contentStyle: { paddingTop: insets.top },
+      }} />
       <Stack.Screen name="Statistics" component={StatisticsScreen} options={{ title: t('common.screen.myStatistics'), headerShown: false }} />
     </Stack.Navigator>
   );

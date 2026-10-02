@@ -61,8 +61,15 @@ describe('Home header (A-047, B-044, C-049)', () => {
   const styles = read('src/screens/HomeScreen.styles.ts');
   const home = read('src/screens/HomeScreen.tsx');
 
-  it('clears only the avatar side so an 8+ letter name stays on one line', () => {
-    expect(styles).toMatch(/\{ paddingStart: 0, paddingEnd: 90 \}/);
+  it('keeps the avatar clearance symmetric and physical (C-057 / A-049 / A-050 / B-049)', () => {
+    // The avatar sits at a physical right: 16, so the clearance must not be logical start/end
+    // (those flip under dir=rtl and ran the Arabic greeting under it) and must not be one-sided
+    // (that moved the greeting off the page axis the week row is centred on).
+    expect(styles).toMatch(/\{ paddingLeft: 76, paddingRight: 76 \}/);
+    const header = styles.slice(styles.indexOf('headerTextContainer: {'), styles.indexOf('weekInfo: {'));
+    expect(header).not.toMatch(/paddingStart|paddingEnd/);
+    expect(styles).toMatch(/profileButtonContainer: \{[^}]*right: 16/s);
+    expect(home).toMatch(/styles\.greeting\} numberOfLines=\{2\} adjustsFontSizeToFit/);
   });
 
   it('shows up to three lines of a recommendation title on a taller card', () => {

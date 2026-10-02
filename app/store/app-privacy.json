@@ -51,15 +51,15 @@
       "linkedToUser": true,
       "usedForTracking": false,
       "purposes": ["App Functionality"],
-      "what": "Appointments, reminders, journal notes and chatbot history stored under the account."
+      "what": "Appointments (title, date, notes) and reminders stored under the account. The chatbot and the journal PDF keep nothing server side."
     },
     {
       "manifestType": "NSPrivacyCollectedDataTypeCoarseLocation",
       "appStoreConnectCategory": "Location > Coarse Location",
-      "linkedToUser": false,
+      "linkedToUser": true,
       "usedForTracking": false,
       "purposes": ["App Functionality"],
-      "what": "Country and city typed in by the user (no location permission is requested). Declared as not linked, as in the manifest."
+      "what": "Country selected by the user (no location permission is requested). Stored on the profile under userProfiles/{uid}, so it is linked to the account, as in the manifest."
     },
     {
       "manifestType": "NSPrivacyCollectedDataTypeOtherContactInfo",
@@ -113,6 +113,8 @@
   "ownerChecklist": [
     "Re-read each answer in App Store Connect against the published privacy policy (website/privacy.html).",
     "Confirm whether Firebase App Check attestation tokens need a Device ID line in your reading of Apple's definitions; the manifest does not declare one.",
+    "Device ID (NSPrivacyCollectedDataTypeDeviceID): the native Sentry SDK attaches an installation-scoped default user id to events sent before login (Language, AuthChoice and Login screens), when logger.setUser has not run yet. Read Sentry's and Apple's definitions and either declare Device ID (not used for tracking) or confirm it is out of scope; the manifest does not declare one. Events after login carry the hashed uid instead.",
+    "After this file changed CoarseLocation to linked, re-enter that row in App Store Connect > App Privacy so it matches app.json (finding F-040).",
     "If EXPO_PUBLIC_SENTRY_DSN is not set on the production EAS environment, crash reporting is off and the Diagnostics rows overstate collection (finding F-036)."
   ]
 }

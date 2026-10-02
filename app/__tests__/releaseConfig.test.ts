@@ -126,6 +126,61 @@ describe('app.json store metadata', () => {
       if (/Sentry\.wrap\(/.test(appSource)) expect(byType('ProductInteraction')).toBeDefined();
     });
 
+    it('marks everything stored under the account as linked (F-040)', () => {
+      // AuthContext writes the UserProfile to userProfiles/{uid}, so each personal field on
+      // it is data linked to the user in Apple's definition. The country was declared
+      // "not linked" while it sat in that document.
+      expect(read('src/context/AuthContext.tsx')).toMatch(/doc\(db, 'userProfiles', /);
+      const profileType = read('src/types/index.ts').match(/export interface UserProfile \{[\s\S]*?\n\}/)?.[0] ?? '';
+      expect(profileType).not.toBe('');
+      const storedUnderAccount: [string, string][] = [
+        ['firstName', 'Name'],
+        ['email', 'EmailAddress'],
+        ['country', 'CoarseLocation'],
+        ['emergencyContacts', 'OtherContactInfo'],
+      ];
+      for (const [field, type] of storedUnderAccount) {
+        expect({ field, declared: profileType.includes(`${field}`) }).toEqual({ field, declared: true });
+        expect({ type, linked: byType(type)?.NSPrivacyCollectedDataTypeLinked }).toEqual({ type, linked: true });
+      }
+    });
+
+    it('declares no data type as not linked while the app stores it under the uid', () => {
+      const notLinked = entries()
+        .filter((e) => e.NSPrivacyCollectedDataTypeLinked === false)
+        .map((e) => e.NSPrivacyCollectedDataType);
+      expect(notLinked).toEqual([]);
+    });
+
+    it('keeps store/app-privacy.json linked flags equal to the manifest', () => {
+      const store = JSON.parse(read('store/app-privacy.json')) as {
+        dataTypes: { manifestType: string; linkedToUser: boolean }[];
+      };
+      for (const row of store.dataTypes) {
+        const manifest = entries().find((e) => e.NSPrivacyCollectedDataType === row.manifestType);
+        expect({ type: row.manifestType, linked: row.linkedToUser }).toEqual({
+          type: row.manifestType,
+          linked: manifest?.NSPrivacyCollectedDataTypeLinked,
+        });
+      }
+    });
+
+    it('does not claim journal or chatbot history is stored (F-041)', () => {
+      for (const file of ['store/app-privacy.json', 'store/data-safety.json']) {
+        const text = read(file);
+        expect(text).not.toMatch(/journal notes/i);
+        expect(text).not.toMatch(/chatbot history (stored|\.)/i);
+      }
+    });
+
+    it('scrubs transactions and breadcrumbs, and flags the pre-login Device ID (F-042)', () => {
+      expect(appSource).toMatch(/beforeSendTransaction:/);
+      expect(appSource).toMatch(/beforeBreadcrumb:/);
+      for (const file of ['store/app-privacy.json', 'store/data-safety.json']) {
+        expect(JSON.parse(read(file)).ownerChecklist.join(' ')).toMatch(/Device ID/);
+      }
+    });
+
     it('marks Sentry data as linked, because every event carries the user id hash', () => {
       // logger.setUser sends SHA-256(uid) — a stable identifier, which Apple
       // counts as linking the data to the user.

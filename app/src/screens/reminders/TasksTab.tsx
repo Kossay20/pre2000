@@ -221,7 +221,7 @@ export const TasksTab = () => {
         >
             {/* Header with Add Button */}
             <View style={styles.header}>
-                <Text style={styles.headerTitle}>{t('tasks.title')}</Text>
+                <Text style={styles.headerTitle} accessibilityRole="header">{t('tasks.title')}</Text>
                 <TouchableOpacity
                     style={styles.addTaskButton}
                     onPress={() => {

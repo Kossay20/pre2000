@@ -505,7 +505,7 @@ export const RemindersTab = () => {
             >
                 {/* Header */}
                 <View style={styles.header}>
-                    <Text style={styles.headerTitle}>{t('common.myReminders')}</Text>
+                    <Text style={styles.headerTitle} accessibilityRole="header">{t('common.myReminders')}</Text>
                     <Text style={styles.headerSubtitle}>
                         {t('common.week')} {displayedAgeOf(pregnancyInfo).week} • {t('common.trimester_' + profile.trimester)}
                     </Text>

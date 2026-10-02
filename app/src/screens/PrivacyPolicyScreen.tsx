@@ -43,7 +43,7 @@ export const PrivacyPolicyScreen = () => {
         <View style={styles.container}>
             {/* Header Title */}
             <View style={styles.header}>
-                <Text style={styles.headerTitle}>{t('legalTerms.title')}</Text>
+                <Text style={styles.headerTitle} accessibilityRole="header">{t('legalTerms.title')}</Text>
                 <Text style={styles.headerSubtitle}>{t('privacy.lastUpdated')}</Text>
             </View>
 

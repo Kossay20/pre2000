@@ -3,8 +3,8 @@ import { theme } from '../theme';
 import { getShadowStyle } from '../utils/styleUtils';
 
 // The add-appointment button floats 56pt high, 20pt in from the corner. The month grid is
-// taller than the screen, so a button over the list lands on day cells (11 and 18 Oct at
-// 375x667): the month list stops above the button instead, 12pt clear of it.
+// taller than the screen, so the list's bottom padding keeps its last row 12pt clear of the
+// button once scrolled (the list scrolls under the button; it is not cut above it).
 export const FAB_SIZE = 56;
 export const FAB_INSET = 20;
 export const MONTH_FAB_CLEARANCE = FAB_SIZE + FAB_INSET + 12;
@@ -448,18 +448,23 @@ export const styles = StyleSheet.create({
     },
     listContent: {
         paddingHorizontal: CALENDAR_LIST_GUTTER,
-        paddingBottom: 120,
+        // Also the floating button's clearance: the grid scrolls UNDER the button and the last
+        // row can be scrolled clear of it (a container padding clipped the grid flat mid-row
+        // above an empty gap, E-054). 120 >= MONTH_FAB_CLEARANCE.
+        paddingBottom: Math.max(120, MONTH_FAB_CLEARANCE),
     },
     // Centred copy kept out of the FAB's column (56pt button + 20pt inset − the 16pt
     // list gutter = 60): at 375pt the "+" sat on the end of "Aucun événement…".
     emptyState: {
         alignItems: 'center',
-        marginTop: 40,
-        paddingVertical: 24,
+        // Tight on purpose: at 375x667 the old 40 + 24 pushed the icon to y=510 and the subtitle
+        // ("Profitez-en pour vous reposer !") under the tab bar (E-060).
+        marginTop: 16,
+        paddingVertical: 12,
         paddingHorizontal: 60,
     },
     emptyIcon: {
-        marginBottom: 16,
+        marginBottom: 8,
     },
     emptyStateText: {
         fontSize: 16,
@@ -473,10 +478,6 @@ export const styles = StyleSheet.create({
         fontSize: 14,
         color: theme.colors.textLight,
         textAlign: 'center',
-    },
-    // Month view only: the list ends above the button (see MONTH_FAB_CLEARANCE).
-    monthListWithFab: {
-        paddingBottom: MONTH_FAB_CLEARANCE,
     },
     fab: {
         position: 'absolute',
