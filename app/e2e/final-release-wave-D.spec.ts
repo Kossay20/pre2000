@@ -1868,11 +1868,16 @@ test('D-rules: tightened subcollection rules refuse unknown names and never dist
   await page.waitForTimeout(1500);
   const chatInput = page.getByRole('textbox').last();
   note(testInfo, '40-chatbot-input', String(await chatInput.count()));
+  expect.soft(await chatInput.count(), '40 (D-050): the chatbot input exists').toBeGreaterThan(0);
   if (await chatInput.count()) {
     await chatInput.fill('Puis-je manger du fromage ?');
     await chatInput.press('Enter');
   }
   await page.waitForTimeout(4000);
+  // D-036: a named food is answered from the foods-to-avoid data, not with an unrelated article.
+  const chatBody = await page.locator('body').innerText();
+  expect.soft(chatBody, '40 (D-036): the cheese question lists raw-milk cheeses').toContain('Fromages au lait cru');
+  expect.soft(chatBody, '40 (D-036): no unrelated "Je pense qu\'il répond" article offer').not.toContain("Je pense qu'il répond");
   await state(ctx, '40-rules-chatbot-question');
   await page.reload({ waitUntil: 'load' });
   await expect(page.getByRole('tablist').first()).toBeVisible({ timeout: 30_000 });

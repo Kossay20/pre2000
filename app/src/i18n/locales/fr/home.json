@@ -1,5 +1,5 @@
 {
-  "greeting": "Bonjour {{name}} 👋",
+  "greeting": "Bonjour {{name}} 👋",
   "futureMom": "Future Maman",
   "loadingData": "Chargement de vos données...",
   "noData": "Aucune donnée disponible",
