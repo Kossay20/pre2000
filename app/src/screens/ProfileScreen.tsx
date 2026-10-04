@@ -496,7 +496,7 @@ export const ProfileScreen = () => {
                             {user?.isGuest
                                 ? t('profile.guestData')
                                 : unsyncedCount > 0
-                                    ? t('profile.cloudPending', { n: unsyncedCount })
+                                    ? t('profile.cloudPending', { count: unsyncedCount })
                                     : offline
                                         ? t('profile.cloudOffline')
                                         : t('profile.cloudData')}

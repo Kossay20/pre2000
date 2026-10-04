@@ -56,6 +56,7 @@ import {
 } from './onboardingConstants';
 import { styles } from './OnboardingScreen.styles';
 import { getContentWidth } from '../utils/layout';
+import { plainLabel } from '../utils/a11yLabel';
 
 const width = getContentWidth();
 
@@ -77,6 +78,10 @@ const choiceA11y = (selected: boolean) => ({
     ...(Platform.OS === 'web' ? { 'aria-pressed': selected } : {}),
 });
 
+// The step question is the screen's heading. The stack header already draws the route
+// title ("Bienvenue") as the page h1, so the step title is its h2 on web (RN-web turns
+// accessibilityRole="header" into an <h1> unless aria-level says otherwise).
+const STEP_TITLE_LEVEL = Platform.OS === 'web' ? ({ 'aria-level': 2 } as const) : {};
 
 export const OnboardingScreen = () => {
     useScreenAnalytics('OnboardingScreen');
@@ -404,7 +409,7 @@ export const OnboardingScreen = () => {
     const renderStep1 = () => (
         <View style={styles.stepContent}>
             <Text style={styles.stepEmoji}>🌸</Text>
-            <Text style={styles.stepTitle}>{t('onboarding.step1.title')}</Text>
+            <Text style={styles.stepTitle} accessibilityRole="header" {...STEP_TITLE_LEVEL}>{t('onboarding.step1.title')}</Text>
 
             <View style={styles.optionsContainer}>
                 <TouchableOpacity
@@ -458,7 +463,7 @@ export const OnboardingScreen = () => {
             {/* A drawn calendar, not the 📅 emoji: that glyph has a date printed on it
                 ("JUL 17" on Apple) right above the date she is asked for. */}
             <Ionicons name="calendar-outline" size={64} color={theme.colors.primaryStrong} style={styles.stepIcon} />
-            <Text style={styles.stepTitle}>{t('onboarding.step2.title')}</Text>
+            <Text style={styles.stepTitle} accessibilityRole="header" {...STEP_TITLE_LEVEL}>{t('onboarding.step2.title')}</Text>
             <Text style={styles.stepSubtitle}>{t('onboarding.step2.subtitle')}</Text>
 
             {/* Method Selection */}
@@ -619,7 +624,7 @@ export const OnboardingScreen = () => {
             showsVerticalScrollIndicator={false}
         >
             <Text style={styles.stepEmoji}>👋</Text>
-            <Text style={styles.stepTitle}>{t('onboarding.step3.title')}</Text>
+            <Text style={styles.stepTitle} accessibilityRole="header" {...STEP_TITLE_LEVEL}>{t('onboarding.step3.title')}</Text>
 
             <View style={styles.inputGroup}>
                 <Text style={[styles.inputLabel, rtlText]}>{t('onboarding.step3.firstNameLabel')}</Text>
@@ -684,7 +689,7 @@ export const OnboardingScreen = () => {
                         style={[styles.radioOption, isFirstPregnancy === true && styles.radioOptionSelected]}
                         onPress={() => setIsFirstPregnancy(true)}
                         accessibilityRole="button"
-                        accessibilityLabel={t('onboarding.step3.firstPregnancyYes')}
+                        accessibilityLabel={plainLabel(t('onboarding.step3.firstPregnancyYes'))}
                         {...choiceA11y(isFirstPregnancy === true)}
                     >
                         <Text style={[styles.radioText, rtlText]}>{t('onboarding.step3.firstPregnancyYes')}</Text>
@@ -693,7 +698,7 @@ export const OnboardingScreen = () => {
                         style={[styles.radioOption, isFirstPregnancy === false && styles.radioOptionSelected]}
                         onPress={() => setIsFirstPregnancy(false)}
                         accessibilityRole="button"
-                        accessibilityLabel={t('onboarding.step3.firstPregnancyNo')}
+                        accessibilityLabel={plainLabel(t('onboarding.step3.firstPregnancyNo'))}
                         {...choiceA11y(isFirstPregnancy === false)}
                     >
                         <Text style={[styles.radioText, rtlText]}>{t('onboarding.step3.firstPregnancyNo')}</Text>
@@ -702,7 +707,7 @@ export const OnboardingScreen = () => {
                         style={[styles.radioOption, isFirstPregnancy === null && styles.radioOptionSelected]}
                         onPress={() => setIsFirstPregnancy(null)}
                         accessibilityRole="button"
-                        accessibilityLabel={t('onboarding.step3.firstPregnancySkip')}
+                        accessibilityLabel={plainLabel(t('onboarding.step3.firstPregnancySkip'))}
                         {...choiceA11y(isFirstPregnancy === null)}
                     >
                         <Text style={[styles.radioText, rtlText]}>{t('onboarding.step3.firstPregnancySkip')}</Text>
@@ -813,7 +818,7 @@ export const OnboardingScreen = () => {
                     <View style={styles.finalContent}>
                         <Text style={styles.finalEmoji}>{weekComparison.emoji}</Text>
 
-                        <Text style={styles.finalGreeting}>
+                        <Text style={styles.finalGreeting} accessibilityRole="header" {...STEP_TITLE_LEVEL}>
                             {t('onboarding.step4.greeting', { name: firstName || t('onboarding.step4.defaultName') })}
                         </Text>
 
@@ -969,7 +974,7 @@ export const OnboardingScreen = () => {
     const renderStep2TTC = () => (
         <View style={styles.stepContent}>
             <Text style={styles.stepEmoji}>💕</Text>
-            <Text style={styles.stepTitle}>{t('onboarding.step2Ttc.title')}</Text>
+            <Text style={styles.stepTitle} accessibilityRole="header" {...STEP_TITLE_LEVEL}>{t('onboarding.step2Ttc.title')}</Text>
             <Text style={styles.stepSubtitle}>{t('onboarding.step2Ttc.subtitle')}</Text>
 
             <View style={styles.dateSection}>
@@ -1087,7 +1092,7 @@ export const OnboardingScreen = () => {
                     <View style={styles.finalContent}>
                         <Text style={styles.finalEmoji}>💕</Text>
 
-                        <Text style={styles.finalGreeting}>
+                        <Text style={styles.finalGreeting} accessibilityRole="header" {...STEP_TITLE_LEVEL}>
                             {t('onboarding.step4.greeting', { name: firstName || t('onboarding.step4.defaultName') })}
                         </Text>
 
@@ -1207,7 +1212,7 @@ export const OnboardingScreen = () => {
     const renderStep2Curious = () => (
         <View style={styles.stepContent}>
             <Text style={styles.stepEmoji}>👀</Text>
-            <Text style={styles.stepTitle}>{t('onboarding.step2Curious.title')}</Text>
+            <Text style={styles.stepTitle} accessibilityRole="header" {...STEP_TITLE_LEVEL}>{t('onboarding.step2Curious.title')}</Text>
             <Text style={styles.stepSubtitle}>{t('onboarding.step2Curious.subtitle')}</Text>
 
             <View style={styles.exploreSection}>
@@ -1278,7 +1283,7 @@ export const OnboardingScreen = () => {
                 <View style={styles.finalContent}>
                     <Text style={styles.finalEmoji}>👀</Text>
 
-                    <Text style={styles.finalGreeting}>
+                    <Text style={styles.finalGreeting} accessibilityRole="header" {...STEP_TITLE_LEVEL}>
                         {t('onboarding.discoverWelcome')}
                     </Text>
 

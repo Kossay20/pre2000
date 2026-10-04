@@ -10,6 +10,7 @@ import { TFunction } from 'i18next';
 import { Profile } from '../context/PregnancyContext';
 import { createLogger } from '../utils/logger';
 import { parseLocalDateKey, storedDateKey } from '../utils/localDate';
+import { formatDecimal } from '../utils/localizedFormat';
 
 /** A stored LMP or due date names a calendar day: read it as that day, not as an instant
  *  (UTC midnight is the evening before west of UTC). */
@@ -172,7 +173,7 @@ const generateHTML = (data: JournalData, t: TFunction, locale: Locale, langCode:
                 background: var(--bg);
                 color: var(--primary-dark);
                 font-weight: 600;
-                text-align: left;
+                text-align: start; /* follows dir=rtl: the body cells already do */
                 padding: 12px;
                 border-top-left-radius: 8px;
                 border-top-right-radius: 8px;
@@ -255,12 +256,12 @@ const generateHTML = (data: JournalData, t: TFunction, locale: Locale, langCode:
                     ${profile.lmp ? `
                     <div class="profile-item">
                         <div class="profile-label">${t('pdf.lmp')}</div>
-                        <div class="profile-value">${format(calendarDay(profile.lmp), 'd MMM yyyy', { locale })}</div>
+                        <div class="profile-value">${format(calendarDay(profile.lmp), 'd MMMM yyyy', { locale })}</div>
                     </div>` : ''}
                     ${profile.dpa ? `
                     <div class="profile-item">
                         <div class="profile-label">${t('pdf.dpa')}</div>
-                        <div class="profile-value">${format(calendarDay(profile.dpa), 'd MMM yyyy', { locale })}</div>
+                        <div class="profile-value">${format(calendarDay(profile.dpa), 'd MMMM yyyy', { locale })}</div>
                     </div>` : ''}
                 </div>
             </div>
@@ -280,7 +281,7 @@ const generateHTML = (data: JournalData, t: TFunction, locale: Locale, langCode:
                         ${sortedWeight.map(w => `
                         <tr>
                             <td>${format(new Date(w.date), 'd MMMM yyyy', { locale })}</td>
-                            <td><strong><span dir="ltr">${w.weight}&nbsp;kg</span></strong></td>
+                            <td><strong><span dir="ltr">${formatDecimal(w.weight, langCode, 1)}&nbsp;kg</span></strong></td>
                         </tr>
                         `).join('')}
                     </tbody>

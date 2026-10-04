@@ -26,6 +26,7 @@ export const SupplementsListScreen = () => {
     // W5 #4: keep the safety/category/favoris filter row reachable under RTL (ar/tn) on web.
     const chipScrollRef = useRtlScrollFix();
     const [searchQuery, setSearchQuery] = useState('');
+    const [searchFocused, setSearchFocused] = useState(false);
     // task 10b/10c — one filter at a time: "Favoris" (bookmarked only), "All" (value null)
     // or one pregnancy_safety rating. See utils/filterChips.
     const [filter, setFilter] = useState<FilterSelection<Supplement['pregnancy_safety']>>(NO_FILTER);
@@ -221,10 +222,12 @@ export const SupplementsListScreen = () => {
     return (
         <View style={styles.container}>
             <View style={styles.searchContainer}>
-                <View style={styles.searchBar}>
+                <View style={[styles.searchBar, searchFocused && styles.searchBarFocused]}>
                     <Text style={styles.searchIcon}>🔍</Text>
                     <TextInput
                         style={styles.searchInput}
+                        onFocus={() => setSearchFocused(true)}
+                        onBlur={() => setSearchFocused(false)}
                         placeholder={t('common.searchSupplement')}
                         placeholderTextColor={theme.colors.textMuted}
                         value={searchQuery}
@@ -361,6 +364,11 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         paddingHorizontal: 12,
         height: 44,
+        borderWidth: 1,
+        borderColor: 'transparent',
+    },
+    searchBarFocused: {
+        borderColor: theme.colors.accent,
     },
     searchIcon: {
         fontSize: 16,
@@ -371,6 +379,10 @@ const styles = StyleSheet.create({
         fontSize: 16,
         color: theme.colors.neutral900,
         height: '100%',
+        paddingHorizontal: 4,
+        // The bar draws its own focus border (searchBarFocused): the browser's square default
+        // outline sat inside the rounded bar with the text flush against it (C-069). Native has none.
+        ...(Platform.OS === 'web' ? ({ outlineStyle: 'none', outlineWidth: 0 } as object) : {}),
     },
     clearIcon: {
         fontSize: 16,
@@ -413,10 +425,13 @@ const styles = StyleSheet.create({
         overflow: 'hidden',
     },
     safetyIndicator: {
-        width: 70,
+        // 84 + paddingHorizontal: the status word is the card's one safety cue, at 12pt it needs
+        // the room ('With caution' / 'يجب تجنبه' wrap on a second line instead of shrinking).
+        width: 84,
         alignItems: 'center',
         justifyContent: 'center',
         paddingVertical: theme.spacing.s,
+        paddingHorizontal: 4,
     },
     safetyIcon: {
         fontSize: 28,
@@ -424,7 +439,7 @@ const styles = StyleSheet.create({
         marginBottom: 4,
     },
     safetyLabel: {
-        fontSize: 10,
+        fontSize: 12,
         fontWeight: 'bold',
         textAlign: 'center',
     },

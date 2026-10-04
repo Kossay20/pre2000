@@ -32,7 +32,7 @@ export const AuthChoiceScreen = () => {
                 {/* Hero section */}
                 <View style={styles.heroSection}>
                     <Text style={styles.heroEmoji}>🤰</Text>
-                    <Text style={[styles.heroTitle, isRTL && styles.rtlText]}>
+                    <Text style={[styles.heroTitle, isRTL && styles.rtlText]} accessibilityRole="header">
                         {t('startJourney')}
                     </Text>
                     <Text style={[styles.heroSubtitle, isRTL && styles.rtlText]}>

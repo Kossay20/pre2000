@@ -3,9 +3,20 @@
  * (`calculatePregnancyWeek`), so `currentWeek` in the blob is documentary.
  * LMP must be (week-1)*7 days before "today" or Home week-gates are wrong.
  */
+/**
+ * The app counts days on the browser's calendar (Europe/Paris in every wave). Between 00:00 and
+ * 02:00 Paris the UTC date is still yesterday, so "today" must be read on the Paris calendar,
+ * never from toISOString(). Returns that calendar day at 00:00 UTC. ONE helper shared by the
+ * seeder (lmpIsoForWeek) and the specs (wave A) so they can never disagree on the day count.
+ */
+export function parisToday(now: Date = new Date(), timeZone = 'Europe/Paris'): Date {
+  const [y, m, d] = new Intl.DateTimeFormat('en-CA', { timeZone }).format(now).split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d));
+}
+
 export function lmpIsoForWeek(week: number, now: Date = new Date()): string {
   const daysSinceLmp = (week - 1) * 7;
-  const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const d = parisToday(now);
   d.setUTCDate(d.getUTCDate() - daysSinceLmp);
   return d.toISOString();
 }

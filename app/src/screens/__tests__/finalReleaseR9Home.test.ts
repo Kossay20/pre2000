@@ -69,7 +69,7 @@ describe('Home header (A-047, B-044, C-049)', () => {
     const header = styles.slice(styles.indexOf('headerTextContainer: {'), styles.indexOf('weekInfo: {'));
     expect(header).not.toMatch(/paddingStart|paddingEnd/);
     expect(styles).toMatch(/profileButtonContainer: \{[^}]*right: 16/s);
-    expect(home).toMatch(/styles\.greeting\} numberOfLines=\{2\} adjustsFontSizeToFit/);
+    expect(home).toMatch(/styles\.greeting\}\s+numberOfLines=\{2\}\s+adjustsFontSizeToFit/);
   });
 
   it('shows up to three lines of a recommendation title on a taller card', () => {

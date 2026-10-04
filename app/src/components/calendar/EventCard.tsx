@@ -16,6 +16,10 @@ interface EventCardProps {
     onPress?: () => void;
 }
 
+// Capitalise only the first letter (the weekday): the month keeps the locale's own case so the
+// card reads like Weight/Health ('Samedi 3 oct.'). Arabic has no case, so this is a no-op there.
+const upperFirst = (value: string): string => (value ? value.charAt(0).toLocaleUpperCase() + value.slice(1) : value);
+
 export const EventCard: React.FC<EventCardProps> = React.memo(({ event, onEdit, onDelete, onPress }) => {
     const isUserEvent = event.source === 'user';
     const { t, i18n } = useTranslation();
@@ -56,7 +60,7 @@ export const EventCard: React.FC<EventCardProps> = React.memo(({ event, onEdit, 
                         </Text>
                     </View>
                     <Text style={styles.dateText}>
-                        {format(event.date, 'EEEE d MMM', { locale: dateLocale })}
+                        {upperFirst(format(event.date, 'EEEE d MMM', { locale: dateLocale }))}
                     </Text>
                 </View>
 
@@ -197,7 +201,8 @@ const styles = StyleSheet.create({
     dateText: {
         fontSize: 13,
         color: theme.colors.textLight,
-        textTransform: 'capitalize',
+        // No textTransform: 'capitalize' (it upper-cased the month too: 'Samedi 3 Oct.' while Weight
+        // and Health print '3 oct. 2026'); only the weekday is capitalised, in upperFirst().
     },
     locationRow: {
         flexDirection: 'row',

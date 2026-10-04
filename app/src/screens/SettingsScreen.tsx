@@ -175,13 +175,15 @@ export const SettingsScreen = () => {
                             {t('common.dailyMessageDesc')}
                         </Text>
                     </View>
-                    <Switch
-                        value={babyMessageEnabled}
-                        onValueChange={handleBabyMessageToggle}
-                        trackColor={{ false: theme.colors.neutral300, true: theme.colors.accent }}
-                        {...switchThumbProps(babyMessageEnabled ? theme.colors.white : theme.colors.iosGroupedBackground)}
-                        accessibilityLabel={t('common.a11y.toggleBabyMessage')}
-                    />
+                    <View style={styles.switchHit}>
+                        <Switch
+                            value={babyMessageEnabled}
+                            onValueChange={handleBabyMessageToggle}
+                            trackColor={{ false: theme.colors.neutral300, true: theme.colors.accent }}
+                            {...switchThumbProps(babyMessageEnabled ? theme.colors.white : theme.colors.iosGroupedBackground)}
+                            accessibilityLabel={t('common.a11y.toggleBabyMessage')}
+                        />
+                    </View>
                 </View>
 
                 {babyMessageEnabled && (
@@ -199,7 +201,8 @@ export const SettingsScreen = () => {
                                     accessibilityLabel={t('common.a11y.selectHour', { hour })}
                                     accessibilityRole="button"
                                     accessibilityState={{ selected: babyMessageHour === hour }}
-                                    {...(Platform.OS === 'web' ? { 'aria-selected': babyMessageHour === hour } : {})}
+                                    // aria-pressed, not aria-selected: selected is not allowed on role=button (E-070).
+                                    {...(Platform.OS === 'web' ? { 'aria-pressed': babyMessageHour === hour } : {})}
                                 >
                                     <Text style={[
                                         styles.hourButtonText,
@@ -252,23 +255,25 @@ export const SettingsScreen = () => {
                                     {t(`common.medicalProfile.${labelKey[key]}`)}
                                 </Text>
                             </View>
-                            <Switch
-                                value={value}
-                                onValueChange={async (next) => {
-                                    // updateProfile reports cloud-sync failure on
-                                    // purpose. Discarding it left the switch snapping
-                                    // silently back to the old value, since `value`
-                                    // reads from the profile.
-                                    const res = await updateProfile({
-                                        [key]: next,
-                                        medicalProfileAnsweredAt: new Date().toISOString(),
-                                    });
-                                    if (!res.ok) showAlert(t('common.error'), t('common.medicalProfile.syncWarning'));
-                                }}
-                                trackColor={{ false: theme.colors.neutral300, true: theme.colors.accent }}
-                                {...switchThumbProps(value ? theme.colors.white : theme.colors.iosGroupedBackground)}
-                                accessibilityLabel={t(`common.medicalProfile.${labelKey[key]}`)}
-                            />
+                            <View style={styles.switchHit}>
+                                <Switch
+                                    value={value}
+                                    onValueChange={async (next) => {
+                                        // updateProfile reports cloud-sync failure on
+                                        // purpose. Discarding it left the switch snapping
+                                        // silently back to the old value, since `value`
+                                        // reads from the profile.
+                                        const res = await updateProfile({
+                                            [key]: next,
+                                            medicalProfileAnsweredAt: new Date().toISOString(),
+                                        });
+                                        if (!res.ok) showAlert(t('common.error'), t('common.medicalProfile.syncWarning'));
+                                    }}
+                                    trackColor={{ false: theme.colors.neutral300, true: theme.colors.accent }}
+                                    {...switchThumbProps(value ? theme.colors.white : theme.colors.iosGroupedBackground)}
+                                    accessibilityLabel={t(`common.medicalProfile.${labelKey[key]}`)}
+                                />
+                            </View>
                         </View>
                     );
                 })}
@@ -627,6 +632,13 @@ const styles = StyleSheet.create({
     settingInfo: {
         flex: 1,
         marginEnd: 16,
+    },
+    // D-049: each Switch sits in a 44pt high box. The Switch keeps its own 52x26 size and is
+    // the only pressable: a Pressable around it would also receive the input's bubbling click
+    // on web (react-native-web's PressResponder) and flip the value twice.
+    switchHit: {
+        minHeight: 44,
+        justifyContent: 'center',
     },
     settingLabel: {
         fontSize: 16,

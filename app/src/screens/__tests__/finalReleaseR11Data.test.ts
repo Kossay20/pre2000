@@ -50,7 +50,7 @@ describe('D-052 — the journal PDF', () => {
         }
     });
     it('keeps the kg value left-to-right inside RTL pages', () => {
-        expect(src).toMatch(/<span dir="ltr">\$\{w\.weight\}&nbsp;kg<\/span>/);
+        expect(src).toMatch(/<span dir="ltr">\$\{formatDecimal\(w\.weight, langCode, 1\)\}&nbsp;kg<\/span>/);
     });
 });
 

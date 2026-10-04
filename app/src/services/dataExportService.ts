@@ -5,6 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { createLogger } from '../utils/logger';
+import { toLocalDateKey } from '../utils/localDate';
 import { EXPORT_FILE_PREFIX, sweepExportFiles } from './exportFileSweep';
 import { getWeightHistory as getWeightEntriesHistory } from './weightService';
 import { loadUserSettings } from './remindersV2Service';
@@ -286,7 +287,9 @@ export const exportUserData = async (user: any, profile: any, t: any) => {
         const data = await generateExportData(user, profile);
         const jsonString = JSON.stringify(data, null, 2);
 
-        const dateStamp = new Date().toISOString().split('T')[0];
+        // The user's calendar day (zero-padded), not the UTC day: toISOString() stamped the
+        // evening before for the first hours of a Paris/Tunis day.
+        const dateStamp = toLocalDateKey();
         const fileName = `${EXPORT_FILE_PREFIX}${dateStamp}.json`;
 
         // A browser has neither expo-file-system nor a share sheet: the write threw and the

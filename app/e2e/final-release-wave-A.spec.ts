@@ -39,6 +39,7 @@ import {
   type AppLocale,
 } from './helpers/emulator-account';
 import { tickHealthConsent } from './helpers/health-consent';
+import { parisToday } from './helpers/guest-profile';
 
 // A-021a: the file-level test.setTimeout(300_000) did not apply in round 1 (test 1 hit
 // the 120 s default); every describe below configures its own timeout instead.
@@ -441,11 +442,8 @@ async function localProfile(page: Page): Promise<any> {
 
 const ymd = (iso: string) => iso.slice(0, 10);
 // The app counts days on the browser's calendar (Europe/Paris here). Between 00:00 and 02:00 Paris
-// the UTC date is still yesterday, so "today" must come from Paris, not from toISOString().
-const parisToday = () => {
-  const [y, m, d] = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date()).split('-').map(Number);
-  return new Date(Date.UTC(y, m - 1, d));
-};
+// the UTC date is still yesterday, so "today" must come from Paris, not from toISOString():
+// parisToday() is the helper the account seeder (lmpIsoForWeek) uses too.
 const lmpDaysAgo = (days: number) => {
   const d = parisToday();
   d.setUTCDate(d.getUTCDate() - days);
@@ -454,10 +452,10 @@ const lmpDaysAgo = (days: number) => {
 const lmpWeek = (w: number) => lmpDaysAgo((w - 1) * 7);
 /** A-010: 43+0 SA — beyond 42+0, the one range onboarding must refuse. */
 const lmp43wAgo = () => lmpDaysAgo(43 * 7);
-/** Today's day button in the Calendar week strip (WeeklyStrip: format(date, 'EEEE dd MMMM', fr)), Paris time like waveUse. */
+/** Today's day button in the Calendar week strip (WeeklyStrip: format(date, 'EEEE d MMMM', fr), no zero padding: D-046), Paris time like waveUse. */
 const todayStripLabelFr = () => {
   const part = (o: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', ...o }).format(new Date());
-  return `${part({ weekday: 'long' })} ${part({ day: '2-digit' })} ${part({ month: 'long' })}`;
+  return `${part({ weekday: 'long' })} ${part({ day: 'numeric' })} ${part({ month: 'long' })}`;
 };
 /** A-010: 40+3 SA — past the due date, still a pregnancy: accepted, with a post-term note. */
 const lmp40w3dAgo = () => lmpDaysAgo(40 * 7 + 3);

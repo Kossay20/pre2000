@@ -152,7 +152,7 @@ export const BabyEvolutionScreen = () => {
                         <Text style={styles.backText}>{t('common.back')}</Text>
                     </View>
                 </TouchableOpacity>
-                <Text style={styles.title} numberOfLines={1} adjustsFontSizeToFit>{t('home.babyEvolutionTitle')}</Text>
+                <Text style={styles.title} numberOfLines={1} adjustsFontSizeToFit accessibilityRole="header">{t('home.babyEvolutionTitle')}</Text>
                 <View style={styles.placeholder} />
             </View>
 
@@ -258,7 +258,9 @@ const styles = StyleSheet.create({
     // The dot stays 10pt; its pressable box is 44pt tall and shares the row's width: nine boxes
     // of up to 44pt do not fit a phone (~41-43pt each at 375/390pt, the full 44pt on a tablet),
     // so the missing 1-3pt of width comes back through hitSlop (ignored on web, where the
-    // box itself is the target).
+    // box itself is the target). E-006, decided: the one-row layout stays (a wrap orphaned
+    // Month 9), so on web the box is ~41.7pt wide at 375pt; it is a documented exception
+    // to the 44pt width, the 44pt height and the full target on native are unchanged.
     progressDotTouch: {
         flex: 1,
         maxWidth: 44,

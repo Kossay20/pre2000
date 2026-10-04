@@ -5,7 +5,8 @@
     "App.tsx (Sentry.init, tracesSampleRate 0.2, Sentry.wrap)",
     "src/utils/logger.ts (Sentry.setUser with SHA-256 of the uid, 16 hex chars)",
     "src/context/AuthContext.tsx (email/password sign-up, anonymous sign-in for guests)",
-    "src/types/index.ts UserProfile (name, email, country/city, medical flags, emergency contacts, consent record)",
+    "src/types/index.ts UserProfile (name, email, country, age range, first-pregnancy flag, medical flags, emergency contacts, consent record)",
+    "src/screens/OnboardingScreen.tsx (collects the age range and the first-pregnancy answer; the city is passed as undefined, so it is not collected)",
     "src/context/gdprPurge.ts (health trackers synced to Firestore under the uid)"
   ],
   "tracking": false,
@@ -35,7 +36,7 @@
       "linkedToUser": true,
       "usedForTracking": false,
       "purposes": ["App Functionality"],
-      "what": "Weight, blood pressure, glucose, symptoms, kick sessions, contractions, hospital bag, pregnancy dates, declared medical flags."
+      "what": "Weight, blood pressure, glucose, symptoms, kick sessions, contractions, hospital bag, pregnancy dates, the first-pregnancy flag, declared medical flags."
     },
     {
       "manifestType": "NSPrivacyCollectedDataTypeSensitiveInfo",
@@ -43,7 +44,7 @@
       "linkedToUser": true,
       "usedForTracking": false,
       "purposes": ["App Functionality"],
-      "what": "Declared conditions (gestational diabetes, hypertension, twin pregnancy) and the health-data consent record."
+      "what": "Declared conditions (gestational diabetes, hypertension, twin pregnancy), the age range chosen at onboarding, the first-pregnancy flag and the health-data consent record. Age range and first-pregnancy sit on the profile under userProfiles/{uid}, so they are linked to the account."
     },
     {
       "manifestType": "NSPrivacyCollectedDataTypeOtherUserContent",

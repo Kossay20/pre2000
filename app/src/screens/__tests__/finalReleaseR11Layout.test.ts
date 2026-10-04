@@ -24,7 +24,7 @@ describe('C-057 / A-049 / A-050 / B-049 — Home greeting', () => {
   });
 
   it('wraps or shrinks a long name instead of shifting the block', () => {
-    expect(read('src/screens/HomeScreen.tsx')).toMatch(/styles\.greeting\} numberOfLines=\{2\} adjustsFontSizeToFit minimumFontScale=\{0\.8\}/);
+    expect(read('src/screens/HomeScreen.tsx')).toMatch(/styles\.greeting\}\s+numberOfLines=\{2\}\s+adjustsFontSizeToFit\s+minimumFontScale=\{0\.8\}/);
   });
 });
 

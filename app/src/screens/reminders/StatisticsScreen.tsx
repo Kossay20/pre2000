@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Platform } from 'react-native';
 import { LineChart, BarChart } from 'react-native-chart-kit';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -139,7 +139,7 @@ export const StatisticsScreen = () => {
                     <Text style={styles.backButtonText}>{t('back')}</Text>
                 </View>
             </TouchableOpacity>
-            <Text style={styles.title}>{t('myStats')}</Text>
+            <Text style={styles.title} accessibilityRole="header">{t('myStats')}</Text>
         </View>
     );
 
@@ -215,6 +215,8 @@ export const StatisticsScreen = () => {
                     accessibilityRole="tab"
                     accessibilityLabel={t('sevenDays')}
                     accessibilityState={{ selected: timeRange === 'week' }}
+                    // react-native-web drops accessibilityState: without aria-selected the tab that is open is not announced.
+                    {...(Platform.OS === 'web' ? { 'aria-selected': timeRange === 'week' } : {})}
                 >
                     <Text style={[styles.rangeText, timeRange === 'week' && styles.rangeTextActive]}>{t('sevenDays')}</Text>
                 </TouchableOpacity>
@@ -224,6 +226,8 @@ export const StatisticsScreen = () => {
                     accessibilityRole="tab"
                     accessibilityLabel={t('thirtyDays')}
                     accessibilityState={{ selected: timeRange === 'month' }}
+                    // react-native-web drops accessibilityState: without aria-selected the tab that is open is not announced.
+                    {...(Platform.OS === 'web' ? { 'aria-selected': timeRange === 'month' } : {})}
                 >
                     <Text style={[styles.rangeText, timeRange === 'month' && styles.rangeTextActive]}>{t('thirtyDays')}</Text>
                 </TouchableOpacity>

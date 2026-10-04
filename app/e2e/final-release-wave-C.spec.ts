@@ -831,11 +831,15 @@ for (const C of CFG) {
       // Account (REST, rules apply to the seed) + UI login.
       const email = newAccountEmail('C', `reader-${L}`);
       const acct = await createAccount(email, E2E_PASSWORD);
-      await seedProfile(acct.uid, acct.idToken, { week: 32, country: C.country, firstName: 'Lectrice', lastName: 'Testeur' });
+      // C-070: a LONG first name (>= 14 letters; Arabic one with spaces so it may wrap), because the round-11
+      // greeting regression (C-057) only showed with a name that wraps or shrinks. 'Lectrice' (8 letters) never did.
+      const readerFirst = rtl ? 'عبد الرحمن بن محمد' : 'Anne-Marguerite';
+      expect.soft(readerFirst.replace(/[\s-]/g, '').length, 'C-070: the reader first name has >= 14 letters').toBeGreaterThanOrEqual(14);
+      await seedProfile(acct.uid, acct.idToken, { week: 32, country: C.country, firstName: readerFirst, lastName: 'Testeur' });
       const w = new WaveCtx(page, L, L, testInfo);
       w.note('account', { uid: acct.uid, email, country: C.country });
       await uiLogin(page, email, E2E_PASSWORD, L);
-      w.typed.push('Lectrice', 'Testeur', email, 'zzqx');
+      w.typed.push(readerFirst, 'Testeur', email, 'zzqx');
 
       // ── 00 Home (weekly content language: baby message, recommendations) ────
       await expect(page.getByText(tr(L, 'common.nav.home'), { exact: true }).first()).toBeVisible();
@@ -867,7 +871,7 @@ for (const C of CFG) {
       ).toEqual([]);
       expect.soft(homeLines.filter((l) => RAW_MARKDOWN.test(l)), '00 C-028: no raw markdown in Home excerpts').toEqual([]);
       // C-057 / A-049: the greeting never runs under the avatar (physical right in ltr and rtl alike).
-      const greet = await greetingVsAvatar(page, 'Lectrice');
+      const greet = await greetingVsAvatar(page, readerFirst);
       w.note('00.C-057.greetingVsAvatar', greet);
       expect.soft(greet.found, '00 C-057: greeting and avatar both found').toBe(true);
       if (greet.found) {
@@ -895,6 +899,29 @@ for (const C of CFG) {
         });
         await page.waitForTimeout(300);
       }
+      // C-070: Home below the fold. The "Organisation" tiles and the "Recommandations" rows (round-13 vector
+      // icons) were only ever asserted in the DOM, never captured. Each heading is scrolled into view.
+      for (const [key, shot] of [['common.organization', '00c-home-organisation'], ['common.recommendationsTitle', '00d-home-recommendations']] as const) {
+        const title = page.getByText(tr(L, key)).filter({ visible: true }).first();
+        await expect.soft(title, `${shot}: Home has the "${tr(L, key)}" section`).toHaveCount(1);
+        if (await title.count()) {
+          await title.scrollIntoViewIfNeeded();
+          await page.waitForTimeout(400);
+          if (key === 'common.recommendationsTitle') {
+            const stand = await placeholderEmojiCards(page);
+            w.note('00d.C-059.placeholderEmoji', stand);
+            expect.soft(stand, '00d C-059: no stand-in emoji on the Home recommendation cards once scrolled to them').toEqual([]);
+          }
+          await w.state(shot);
+        }
+      }
+      await page.evaluate(() => {
+        window.scrollTo(0, 0);
+        document.querySelectorAll('*').forEach((e) => {
+          if ((e as HTMLElement).scrollTop > 0) (e as HTMLElement).scrollTop = 0;
+        });
+      });
+      await page.waitForTimeout(300);
 
       // Chatbot must be local-only: record any non-static, non-Firestore request.
       const foreign: string[] = [];
@@ -1415,6 +1442,10 @@ for (const C of CFG) {
       const rawMd = recLines.filter((l) => RAW_MARKDOWN.test(l));
       w.note('09.C-028.rawMarkdown', rawMd);
       expect.soft(rawMd, '09 C-027/C-028: no raw "#" / "**" in recommendation excerpts').toEqual([]);
+      // C-059 / C-070: the week-recommendation cards draw category icons, never the stand-in emoji.
+      const recStandIns = await placeholderEmojiCards(page);
+      w.note('09.C-059.placeholderEmoji', recStandIns);
+      expect.soft(recStandIns, '09 C-059: no stand-in emoji (📰 📚 💊) on the week-recommendation cards').toEqual([]);
       await w.state('09-week-recs');
 
       // ── 10 Baby evolution (GJ-011) ──────────────────────────────────────────

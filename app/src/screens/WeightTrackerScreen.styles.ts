@@ -103,7 +103,19 @@ export const styles = StyleSheet.create({
         alignItems: 'center',
         marginBottom: 8,
     },
+    // The touch target is 44x44 in the style itself (hitSlop did not show up in the rendered
+    // box); the 24pt circle is the inner infoBadge. The negative margins give back the
+    // extra 20pt so the header row and the circle's edge alignment look as they did
+    // (logical marginEnd, so it holds in RTL).
     infoButton: {
+        width: 44,
+        height: 44,
+        marginVertical: -10,
+        marginEnd: -10,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    infoBadge: {
         width: 24,
         height: 24,
         borderRadius: 12,

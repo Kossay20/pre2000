@@ -590,10 +590,11 @@ export const WeightTrackerScreen = () => {
                                 )}
                                 accessibilityRole="button"
                                 accessibilityLabel={plainLabel(t('weight.howItWorks'))}
-                                // The 24pt badge keeps its look; the slop makes the touch target 44pt.
-                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                // 44x44 in the style (E-006); the 24pt circle is the inner badge.
                             >
-                                <Text style={styles.infoIcon}>ℹ️</Text>
+                                <View style={styles.infoBadge}>
+                                    <Text style={styles.infoIcon}>ℹ️</Text>
+                                </View>
                             </TouchableOpacity>
                         </View>
                         {/* PERFECT-FIX-2: surface pre-pregnancy BMI + OMS/WHO category badge */}
@@ -754,7 +755,7 @@ export const WeightTrackerScreen = () => {
                         style={styles.educationHeader}
                         onPress={() => setShowEducation(!showEducation)}
                         accessibilityRole="button"
-                        accessibilityLabel={t('weight.whyTrack')}
+                        accessibilityLabel={plainLabel(t('weight.whyTrack'))}
                         accessibilityHint={showEducation ? t('a11y.collapseSection') : t('a11y.expandSection')}
                         accessibilityState={{ expanded: showEducation }}
                     >

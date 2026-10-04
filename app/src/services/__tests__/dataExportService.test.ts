@@ -537,11 +537,18 @@ describe('exportUserData', () => {
         expect(mockAlert).toHaveBeenCalledWith('common.error', 'export.errorMessage');
     });
 
-    test('filename date stamp matches today (YYYY-MM-DD from ISO date)', async () => {
-        await exportUserData(authUser, profile, t);
+    test('filename date stamp is the local calendar day, zero-padded (A-056)', async () => {
+        // 00:30 local on 3 January: toISOString() names the previous day (UTC) in any zone
+        // east of Greenwich, and a month/day below 10 must stay padded.
+        jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate', 'setTimeout', 'clearTimeout'] });
+        jest.setSystemTime(new Date(2026, 0, 3, 0, 30));
+        try {
+            await exportUserData(authUser, profile, t);
+        } finally {
+            jest.useRealTimers();
+        }
         const uri = mockWriteAsString.mock.calls[0][0];
-        const expectedStamp = new Date().toISOString().split('T')[0];
-        expect(uri).toBe(`file:///cache/mama-bebe-export-${expectedStamp}.json`);
+        expect(uri).toBe('file:///cache/mama-bebe-export-2026-01-03.json');
     });
 
     test('web: downloads the JSON through the browser instead of failing silently', async () => {

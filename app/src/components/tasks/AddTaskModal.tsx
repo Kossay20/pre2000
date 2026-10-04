@@ -229,6 +229,7 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
                                     onPress={() => setPriority('high')}
                                     accessibilityRole="radio"
                                     aria-checked={priority === 'high'}
+                                    accessibilityLabel={plainLabel(t('tasks.modal.high'))}
                                 >
                                     <Text
                                         style={[
@@ -248,6 +249,7 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
                                     onPress={() => setPriority('medium')}
                                     accessibilityRole="radio"
                                     aria-checked={priority === 'medium'}
+                                    accessibilityLabel={plainLabel(t('tasks.modal.medium'))}
                                 >
                                     <Text
                                         style={[
@@ -267,6 +269,7 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
                                     onPress={() => setPriority('low')}
                                     accessibilityRole="radio"
                                     aria-checked={priority === 'low'}
+                                    accessibilityLabel={plainLabel(t('tasks.modal.low'))}
                                 >
                                     <Text
                                         style={[

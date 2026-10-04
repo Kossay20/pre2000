@@ -628,10 +628,7 @@ test.describe('Wave B — B-track (Europe/Paris)', () => {
         await vis(page.getByRole('button', { name: 'Glycémie, Ajouter', exact: true })).scrollIntoViewIfNeeded();
       });
 
-      // (29b removed, R13: a g/L figure typed into the mmol/L field raises the low-glucose alert, but on
-      // web the alert's "save anyway" fires on its own (showAlert, HealthDashboardScreen.tsx:~250), so the
-      // value IS stored and would pollute the account for the states below. The alert itself is covered by
-      // clinicalChecks.test.ts: checkGlucose(0.92) is critical.)
+      // 29b: moved to its own THROWAWAY account (see 'B-track 29b' below), B-054.
 
       // 30 ── Symptoms (local day vs doc id; on/off state exposed, B-017)
       await state(h, '30-health-symptom', async () => {
@@ -903,6 +900,51 @@ test.describe('Wave B — B-track (Europe/Paris)', () => {
       });
     } finally {
       settleObs(obs, 'B-track logout/relogin', h);
+      obs.flush();
+      h.dispose();
+    }
+  });
+
+  // 29b ── A g/L figure typed into the mmol/L field (B-054). THROWAWAY account: on web the clinical
+  // alert's two positive buttons ("Appeler les urgences", "Sauvegarder quand même") are offered one
+  // confirm at a time (src/utils/alert.ts:44-52) and declining the first lets the second one save, so
+  // the value IS stored (HealthDashboardScreen.tsx showClinicalAlert / handleAddGlucose). That would
+  // pollute the main B-track account, hence the separate account. The contract asserted here is the
+  // real one: the low-glucose alert is raised (never accepted silently as in range), and a value she
+  // chose to save anyway is stored on the server AND listed with its flag.
+  test('B-track 29b: 0,92 typed as mmol/L raises the low-glucose alert; saved anyway = stored and flagged', async ({ page }, testInfo) => {
+    test.setTimeout(4 * 60_000);
+    const obs = new Observations('wave-B-track-observations.json', testInfo);
+    const acct = await newWeek32Account('track-glucose-gl', 'Europe/Paris', { firstName: 'Glucie' });
+    const h = instrument(page, testInfo);
+    try {
+      await uiLogin(page, acct.email, E2E_PASSWORD, 'fr');
+      await openHealth(page);
+      await state(h, '29b-health-glucose-gl-value', async () => {
+        await openHealthModal(page, 'Glycémie, Ajouter');
+        const input = vis(page.getByPlaceholder(/de 3,5 à moins de 5,1 mmol\/L/));
+        await expect(input, '29b: glucose modal (placeholder carries the pregnancy target)').toBeVisible({ timeout: 10_000 });
+        await input.fill('0.92');
+        const n = h.dialogs.dialogs.length;
+        // First confirm = "Appeler les urgences": decline it (accepting would open the dialer). The
+        // second confirm = "Sauvegarder quand même" is left on the recorder's default (accept).
+        h.dialogs.next('dismiss');
+        await vis(page.getByRole('button', { name: 'Enregistrer', exact: true })).click();
+        await poll(async () => h.dialogs.dialogs.length, (x) => x >= n + 2, 8000);
+        const asked = h.dialogs.dialogs.slice(n).map((d) => `[${d.type}:${d.action}] ${fold(d.message)}`);
+        expect.soft(asked.join(' | '), '29b: 0,92 typed as mmol/L is flagged as a low glucose, never accepted silently as in range').toMatch(/Glycémie basse/);
+        expect.soft(asked[0] ?? '', '29b: the first offer is the emergency call, declined').toMatch(/dismissed[\s\S]*Appeler les urgences/);
+        expect.soft(asked[1] ?? '', '29b: the second offer is "Sauvegarder quand même", accepted').toMatch(/accepted[\s\S]*Sauvegarder quand même/);
+        const server = await poll(() => glucoseValues(acct.uid), (v) => v.length >= 1);
+        expect.soft(server, '29b: the value she saved anyway is stored on the server').toEqual([0.92]);
+        const text = await poll(() => bodyText(page), (t) => /^0,9 mmol\/L$/m.test(t), 10_000);
+        const card = await glucoseCard(page);
+        expect.soft(/^0,9 mmol\/L$/m.test(text), '29b: the stored value is shown with the French decimal comma (formatDecimal keeps 1 fraction digit)').toBe(true);
+        expect.soft(card.flags, '29b: and it carries its low-glucose flag in the list').toEqual(['⚠️ Glycémie basse']);
+        obs.add('GLUCOSE-GL-UNIT', /Glycémie basse/.test(asked.join(' ')) && server.join() === '0.92' && card.flags.length === 1 ? 'PASS' : 'FAIL', '29b-health-glucose-gl-value', { asked, server, card });
+      });
+    } finally {
+      settleObs(obs, 'B-track 29b', h);
       obs.flush();
       h.dispose();
     }

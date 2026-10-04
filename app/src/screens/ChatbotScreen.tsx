@@ -337,7 +337,7 @@ export const ChatbotScreen = () => {
             <View style={styles.botHeader}>
                 <Text style={styles.botAvatar}>🤖</Text>
                 <View style={styles.botHeaderTextContainer}>
-                    <Text style={styles.botHeaderTitle}>{t('common.chatbotTitle')}</Text>
+                    <Text style={styles.botHeaderTitle} accessibilityRole="header">{t('common.chatbotTitle')}</Text>
                     <Text style={styles.botHeaderSubtitle}>{t('common.chatbotSubtitle')}</Text>
                 </View>
             </View>

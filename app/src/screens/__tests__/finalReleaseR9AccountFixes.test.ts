@@ -85,7 +85,13 @@ describe('B-043 / D-042 — the Profile card does not claim a sync that has not 
     it.each(locales)('%s has both sentences, the pending one with the count', (lang) => {
         const p = json(lang, 'profile');
         expect(p.cloudOffline).toBeTruthy();
-        expect(p.cloudPending).toMatch(/\{\{n\}\}/);
+        // ICU plural keys (D-058): no '(s)' placeholder, the count is {{count}}.
+        const pending = Object.keys(p).filter((k) => k.startsWith('cloudPending_'));
+        expect(pending).toEqual(expect.arrayContaining(['cloudPending_one', 'cloudPending_other']));
+        for (const k of pending) {
+            expect(p[k]).not.toMatch(/\(s\)|\(ات\)/);
+            if (k !== 'cloudPending_one' && k !== 'cloudPending_two') expect(p[k]).toMatch(/\{\{count\}\}/);
+        }
     });
 });
 
@@ -154,7 +160,11 @@ describe('E-006 — 44pt targets', () => {
         expect(hydration).toMatch(/minWidth: 44, minHeight: 44/);
         const weight = read('src/screens/WeightTrackerScreen.tsx');
         expect(weight).toMatch(/styles\.deleteButton, \{ minWidth: 44, minHeight: 44/);
-        expect(weight).toMatch(/styles\.infoButton\}[\s\S]{0,900}hitSlop=\{\{ top: 10, bottom: 10, left: 10, right: 10 \}\}/);
+        expect(weight).toMatch(/styles\.infoButton\}/);
+        // E-006: the 44x44 box lives in the style (hitSlop did not show in the rendered box); 24pt badge inside.
+        const weightStyles = read('src/screens/WeightTrackerScreen.styles.ts');
+        expect(weightStyles).toMatch(/infoButton: \{[^}]*width: 44,[^}]*height: 44/);
+        expect(weightStyles).toMatch(/infoBadge: \{[^}]*width: 24,[^}]*height: 24/);
         // nine dots stay on one row (R11): each is up to 44 wide, 44 high, with 2pt hitSlop either side
         expect(read('src/screens/BabyEvolutionScreen.tsx')).toMatch(/progressDotTouch: \{[^}]*flex: 1,[^}]*maxWidth: 44,[^}]*height: 44/);
         expect(read('src/screens/BabyEvolutionScreen.tsx')).toMatch(/hitSlop=\{\{ left: 2, right: 2 \}\}/);

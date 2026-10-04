@@ -652,7 +652,8 @@ const AppointmentForm = ({ editingEvent }: { editingEvent?: EditableEvent }) => 
                                 accessibilityLabel={t('addAppointment.typeMedical')}
                                 accessibilityState={{ selected: type === 'medical' }}
                                 // CAL-R2-03: RN-web 0.21.2 drops accessibilityState.selected → expose aria explicitly.
-                                {...(Platform.OS === 'web' ? { 'aria-selected': type === 'medical' } : {})}
+                                // aria-pressed, not aria-selected: selected is not allowed on role=button (E-070).
+                                {...(Platform.OS === 'web' ? { 'aria-pressed': type === 'medical' } : {})}
                             >
                                 {/* A vector icon, not an emoji: it takes the label's colour, where 🩺 stayed
                                     mid-grey on the selected magenta chip (about 1.5:1). */}
@@ -666,7 +667,8 @@ const AppointmentForm = ({ editingEvent }: { editingEvent?: EditableEvent }) => 
                                 accessibilityLabel={t('addAppointment.typeOther')}
                                 accessibilityState={{ selected: type === 'other' }}
                                 // CAL-R2-03: RN-web 0.21.2 drops accessibilityState.selected → expose aria explicitly.
-                                {...(Platform.OS === 'web' ? { 'aria-selected': type === 'other' } : {})}
+                                // aria-pressed, not aria-selected: selected is not allowed on role=button (E-070).
+                                {...(Platform.OS === 'web' ? { 'aria-pressed': type === 'other' } : {})}
                             >
                                 <Ionicons name="person-outline" size={16} color={type === 'other' ? theme.colors.white : theme.colors.text} />
                                 <Text style={[styles.typeText, type === 'other' && styles.typeTextActive]}>{t('addAppointment.typeOther')}</Text>

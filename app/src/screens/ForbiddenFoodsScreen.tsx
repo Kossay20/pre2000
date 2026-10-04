@@ -80,6 +80,7 @@ export const ForbiddenFoodsScreen = () => {
     const { t, i18n } = useTranslation();
     const isRTL = ['ar', 'tn'].includes(i18n.language); // ── FIX: RTL layout
     const [searchQuery, setSearchQuery] = useState('');
+    const [searchFocused, setSearchFocused] = useState(false);
     const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
@@ -158,10 +159,12 @@ export const ForbiddenFoodsScreen = () => {
             )}
 
             {/* Search Bar */}
-            <View style={styles.searchContainer}>
+            <View style={[styles.searchContainer, searchFocused && styles.searchContainerFocused]}>
                 <Text style={styles.searchIcon} importantForAccessibility="no" accessibilityElementsHidden>🔍</Text>
                 <TextInput
                     style={styles.searchInput}
+                    onFocus={() => setSearchFocused(true)}
+                    onBlur={() => setSearchFocused(false)}
                     placeholder={t('common.searchFoodPlaceholder')}
                     value={searchQuery}
                     onChangeText={setSearchQuery}
@@ -362,6 +365,9 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: theme.colors.disabled,
     },
+    searchContainerFocused: {
+        borderColor: theme.colors.accent,
+    },
     searchIcon: {
         fontSize: 16,
         marginEnd: 8,
@@ -370,7 +376,11 @@ const styles = StyleSheet.create({
         flex: 1,
         fontSize: 16,
         paddingVertical: 14,
+        paddingHorizontal: 4,
         color: theme.colors.neutral900,
+        // The bar draws its own focus border (searchBarFocused): the browser's square default
+        // outline sat inside the rounded bar with the text flush against it (C-069). Native has none.
+        ...(Platform.OS === 'web' ? ({ outlineStyle: 'none', outlineWidth: 0 } as object) : {}),
     },
     categoriesScroll: {
         marginBottom: 12,

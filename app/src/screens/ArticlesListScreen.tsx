@@ -31,6 +31,7 @@ export const ArticlesListScreen = () => {
     // W5 #4: keep the category/favoris filter row reachable under RTL (ar/tn) on web.
     const chipScrollRef = useRtlScrollFix();
     const [searchQuery, setSearchQuery] = useState('');
+    const [searchFocused, setSearchFocused] = useState(false);
     // task 10b/10c — one filter at a time: "Favoris" (bookmarked only), "All" (value null)
     // or one category. See utils/filterChips.
     const [filter, setFilter] = useState<FilterSelection<string>>(NO_FILTER);
@@ -255,11 +256,13 @@ export const ArticlesListScreen = () => {
     return (
         <View style={styles.container}>
             <View style={styles.searchContainer}>
-                <View style={styles.searchBar}>
+                <View style={[styles.searchBar, searchFocused && styles.searchBarFocused]}>
                     <Text style={styles.searchIcon}>🔍</Text>
                     <TextInput
                         ref={searchInputRef}
                         style={styles.searchInput}
+                        onFocus={() => setSearchFocused(true)}
+                        onBlur={() => setSearchFocused(false)}
                         placeholder={t('common.searchArticlePlaceholder')}
                         placeholderTextColor={theme.colors.textMuted}
                         value={searchQuery}
@@ -374,6 +377,11 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         paddingHorizontal: 12,
         height: 44,
+        borderWidth: 1,
+        borderColor: 'transparent',
+    },
+    searchBarFocused: {
+        borderColor: theme.colors.accent,
     },
     searchIcon: {
         fontSize: 16,
@@ -384,6 +392,10 @@ const styles = StyleSheet.create({
         fontSize: 16,
         color: theme.colors.neutral900,
         height: '100%',
+        paddingHorizontal: 4,
+        // The bar draws its own focus border (searchBarFocused): the browser's square default
+        // outline sat inside the rounded bar with the text flush against it (C-069). Native has none.
+        ...(Platform.OS === 'web' ? ({ outlineStyle: 'none', outlineWidth: 0 } as object) : {}),
     },
     clearIcon: {
         fontSize: 16,

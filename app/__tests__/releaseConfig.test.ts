@@ -145,6 +145,52 @@ describe('app.json store metadata', () => {
       }
     });
 
+    it('names the onboarding age range and first-pregnancy flag in the health/sensitive answers (F-043)', () => {
+      // Onboarding collects both and AuthContext writes them to userProfiles/{uid}: data the
+      // account is linked to. No manifest type exists for them, so they are declared inside
+      // the Health and Sensitive Info rows (both linked) and in the Play "Other info" row.
+      const onboarding = read('src/screens/OnboardingScreen.tsx');
+      const authSource = read('src/context/AuthContext.tsx');
+      expect(onboarding).toMatch(/setAgeRange\(/);
+      expect(onboarding).toMatch(/ageRange \|\| undefined/);
+      expect(onboarding).toMatch(/isFirstPregnancy \?\? undefined/);
+      expect(authSource).toMatch(/profileData\.ageRange = ageRange/);
+      expect(authSource).toMatch(/profileData\.isFirstPregnancy = isFirstPregnancy/);
+      const profileType = read('src/types/index.ts').match(/export interface UserProfile \{[\s\S]*?\n\}/)?.[0] ?? '';
+      expect(profileType).toMatch(/ageRange\?:/);
+      expect(profileType).toMatch(/isFirstPregnancy\?:/);
+
+      const store = JSON.parse(read('store/app-privacy.json')) as {
+        dataTypes: { manifestType: string; linkedToUser: boolean; what: string }[];
+      };
+      const rowFor = (type: string) => store.dataTypes.find((d) => d.manifestType === `NSPrivacyCollectedDataType${type}`)!;
+      expect(rowFor('Health').what).toMatch(/first-pregnancy/i);
+      expect(rowFor('SensitiveInfo').what).toMatch(/age range/i);
+      expect(rowFor('SensitiveInfo').what).toMatch(/first-pregnancy/i);
+      for (const type of ['Health', 'SensitiveInfo']) {
+        expect({ type, linked: rowFor(type).linkedToUser }).toEqual({ type, linked: true });
+        expect({ type, linked: byType(type)?.NSPrivacyCollectedDataTypeLinked }).toEqual({ type, linked: true });
+      }
+
+      const safety = JSON.parse(read('store/data-safety.json')) as {
+        dataCollected: { appleEquivalent: string; note?: string }[];
+      };
+      const sensitive = safety.dataCollected.find((d) => d.appleEquivalent === 'NSPrivacyCollectedDataTypeSensitiveInfo')!;
+      expect(sensitive.note).toMatch(/age range/i);
+      expect(sensitive.note).toMatch(/first-pregnancy/i);
+    });
+
+    it('does not claim a city: onboarding never collects one (F-043)', () => {
+      expect(read('src/screens/OnboardingScreen.tsx')).toMatch(/undefined, \/\/ city/);
+      for (const file of ['store/app-privacy.json', 'store/data-safety.json']) {
+        expect(read(file)).not.toMatch(/country\/city/i);
+      }
+      for (const page of ['privacy.html', 'privacy-en.html']) {
+        const text = fs.readFileSync(path.resolve(__dirname, '..', '..', 'website', page), 'utf8');
+        expect(text).not.toMatch(/\b(ville|city)\b/i);
+      }
+    });
+
     it('declares no data type as not linked while the app stores it under the uid', () => {
       const notLinked = entries()
         .filter((e) => e.NSPrivacyCollectedDataTypeLinked === false)

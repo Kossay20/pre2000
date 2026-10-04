@@ -127,7 +127,16 @@ export const LanguageSelectScreen = () => {
                     style={[styles.header, { paddingTop: Math.max(insets.top + 12, 36) }]}
                 >
                     <Text style={styles.headerEmoji}>🌐</Text>
-                    <Text style={styles.headerTitle}>{t('common.chooseLanguage')}</Text>
+                    {/* The page title is a heading. In the signed-out funnel ('Language', no stack header) it
+                        is the only one, so h1; from Home ('LanguageSelect') the stack header already
+                        carries the route title as the h1, so this one is its h2 (web only). */}
+                    <Text
+                        style={styles.headerTitle}
+                        accessibilityRole="header"
+                        {...(Platform.OS === 'web' && route.name === 'LanguageSelect' ? { 'aria-level': 2 } : {})}
+                    >
+                        {t('common.chooseLanguage')}
+                    </Text>
                     {/* One line per language. As one wrapping line it broke inside a phrase
                         and split the Arabic one across lines ("اختر" / "لغتك"); each run is its
                         own paragraph with its own direction (RN-web gives a root Text dir=auto). */}

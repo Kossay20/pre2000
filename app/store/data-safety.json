@@ -3,7 +3,7 @@
   "_sources": [
     "app.json (android.permissions, blockedPermissions, extra.accountDeletionUrl)",
     "App.tsx and src/utils/logger.ts (Sentry)",
-    "src/context/AuthContext.tsx, src/context/gdprPurge.ts",
+    "src/context/AuthContext.tsx (userProfiles/{uid}: country, ageRange, isFirstPregnancy), src/screens/OnboardingScreen.tsx, src/context/gdprPurge.ts",
     "docs/RELEASE_READINESS_2026-08-19.md rows 9-10"
   ],
   "collectsOrSharesUserData": true,
@@ -45,7 +45,7 @@
       "appleEquivalent": "NSPrivacyCollectedDataTypeSensitiveInfo",
       "optional": true,
       "purposes": ["App functionality"],
-      "note": "Declared conditions (gestational diabetes, hypertension, twin pregnancy) and the consent record."
+      "note": "Declared conditions (gestational diabetes, hypertension, twin pregnancy), the age range chosen at onboarding, the first-pregnancy flag and the consent record. Age range and first-pregnancy are stored on the profile under the account uid."
     },
     {
       "playCategory": "Personal info",
@@ -61,7 +61,7 @@
       "appleEquivalent": "NSPrivacyCollectedDataTypeHealth",
       "optional": true,
       "purposes": ["App functionality"],
-      "note": "Weight, blood pressure, glucose, symptoms, kick sessions, contractions, hospital bag."
+      "note": "Weight, blood pressure, glucose, symptoms, kick sessions, contractions, hospital bag, pregnancy dates, first-pregnancy flag."
     },
     {
       "playCategory": "Messages",

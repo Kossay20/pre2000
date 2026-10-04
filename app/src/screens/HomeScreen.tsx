@@ -528,7 +528,17 @@ export const HomeScreen = () => {
                     {/* Centered Content */}
                     <View style={styles.centerContent}>
                         <View style={styles.headerTextContainer}>
-                            <Text style={styles.greeting} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.8}>
+                            {/* The Home title is a heading for screen-reader navigation. Level 2 on web: Home stays
+                                mounted (aria-hidden) when another tab opens, and a level-1 heading here would
+                                stack a second <h1> beside that tab's own (e2e cycle9 P0-3). */}
+                            <Text
+                                style={styles.greeting}
+                                numberOfLines={2}
+                                adjustsFontSizeToFit
+                                minimumFontScale={0.8}
+                                accessibilityRole="header"
+                                {...(Platform.OS === 'web' ? { 'aria-level': 2 } : {})}
+                            >
                                 {t('home.greeting', { name: displayName })}
                             </Text>
                         </View>
@@ -1075,7 +1085,7 @@ export const HomeScreen = () => {
                                 style={styles.unifiedCard}
                                 onPress={() => navigation.navigate('Calendrier')}
                                 accessibilityRole="button"
-                                accessibilityLabel={`${app.title}, ${format(new Date(app.date), 'dd MMMM, HH:mm', { locale: dateLocale })}`}
+                                accessibilityLabel={`${app.title}, ${format(new Date(app.date), 'd MMMM, HH:mm', { locale: dateLocale })}`}
                                 accessibilityHint={t('a11y.openAppointment')}
                             >
                                 <View style={{ flexDirection: 'row', alignItems: 'center', padding: 12, backgroundColor: theme.colors.surface, borderRadius: theme.borderRadius.m }}>
@@ -1083,7 +1093,7 @@ export const HomeScreen = () => {
                                     <View style={{ flex: 1 }}>
                                         <Text style={{ fontSize: 16, fontWeight: '600', color: theme.colors.text }}>{app.title}</Text>
                                         <Text style={{ fontSize: 14, color: theme.colors.textSecondary, marginTop: 2 }}>
-                                            {format(new Date(app.date), 'dd MMMM', { locale: dateLocale })} • {format(new Date(app.date), 'HH:mm', { locale: dateLocale })}
+                                            {format(new Date(app.date), 'd MMMM', { locale: dateLocale })} • {format(new Date(app.date), 'HH:mm', { locale: dateLocale })}
                                         </Text>
                                     </View>
                                 </View>

@@ -304,7 +304,7 @@
         "2": "Meconium in intestines"
       },
       "highlights": {
-        "0": "Average weight: 3-4kg",
+        "0": "Average weight: 3-4 kg",
         "1": "Sucking/swallowing coordination perfect"
       }
     }
@@ -322,7 +322,7 @@
       "account": "Account:",
       "accountDesc": "your email address and password, handled by Firebase Authentication to sign you in.",
       "profile": "Pregnancy profile:",
-      "profileDesc": "first name, last name (optional), country, city, age range, whether this is your first pregnancy, last period date, due date, height and pre-pregnancy weight, cycle length if you track fertility, and your chosen language.",
+      "profileDesc": "first name, last name (optional), country, age range, whether this is your first pregnancy, last period date, due date, height and pre-pregnancy weight, cycle length if you track fertility, and your chosen language.",
       "health": "Health data you record:",
       "healthDesc": "weight, blood pressure, blood glucose, symptoms, baby movements, contractions, medical appointments, reminders and tasks, your hospital bag, with any notes you add. The app draws no diagnosis from them.",
       "medical": "Declared medical follow-up (optional):",

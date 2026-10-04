@@ -26,7 +26,7 @@
   "cancel": "Annuler",
   "save": "Enregistrer",
   "saving": "Enregistrement...",
-  "guestAlertTitle": "Mode Invité",
+  "guestAlertTitle": "Mode Invitée",
   "guestAlertMsg": "Vous devez créer un compte pour sauvegarder vos rendez-vous.",
   "guestAlertCreate": "Créer un compte",
   "missingTitleTitle": "Oups !",
@@ -51,7 +51,7 @@
     "dateInvalid": "Date invalide"
   },
   "appointment_created": "Rendez-vous créé avec succès !",
-  "guestBannerTitle": "Mode invité",
+  "guestBannerTitle": "Mode Invitée",
   "guestBannerMsg": "Vous pouvez remplir ce formulaire, mais l’enregistrement demande un compte. Vos infos seront conservées le temps de le créer.",
   "draftRestored": "Votre rendez-vous a été restauré ✨",
   "notFoundTitle": "Rendez-vous introuvable",

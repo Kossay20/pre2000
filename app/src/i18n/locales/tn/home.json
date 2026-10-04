@@ -52,7 +52,7 @@
   "trimester": "الثلث {{trimester}}",
   "weekDayInfo": "الأسبوع {{week}} • يوم {{day}}/7",
   "dayOf": "يوم {{day}} / 7",
-  "weeks": "الأسابيع {{start}}-{{end}}",
+  "weeks": "الأسابيع \u2066{{start}}-{{end}}\u2069",
   "day": "يوم",
   "yourBaby": "بيبيك",
   "month": "شهر",
