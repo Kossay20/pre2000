@@ -230,8 +230,8 @@ test.describe('Guest journey — onboarded MainTabs + tools (seeded guest)', () 
       }
       if (tab.label === 'Reminders') {
         await expect(page.getByText(/Week 13/i).first()).toBeVisible({ timeout: 15_000 });
-        await expect(page.getByText(/Trimester 1/i).first()).toBeVisible();
-        await expect(page.getByText(/Trimester 2/i)).toHaveCount(0);
+        await expect(page.getByText(/1st Trimester/i).first()).toBeVisible();
+        await expect(page.getByText(/2nd Trimester/i)).toHaveCount(0);
       }
       if (tab.label === 'Calendar') {
         await expect(page.getByRole('button', { name: /^Month$/i }).first()).toBeVisible({ timeout: 20_000 });
@@ -391,9 +391,11 @@ test.describe('Guest journey — onboarded MainTabs + tools (seeded guest)', () 
     await gotoHydrated(page, '/settings');
     const sw = page.getByRole('switch').first();
     await expect(sw).toBeVisible({ timeout: 15_000 });
-    const before = await sw.getAttribute('aria-checked');
+    // react-native-web renders the Switch as <input type="checkbox" role="switch">: its state is
+    // the checkbox's own `checked`, not an aria-checked attribute.
+    const before = await sw.isChecked();
     await sw.click();
-    await expect(sw).toHaveAttribute('aria-checked', before === 'true' ? 'false' : 'true', { timeout: 5_000 });
+    await expect(sw).toBeChecked({ checked: !before, timeout: 5_000 });
     await auditState(page, '23-settings-toggled', errors, rec);
 
     await gotoHydrated(page, '/forbidden-foods');
