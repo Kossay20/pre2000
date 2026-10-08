@@ -1,13 +1,13 @@
 # Open findings that need the owner, a clinician or a product decision
 
-State: final-release audit round 9, HEAD 3bfd0b3. Code-side work is converged (0 P0 / 0 P1 open that depend on code). Everything below is outside what an agent can close. Source of truth for ids: `reports/test-e2e/final-release-2026-09-30/round-9/wave-*-findings.json`; gates G1-G9 are defined in `docs/GOAL_FINAL_RELEASE_AUDIT_MAMABEBE_2026-10-02.md` section 6.
+State (2026-10-08): HEAD `2c2d4d0`. `npm run verify` green (3601 tests); local round 19 on a bundle rebuilt from `eb4c9ca`: 13 e2e specs, 162 passed, 0 failed; `expo-doctor` 18/18; iOS and Android JS bundles compile (`expo export`). Code-side work is converged: findings that code or specs can close were closed in rounds 10-18, the round-9 registry under `reports/test-e2e/` is older than that. Everything below is outside what an agent can close. Gate ids are defined in `docs/GOAL_FINAL_RELEASE_AUDIT_MAMABEBE_2026-10-02.md` section 6.
 
 ## Owner gates (G1-G9)
 
 | Gate | Action | Findings | Sev |
 |---|---|---|---|
-| G1 | `firebase deploy --only firestore:rules` before submission, then delete a test account on the live backend | (no open finding id; precondition of D-014 and of account deletion working) | gate |
-| G2 | Re-run `scripts/sync-firestore-weeks.ts` in production (corrected `weeks_db.json`) | (no open finding id) | gate |
+| G1 | **DONE 2026-10-08** (rules + indexes deployed to `pregnancy-app-1f939`, prod smoke passes, logs in `reports/test-e2e/final-release-2026-09-30/deploy-2026-10-08/`). Still to do by hand: delete a real test account from the app on the live backend | (no open finding id; precondition of D-014 and of account deletion working) | gate |
+| G2 | **DONE 2026-10-08** (40/40 weeks updated, 0 failed; the `calendar_template_ids` diff is a comparison artefact: the local value lives under the French key) | (no open finding id) | gate |
 | G3 | `eas env:create` for the 6 `EXPO_PUBLIC_FIREBASE_*` variables, `production` and `preview`; also set `EXPO_PUBLIC_SENTRY_DSN` | F-003 (P1); F-036 (P3, Sentry DSN not enforced) | P1 |
 | G4 | `cd website && vercel deploy --prod`; re-curl both delete-account URLs for 200; check live privacy pages for "Base legale / Legal basis"; re-grep live for "centaines", "valides", "Assistant IA" | F-001 (P0), F-005 (P1), F-034 (P2), F-035 (P1) | P0 |
 | G5 | Confirm the Morocco and Algeria emergency numbers with a local contact, or drop MA/DZ from `EMERGENCY_NUMBERS` so they fall back to 112 | F-039 (P1) | P1 |
