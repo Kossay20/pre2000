@@ -27,8 +27,18 @@ import type { ConfigContext, ExpoConfig } from 'expo/config';
  * (`EXPO_PUBLIC_FIREBASE_*`) is not in the environment — see REQUIRED_FIREBASE_ENV.
  */
 
+/**
+ * Both files are gitignored, and EAS uploads the project the way git sees it: a
+ * copy in the owner's app/ folder satisfies this file when `eas build` resolves
+ * the config locally, then is missing on the build worker. EAS file environment
+ * variables (`eas env:create --type file`) are how they reach the worker; EAS
+ * sets each variable to the absolute path of the uploaded file. A local copy is
+ * still honoured for local builds and prebuilds.
+ */
 const ANDROID_FIREBASE_FILE = './google-services.json';
 const IOS_FIREBASE_FILE = './GoogleService-Info.plist';
+const ANDROID_FIREBASE_ENV = 'GOOGLE_SERVICES_JSON';
+const IOS_FIREBASE_ENV = 'GOOGLE_SERVICE_INFO_PLIST';
 
 const existsInProject = (relativePath: string): boolean =>
   fs.existsSync(path.resolve(__dirname, relativePath));
@@ -141,21 +151,26 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     }
   }
 
-  const hasAndroidFirebaseFile = existsInProject(ANDROID_FIREBASE_FILE);
-  const hasIosFirebaseFile = existsInProject(IOS_FIREBASE_FILE);
+  const androidFirebaseFile = process.env[ANDROID_FIREBASE_ENV]?.trim() || ANDROID_FIREBASE_FILE;
+  const iosFirebaseFile = process.env[IOS_FIREBASE_ENV]?.trim() || IOS_FIREBASE_FILE;
+  const hasAndroidFirebaseFile = existsInProject(androidFirebaseFile);
+  const hasIosFirebaseFile = existsInProject(iosFirebaseFile);
 
   if (isProductionBuild && !(hasAndroidFirebaseFile && hasIosFirebaseFile)) {
     const missing = [
-      hasAndroidFirebaseFile ? null : ANDROID_FIREBASE_FILE,
-      hasIosFirebaseFile ? null : IOS_FIREBASE_FILE,
+      hasAndroidFirebaseFile ? null : androidFirebaseFile,
+      hasIosFirebaseFile ? null : iosFirebaseFile,
     ].filter(Boolean);
 
     throw new Error(
       `[app.config] Production build is missing ${missing.join(' and ')}.\n` +
         'Download them from Firebase Console → Project settings → Your apps ' +
-        `(package/bundle id ${config.ios?.bundleIdentifier ?? 'com.mamabebe.app'}) ` +
-        'and place them at the root of app/. Without them @react-native-firebase ' +
-        'never initialises and App Check is inert in the shipped binary.',
+        `(package/bundle id ${config.ios?.bundleIdentifier ?? 'com.mamabebe.app'}). ` +
+        'They are gitignored, so EAS does not upload them: register each one as an ' +
+        `EAS file variable — eas env:create --environment production --name ${ANDROID_FIREBASE_ENV} ` +
+        `--type file --value ./google-services.json, and the same with ${IOS_FIREBASE_ENV} ` +
+        'for ./GoogleService-Info.plist. Without them @react-native-firebase never ' +
+        'initialises and App Check is inert in the shipped binary.',
     );
   }
 
@@ -168,12 +183,12 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     ),
     ios: {
       ...config.ios,
-      ...(hasIosFirebaseFile ? { googleServicesFile: IOS_FIREBASE_FILE } : {}),
+      ...(hasIosFirebaseFile ? { googleServicesFile: iosFirebaseFile } : {}),
     },
     android: {
       ...config.android,
       // app.json no longer hardcodes this — the file is only referenced when present.
-      ...(hasAndroidFirebaseFile ? { googleServicesFile: ANDROID_FIREBASE_FILE } : {}),
+      ...(hasAndroidFirebaseFile ? { googleServicesFile: androidFirebaseFile } : {}),
     },
   };
 };

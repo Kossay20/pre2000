@@ -87,6 +87,8 @@ describe('app.config.ts — native Firebase file wiring', () => {
     delete process.env.APP_ENV;
     delete process.env.SENTRY_ORG;
     delete process.env.SENTRY_PROJECT;
+    delete process.env.GOOGLE_SERVICES_JSON;
+    delete process.env.GOOGLE_SERVICE_INFO_PLIST;
     FIREBASE_ENV.forEach((name) => delete process.env[name]);
   });
 
@@ -278,6 +280,61 @@ describe('app.config.ts — native Firebase file wiring', () => {
         expect(message).toContain('com.mamabebe.app');
       },
     );
+  });
+
+  describe('Firebase files delivered as EAS file environment variables', () => {
+    // Both files are gitignored, and EAS uploads the project the way git sees it:
+    // a file sitting in the owner's app/ folder passes the guard when `eas build`
+    // resolves the config locally, then is absent on the build worker, where the
+    // same guard fails the build. EAS file variables (`eas env:create --type file`)
+    // reach the worker as an absolute path in the variable named after the file.
+    const EAS_ANDROID = '/home/expo/workingdir/environment-secrets/android-firebase';
+    const EAS_IOS = '/home/expo/workingdir/environment-secrets/ios-firebase';
+
+    const withEasFiles = (present: boolean) => {
+      process.env.GOOGLE_SERVICES_JSON = EAS_ANDROID;
+      process.env.GOOGLE_SERVICE_INFO_PLIST = EAS_IOS;
+      existsSync.mockImplementation((p: string) => present && (p === EAS_ANDROID || p === EAS_IOS));
+    };
+
+    beforeEach(() => {
+      process.env.APP_ENV = 'production';
+      withFirebaseEnv();
+    });
+
+    it('wires the paths EAS hands over, with no file in the project folder', () => {
+      withEasFiles(true);
+
+      const config = loadConfigFactory()({ config: BASE_CONFIG } as ConfigContext);
+
+      expect(config.android?.googleServicesFile).toBe(EAS_ANDROID);
+      expect(config.ios?.googleServicesFile).toBe(EAS_IOS);
+    });
+
+    it('keeps the React Native Firebase plugins on, so App Check ships', () => {
+      withEasFiles(true);
+      const withFirebase = {
+        ...(BASE_CONFIG as object),
+        plugins: ['@react-native-firebase/app', '@react-native-firebase/app-check'],
+      } as unknown as ConfigContext['config'];
+
+      const config = loadConfigFactory()({ config: withFirebase } as ConfigContext);
+
+      expect(pluginNames(config)).toEqual(
+        expect.arrayContaining(['@react-native-firebase/app', '@react-native-firebase/app-check']),
+      );
+    });
+
+    it('still refuses a production build when the variable points at nothing, naming the variable', () => {
+      withEasFiles(false);
+
+      const message = messageOf(() => loadConfigFactory()({ config: BASE_CONFIG } as ConfigContext));
+
+      expect(message).toContain('[app.config] Production build is missing');
+      expect(message).toContain('GOOGLE_SERVICES_JSON');
+      expect(message).toContain('GOOGLE_SERVICE_INFO_PLIST');
+      expect(message).toContain('eas env:create');
+    });
   });
 
   describe('Firebase web config in the environment (EXPO_PUBLIC_FIREBASE_*)', () => {
