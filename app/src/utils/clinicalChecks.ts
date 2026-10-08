@@ -54,6 +54,23 @@ export interface ClinicalAlert {
 /** IADPSG 2010 / WHO 2013 fasting criterion for gestational diabetes, mmol/L (= 0.92 g/L). */
 export const GDM_FASTING_THRESHOLD_MMOL = 5.1;
 
+/** 1 g/L of glucose in mmol/L: 1000 mg/L ÷ 180.16 g/mol. */
+const GLUCOSE_MMOL_PER_G_PER_L = 5.551;
+
+/**
+ * French and Tunisian labs print fasting glucose in g/L (0,92 g/L is the 5,1 mmol/L
+ * gestational-diabetes criterion), and the tracker stores mmol/L. Below 2, a fasting
+ * reading is a plausible g/L value and an implausible mmol/L one, so the screen asks
+ * which unit she meant before any alert — read as mmol/L, 0,92 raised the
+ * hypoglycaemia alert ("prenez du sucre rapide") on a reading at the diabetes threshold.
+ */
+export const glucoseLooksLikeGramsPerLitre = (value: number): boolean =>
+    Number.isFinite(value) && value > 0 && value < 2;
+
+/** g/L → mmol/L, to the tenth the tracker displays. */
+export const gramsPerLitreToMmol = (gramsPerLitre: number): number =>
+    Math.round(gramsPerLitre * GLUCOSE_MMOL_PER_G_PER_L * 10) / 10;
+
 /**
  * Evaluate a fasting blood glucose reading (mmol/L).
  * Returns null when the value is in the pregnancy target (3.5 to below 5.1).

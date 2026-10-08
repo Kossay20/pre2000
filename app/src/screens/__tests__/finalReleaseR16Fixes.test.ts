@@ -24,6 +24,28 @@ describe('C-072 / E 35-scale-home: the Home quick actions wrap instead of clippi
     });
 });
 
+describe('B-057: the Health screen asks for the glucose unit before any alert', () => {
+    const src = read('../HealthDashboardScreen.tsx');
+    const handler = src.slice(src.indexOf('const handleAddGlucose'), src.indexOf('const handleToggleSymptom'));
+
+    it('asks g/L or mmol/L first, and only then runs the clinical check', () => {
+        expect(handler).toMatch(/glucoseLooksLikeGramsPerLitre\(value\)/);
+        expect(handler.indexOf('glucoseLooksLikeGramsPerLitre')).toBeLessThan(handler.indexOf('checkGlucose('));
+        expect(handler).toMatch(/gramsPerLitreToMmol\(value\)/);
+    });
+
+    it('has the dialog copy in the four languages', () => {
+        const keys = ['glucoseUnitCheckTitle', 'glucoseUnitCheckMsg', 'glucoseIsMmol', 'glucoseIsGl', 'glucoseConvertedTitle', 'glucoseConvertedMsg'];
+        for (const lang of ['fr', 'en', 'ar', 'tn']) {
+            const d = JSON.parse(read(`../../i18n/locales/${lang}/dashboard.json`));
+            keys.forEach((k) => expect(typeof d[k]).toBe('string'));
+            expect(d.glucoseUnitCheckMsg).toContain('{{value}}');
+            expect(d.glucoseUnitCheckMsg).toContain('{{converted}}');
+            expect(d.glucoseConvertedMsg).toContain('{{original}}');
+        }
+    });
+});
+
 describe('B-023: one way to say a day in French — "8 octobre", not "08 octobre"', () => {
     it('the week strip names its days without a leading zero, like the Home upcoming list', () => {
         const strip = read('../../components/calendar/WeeklyStrip.tsx');

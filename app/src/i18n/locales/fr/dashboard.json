@@ -39,6 +39,12 @@
         "outOfRange": "Mesure hors objectif ce mois-ci"
     },
     "glucoseTarget": "Objectif à jeun : de 3,5 à moins de 5,1 mmol/L",
+    "glucoseUnitCheckTitle": "🤔 Unité de mesure",
+    "glucoseUnitCheckMsg": "Vous avez saisi {{value}}. Est-ce bien en mmol/L ?\n\nSi c'est en g/L (l'unité des laboratoires en France et en Tunisie), cela équivaut à {{converted}} mmol/L.",
+    "glucoseIsMmol": "Oui, en mmol/L",
+    "glucoseIsGl": "C'est en g/L",
+    "glucoseConvertedTitle": "Valeur convertie",
+    "glucoseConvertedMsg": "{{original}} g/L = {{converted}} mmol/L. Vérifiez la valeur, puis enregistrez-la.",
     "symptomsToday": "Symptômes du jour",
     "symptomNausea": "Nausées",
     "symptomFatigue": "Fatigue",

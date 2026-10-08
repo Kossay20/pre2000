@@ -39,6 +39,12 @@
         "outOfRange": "A reading outside the target this month"
     },
     "glucoseTarget": "Fasting target: 3.5 to below 5.1 mmol/L",
+    "glucoseUnitCheckTitle": "🤔 Measurement unit",
+    "glucoseUnitCheckMsg": "You entered {{value}}. Is this in mmol/L?\n\nIf it's in g/L (the unit labs use in France and Tunisia), it equals {{converted}} mmol/L.",
+    "glucoseIsMmol": "Yes, mmol/L",
+    "glucoseIsGl": "It's in g/L",
+    "glucoseConvertedTitle": "Value converted",
+    "glucoseConvertedMsg": "{{original}} g/L = {{converted}} mmol/L. Check the value, then save it.",
     "symptomsToday": "Today's Symptoms",
     "symptomNausea": "Nausea",
     "symptomFatigue": "Fatigue",

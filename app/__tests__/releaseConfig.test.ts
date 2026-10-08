@@ -308,14 +308,46 @@ describe('app.json store metadata', () => {
   });
 });
 
+const buildProperties = (): { ios?: Record<string, unknown>; android?: Record<string, unknown> } | undefined => {
+  const entry = appJson.plugins.find((p: unknown) => Array.isArray(p) && p[0] === 'expo-build-properties');
+  return entry ? entry[1] : undefined;
+};
+
+describe('iOS CocoaPods linkage', () => {
+  it('builds the pods as static frameworks, which React Native Firebase requires', () => {
+    // FirebaseCoreInternal and AppCheckCore are Swift pods: without use_frameworks!
+    // `pod install` stops at "Swift pods cannot yet be integrated as static libraries"
+    // (found by a clean prebuild + pod install, round-17 F-044).
+    const usesRnFirebase = appJson.plugins.includes('@react-native-firebase/app');
+    expect(usesRnFirebase).toBe(true);
+    expect(buildProperties()?.ios?.useFrameworks).toBe('static');
+  });
+
+  it('links every React Native Firebase pod statically, as Expo 54 prebuilt React Native needs', () => {
+    // rnfirebase.io (Expo, static frameworks): with the prebuilt React Native core of
+    // Expo 54+, each RNFB native module must be listed in forceStaticLinking, or its
+    // headers fail as non-modular includes inside a framework module.
+    const podOf: Record<string, string> = {
+      '@react-native-firebase/app': 'RNFBApp',
+      '@react-native-firebase/app-check': 'RNFBAppCheck',
+    };
+    const rnfbPlugins = appJson.plugins
+      .map((p: unknown) => (Array.isArray(p) ? p[0] : p))
+      .filter((name: string) => name.startsWith('@react-native-firebase/'));
+    rnfbPlugins.forEach((name: string) => expect(podOf[name]).toBeDefined());
+    expect(buildProperties()?.ios?.forceStaticLinking).toEqual(
+      expect.arrayContaining(rnfbPlugins.map((name: string) => podOf[name])),
+    );
+  });
+});
+
 describe('Android target SDK', () => {
   it('stays at or above the Play minimum (35) through the React Native default', () => {
-    // No expo-build-properties override exists, so targetSdk is whatever
+    // expo-build-properties sets only iOS options, so targetSdk is whatever
     // react-native ships. An RN or Expo downgrade would otherwise slip under the
     // Play requirement unnoticed until the upload is rejected.
-    expect(appJson.plugins.some((p: unknown) => (Array.isArray(p) ? p[0] : p) === 'expo-build-properties')).toBe(
-      false,
-    );
+    expect(buildProperties()?.android?.targetSdkVersion).toBeUndefined();
+    expect(buildProperties()?.android?.compileSdkVersion).toBeUndefined();
     const toml = read('node_modules/react-native/gradle/libs.versions.toml');
     const targetSdk = Number(toml.match(/^targetSdk\s*=\s*"(\d+)"/m)?.[1]);
     expect(Number.isInteger(targetSdk)).toBe(true);

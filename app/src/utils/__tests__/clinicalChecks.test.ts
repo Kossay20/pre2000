@@ -20,6 +20,8 @@ import {
     resolveEmergencyNumber,
     GDM_FASTING_THRESHOLD_MMOL,
     summarizeGlucoseMonth,
+    glucoseLooksLikeGramsPerLitre,
+    gramsPerLitreToMmol,
 } from '../clinicalChecks';
 
 const expectSeverity = (
@@ -96,6 +98,27 @@ describe('checkGlucose (mmol/L, fasting)', () => {
 
 // B-009: the Glycémie card said "Glycémie normale ce mois-ci" with no reading at all, and
 // next to an out-of-range one. What it says now comes from the month's readings.
+describe('SAFETY: a glucose typed in g/L is not read as mmol/L (B-057)', () => {
+    // French and Tunisian labs print fasting glucose in g/L: 0,92 g/L is the 5,1 mmol/L
+    // gestational-diabetes criterion, and read as mmol/L it raised the hypoglycaemia alert.
+    it.each([[0.4], [0.92], [1.26], [1.99]])('%s is asked about (plausible g/L, implausible fasting mmol/L)', (v) => {
+        expect(glucoseLooksLikeGramsPerLitre(v)).toBe(true);
+    });
+
+    it.each([[0], [-1], [2], [3.4], [5.1], [Number.NaN]])('%s is taken as mmol/L', (v) => {
+        expect(glucoseLooksLikeGramsPerLitre(v)).toBe(false);
+    });
+
+    it('converts with the molar mass of glucose (1 g/L = 5.551 mmol/L), to one decimal', () => {
+        expect(gramsPerLitreToMmol(0.92)).toBe(5.1);
+        expect(gramsPerLitreToMmol(1.26)).toBe(7);
+        expect(gramsPerLitreToMmol(0.63)).toBe(3.5);
+        // the converted value lands on the same alerts as a reading typed in mmol/L
+        expect(checkGlucose(gramsPerLitreToMmol(0.92))?.severity).toBe('warning');
+        expect(checkGlucose(gramsPerLitreToMmol(0.8))).toBeNull();
+    });
+});
+
 describe('summarizeGlucoseMonth', () => {
     const now = new Date(2026, 9, 15, 12, 0, 0);
     const on = (day: number, value: number, month = 9) => ({ value, date: new Date(2026, month, day, 8).toISOString() });

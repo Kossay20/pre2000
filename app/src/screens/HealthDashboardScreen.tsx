@@ -42,6 +42,8 @@ import {
     checkGlucose,
     checkBloodPressure,
     checkWeightChange,
+    glucoseLooksLikeGramsPerLitre,
+    gramsPerLitreToMmol,
     resolveEmergencyContact,
     summarizeGlucoseMonth,
     type ClinicalAlert,
@@ -366,6 +368,34 @@ export const HealthDashboardScreen = () => {
     const handleAddGlucose = async () => {
         if (!user?.uid || !pregnancyInfo?.week || !newGlucose) return;
         const value = parseFloat(newGlucose.replace(',', '.'));
+
+        // B-057: below 2 the reading is almost surely g/L (French and Tunisian labs), and as
+        // mmol/L it would raise the hypoglycaemia alert. Ask first, like the kg/lb check on
+        // the weight: confirm keeps mmol/L, cancel converts into the field for her to check.
+        if (glucoseLooksLikeGramsPerLitre(value)) {
+            const converted = gramsPerLitreToMmol(value);
+            confirmAction(
+                t('dashboard.glucoseUnitCheckTitle'),
+                t('dashboard.glucoseUnitCheckMsg', { value: num(value), converted: num(converted) }),
+                () => { saveGlucoseReading(value); },
+                () => {
+                    setNewGlucose(num(converted));
+                    showAlert(
+                        t('dashboard.glucoseConvertedTitle'),
+                        t('dashboard.glucoseConvertedMsg', { original: num(value), converted: num(converted) }),
+                    );
+                },
+                t('dashboard.glucoseIsGl'),
+                t('dashboard.glucoseIsMmol'),
+            );
+            return;
+        }
+        await saveGlucoseReading(value);
+    };
+
+    /** Range check, clinical alert, then save — `value` is in mmol/L. */
+    const saveGlucoseReading = async (value: number) => {
+        if (!user?.uid || !pregnancyInfo?.week) return;
         if (isNaN(value) || value <= 0 || value > 30) {
             showAlert(t('common.error'), t('dashboard.glucoseTarget'));
             return;

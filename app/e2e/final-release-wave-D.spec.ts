@@ -873,13 +873,13 @@ test('D-settings: dev surfaces, medical flag, daily message, permissions, export
   // recorded below, not asserted — that is the storage contract, not a defect.)
   await page.reload({ waitUntil: 'load' });
   await expect(page.getByRole('switch').first()).toBeVisible({ timeout: 30_000 });
-  await expect.soft(page.getByRole('button', { name: "Sélectionner l'heure : 11 heures" }).first(), '09 (D-040): hour 11 still selected after a reload').toHaveAttribute('aria-selected', 'true', { timeout: 10_000 });
+  await expect.soft(page.getByRole('button', { name: "Sélectionner l'heure : 11 heures" }).first(), '09 (D-040): hour 11 still selected after a reload').toHaveAttribute('aria-pressed', 'true', { timeout: 10_000 });
   await expect.soft(page.getByRole('switch', { name: 'Activer ou désactiver le message quotidien' }).first(), '09 (D-040): daily message still on after a reload').toBeChecked();
   expect.soft(await page.evaluate(() => localStorage.getItem('@baby_message_hour_v1')), '09: stored hour after reload').not.toBeNull();
   {
     const f = await freshCtx(browser, acct, 'fr', testInfo);
     await openSettings(f.page);
-    const sel = await f.page.getByRole('button', { name: "Sélectionner l'heure : 11 heures" }).first().getAttribute('aria-selected');
+    const sel = await f.page.getByRole('button', { name: "Sélectionner l'heure : 11 heures" }).first().getAttribute('aria-pressed');
     note(testInfo, '09-fresh-context-hour-11-selected', String(sel));
     await closeCtx(f);
   }
@@ -940,7 +940,7 @@ test('D-settings: dev surfaces, medical flag, daily message, permissions, export
     expect.soft(t12, '12 (D-039): journal title').toContain('Mon suivi de grossesse');
     expect.soft(t12, '12 (D-039): her name on the profile block').toContain('Salma Settings');
     expect.soft(t12, '12 (D-039): weight section heading').toContain('Historique du poids');
-    expect.soft(t12, '12 (D-039): the seeded weighing is listed').toContain('63.4 kg');
+    expect.soft(t12, '12 (D-039): the seeded weighing is listed').toContain('63,4 kg'); // French decimal comma
     expect.soft(t12, '12 (D-039): the weight table is not the empty state').not.toContain('Aucune donnée de poids');
     expect.soft(t12, '12 (D-039): appointments heading').toContain('Rendez-vous');
     expect.soft(t12, '12 (D-039): the seeded appointment title is listed').toContain('RDV Journal D');

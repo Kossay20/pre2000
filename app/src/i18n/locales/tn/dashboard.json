@@ -39,6 +39,12 @@
         "outOfRange": "فمّا قياس خارج الهدف هالشهر"
     },
     "glucoseTarget": "الهدف على الريق: من 3,5 لأقل من 5,1 mmol/L",
+    "glucoseUnitCheckTitle": "🤔 وحدة القياس",
+    "glucoseUnitCheckMsg": "دخّلتي {{value}}. هاذي بالـ mmol/L؟\n\nكان هي بالـ g/L (الوحدة متاع المخابر في فرنسا وتونس)، تساوي {{converted}} mmol/L.",
+    "glucoseIsMmol": "إيه، بالـ mmol/L",
+    "glucoseIsGl": "هي بالـ g/L",
+    "glucoseConvertedTitle": "القيمة تبدّلت",
+    "glucoseConvertedMsg": "{{original}} g/L = {{converted}} mmol/L. ثبّتي في القيمة وبعد سجّلها.",
     "symptomsToday": "أعراض اليوم",
     "symptomNausea": "دوخة وغثيان",
     "symptomFatigue": "تعب وفشل",

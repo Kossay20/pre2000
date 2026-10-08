@@ -169,10 +169,10 @@ async function homeWeekStart(page: Page): Promise<HomeWeek> {
   return { dayOfPregnancy: n, week: Math.floor((n - 1) / 7) + 1, dayInWeek, start: await localDay(page, -(dayInWeek - 1)) };
 }
 
-/** a11y labels of the visible week-strip day buttons, in DOM order ("jeudi 01 octobre"). */
+/** a11y labels of the visible week-strip day buttons, in DOM order ("jeudi 1 octobre", no leading zero). */
 async function stripDays(page: Page): Promise<string[]> {
   return page.evaluate(() => {
-    const re = /^(lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche) \d{2} \S+$/;
+    const re = /^(lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche) \d{1,2} \S+$/;
     return [...document.querySelectorAll('[aria-label]')]
       .filter((e) => re.test(e.getAttribute('aria-label') || '') && (e as HTMLElement).offsetParent !== null)
       .map((e) => e.getAttribute('aria-label') as string);
@@ -506,7 +506,7 @@ test.describe('Wave B — B-plan (Europe/Paris)', () => {
         await f.date.fill('2026-02-31');
         await page.waitForTimeout(300);
         const after = await f.date.inputValue();
-        const readout = (await bodyText(page)).match(/\d{2} \S+ \d{4}/)?.[0] ?? null;
+        const readout = (await bodyText(page)).match(/\d{1,2} \S+ \d{4}/)?.[0] ?? null;
         obs.add('HYP-B2', after === '2026-03-03' ? 'CONFIRMED' : 'REFUTED', '06-appt-form-invalid-date', {
           typed: '2026-02-31',
           valueBefore: before,
