@@ -246,7 +246,7 @@ export const ChatbotScreen = () => {
                                 style={styles.callButton}
                                 onPress={callEmergency}
                                 accessibilityRole="button"
-                                accessibilityLabel={t('a11y.emergencyCall')}
+                                accessibilityLabel={`${t('common.chatEmergencyAction')} (${emergencyNumberLabel(t, emergencyContact)})`}
                                 accessibilityHint={t('a11y.emergencyCallHint')}
                             >
                                 <Text style={styles.callButtonText}>📞 {t('common.chatEmergencyAction')} ({emergencyNumberLabel(t, emergencyContact)})</Text>
@@ -375,7 +375,7 @@ export const ChatbotScreen = () => {
                         style={styles.pinnedCallButton}
                         onPress={callEmergency}
                         accessibilityRole="button"
-                        accessibilityLabel={t('a11y.emergencyCall')}
+                        accessibilityLabel={`${t('common.chatEmergencyAction')} (${emergencyNumberLabel(t, emergencyContact)})`}
                         accessibilityHint={t('a11y.emergencyCallHint')}
                     >
                         <Text style={styles.callButtonText}>📞 {t('common.chatEmergencyAction')} ({emergencyNumberLabel(t, emergencyContact)})</Text>

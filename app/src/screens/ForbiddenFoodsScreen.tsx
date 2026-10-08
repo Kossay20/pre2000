@@ -247,6 +247,11 @@ export const ForbiddenFoodsScreen = () => {
                             ]}
                             onPress={() => toggleExpand(food.id)}
                             activeOpacity={0.7}
+                            accessibilityRole="button"
+                            accessibilityState={{ expanded: isExpanded }}
+                            // react-native-web drops accessibilityState: aria-expanded carries it on web.
+                            {...(Platform.OS === 'web' ? { 'aria-expanded': isExpanded } : {})}
+                            accessibilityLabel={`${getLocalizedContent(food, 'name', i18n.language)}, ${t(`forbiddenFoods.severity.${food.severity}`)}`}
                         >
                             <View style={styles.foodHeader}>
                                 <Text style={styles.foodIcon}>{food.icon}</Text>
@@ -262,7 +267,7 @@ export const ForbiddenFoodsScreen = () => {
                                         ]}>{t(`forbiddenFoods.severity.${food.severity}`)}</Text>
                                     </View>
                                 </View>
-                                <Text style={styles.expandIcon}>{isExpanded ? '▲' : '▼'}</Text>
+                                <Text style={styles.expandIcon} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">{isExpanded ? '▲' : '▼'}</Text>
                             </View>
 
                             {isExpanded && (

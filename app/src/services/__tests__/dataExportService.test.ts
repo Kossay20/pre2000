@@ -579,3 +579,61 @@ describe('exportUserData', () => {
         }
     });
 });
+
+// ---------------------------------------------------------------------------
+// D-067: a section that could not be read must not pass for a complete export
+// ---------------------------------------------------------------------------
+
+describe('export completeness (D-067)', () => {
+    const authUser = { uid: 'uidDDDD888', email: 'd@example.com', isGuest: false };
+    const profile = { name: 'Lina' };
+    const t = jest.fn((key: string, opts?: { sections?: string }) => (opts?.sections ? `${key}|${opts.sections}` : key));
+    const flush = () => new Promise((resolve) => setImmediate(resolve));
+
+    beforeEach(() => {
+        primeAllResolved();
+        mockIsAvailable.mockResolvedValue(true);
+        mockShareAsync.mockResolvedValue(undefined);
+        mockWriteAsString.mockResolvedValue(undefined);
+    });
+
+    test('names the sections that failed in the metadata', async () => {
+        mLoadUserEvents.mockRejectedValue(new Error('permission-denied'));
+        mockGetDocs.mockRejectedValue(new Error('offline'));
+        const data = await generateExportData(authUser, profile);
+        expect(data.appointments).toEqual([]);
+        expect((data.metadata as any).incompleteSections).toEqual(['appointments', 'reminders.taskStatuses']);
+    });
+
+    test('carries no incompleteSections when every section was read', async () => {
+        const data = await generateExportData(authUser, profile);
+        expect(data.metadata).not.toHaveProperty('incompleteSections');
+    });
+
+    test('asks before writing an incomplete file, and writes nothing if she declines', async () => {
+        mLoadUserEvents.mockRejectedValue(new Error('permission-denied'));
+        const done = exportUserData(authUser, profile, t);
+        await flush();
+        expect(mockAlert).toHaveBeenCalledTimes(1);
+        const [title, message, buttons] = mockAlert.mock.calls[0];
+        expect(title).toBe('export.incompleteTitle');
+        expect(message).toBe('export.incompleteMessage|appointments');
+        expect(mockWriteAsString).not.toHaveBeenCalled();
+        buttons.find((b: any) => b.style === 'cancel').onPress();
+        await done;
+        expect(mockWriteAsString).not.toHaveBeenCalled();
+        expect(mockShareAsync).not.toHaveBeenCalled();
+    });
+
+    test('exports the incomplete file when she chooses to export anyway', async () => {
+        mLoadUserEvents.mockRejectedValue(new Error('permission-denied'));
+        const done = exportUserData(authUser, profile, t);
+        await flush();
+        const buttons = mockAlert.mock.calls[0][2];
+        buttons.find((b: any) => b.style !== 'cancel').onPress();
+        await done;
+        expect(mockWriteAsString).toHaveBeenCalledTimes(1);
+        expect(JSON.parse(mockWriteAsString.mock.calls[0][1]).metadata.incompleteSections).toEqual(['appointments']);
+        expect(mockShareAsync).toHaveBeenCalledTimes(1);
+    });
+});

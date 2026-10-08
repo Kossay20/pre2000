@@ -109,7 +109,8 @@ describe('ChatbotScreen wiring', () => {
         const bar = src.slice(pinned, src.indexOf('<View style={styles.suggestionsContainer}>'));
         expect(bar).toMatch(/onPress=\{callEmergency\}/);
         expect(bar).toMatch(/accessibilityRole="button"/);
-        expect(bar).toMatch(/accessibilityLabel=\{t\('a11y\.emergencyCall'\)\}/);
+        // Named by what it shows, number included (C-079), so Voice Control and screen readers agree.
+        expect(bar).toMatch(/accessibilityLabel=\{`\$\{t\('common\.chatEmergencyAction'\)\} \(\$\{emergencyNumberLabel\(t, emergencyContact\)\}\)`\}/);
         expect(bar).toMatch(/emergencyNumberLabel\(t, emergencyContact\)/);
     });
 

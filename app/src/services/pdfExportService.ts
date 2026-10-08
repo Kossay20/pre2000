@@ -11,6 +11,7 @@ import { Profile } from '../context/PregnancyContext';
 import { createLogger } from '../utils/logger';
 import { parseLocalDateKey, storedDateKey } from '../utils/localDate';
 import { formatDecimal } from '../utils/localizedFormat';
+import { escapeHtml } from '../utils/escapeHtml';
 
 /** A stored LMP or due date names a calendar day: read it as that day, not as an instant
  *  (UTC midnight is the evening before west of UTC). */
@@ -31,7 +32,7 @@ interface JournalData {
 const generateHTML = (data: JournalData, t: TFunction, locale: Locale, langCode: string = 'fr') => {
     const { profile, weightHistory, appointments, notes } = data;
     const today = format(new Date(), 'd MMMM yyyy', { locale });
-    const displayName = profile.firstName || t('common.futureMom');
+    const displayName = escapeHtml(profile.firstName || t('common.futureMom'));
     const isRTL = langCode === 'ar' || langCode === 'tn';
 
     // Sort data
@@ -247,11 +248,11 @@ const generateHTML = (data: JournalData, t: TFunction, locale: Locale, langCode:
                 <div class="profile-grid">
                     <div class="profile-item">
                         <div class="profile-label">${t('pdf.name')}</div>
-                        <div class="profile-value">${profile.firstName || '-'} ${profile.lastName || ''}</div>
+                        <div class="profile-value">${escapeHtml(profile.firstName || '-')} ${escapeHtml(profile.lastName || '')}</div>
                     </div>
                     <div class="profile-item">
                         <div class="profile-label">${t('pdf.country')}</div>
-                        <div class="profile-value">${profile.country ? t(`common.countries.${profile.country}`, { defaultValue: profile.country }) : '-'}</div>
+                        <div class="profile-value">${profile.country ? escapeHtml(t(`common.countries.${profile.country}`, { defaultValue: profile.country })) : '-'}</div>
                     </div>
                     ${profile.lmp ? `
                     <div class="profile-item">
@@ -305,8 +306,8 @@ const generateHTML = (data: JournalData, t: TFunction, locale: Locale, langCode:
                         ${sortedApps.map(a => `
                         <tr>
                             <td>${format(new Date(a.date), 'd MMMM yyyy HH:mm', { locale })}</td>
-                            <td><span style="color: var(--primary-dark); font-weight: 500;">${a.title}</span></td>
-                            <td style="font-size: 13px; color: ${theme.colors.textSecondary};">${a.notes || '-'}</td>
+                            <td><span style="color: var(--primary-dark); font-weight: 500;">${escapeHtml(a.title)}</span></td>
+                            <td style="font-size: 13px; color: ${theme.colors.textSecondary};">${escapeHtml(a.notes || '-')}</td>
                         </tr>
                         `).join('')}
                     </tbody>
@@ -321,7 +322,7 @@ const generateHTML = (data: JournalData, t: TFunction, locale: Locale, langCode:
                 ${sortedNotes.map(n => `
                 <div class="note-item">
                     <div class="note-date">${format(new Date(n.date), 'd MMMM yyyy HH:mm', { locale })}</div>
-                    <div class="note-content">${n.content}</div>
+                    <div class="note-content">${escapeHtml(n.content)}</div>
                 </div>
                 `).join('')}
             </div>

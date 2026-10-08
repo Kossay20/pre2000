@@ -834,6 +834,9 @@
   "noResults": "No results found.",
   "export": {
     "errorMessage": "An error occurred during export. Please try again.",
+    "incompleteTitle": "Export incomplete",
+    "incompleteMessage": "Some data could not be read: {{sections}}. The file would be incomplete. Check your connection and try again, or export anyway.",
+    "exportAnyway": "Export anyway",
     "warningTitle": "Sensitive data",
     "warningMessage": "The exported file contains ALL your medical data (weight, blood pressure, glucose, symptoms, appointments) in plain text. Share it only with someone you trust over a secure channel. Continue?"
   },

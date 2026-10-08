@@ -126,6 +126,15 @@ export const generateExportData = async (user: any, profile: any) => {
         const userId: string = user?.uid || 'guest';
         const isGuest: boolean = !!user?.isGuest || userId.startsWith('guest');
 
+        // D-067: a section that could not be read falls back to empty so the rest still
+        // exports, but its name is kept: a file with "appointments": [] must not pass for
+        // complete when she may keep it as her only copy.
+        const failedSections: string[] = [];
+        const take = <T>(result: PromiseSettledResult<T>, fieldName: string, fallback: T): T => {
+            if (result.status === 'rejected') failedSections.push(fieldName);
+            return unwrap(result, fieldName, fallback);
+        };
+
         // C10/F14: collapse the previous 46-week per-week loop into a single
         // `where('user_id','==',uid)` query on `userTaskStatuses`. Saves ~45
         // Firestore round-trips per export. Shape change documented in
@@ -144,6 +153,7 @@ export const generateExportData = async (user: any, profile: any) => {
                     return merged;
                 } catch (err) {
                     log.warn('[DataExportService] Failed to fetch userTaskStatuses (1-query)', err);
+                    failedSections.push('reminders.taskStatuses');
                     return {} as Record<string, any>;
                 }
             })();
@@ -172,46 +182,46 @@ export const generateExportData = async (user: any, profile: any) => {
             loadCompletionHistory(userId, isGuest), // 18 reminder completion days
         ]);
 
-        const appointments = unwrap(settled[0], 'appointments', [] as any[]);
-        const tasks = unwrap(settled[1], 'tasks', [] as any[]);
-        const weightHistoryHealthMetrics = unwrap(
+        const appointments = take(settled[0], 'appointments', [] as any[]);
+        const tasks = take(settled[1], 'tasks', [] as any[]);
+        const weightHistoryHealthMetrics = take(
             settled[2],
             'weightHistoryHealthMetrics',
             [] as any[]
         );
-        const weightHistoryEntries = unwrap(
+        const weightHistoryEntries = take(
             settled[3],
             'weightHistoryEntries',
             [] as any[]
         );
-        const bloodPressure = unwrap(settled[4], 'bloodPressure', [] as any[]);
-        const glucose = unwrap(settled[5], 'glucose', [] as any[]);
-        const symptomsLog = unwrap(settled[6], 'symptomsLog', [] as any[]);
-        const settingsV1 = unwrap(
+        const bloodPressure = take(settled[4], 'bloodPressure', [] as any[]);
+        const glucose = take(settled[5], 'glucose', [] as any[]);
+        const symptomsLog = take(settled[6], 'symptomsLog', [] as any[]);
+        const settingsV1 = take(
             settled[7],
             'reminders.settingsV1',
             {} as Record<string, any>
         );
-        const taskStatuses = unwrap(
+        const taskStatuses = take(
             settled[8],
             'reminders.taskStatuses',
             {} as Record<string, any>
         );
-        const settingsV2 = unwrap(
+        const settingsV2 = take(
             settled[9],
             'reminders.settingsV2',
             {} as Record<string, any>
         );
         // W8 export-completeness (GDPR Art.20)
-        const kickCounter = unwrap(settled[10], 'kickCounter', {} as Record<string, any>);
-        const contractionTimer = unwrap(settled[11], 'contractionTimer', {} as Record<string, any>);
-        const hospitalBag = unwrap(settled[12], 'hospitalBag', {} as Record<string, any>);
-        const bookmarks = unwrap(settled[13], 'bookmarks', [] as any[]);
-        const hydration = unwrap(settled[14], 'hydration', {} as Record<string, any>);
-        const ramadan = unwrap(settled[15], 'ramadan', null as any);
-        const ttcProfile = unwrap(settled[16], 'ttcProfile', null as any);
-        const dailyChecklist = unwrap(settled[17], 'dailyChecklist', {} as Record<string, any>);
-        const completions = unwrap(settled[18], 'completions', null as any);
+        const kickCounter = take(settled[10], 'kickCounter', {} as Record<string, any>);
+        const contractionTimer = take(settled[11], 'contractionTimer', {} as Record<string, any>);
+        const hospitalBag = take(settled[12], 'hospitalBag', {} as Record<string, any>);
+        const bookmarks = take(settled[13], 'bookmarks', [] as any[]);
+        const hydration = take(settled[14], 'hydration', {} as Record<string, any>);
+        const ramadan = take(settled[15], 'ramadan', null as any);
+        const ttcProfile = take(settled[16], 'ttcProfile', null as any);
+        const dailyChecklist = take(settled[17], 'dailyChecklist', {} as Record<string, any>);
+        const completions = take(settled[18], 'completions', null as any);
 
         // P0 GDPR FIX: Anonymize userId — raw Firebase UID must never appear in shared exports
         const anonymizedId = isGuest
@@ -225,6 +235,8 @@ export const generateExportData = async (user: any, profile: any) => {
                 platform: Platform.OS,
                 userId: anonymizedId, // Anonymized — raw UID never exported
                 schemaVersion: EXPORT_SCHEMA_VERSION,
+                // Only present when a section could not be read: the file is then incomplete.
+                ...(failedSections.length > 0 ? { incompleteSections: [...failedSections].sort() } : {}),
             },
             profile: {
                 ...profile,
@@ -275,6 +287,29 @@ export const generateExportData = async (user: any, profile: any) => {
 };
 
 /**
+ * D-067: some sections could not be read, so the file would be incomplete. Say so and let her
+ * choose, instead of sharing a file that looks whole. Resolves true to export anyway.
+ */
+const askToExportIncomplete = (t: any, sections: string[]): Promise<boolean> => {
+    const title = t('export.incompleteTitle');
+    const message = t('export.incompleteMessage', { sections: sections.join(', ') });
+    if (Platform.OS === 'web') {
+        return Promise.resolve(window.confirm(`${title}\n\n${message}`));
+    }
+    return new Promise((resolve) => {
+        Alert.alert(
+            title,
+            message,
+            [
+                { text: t('common.cancel'), style: 'cancel', onPress: () => resolve(false) },
+                { text: t('export.exportAnyway'), onPress: () => resolve(true) },
+            ],
+            { cancelable: true, onDismiss: () => resolve(false) },
+        );
+    });
+};
+
+/**
  * Share the exported data as a JSON file (RGPD C3 / F6).
  *
  * Writes the export to the app's cache directory and hands the file URI to
@@ -285,6 +320,11 @@ export const generateExportData = async (user: any, profile: any) => {
 export const exportUserData = async (user: any, profile: any, t: any) => {
     try {
         const data = await generateExportData(user, profile);
+        const incomplete: string[] = (data.metadata as { incompleteSections?: string[] }).incompleteSections ?? [];
+        if (incomplete.length > 0) {
+            const goOn = await askToExportIncomplete(t, incomplete);
+            if (!goOn) return;
+        }
         const jsonString = JSON.stringify(data, null, 2);
 
         // The user's calendar day (zero-padded), not the UTC day: toISOString() stamped the

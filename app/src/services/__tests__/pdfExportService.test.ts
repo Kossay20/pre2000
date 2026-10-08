@@ -55,4 +55,24 @@ describe('journal PDF', () => {
         expect(th).toMatch(/text-align:\s*start/);
         expect(th).not.toMatch(/text-align:\s*(left|right)/);
     });
+    it('writes what she typed as text, never as markup (D-066)', async () => {
+        mockPrintToFile.mockResolvedValue({ uri: 'file:///x.pdf' });
+        const hostile = {
+            profile: { ...data.profile, firstName: '<img src=x onerror=alert(1)>', lastName: 'O\'Brien & <b>fils</b>' },
+            weightHistory: [],
+            appointments: [{ date: '2026-10-03T10:00:00.000Z', title: '<script>steal()</script>', notes: '"><svg onload=x>' }],
+            notes: [{ date: '2026-10-03T10:00:00.000Z', content: 'Rendez-vous chez la <sage-femme> & le Dr' }],
+        };
+        await generateAndSharePDF(hostile, t, fr, 'j.pdf', 'fr');
+        const html = mockPrintToFile.mock.calls[mockPrintToFile.mock.calls.length - 1][0].html as string;
+        expect(html).not.toContain('<img src=x');
+        expect(html).not.toContain('<script>steal');
+        expect(html).not.toContain('<svg onload');
+        expect(html).not.toContain('<sage-femme>');
+        expect(html).not.toContain('<b>fils</b>');
+        // ...and she still reads what she wrote.
+        expect(html).toContain('&lt;img src=x onerror=alert(1)&gt;');
+        expect(html).toContain('O&#39;Brien &amp; &lt;b&gt;fils&lt;/b&gt;');
+        expect(html).toContain('&lt;sage-femme&gt; &amp; le Dr');
+    });
 });

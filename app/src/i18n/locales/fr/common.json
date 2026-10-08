@@ -834,6 +834,9 @@
   "noResults": "Aucun résultat trouvé.",
   "export": {
     "errorMessage": "Une erreur est survenue lors de l'export. Veuillez réessayer.",
+    "incompleteTitle": "Export incomplet",
+    "incompleteMessage": "Certaines données n'ont pas pu être lues : {{sections}}. Le fichier serait incomplet. Vérifiez votre connexion et réessayez, ou exportez quand même.",
+    "exportAnyway": "Exporter quand même",
     "warningTitle": "Données sensibles",
     "warningMessage": "Le fichier exporté contient TOUTES vos données médicales (poids, tension, glucose, symptômes, RDV) en clair. Partagez-le uniquement avec quelqu'un de confiance via un canal sécurisé. Continuer ?"
   },

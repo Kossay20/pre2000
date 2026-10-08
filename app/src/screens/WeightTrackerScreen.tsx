@@ -200,16 +200,9 @@ export const WeightTrackerScreen = () => {
             confirmAction(
                 t('weight.entryExistsTitle'),
                 t('weight.entryExistsMsg', { weight: num(existingToday.weight) }),
-                async () => {
-                    try {
-                        const userId = user?.uid;
-                        if (!userId) return;
-                        await deleteWeightEntry(userId, existingToday.id!, existingToday.source);
-                        await saveAndConfirm(weight);
-                    } catch (error) {
-                        log.error('Error replacing entry:', error);
-                    }
-                },
+                // The new weighing is saved first and the old one removed after it (saveAndConfirm):
+                // deleting first lost the day's weighing whenever the save then failed.
+                () => saveAndConfirm(weight, existingToday),
                 undefined,
                 t('common.cancel'),
                 t('weight.replace'),
@@ -258,7 +251,7 @@ export const WeightTrackerScreen = () => {
         await saveAndConfirm(weight);
     };
 
-    const saveAndConfirm = async (weight: number) => {
+    const saveAndConfirm = async (weight: number, replaces?: WeightEntry) => {
         setSaving(true);
         try {
             const userId = user?.uid;
@@ -272,6 +265,14 @@ export const WeightTrackerScreen = () => {
                 date: new Date().toISOString(),
                 week_of_pregnancy: shownWeek ?? 0,
             });
+            if (replaces?.id) {
+                try {
+                    await deleteWeightEntry(userId, replaces.id, replaces.source);
+                } catch (error) {
+                    // The new weighing is safe; the old one stays listed rather than being lost.
+                    log.warn('Could not remove the replaced weighing:', error);
+                }
+            }
             setNewWeight('');
             setShowAddForm(false);
             await loadData();

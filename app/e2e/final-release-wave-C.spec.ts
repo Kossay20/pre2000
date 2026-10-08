@@ -596,8 +596,13 @@ function redFlagBubbleCopy(flagId: string, L: AppLocale): string {
 }
 const suggestionFlagId = (sid: string) => String((SUGGESTIONS.find((x) => x.suggestion_id === sid) as any)?.linked_red_flag_ids ?? '');
 
+/** The chatbot call buttons are named by what they show, number included (C-079): "<label> (15)". */
+function callName(l: AppLocale): RegExp {
+  return new RegExp(`^${esc(tr(l, 'common.chatEmergencyAction'))} \\(.+\\)$`);
+}
+
 /** Emergency call buttons the user can actually see right now (in the viewport, not covered). */
-async function callsOnScreen(page: Page, label: string) {
+async function callsOnScreen(page: Page, label: string | RegExp) {
   const all = page.getByRole('button', { name: label, exact: true });
   const n = await all.count();
   let visible = 0;
@@ -1601,8 +1606,8 @@ for (const C of CFG) {
       expect.soft(alertText.includes(tr(L, 'common.chatEmergency')), `13: alert titled "${tr(L, 'common.chatEmergency')}"`).toBe(true);
       // One call action at a time: while the conversation is on an emergency it is the bar
       // pinned above the input, and the alert bubble does not repeat it.
-      const call = page.getByRole('button', { name: tr(L, 'a11y.emergencyCall'), exact: true });
-      w.note('13.callInBubble', got13 ? await lastAlert.getByRole('button', { name: tr(L, 'a11y.emergencyCall'), exact: true }).count() : null);
+      const call = page.getByRole('button', { name: callName(L), exact: true });
+      w.note('13.callInBubble', got13 ? await lastAlert.getByRole('button', { name: callName(L), exact: true }).count() : null);
       const hasCall = got13 ? await call.count() : 0;
       w.note('13.callButton', { count: hasCall, text: hasCall ? await call.first().innerText() : null });
       expect.soft(hasCall, '13: exactly one emergency call button on screen').toBe(1);
@@ -1618,7 +1623,7 @@ for (const C of CFG) {
         rfLinks.filter((l) => norm(l.replace(/^📄\s*/, '')) !== norm(articleTitle('a03_examens_médicaux_pendant', L))),
         '13 C-019: the only linked article is the medical-exams one',
       ).toEqual([]);
-      const calls13 = got13 ? await callsOnScreen(page, tr(L, 'a11y.emergencyCall')) : null;
+      const calls13 = got13 ? await callsOnScreen(page, callName(L)) : null;
       w.note('13.C-041.calls', calls13);
       if (calls13) expect.soft(calls13.visible, `13 C-041: one call button visible at a time ${JSON.stringify(calls13)}`).toBe(1);
       if (calls13) expectOneCallInThread(calls13, '13');
@@ -1653,7 +1658,7 @@ for (const C of CFG) {
         w.note('14.C-021', { offTopic: ngOff, links: ngLinks });
         expect.soft(ngOff, `14 C-021: "${C.negation}" retrieves nothing about bleeding or breastfeeding`).toEqual([]);
         expect.soft(ngLinks, '14 C-021: no article is recommended for a negated symptom').toEqual([]);
-        const calls14 = await callsOnScreen(page, tr(L, 'a11y.emergencyCall'));
+        const calls14 = await callsOnScreen(page, callName(L));
         w.note('14.C-041.callsAfterNegation', calls14);
         expectOneCallInThread(calls14, '14');
         await w.state('14-chatbot-negation');
@@ -1678,14 +1683,14 @@ for (const C of CFG) {
       const bubbles15After = (await userMsgBoxes(page, C.cs06)).length;
       w.note('15.userBubbles', { before: bubbles15, after: bubbles15After });
       expect.soft(bubbles15After, '15: chip text sent as a user message').toBe(bubbles15 + 1);
-      const calls15 = await callsOnScreen(page, tr(L, 'a11y.emergencyCall'));
+      const calls15 = await callsOnScreen(page, callName(L));
       w.note('15.C-041.calls', calls15);
       expect.soft(calls15.visible, `15 C-041: one call button visible at a time ${JSON.stringify(calls15)}`).toBe(1);
       expectOneCallInThread(calls15, '15');
       // C-055: the bubble itself carries the reviewed bleeding copy, not just the call action.
       expect.soft(norm(await page.locator('body').innerText()), `15 C-055: the bubble carries the reviewed bleeding message (${L})`).toContain(redFlagBubbleCopy(suggestionFlagId('cs06'), L));
       if (calls15.inDom) {
-        const txt15 = await page.getByRole('button', { name: tr(L, 'a11y.emergencyCall'), exact: true }).last().innerText();
+        const txt15 = await page.getByRole('button', { name: callName(L), exact: true }).last().innerText();
         expect.soft(txt15, `15 C-047 SYNC-16: emergency call button for ${C.country} → (${C.emergency})`).toContain(`(${C.emergency})`);
       }
       await w.state('15-chatbot-chip');
@@ -1711,7 +1716,7 @@ for (const C of CFG) {
         '16 C-022: the alert block is the emergency block or carries the call action (only an emergency has a title)',
       ).toBe(true);
       expect.soft((await userMsgBoxes(page, cs19)).length, '16: chip text sent as a user message').toBe(bubbles16 + 1);
-      const calls16 = await callsOnScreen(page, tr(L, 'a11y.emergencyCall'));
+      const calls16 = await callsOnScreen(page, callName(L));
       w.note('16.C-041.calls', calls16);
       expect.soft(calls16.visible, `16 C-041: one call button visible at a time ${JSON.stringify(calls16)}`).toBe(1);
       expectOneCallInThread(calls16, '16');
@@ -1720,7 +1725,7 @@ for (const C of CFG) {
       expect.soft(redFlagBubbleCopy(suggestionFlagId('cs19'), L), '16: the swelling chip maps to a reviewed red flag message').not.toBe('');
       expect.soft(norm(await page.locator('body').innerText()), `16 C-055: the bubble carries the reviewed swelling / pre-eclampsia message (${L})`).toContain(redFlagBubbleCopy(suggestionFlagId('cs19'), L));
       if (calls16.inDom) {
-        const txt16 = await page.getByRole('button', { name: tr(L, 'a11y.emergencyCall'), exact: true }).last().innerText();
+        const txt16 = await page.getByRole('button', { name: callName(L), exact: true }).last().innerText();
         expect.soft(txt16, `16 SYNC-16: country ${C.country} → (${C.emergency})`).toContain(`(${C.emergency})`);
       }
       await w.state('16-chatbot-swollen-chip');
@@ -1761,7 +1766,7 @@ for (const C of CFG) {
           `17 C-047: chip block is the emergency block or carries the call action in ${L}`,
         ).toBe(true);
         expect.soft((await userMsgBoxes(page, cs07)).length, '17: chip text sent as a user message').toBe(bubbles17 + 1);
-        const calls17 = await callsOnScreen(page, tr(L, 'a11y.emergencyCall'));
+        const calls17 = await callsOnScreen(page, callName(L));
         w.note('17.calls', calls17);
         expect.soft(calls17.visible, `17 C-041: never more than one call button visible ${JSON.stringify(calls17)}`).toBeLessThanOrEqual(1);
         expectOneCallInThread(calls17, '17');
@@ -1866,12 +1871,12 @@ test.describe('Wave C — C-G1 real anonymous guest (fr)', () => {
     await markAlerts(page);
     await chatExchange(w, "j'ai des saignements abondants");
     await expect.soft(newAlert(page), 'G-03: triage alert').toHaveCount(1, { timeout: 10_000 });
-    const call = page.getByRole('button', { name: tr(L, 'a11y.emergencyCall'), exact: true });
+    const call = page.getByRole('button', { name: callName(L), exact: true });
     const callText = (await call.count()) ? await call.first().innerText() : null;
     w.note('G-03.call', callText);
     expect.soft(callText ?? '', 'G-03: guest France → 15').toContain('(15)');
     if (callText) await expectCallOnScreen(w, call.first(), 'G-03');
-    const gCalls = await callsOnScreen(page, tr(L, 'a11y.emergencyCall'));
+    const gCalls = await callsOnScreen(page, callName(L));
     w.note('G-03.C-041.calls', gCalls);
     expect.soft(gCalls.visible, `G-03 C-041: one call button visible at a time ${JSON.stringify(gCalls)}`).toBe(1);
     expectOneCallInThread(gCalls, 'G-03');
@@ -1921,7 +1926,7 @@ test.describe('Wave C — C-G2 en guest, region-less device (HYP-C5)', () => {
     await markAlerts(page);
     await chatExchange(w, 'I have heavy bleeding');
     await expect.soft(newAlert(page), 'G2: triage alert').toHaveCount(1, { timeout: 10_000 });
-    const call = page.getByRole('button', { name: tr(L, 'a11y.emergencyCall'), exact: true });
+    const call = page.getByRole('button', { name: callName(L), exact: true });
     const n = await call.count();
     const text = n ? await call.first().innerText() : null;
     w.note('G2.HYP-C5.call', { count: n, text, alert: (await newAlert(page).count()) ? await newAlert(page).last().innerText() : null });
@@ -1960,7 +1965,7 @@ test.describe('Wave C — C-G3 signed-in user with no country, region-less devic
     await chatExchange(w, 'I have heavy bleeding');
     await expect.soft(newAlert(page), 'G3: triage alert').toHaveCount(1, { timeout: 10_000 });
     const alertText = (await newAlert(page).count()) ? await newAlert(page).last().innerText() : '';
-    const call = page.getByRole('button', { name: tr(L, 'a11y.emergencyCall'), exact: true });
+    const call = page.getByRole('button', { name: callName(L), exact: true });
     const n = await call.count();
     const text = n ? await call.first().innerText() : null;
     w.note('G3.call', { count: n, text, alert: alertText });

@@ -177,9 +177,12 @@ export const WeekRecommendationsScreen = () => {
                             key={article.article_id}
                             onPress={() => navigation.navigate('ArticleDetail', { articleId: article.article_id })}
                             activeOpacity={0.7}
+                            accessibilityRole="button"
+                            accessibilityLabel={getLocalizedContent(article, 'title', i18n.language)}
+                            accessibilityHint={t('a11y.readArticle')}
                         >
                             <Card style={styles.card}>
-                                <View style={styles.iconContainer}>
+                                <View style={styles.iconContainer} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
                                     <Ionicons name={getCategoryIcon(article.category)} size={32} color={theme.colors.white} />
                                 </View>
                                 <View style={styles.content}>

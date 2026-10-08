@@ -15,10 +15,10 @@ const SHOT = 'audit-screenshots/chatbot-abuse';
 
 type Lang = { code: string; send: string; emergency: string; ask: string; emergencyPhrase: string };
 const LANGS: Lang[] = [
-  { code: 'fr', send: 'Envoyer le message', emergency: 'Appeler les urgences', ask: 'Posez votre question...', emergencyPhrase: "j'ai des saignements abondants" },
-  { code: 'en', send: 'Send message', emergency: 'Call emergency services', ask: 'Ask your question...', emergencyPhrase: 'I have heavy bleeding' },
-  { code: 'ar', send: 'إرسال الرسالة', emergency: 'الاتصال بخدمات الطوارئ', ask: 'اطرحي سؤالك...', emergencyPhrase: 'عندي نزيف' },
-  { code: 'tn', send: 'ابعث الرسالة', emergency: 'عيّط للطوارئ', ask: 'اطرحي سؤالك...', emergencyPhrase: '3andi nzif' },
+  { code: 'fr', send: 'Envoyer le message', emergency: 'Contactez immédiatement un professionnel de santé', ask: 'Posez votre question...', emergencyPhrase: "j'ai des saignements abondants" },
+  { code: 'en', send: 'Send message', emergency: 'Contact a healthcare professional immediately', ask: 'Ask your question...', emergencyPhrase: 'I have heavy bleeding' },
+  { code: 'ar', send: 'إرسال الرسالة', emergency: 'اتصلي فوراً بأخصائي رعاية صحية', ask: 'اطرحي سؤالك...', emergencyPhrase: 'عندي نزيف' },
+  { code: 'tn', send: 'ابعث الرسالة', emergency: 'اتصلي فوراً بأخصائي رعاية صحية', ask: 'اطرحي سؤالك...', emergencyPhrase: '3andi nzif' },
 ];
 
 async function gotoChatbot(page: Page) {
