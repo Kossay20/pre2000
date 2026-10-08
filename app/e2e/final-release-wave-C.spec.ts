@@ -473,8 +473,8 @@ async function chipAria(chip: Locator) {
  * Rating tags on screen (outside buttons, i.e. not the filter chips nor the list cards):
  * text, colours and WCAG contrast of the label on the first opaque ancestor fill.
  */
-async function ratingTags(page: Page, labels: string[]) {
-  return page.evaluate((wanted) => {
+async function ratingTags(page: Page, labels: string[], insideButtons = false) {
+  return page.evaluate(([wanted, insideButtons]) => {
     const parse = (c: string) => {
       const m = c.match(/rgba?\(([^)]+)\)/);
       if (!m) return null;
@@ -493,7 +493,8 @@ async function ratingTags(page: Page, labels: string[]) {
       if (el.children.length > 0) return;
       const t = (el.textContent || '').trim();
       if (!wanted.includes(t)) return;
-      if (el.closest('[aria-hidden="true"]') || el.closest('[role="button"],button,[role="tab"]')) return;
+      // The foods-to-avoid cards are buttons (C-078) and carry their badge: measure it there.
+      if (el.closest('[aria-hidden="true"]') || (!insideButtons && el.closest('[role="button"],button,[role="tab"]'))) return;
       const cv = (el as any).checkVisibility;
       if (cv && !cv.call(el, { visibilityProperty: true, opacityProperty: true })) return;
       const r = el.getBoundingClientRect();
@@ -520,7 +521,7 @@ async function ratingTags(page: Page, labels: string[]) {
       });
     });
     return out;
-  }, labels);
+  }, [labels, insideButtons] as [string[], boolean]);
 }
 
 /** Search row: the leading icon and the input, to prove they are not glued (C-032). */
@@ -1397,7 +1398,7 @@ for (const C of CFG) {
       // supplement tag (C-040). One measurement per distinct badge.
       const rawBadges = ['critical', 'high', 'medium', 'low'].map((sev) => tr(L, `forbiddenFoods.severity.${sev}`));
       const badgeContrast = Object.values(
-        Object.fromEntries((await ratingTags(page, rawBadges)).map((b) => [b.text, b])),
+        Object.fromEntries((await ratingTags(page, rawBadges, true)).map((b) => [b.text, b])),
       );
       w.note('08.badgeContrast', badgeContrast);
       expect.soft(badgeContrast.length, '08: one contrast measurement per rating badge').toBe(4);
