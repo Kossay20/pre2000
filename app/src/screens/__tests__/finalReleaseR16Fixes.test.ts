@@ -34,6 +34,15 @@ describe('B-057: the Health screen asks for the glucose unit before any alert', 
         expect(handler).toMatch(/gramsPerLitreToMmol\(value\)/);
     });
 
+    it('writes the g/L figure with two decimals, so 0,92 is not shown as 0,9', () => {
+        // A g/L lab value carries two decimals (0,92 g/L = the 5,1 mmol/L criterion); the one-decimal
+        // `num` printed "0,9 g/L = 5,1 mmol/L", which is not even true (0,9 g/L = 5,0 mmol/L).
+        expect(src).toMatch(/const numGl = \(value: number\) => formatDecimal\(Number\(value\), i18n\.language, 2\)/);
+        expect(handler).toMatch(/value: numGl\(value\)/);
+        expect(handler).toMatch(/original: numGl\(value\)/);
+        expect(handler).not.toMatch(/(value|original): num\(value\)/);
+    });
+
     it('has the dialog copy in the four languages', () => {
         const keys = ['glucoseUnitCheckTitle', 'glucoseUnitCheckMsg', 'glucoseIsMmol', 'glucoseIsGl', 'glucoseConvertedTitle', 'glucoseConvertedMsg'];
         for (const lang of ['fr', 'en', 'ar', 'tn']) {

@@ -77,6 +77,8 @@ export const HealthDashboardScreen = () => {
     // Decimals as the language writes them ("5,2 mmol/L" in French), like the target
     // line printed on the same card.
     const num = (value: number) => formatDecimal(Number(value), i18n.language);
+    // A g/L lab figure keeps its two decimals: 0,92 g/L is the 5,1 mmol/L criterion, not 0,9.
+    const numGl = (value: number) => formatDecimal(Number(value), i18n.language, 2);
     const { user } = useAuth();
     const { pregnancyInfo, profile } = usePregnancy();
     const navigation = useNavigation();
@@ -376,13 +378,13 @@ export const HealthDashboardScreen = () => {
             const converted = gramsPerLitreToMmol(value);
             confirmAction(
                 t('dashboard.glucoseUnitCheckTitle'),
-                t('dashboard.glucoseUnitCheckMsg', { value: num(value), converted: num(converted) }),
+                t('dashboard.glucoseUnitCheckMsg', { value: numGl(value), converted: num(converted) }),
                 () => { saveGlucoseReading(value); },
                 () => {
                     setNewGlucose(num(converted));
                     showAlert(
                         t('dashboard.glucoseConvertedTitle'),
-                        t('dashboard.glucoseConvertedMsg', { original: num(value), converted: num(converted) }),
+                        t('dashboard.glucoseConvertedMsg', { original: numGl(value), converted: num(converted) }),
                     );
                 },
                 t('dashboard.glucoseIsGl'),

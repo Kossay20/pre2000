@@ -925,23 +925,36 @@ test.describe('Wave B — B-track (Europe/Paris)', () => {
         const input = vis(page.getByPlaceholder(/de 3,5 à moins de 5,1 mmol\/L/));
         await expect(input, '29b: glucose modal (placeholder carries the pregnancy target)').toBeVisible({ timeout: 10_000 });
         await input.fill('0.92');
+        // Part 1 (B-057): 0,92 is below 2, so the screen first asks which unit she meant. "C'est en g/L"
+        // (the cancel side of the confirm) converts into the field and stores nothing.
         const n = h.dialogs.dialogs.length;
-        // First confirm = "Appeler les urgences": decline it (accepting would open the dialer). The
-        // second confirm = "Sauvegarder quand même" is left on the recorder's default (accept).
         h.dialogs.next('dismiss');
         await vis(page.getByRole('button', { name: 'Enregistrer', exact: true })).click();
         await poll(async () => h.dialogs.dialogs.length, (x) => x >= n + 2, 8000);
-        const asked = h.dialogs.dialogs.slice(n).map((d) => `[${d.type}:${d.action}] ${fold(d.message)}`);
-        expect.soft(asked.join(' | '), '29b: 0,92 typed as mmol/L is flagged as a low glucose, never accepted silently as in range').toMatch(/Glycémie basse/);
-        expect.soft(asked[0] ?? '', '29b: the first offer is the emergency call, declined').toMatch(/dismissed[\s\S]*Appeler les urgences/);
-        expect.soft(asked[1] ?? '', '29b: the second offer is "Sauvegarder quand même", accepted').toMatch(/accepted[\s\S]*Sauvegarder quand même/);
+        const unitAsked = h.dialogs.dialogs.slice(n).map((d) => `[${d.type}:${d.action}] ${fold(d.message)}`);
+        expect.soft(unitAsked[0] ?? '', '29b: the unit is asked first, with the two decimals she typed').toMatch(/dismissed[\s\S]*Vous avez saisi 0,92\. Est-ce bien en mmol\/L/);
+        expect.soft(unitAsked[1] ?? '', '29b: g/L is converted for her to check (0,92 g/L = 5,1 mmol/L)').toMatch(/0,92 g\/L = 5,1 mmol\/L/);
+        expect.soft(await glucoseValues(acct.uid), '29b: nothing is stored while the unit is unconfirmed').toEqual([]);
+        // Part 2: she meant mmol/L after all. The unit confirm is accepted, then the low-glucose alert
+        // is raised: first confirm = "Appeler les urgences" (declined, accepting would open the
+        // dialer), second = "Sauvegarder quand même" (accepted).
+        await input.fill('0.92');
+        const m = h.dialogs.dialogs.length;
+        h.dialogs.sequence(['accept', 'dismiss', 'accept']);
+        await vis(page.getByRole('button', { name: 'Enregistrer', exact: true })).click();
+        await poll(async () => h.dialogs.dialogs.length, (x) => x >= m + 3, 8000);
+        const asked = h.dialogs.dialogs.slice(m).map((d) => `[${d.type}:${d.action}] ${fold(d.message)}`);
+        expect.soft(asked[0] ?? '', '29b: "Oui, en mmol/L" keeps the value').toMatch(/accepted[\s\S]*Est-ce bien en mmol\/L/);
+        expect.soft(asked.join(' | '), '29b: 0,92 kept as mmol/L is flagged as a low glucose, never accepted silently as in range').toMatch(/Glycémie basse/);
+        expect.soft(asked[1] ?? '', '29b: the first clinical offer is the emergency call, declined').toMatch(/dismissed[\s\S]*Appeler les urgences/);
+        expect.soft(asked[2] ?? '', '29b: the second offer is "Sauvegarder quand même", accepted').toMatch(/accepted[\s\S]*Sauvegarder quand même/);
         const server = await poll(() => glucoseValues(acct.uid), (v) => v.length >= 1);
         expect.soft(server, '29b: the value she saved anyway is stored on the server').toEqual([0.92]);
         const text = await poll(() => bodyText(page), (t) => /^0,9 mmol\/L$/m.test(t), 10_000);
         const card = await glucoseCard(page);
         expect.soft(/^0,9 mmol\/L$/m.test(text), '29b: the stored value is shown with the French decimal comma (formatDecimal keeps 1 fraction digit)').toBe(true);
         expect.soft(card.flags, '29b: and it carries its low-glucose flag in the list').toEqual(['⚠️ Glycémie basse']);
-        obs.add('GLUCOSE-GL-UNIT', /Glycémie basse/.test(asked.join(' ')) && server.join() === '0.92' && card.flags.length === 1 ? 'PASS' : 'FAIL', '29b-health-glucose-gl-value', { asked, server, card });
+        obs.add('GLUCOSE-GL-UNIT', /Glycémie basse/.test(asked.join(' ')) && /5,1 mmol/.test(unitAsked.join(' ')) && server.join() === '0.92' && card.flags.length === 1 ? 'PASS' : 'FAIL', '29b-health-glucose-gl-value', { unitAsked, asked, server, card });
       });
     } finally {
       settleObs(obs, 'B-track 29b', h);

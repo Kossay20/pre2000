@@ -35,6 +35,8 @@ export type DialogRecorder = {
   setMode: (mode: 'accept' | 'dismiss') => void;
   /** Apply `action` to the NEXT dialog only, then revert to the default mode. */
   next: (action: 'accept' | 'dismiss') => void;
+  /** Apply `actions` to the next dialogs in order (no race with the page), then revert to the default mode. */
+  sequence: (actions: Array<'accept' | 'dismiss'>) => void;
   /** Messages only (convenience for assertions). */
   messages: () => string[];
   /** Resolve with the next dialog record (or reject after `timeout` ms). */
@@ -50,10 +52,11 @@ export function attachDialogRecorder(
   const dialogs: DialogRecord[] = [];
   let mode: 'accept' | 'dismiss' = options.mode ?? 'accept';
   let once: 'accept' | 'dismiss' | null = null;
+  const queued: Array<'accept' | 'dismiss'> = [];
   const waiters: Array<(r: DialogRecord) => void> = [];
 
   const onDialog = async (dialog: Dialog) => {
-    const policy = once ?? mode;
+    const policy = queued.shift() ?? once ?? mode;
     once = null;
     const type = dialog.type() as DialogType;
     const message = dialog.message();
@@ -92,6 +95,9 @@ export function attachDialogRecorder(
     },
     next: (a) => {
       once = a;
+    },
+    sequence: (actions) => {
+      queued.splice(0, queued.length, ...actions);
     },
     messages: () => dialogs.map((d) => d.message),
     waitForNext: (timeout = 10_000) =>
