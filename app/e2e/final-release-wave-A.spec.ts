@@ -744,7 +744,8 @@ async function onboardingSteps1to3(
   await expect.soft(step3Continue, `${prefix} step3: Continue enabled once a country is set`).toBeEnabled();
   await firstName.fill(opts.firstName);
   await page.getByRole('button', { name: opts.age, exact: true }).click();
-  await page.getByRole('button', { name: c.firstPregYes, exact: true }).click();
+  // The accessible name drops the decorative 🌟 (plainLabel, src/utils/a11yLabel.ts); the visible text keeps it.
+  await page.getByRole('button', { name: c.firstPregYes.replace(/\s*🌟$/u, ''), exact: true }).click();
   if (opts.tickHypertension) {
     await page.getByRole('button', { name: c.medicalTitle }).click();
     const hyp = page.getByRole('checkbox', { name: c.hypertension });

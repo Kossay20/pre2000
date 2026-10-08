@@ -569,12 +569,14 @@ export const styles = StyleSheet.create({
     },
     // On a narrow screen (or large text) "Rechercher" did not fit a half-width pill and
     // truncated to "Recher…". Native shrinks via adjustsFontSizeToFit; web gets a
-    // point smaller below 320pt.
+    // point smaller below 320pt, and a label that still does not fit ("Nouveau RDV" at
+    // 280 pt with large text) takes a second line rather than an ellipsis.
     quickActionPillLabel: {
         fontSize: width < 320 ? 12 : 13,
         fontWeight: '700',
         color: theme.colors.white,
         flexShrink: 1,
+        textAlign: 'center',
     },
     // #9 — "Return to current week" pill, shown only while previewing another week.
     todayPill: {

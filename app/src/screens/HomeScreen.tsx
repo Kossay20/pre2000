@@ -632,7 +632,7 @@ export const HomeScreen = () => {
                                 style={styles.quickActionPill}
                             >
                                 <Ionicons name="calendar-outline" size={18} color={theme.colors.white} style={styles.quickActionPillIcon} />
-                                <Text style={styles.quickActionPillLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{t('home.myAppointments')}</Text>
+                                <Text style={styles.quickActionPillLabel} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.8}>{t('home.myAppointments')}</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
                                 onPress={() => navigation.navigate('Rappels', { screen: 'RemindersMain', params: { screen: 'TasksTab', params: { action: 'add' } } })}
@@ -643,7 +643,7 @@ export const HomeScreen = () => {
                                 style={styles.quickActionPill}
                             >
                                 <Ionicons name="add-circle-outline" size={18} color={theme.colors.white} style={styles.quickActionPillIcon} />
-                                <Text style={styles.quickActionPillLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{t('home.addTask', 'Tâche')}</Text>
+                                <Text style={styles.quickActionPillLabel} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.8}>{t('home.addTask', 'Tâche')}</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
                                 onPress={() => {
@@ -663,7 +663,7 @@ export const HomeScreen = () => {
                                 style={styles.quickActionPill}
                             >
                                 <Ionicons name="add-circle-outline" size={18} color={theme.colors.white} style={styles.quickActionPillIcon} />
-                                <Text style={styles.quickActionPillLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{t('home.addAppointment', 'RDV')}</Text>
+                                <Text style={styles.quickActionPillLabel} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.8}>{t('home.addAppointment', 'RDV')}</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
                                 onPress={() => navigation.navigate('Ressources', { screen: 'ResourcesMain', params: { openSearch: true } })}
@@ -674,7 +674,7 @@ export const HomeScreen = () => {
                                 style={styles.quickActionPill}
                             >
                                 <Ionicons name="search-outline" size={18} color={theme.colors.white} style={styles.quickActionPillIcon} />
-                                <Text style={styles.quickActionPillLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{t('common.search')}</Text>
+                                <Text style={styles.quickActionPillLabel} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.8}>{t('common.search')}</Text>
                             </TouchableOpacity>
                         </View>
 

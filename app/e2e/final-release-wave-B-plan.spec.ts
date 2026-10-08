@@ -96,9 +96,9 @@ async function goHome(page: Page) {
   }
 }
 
-/** Week-view day button: a11y label = format(date,'EEEE dd MMMM', fr) (WeeklyStrip.tsx:48). */
+/** Week-view day button: a11y label = format(date,'EEEE d MMMM', fr) (WeeklyStrip.tsx). */
 async function selectWeekDay(page: Page, day: LocalDay) {
-  const btn = vis(page.getByRole('button', { name: `${day.weekdayLong} ${day.dd} ${day.monthLong}`, exact: true }));
+  const btn = vis(page.getByRole('button', { name: `${day.weekdayLong} ${day.d} ${day.monthLong}`, exact: true }));
   await expect(btn, `week strip day ${day.key}`).toBeVisible({ timeout: 20_000 });
   await btn.click();
 }
@@ -179,7 +179,7 @@ async function stripDays(page: Page): Promise<string[]> {
   });
 }
 
-const dayLabel = (d: LocalDay) => `${d.weekdayLong} ${d.dd} ${d.monthLong}`;
+const dayLabel = (d: LocalDay) => `${d.weekdayLong} ${d.d} ${d.monthLong}`;
 const lmpWeekday = (lmpIso: string) => new Intl.DateTimeFormat('fr-FR', { weekday: 'long', timeZone: 'UTC' }).format(new Date(lmpIso));
 
 /**
@@ -471,8 +471,9 @@ test.describe('Wave B — B-plan (Europe/Paris)', () => {
         await openAppointmentFormFromFab(page);
         const f = form(page);
         await expect.soft(f.save, '05: Save disabled on empty title').toBeDisabled();
-        await expect.soft(f.medical, '05: new appointment defaults to Médical').toHaveAttribute('aria-selected', 'true');
-        await expect.soft(f.personal, '05: Personnel not selected by default').toHaveAttribute('aria-selected', 'false');
+        // Toggle chips expose aria-pressed (role=button does not allow aria-selected, E-070).
+        await expect.soft(f.medical, '05: new appointment defaults to Médical').toHaveAttribute('aria-pressed', 'true');
+        await expect.soft(f.personal, '05: Personnel not selected by default').toHaveAttribute('aria-pressed', 'false');
         // The subtitle follows the selected category (B-002).
         const subtitleMedical = (await bodyText(page)).match(/Ajoutez un rendez-vous (\S+) à votre calendrier/)?.[1] ?? null;
         await f.personal.click();
@@ -485,9 +486,9 @@ test.describe('Wave B — B-plan (Europe/Paris)', () => {
         const chipText = rawChips.replace(/[\uE000-\uF8FF\s]/g, '');
         expect.soft(chipText, '05: chip labels').toBe('Médical|Personnel');
         expect.soft(/\p{Extended_Pictographic}/u.test(rawChips), '05: chips carry no emoji').toBe(false);
-        obs.add('APPT-DEFAULT-TYPE', (await f.medical.getAttribute('aria-selected')) === 'true' && subtitleMedical === 'médical' && subtitlePersonal === 'personnel' ? 'PASS' : 'FAIL', '05-appt-form-empty', {
-          medicalSelected: await f.medical.getAttribute('aria-selected'),
-          personalSelected: await f.personal.getAttribute('aria-selected'),
+        obs.add('APPT-DEFAULT-TYPE', (await f.medical.getAttribute('aria-pressed')) === 'true' && subtitleMedical === 'médical' && subtitlePersonal === 'personnel' ? 'PASS' : 'FAIL', '05-appt-form-empty', {
+          medicalSelected: await f.medical.getAttribute('aria-pressed'),
+          personalSelected: await f.personal.getAttribute('aria-pressed'),
           subtitleMedical,
           subtitlePersonal,
           chipText,
@@ -570,7 +571,8 @@ test.describe('Wave B — B-plan (Europe/Paris)', () => {
       });
 
       // 08 ── Home upcoming (SYNC-1) + pill; 08b ── Health "À venir"
-      const label08 = `${APPT}, ${plus2.dd} ${plus2.monthLong}, 10:30`;
+      // Home upcoming a11y label: format(date, 'd MMMM, HH:mm') — the day is not zero-padded (HomeScreen.tsx).
+      const label08 = `${APPT}, ${plus2.d} ${plus2.monthLong}, 10:30`;
       let home08 = false;
       await state(h, '08-home-upcoming', async () => {
         await goHome(page);
@@ -686,7 +688,7 @@ test.describe('Wave B — B-plan (Europe/Paris)', () => {
         await h.snap('10a-calendar-month-edited');
         await goHome(page);
         await expectHomeWeek(page, 32);
-        const label = `${APPT}, ${plus2.dd} ${plus2.monthLong}, 11:00`;
+        const label = `${APPT}, ${plus2.d} ${plus2.monthLong}, 11:00`;
         const item = vis(page.getByRole('button', { name: label, exact: true }));
         await expect.soft(item, `10: Home shows "${label}"`).toBeVisible({ timeout: 15_000 });
         const homeShows = await item.isVisible();
@@ -941,7 +943,7 @@ test.describe('Wave B — B-plan (Europe/Paris)', () => {
       await state(f, '21-fresh-context', async () => {
         await expectHomeWeek(fresh, 32);
         if (todayApptCreated && todayApptHHMM) {
-          const label = `${APPT_TODAY}, ${today.dd} ${today.monthLong}, ${todayApptHHMM}`;
+          const label = `${APPT_TODAY}, ${today.d} ${today.monthLong}, ${todayApptHHMM}`;
           const item = vis(fresh.getByRole('button', { name: label, exact: true }));
           await expect.soft(item, '21: Home upcoming (fresh)').toBeVisible({ timeout: 15_000 });
           found.homeUpcoming = await item.isVisible();

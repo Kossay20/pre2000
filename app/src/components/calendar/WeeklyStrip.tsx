@@ -45,7 +45,8 @@ export const WeeklyStrip: React.FC<WeeklyStripProps> = React.memo(({
         const dayName = format(date, 'EEE', { locale: dateLocale }).replace('.', '');
         const formattedDayName = dayName.charAt(0).toUpperCase() + dayName.slice(1);
 
-        const a11yLabel = format(date, 'EEEE dd MMMM', { locale: dateLocale });
+        // No leading zero: a screen reader says "zéro huit" for "08", and the Home list writes "8 octobre" (B-023).
+        const a11yLabel = format(date, 'EEEE d MMMM', { locale: dateLocale });
 
         return (
             <TouchableOpacity

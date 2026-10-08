@@ -86,6 +86,19 @@ describe('palette contrast — large display figures only (AA 3:1)', () => {
     });
 });
 
+describe('palette contrast — graphical objects (WCAG 1.4.11, 3:1)', () => {
+    // The supplement icon on the week-recommendation cards sits on the block coloured by
+    // the safety level; white fails on the amber and pale-pink blocks (1.9 and 2.2:1).
+    it.each<[string, string, string]>([
+        ['white on success (supplement "safe" block)', c.white, c.success],
+        ['white on error (supplement "avoid" block)', c.white, c.error],
+        ['deepOrange900 on warning (supplement "with caution" block)', c.deepOrange900, c.warning],
+        ['text on secondary (supplement with no safety level)', c.text, c.secondary],
+    ])('%s', (_label, fg, bg) => {
+        expect(contrast(fg, bg)).toBeGreaterThanOrEqual(AA_LARGE);
+    });
+});
+
 describe('the decorative pink stays the brand pink', () => {
     it('primary is unchanged; only the text-bearing variant is darker', () => {
         expect(c.primary).toBe('#FF6B9D');

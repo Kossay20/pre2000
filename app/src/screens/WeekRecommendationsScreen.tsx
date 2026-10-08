@@ -116,6 +116,18 @@ export const WeekRecommendationsScreen = () => {
         }
     };
 
+    // The supplement icon on the safety-coloured block: white reads on the green and red
+    // blocks but is 1.9:1 on the amber one and 2.2:1 on the pale pink, so those take a dark
+    // glyph (pairs pinned in theme/__tests__/contrast.test.ts).
+    const getSafetyIconColor = (safety: string) => {
+        switch (normalizeSupplementSafety(safety)) {
+            case 'ok':
+            case 'deconseille': return theme.colors.white;
+            case 'a_surveiller': return theme.colors.deepOrange900;
+            default: return theme.colors.text;
+        }
+    };
+
     // D6-07 a11y: convey safety with an icon + text label, not color alone.
     const getSafetyIcon = (safety: string) => {
         switch (normalizeSupplementSafety(safety)) {
@@ -195,7 +207,12 @@ export const WeekRecommendationsScreen = () => {
                         >
                             <Card style={styles.card}>
                                 <View style={[styles.iconContainer, { backgroundColor: getSafetyColor(supplement.pregnancy_safety) }]}>
-                                    <Text style={styles.icon}>💊</Text>
+                                    {/* The same glyph as the Home supplement cards, not the 💊 stand-in (C-059). */}
+                                    <Ionicons
+                                        name="medkit-outline"
+                                        size={32}
+                                        color={getSafetyIconColor(supplement.pregnancy_safety)}
+                                    />
                                 </View>
                                 <View style={styles.content}>
                                     <Text style={[theme.typography.h3, styles.title] as any}>{getLocalizedContent(supplement, 'name', i18n.language)}</Text>
@@ -251,9 +268,6 @@ const styles = StyleSheet.create({
         backgroundColor: theme.colors.primaryStrong,
         alignItems: 'center',
         justifyContent: 'center',
-    },
-    icon: {
-        fontSize: 28,
     },
     content: {
         flex: 1,

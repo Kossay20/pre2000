@@ -2128,7 +2128,8 @@ test('D-rules: tightened subcollection rules refuse unknown names and never dist
     const t40 = norm(journal40.text);
     note(testInfo, '40-journal-text-length', String(t40.length));
     expect.soft(t40, '40 (D-039): the journal lists her seeded appointment').toContain('RDV seed D');
-    expect.soft(t40, '40 (D-039): the journal lists a weighing (latest of the day: the 68.4 just saved, or the 62 seed)').toMatch(/(68\.4|62) kg/);
+    // The fr journal writes the French decimal comma (pdfExportService localises the kg figures).
+    expect.soft(t40, '40 (D-039): the journal lists a weighing (latest of the day: the 68,4 just saved, or the 62 seed)').toMatch(/(68,4|62) kg/);
     expect.soft(t40, '40 (D-039): the weight table is not the empty state').not.toContain('Aucune donnée de poids');
     await snapJournal(page, ctx, '40-rules-journal-pdf-content', journal40);
   }

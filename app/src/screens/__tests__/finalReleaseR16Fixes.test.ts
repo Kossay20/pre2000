@@ -1,0 +1,34 @@
+/**
+ * Final release round 16 (captures on 329a3f2). Source-level checks, like the earlier
+ * finalReleaseR*.test.ts files: the repo ships no React renderer.
+ */
+import * as fs from 'fs';
+import * as path from 'path';
+
+const read = (rel: string) => fs.readFileSync(path.resolve(__dirname, rel), 'utf8');
+
+describe('C-072 / E 35-scale-home: the Home quick actions wrap instead of clipping', () => {
+    // "Rendez-vous" / "Nouveau RDV" replaced the clipped abbreviations, and at 280 pt with
+    // large text they truncated to "Rendez-v…" / "Nouveau …" on a single line.
+    const src = read('../HomeScreen.tsx');
+    const pills = src.match(/<Text style=\{styles\.quickActionPillLabel\}[^>]*>/g) ?? [];
+
+    it('has the four pill labels, each allowed a second line', () => {
+        expect(pills).toHaveLength(4);
+        pills.forEach((p) => expect(p).toMatch(/numberOfLines=\{2\}/));
+    });
+
+    it('centres a wrapped label in its pill', () => {
+        const styles = read('../HomeScreen.styles.ts');
+        expect(styles).toMatch(/quickActionPillLabel: \{[^}]*textAlign: 'center'/s);
+    });
+});
+
+describe('B-023: one way to say a day in French — "8 octobre", not "08 octobre"', () => {
+    it('the week strip names its days without a leading zero, like the Home upcoming list', () => {
+        const strip = read('../../components/calendar/WeeklyStrip.tsx');
+        expect(strip).toMatch(/const a11yLabel = format\(date, 'EEEE d MMMM'/);
+        expect(strip).not.toMatch(/'EEEE dd MMMM'/);
+        expect(read('../HomeScreen.tsx')).toMatch(/'d MMMM, HH:mm'/);
+    });
+});

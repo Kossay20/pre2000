@@ -695,14 +695,15 @@ test('E07-24 SE 375×667 fr — signed-in surfaces', async ({ browser }) => {
         // E-044: type chips carry a vector icon in the label colour, no emoji.
         const chips = await page.evaluate(() => {
           const norm = (t: string) => (t || '').replace(/[\s  ]+/g, ' ').trim();
-          return (Array.from(document.querySelectorAll('[aria-selected]')) as HTMLElement[])
+          // The chips are toggle buttons: aria-pressed (role=button does not allow aria-selected, E-070).
+          return (Array.from(document.querySelectorAll('[aria-pressed]')) as HTMLElement[])
             .filter((e) => !e.closest('[aria-hidden=true]') && !e.closest('[role=tablist]') && /^(Médical|Personnel)/.test(e.getAttribute('aria-label') || '') && e.getBoundingClientRect().width > 0)
             .map((e) => {
               const icon = (Array.from(e.querySelectorAll('*')) as HTMLElement[]).find((k) => /ionicons/i.test(getComputedStyle(k).fontFamily));
               const label = (Array.from(e.querySelectorAll('*')) as HTMLElement[]).find((k) => k.children.length === 0 && /Médical|Personnel/.test(k.textContent || ''));
               return {
                 text: norm(label?.textContent || e.getAttribute('aria-label') || ''),
-                selected: e.getAttribute('aria-selected') === 'true',
+                selected: e.getAttribute('aria-pressed') === 'true',
                 hasEmoji: /\p{Extended_Pictographic}/u.test(e.innerText + (e.getAttribute('aria-label') || '')),
                 bg: getComputedStyle(e).backgroundColor,
                 iconColor: icon ? getComputedStyle(icon).color : null,

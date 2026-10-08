@@ -376,7 +376,9 @@ const styles = StyleSheet.create({
         backgroundColor: theme.colors.neutral100,
         borderRadius: 12,
         paddingHorizontal: 12,
-        height: 44,
+        // 44 + the 1 pt focus border on each side: the input fills the inner box, and a
+        // 44-high bar left it at 42 pt, under the touch-target minimum (E-006).
+        height: 46,
         borderWidth: 1,
         borderColor: 'transparent',
     },

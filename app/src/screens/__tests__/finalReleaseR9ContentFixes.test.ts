@@ -76,6 +76,27 @@ describe('E-027: every article category has a vector icon', () => {
         expect(src).toMatch(/iconContainer: \{[^}]*primaryStrong/s);
         expect(rec).toMatch(/iconContainer: \{[^}]*width: 70[^}]*primaryStrong/s);
     });
+
+    it('the supplement cards there draw the Home supplement icon, not the pill emoji (C-059)', () => {
+        const rec = read('../WeekRecommendationsScreen.tsx');
+        expect(rec).not.toContain('>💊<');
+        expect(rec).toMatch(/<Ionicons\s+name="medkit-outline"[^>]*color=\{getSafetyIconColor\(supplement\.pregnancy_safety\)\}/s);
+        expect(read('../HomeScreen.tsx')).toMatch(/: 'medkit-outline'/);
+    });
+});
+
+describe('E-006: the search fields keep a 44 pt target inside their focus border', () => {
+    it.each([['../ArticlesListScreen.tsx'], ['../SupplementsListScreen.tsx']])(
+        '%s: the bar is tall enough for a 44 pt input once the border is drawn',
+        (file) => {
+            const src = read(file);
+            const bar = src.match(/searchBar: \{([^}]*)\}/)?.[1] ?? '';
+            const height = Number(bar.match(/height: (\d+)/)?.[1]);
+            const border = Number(bar.match(/borderWidth: (\d+)/)?.[1] ?? 0);
+            expect(height - 2 * border).toBeGreaterThanOrEqual(44);
+            expect(src).toMatch(/searchInput: \{[^}]*height: '100%'/s);
+        },
+    );
 });
 
 describe('E-026: the article body does not repeat the title', () => {
