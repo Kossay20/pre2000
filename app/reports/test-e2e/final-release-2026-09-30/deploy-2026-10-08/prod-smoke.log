@@ -1,0 +1,9 @@
+admin delete orphan rSkUCuK9BxbgNqxyebfFd64xuDz2: deleted
+anonymous signUp: 4ZWtkluBWJU0uETnJC65yVANeoG3
+weeks/28 as anonymous user: OK baby_weight_g=['1000'] baby_size_cm=[37.6]
+weeks/4 as anonymous user: OK baby_size_cm=[0.1]
+weeks/28 without auth (expect PERMISSION_DENIED): PERMISSION_DENIED
+another user's profile (expect PERMISSION_DENIED): PERMISSION_DENIED
+own profile with a string medical flag (expect PERMISSION_DENIED): PERMISSION_DENIED
+write to static weeks content (expect PERMISSION_DENIED): PERMISSION_DENIED
+delete the test user: deleted

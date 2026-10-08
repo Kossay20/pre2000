@@ -1,0 +1,1 @@
+anonymous now: {'enabled': True} | email: {'enabled': True, 'passwordRequired': True}
