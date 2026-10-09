@@ -280,6 +280,14 @@ export const checkWeightChange = (
  *   medical decision authority — preferred for our medical-emergency context
  *   (consistent with FR=15 SAMU, TN=190 SAMU, MA=141 SAMU pattern).
  *
+ * RE-CHECKED 2026-10-09 against government sources (no number changed):
+ * - MA 141 (SAMU) and 15 (Protection civile: pompiers, ambulance): French embassy in
+ *   Morocco, ma.diplomatie.gouv.fr/fr/urgence. One directory says 141 covers the big
+ *   cities only; 15 is the national fallback. UK FCDO lists 150 for an ambulance.
+ * - DZ 16: UK FCDO travel advice ("Call 16 or 1021 and ask for an ambulance"); 14 is
+ *   Protection civile.
+ * - TN 190: French MFA contacts page (SAMU 190, police 197, protection civile 198).
+ *
  * Intentionally conservative: only countries we know with a high-confidence
  * dispatch number for medical emergencies are included. For any other country
  * resolveEmergencyNumber falls back to 112 — never to another country's
