@@ -203,7 +203,7 @@ const GUEST_PROFILE = {
   // in an offline export, and silently renders every list empty — which is how
   // the seeded reminder switches first came out off.
   uid: 'guest_store_capture',
-  firstName: 'Amira',
+  firstName: 'Maman',
   lastName: '',
   pregnancyStartDate: '',
   lmp: '',
@@ -413,19 +413,28 @@ const FRAME_HTML = (opts: {
     font-weight: 600; font-variant-numeric: tabular-nums;
     direction: ltr;
   }
-  .status-bar .indicators { display: flex; align-items: center; gap: ${Math.round(deviceWidth * 0.014)}px; }
+  .status-bar .clock { font-size: ${Math.round(statusBarPx * 0.46)}px; letter-spacing: -0.02em; }
+  .status-bar .indicators { display: flex; align-items: center; gap: ${Math.round(deviceWidth * 0.012)}px; }
+  .status-bar .network { font-size: ${Math.round(statusBarPx * 0.32)}px; letter-spacing: -0.03em; }
   .status-bar .bars { display: flex; align-items: flex-end; gap: ${Math.round(deviceWidth * 0.005)}px; }
   .status-bar .bars i { width: ${Math.round(deviceWidth * 0.008)}px; background: currentColor; border-radius: 1px; }
   .status-bar .bars i:nth-child(1) { height: ${Math.round(statusBarPx * 0.16)}px; }
   .status-bar .bars i:nth-child(2) { height: ${Math.round(statusBarPx * 0.24)}px; }
   .status-bar .bars i:nth-child(3) { height: ${Math.round(statusBarPx * 0.32)}px; }
   .status-bar .bars i:nth-child(4) { height: ${Math.round(statusBarPx * 0.4)}px; }
+  .status-bar .wifi { position: relative; width: ${Math.round(deviceWidth * 0.055)}px; height: ${Math.round(statusBarPx * 0.5)}px; }
+  .status-bar .wifi i { position: absolute; left: 50%; transform: translateX(-50%); border: ${Math.max(1, Math.round(deviceWidth * 0.003))}px solid transparent; border-top-color: currentColor; border-radius: 50%; }
+  .status-bar .wifi i:nth-child(1) { top: 0; width: 100%; height: 100%; }
+  .status-bar .wifi i:nth-child(2) { top: ${Math.round(statusBarPx * 0.13)}px; width: 68%; height: 68%; }
+  .status-bar .wifi i:nth-child(3) { top: ${Math.round(statusBarPx * 0.28)}px; width: 28%; height: 28%; border-top-color: currentColor; }
   .status-bar .battery {
-    width: ${Math.round(deviceWidth * 0.045)}px; height: ${Math.round(statusBarPx * 0.36)}px;
+    position: relative;
+    width: ${Math.round(deviceWidth * 0.052)}px; height: ${Math.round(statusBarPx * 0.42)}px;
     border: ${Math.max(1, Math.round(deviceWidth * 0.003))}px solid currentColor;
     border-radius: ${Math.round(statusBarPx * 0.1)}px; padding: ${Math.max(1, Math.round(deviceWidth * 0.003))}px;
   }
   .status-bar .battery span { display: block; height: 100%; width: 78%; background: currentColor; border-radius: 1px; }
+  .status-bar .battery::after { content: ''; position: absolute; right: ${Math.round(deviceWidth * -0.008)}px; top: 50%; transform: translateY(-50%); width: ${Math.max(1, Math.round(deviceWidth * 0.006))}px; height: ${Math.round(statusBarPx * 0.15)}px; background: currentColor; border-radius: 0 1px 1px 0; }
   .home-indicator {
     position: absolute; bottom: ${Math.round(homeIndicatorPx * 0.35)}px; left: 50%;
     transform: translateX(-50%);
@@ -450,6 +459,8 @@ const FRAME_HTML = (opts: {
         <span class="clock">9:41</span>
         <span class="indicators">
           <span class="bars"><i></i><i></i><i></i><i></i></span>
+          <span class="network">5G</span>
+          <span class="wifi"><i></i><i></i><i></i></span>
           <span class="battery"><span></span></span>
         </span>
       </div>

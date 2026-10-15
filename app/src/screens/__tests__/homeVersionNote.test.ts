@@ -1,5 +1,5 @@
 /**
- * Home credit line ("Version 1 — ... par Sawssen Jemaiel"): sits right above the greeting, is
+ * Home supporting line: sits right above the greeting, is
  * plain text (the greeting stays the only heading) and exists in the four shipped locales.
  * Source-level like finalReleaseR9Home.test.ts (no React renderer in the repo).
  */
@@ -30,14 +30,14 @@ describe('Home version note', () => {
     expect(block).toMatch(/color: theme\.colors\.white/);
   });
 
-  it.each(['fr', 'en', 'ar', 'tn'])('has the %s translation naming the author', (lng) => {
+  it.each(['fr', 'en', 'ar', 'tn'])('has the %s translation without personal author data', (lng) => {
     const json = JSON.parse(read(`src/i18n/locales/${lng}/home.json`));
-    expect(json.versionNote).toContain('Sawssen Jemaiel');
-    expect(json.versionNote).toMatch(/1/);
+    expect(json.versionNote).not.toMatch(/Sawssen|Jemaiel|Kossay/);
+    expect(json.versionNote.length).toBeGreaterThan(10);
   });
 
-  it('keeps the exact French wording requested by the owner', () => {
+  it('keeps the anonymized French wording requested for store captures', () => {
     const fr = JSON.parse(read('src/i18n/locales/fr/home.json'));
-    expect(fr.versionNote).toBe('Version 1 — développée avec amour et patience par Sawssen Jemaiel');
+    expect(fr.versionNote).toBe('Une application pensée pour accompagner votre quotidien');
   });
 });
