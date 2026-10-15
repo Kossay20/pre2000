@@ -136,9 +136,16 @@ const DISTRIBUTED_PROFILES = ['production', 'preview'];
 
 export default ({ config }: ConfigContext): ExpoConfig => {
   const appEnv = process.env.APP_ENV ?? '';
-  const isProductionBuild = appEnv === 'production';
+  // The guards below are for the EAS build worker, where the environment is complete. EAS CLI
+  // first evaluates this file on the developer's machine with only the build profile's `env`
+  // (APP_ENV, no EXPO_PUBLIC_*) to learn the project id, and only then downloads the EAS
+  // variables. Throwing in that first pass made every production build fail before it could
+  // fetch the variables it was complaining about. The worker sets EAS_BUILD=true and runs the
+  // full evaluation, so a binary without them is still refused there.
+  const onBuildWorker = process.env.EAS_BUILD === 'true';
+  const isProductionBuild = appEnv === 'production' && onBuildWorker;
 
-  if (DISTRIBUTED_PROFILES.includes(appEnv)) {
+  if (onBuildWorker && DISTRIBUTED_PROFILES.includes(appEnv)) {
     const missingEnv = REQUIRED_FIREBASE_ENV.filter((name) => !process.env[name]?.trim());
     if (missingEnv.length > 0) {
       throw new Error(

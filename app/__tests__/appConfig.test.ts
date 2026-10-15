@@ -85,6 +85,8 @@ describe('app.config.ts — native Firebase file wiring', () => {
   beforeEach(() => {
     existsSync.mockReset();
     delete process.env.APP_ENV;
+    // The guards run on the EAS build worker (EAS_BUILD=true); the first-pass test below unsets it.
+    process.env.EAS_BUILD = 'true';
     delete process.env.SENTRY_ORG;
     delete process.env.SENTRY_PROJECT;
     delete process.env.GOOGLE_SERVICES_JSON;
@@ -388,6 +390,19 @@ describe('app.config.ts — native Firebase file wiring', () => {
 
       expect(() => loadConfigFactory()({ config: BASE_CONFIG } as ConfigContext)).not.toThrow();
     });
+
+    it.each([['production'], ['preview']])(
+      'does not throw in EAS CLI\'s first evaluation on the developer machine (%s, no EAS_BUILD, no EXPO_PUBLIC_*)',
+      (profile) => {
+        // EAS CLI evaluates the config with only the profile env before it downloads the EAS
+        // variables; throwing there blocked every build (found 2026-10-15).
+        delete process.env.EAS_BUILD;
+        process.env.APP_ENV = profile;
+        withFirebaseFiles({ android: false, ios: false });
+
+        expect(() => loadConfigFactory()({ config: BASE_CONFIG } as ConfigContext)).not.toThrow();
+      },
+    );
 
     it('guards exactly the six keys src/config/firebase.ts initialises with', () => {
       // If firebase.ts grows a seventh key, the guard must grow with it.

@@ -22,6 +22,7 @@
         "preview": {
             "distribution": "internal",
             "channel": "preview",
+            "environment": "preview",
             "node": "20.20.2",
             "android": {
                 "buildType": "apk"
@@ -38,6 +39,7 @@
             "autoIncrement": true,
             "distribution": "store",
             "channel": "production",
+            "environment": "production",
             "node": "20.20.2",
             "android": {
                 "buildType": "app-bundle"
