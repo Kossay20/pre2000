@@ -14,3 +14,6 @@ e2e-mcp-*.png
 
 # Archives de données — le contenu décompressé est suivi, les .zip sont redondants
 *.zip
+
+# Apple submission pack: holds the demo-account password, never commit
+APPLE_SUBMISSION/
