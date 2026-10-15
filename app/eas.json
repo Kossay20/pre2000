@@ -42,6 +42,9 @@
             "android": {
                 "buildType": "app-bundle"
             },
+            "ios": {
+                "image": "latest"
+            },
             "env": {
                 "APP_ENV": "production"
             }
