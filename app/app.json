@@ -230,15 +230,15 @@
       "accountDeletionUrl": "https://www.mama-et-bebe.com/delete-account.html",
       "marketingUrl": "https://www.mama-et-bebe.com",
       "eas": {
-        "projectId": "75911d23-9cdf-4b98-833a-ee7807efe4e6"
+        "projectId": "b93a9d90-4332-4936-998a-91d62ccdf46a"
       }
     },
     "runtimeVersion": {
       "policy": "appVersion"
     },
     "updates": {
-      "url": "https://u.expo.dev/75911d23-9cdf-4b98-833a-ee7807efe4e6"
+      "url": "https://u.expo.dev/b93a9d90-4332-4936-998a-91d62ccdf46a"
     },
-    "owner": "kossko"
+    "owner": "kossay1"
   }
 }
