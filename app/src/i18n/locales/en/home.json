@@ -1,4 +1,5 @@
 {
+  "versionNote": "Version 1 — developed with love and patience by Sawssen Jemaiel",
   "greeting": "Hello {{name}} 👋",
   "futureMom": "Mom-to-be",
   "loadingData": "Loading your data...",

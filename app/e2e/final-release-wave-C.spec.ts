@@ -195,7 +195,7 @@ const ARABIC = /[؀-ۿ]/;
  * form. "OMS" / "WHO" are NOT here — the WHO has an Arabic name and the app must print it
  * (this list used to hide a French "OMS" in the ar/tn supplement source line).
  */
-const LATIN_ALLOW = /\b(DHA|EPA|DNA|ARN|ADN|hCG|B12|B9|ACOG|HAS|NICE|NHS|NIH|ODS|EFSA|ANSES|ATA|WAO|WGO|IOM|NAM|CNGOF|CDC|mg|µg|mcg|UI|IU|SA|Mama|Bébé|OK)\b/g;
+const LATIN_ALLOW = /\b(DHA|EPA|DNA|ARN|ADN|hCG|B12|B9|ACOG|HAS|NICE|NHS|NIH|ODS|EFSA|ANSES|ATA|WAO|WGO|IOM|NAM|CNGOF|CDC|mg|µg|mcg|UI|IU|SA|Mama|Bébé|OK|Sawssen|Jemaiel)\b/g;
 /** `<html lang>` per app locale: the key `tn` is published as the BCP-47 tag ar-TN. */
 const HTML_LANG: Record<AppLocale, string> = { fr: 'fr', en: 'en', ar: 'ar', tn: 'ar-TN' };
 /** Week-32 Home weight, unit included ("1.7" alone would also pass for "1.7 g"). */

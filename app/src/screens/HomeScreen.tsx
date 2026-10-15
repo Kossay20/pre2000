@@ -528,6 +528,10 @@ export const HomeScreen = () => {
                     {/* Centered Content */}
                     <View style={styles.centerContent}>
                         <View style={styles.headerTextContainer}>
+                            {/* Credit line, plain text on purpose: the greeting below stays the only heading. */}
+                            <Text style={styles.versionNote} numberOfLines={3}>
+                                {t('home.versionNote')}
+                            </Text>
                             {/* The Home title is a heading for screen-reader navigation. Level 2 on web: Home stays
                                 mounted (aria-hidden) when another tab opens, and a level-1 heading here would
                                 stack a second <h1> beside that tab's own (e2e cycle9 P0-3). */}

@@ -253,6 +253,14 @@ export const styles = StyleSheet.create({
         alignItems: 'center',
         width: '100%',
     },
+    versionNote: {
+        fontSize: 12,
+        lineHeight: 16,
+        color: theme.colors.white,
+        fontWeight: '500',
+        marginBottom: 6,
+        textAlign: 'center',
+    },
     greeting: {
         fontSize: 18,
         color: theme.colors.white,

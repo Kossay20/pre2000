@@ -149,7 +149,7 @@ describe('i18n VALUE-level parity — no empty strings, no obvious FR/EN text in
     // Product and file-format names that have no Arabic form:
     // The privacy policy must name its processors, their services and the publisher as they
     // are registered (Firebase Authentication, App Check, Apple App Attest, KSA MEDIA LLC…).
-    const LATIN_NAMES = /\b(Firebase|Google|Cloud|Sentry|PDF|JSON|IOM|mmol|Authentication|Expo|Fonts|App Check|Apple App Attest|Play Integrity|HTTPS|TLS|IP|KSA MEDIA LLC)\b|Mama & Bébé/g;
+    const LATIN_NAMES = /\b(Firebase|Google|Cloud|Sentry|PDF|JSON|IOM|mmol|Authentication|Expo|Fonts|App Check|Apple App Attest|Play Integrity|HTTPS|TLS|IP|KSA MEDIA LLC|Sawssen Jemaiel)\b|Mama & Bébé/g;
     const stripped = (v: string) => v
       .replace(/\{\{[^}]+\}\}/g, '')
       .replace(/https?:\/\/\S+|\S+@\S+/g, '')
