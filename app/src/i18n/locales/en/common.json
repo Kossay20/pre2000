@@ -314,7 +314,7 @@
     "lastUpdated": "Last updated: September 30, 2026",
     "intro": {
       "title": "1. Introduction",
-      "text": "Mama & Bébé is published by KSA MEDIA LLC. This policy explains what data the app collects, where it is kept, who processes it for us, how long it is kept and how to erase it."
+      "text": "Mama & Bébé is published by Kossay El Benna and developed by Sawssen Jemaiel. This policy explains what data the app collects, where it is kept, who processes it for us, how long it is kept and how to erase it."
     },
     "collection": {
       "title": "2. Data collected",
@@ -385,7 +385,7 @@
       "title": "9. Guest mode",
       "text": "Without an account, you give no email address. What you record is kept on your phone. Some of it (for example health entries, appointments and reminders) may also be saved on our servers under an anonymous identifier, with no email address, so that the app works; apart from that, only technical error reports (section 2) leave your phone. Baby movements, contractions and your hospital bag stay only on your phone until you create an account; they are then saved to it. To erase everything, on your phone and on our servers: “{{settings}}” → “{{dataSection}}” → “{{eraseGuest}}”. Uninstalling the app erases only what is on your phone."
     },
-    "footer": "Mama & Bébé © {{year}} KSA MEDIA LLC - All rights reserved"
+    "footer": "Mama & Bébé © {{year}} Kossay El Benna - All rights reserved"
   },
   "legalTerms": {
     "title": "Legal & Terms",
