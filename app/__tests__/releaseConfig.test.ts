@@ -52,16 +52,20 @@ describe('eas.json', () => {
     expect(easJson.build.production.distribution).toBe('store');
   });
 
-  it('names the iOS submit credentials instead of leaving an empty object', () => {
-    const ios = easJson.submit.production.ios;
-    expect(Object.keys(ios).sort()).toEqual(['appleId', 'appleTeamId', 'ascAppId']);
-  });
-
-  it('never inlines a credential — they come from the environment', () => {
+  it('never leaves a "$VAR" placeholder in the iOS submit profile', () => {
+    // EAS CLI does not expand "$APPLE_ID" in `submit` (only in build `env`): it validates the
+    // literal string and aborts with "Invalid Apple ID / ascAppId / Team ID". Left unset, `eas submit`
+    // asks for them interactively and lists the Apple team's apps.
     const ios = easJson.submit.production.ios as Record<string, string>;
     for (const value of Object.values(ios)) {
-      expect(value.startsWith('$')).toBe(true);
+      expect(value.startsWith('$')).toBe(false);
     }
+  });
+
+  it('never inlines a credential — no password or API key in the iOS submit profile', () => {
+    const ios = easJson.submit.production.ios as Record<string, string>;
+    const forbidden = Object.keys(ios).filter((key) => /password|ascApiKey|privateKey/i.test(key));
+    expect(forbidden).toEqual([]);
   });
 });
 
