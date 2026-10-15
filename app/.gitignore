@@ -94,3 +94,6 @@ firebase-debug.log
 /dist-e2e*/
 /e2e/.stack/
 /test-results*/
+
+# EAS local credentials
+credentials.json
