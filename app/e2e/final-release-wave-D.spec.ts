@@ -570,7 +570,7 @@ async function remindersText(page: Page): Promise<{ text: string; groups: string
   return { text: await page.locator('body').innerText(), groups };
 }
 
-const PRIVACY_SCREEN = (p: Page) => p.getByText('Mentions Légales & CGU', { exact: true }).first();
+const PRIVACY_SCREEN = (p: Page) => p.getByText('Confidentialité & CGU', { exact: true }).first();
 
 const onAuthSurface = (url: string) => /\/(welcome|auth|login|Language|AuthChoice)(\b|$|\?)/.test(url);
 
