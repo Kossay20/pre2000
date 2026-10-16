@@ -14,7 +14,7 @@
   "advertising": false,
   "sellsData": false,
   "dataShared": [],
-  "sharedNote": "Sentry processes crash reports on our behalf as a service provider. Play does not count that as sharing; re-read the Play help text when filling the form.",
+  "sharedNote": "No data is shared with third parties for their own use. Google Firebase and Expo act as service providers processing data on our behalf (Play does not count that as sharing; re-read the Play help text when filling the form).",
   "dataCollected": [
     {
       "playCategory": "Personal info",

@@ -31,12 +31,13 @@ describe('in-app privacy policy', () => {
     expect(used.filter(v => !SUPPLIED.has(v))).toEqual([]);
   });
 
-  it.each(LOCALES)('%s: dated 2026-09-30, footer year not hardcoded', lang => {
+  it.each(LOCALES)('%s: dated 2026-10-16, footer names the developer only', lang => {
     const p = load(lang, 'common').privacy;
-    expect(p.lastUpdated).toMatch(/30/);
+    expect(p.lastUpdated).toMatch(/16/);
     expect(p.lastUpdated).toMatch(/2026/);
     expect(JSON.stringify(p)).not.toMatch(/2024/);
-    expect(p.footer).toContain('{{year}}');
+    expect(p.footer).toContain('Sawssen Jemaiel');
+    expect(p.footer).not.toMatch(/Kossay/);
   });
 
   it.each(LOCALES)('%s: deletion is self-service from both entry points, not "on request"', lang => {
@@ -191,8 +192,8 @@ describe('website deletion instructions match the app', () => {
     expect(retention).not.toMatch(/(?:\d+|\bN)\s*(?:jours|days|mois|months|semaines|weeks)|TODO|XX|\[/);
   });
 
-  it.each(['privacy.html', 'privacy-en.html'])('%s is dated 2026-09-30', file => {
-    expect(site(file)).toMatch(/30 septembre 2026|September 30, 2026/);
+  it.each(['privacy.html', 'privacy-en.html'])('%s is dated 2026-10-16', file => {
+    expect(site(file)).toMatch(/16 octobre 2026|October 16, 2026/);
   });
 
   it.each(['privacy.html', 'privacy-en.html', 'delete-account.html', 'delete-account-en.html'])(

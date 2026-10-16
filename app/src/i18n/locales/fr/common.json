@@ -364,10 +364,10 @@
   },
   "privacy": {
     "title": "Politique de Confidentialité",
-    "lastUpdated": "Dernière mise à jour : 30 septembre 2026",
+    "lastUpdated": "Dernière mise à jour : 16 octobre 2026",
     "intro": {
       "title": "1. Introduction",
-      "text": "Mama & Bébé est éditée par Kossay El Benna et développée par Sawssen Jemaiel. Cette politique explique quelles données l'application collecte, où elles sont conservées, qui les traite pour nous, combien de temps elles sont gardées et comment les effacer."
+      "text": "Mama & Bébé est développée par Sawssen Jemaiel. Cette politique explique quelles données l'application collecte, où elles sont conservées, qui les traite pour nous, combien de temps elles sont gardées et comment les effacer. L'application s'adresse aux personnes de 18 ans et plus. L'éditeur et responsable du traitement est identifié sur https://www.mama-et-bebe.com/privacy.html ; contact : contact@mama-et-bebe.com."
     },
     "collection": {
       "title": "2. Données collectées",
@@ -383,7 +383,7 @@
       "emergency": "Contacts d'urgence :",
       "emergencyDesc": "les noms et numéros des personnes que vous ajoutez vous-même.",
       "device": "Données gardées uniquement sur votre téléphone :",
-      "deviceDesc": "hydratation, suivi du Ramadan, checklist du jour et articles enregistrés. Elles ne sont pas envoyées à nos serveurs.",
+      "deviceDesc": "hydratation, checklist du jour et articles enregistrés. Elles ne sont pas envoyées à nos serveurs.",
       "assistant": "Assistant :",
       "assistantDesc": "il fonctionne entièrement sur votre téléphone. Vos messages ne sont ni envoyés à un serveur ni enregistrés."
     },
@@ -392,14 +392,14 @@
       "text": "Vos données servent uniquement à :",
       "item1": "vous fournir le suivi de grossesse et programmer vos rappels sur votre téléphone ;",
       "item2": "synchroniser vos données entre vos appareils lorsque vous êtes connectée ;",
-      "disclaimer": "Nous ne vendons ni ne louons vos données, et nous ne les utilisons ni pour de la publicité ni pour du profilage.",
-      "consent": "Nous traitons vos données de grossesse et de santé avec votre accord explicite : avant d'enregistrer votre profil, l'application vous demande de cocher une case qui l'autorise à les utiliser pour vous fournir ses fonctionnalités. Sans cet accord, votre profil n'est pas enregistré. La date de votre accord et la version de cette politique sont conservées avec votre profil."
+      "disclaimer": "Nous ne vendons ni ne louons vos données, et nous ne les utilisons ni pour de la publicité ni pour du profilage commercial.",
+      "consent": "Nous traitons vos données de grossesse et de santé avec votre accord explicite : avant d'enregistrer votre profil, l'application vous demande de cocher une case qui l'autorise à les utiliser pour vous fournir ses fonctionnalités. Sans cet accord, votre profil n'est pas enregistré. La date de votre accord et la version de cette politique sont conservées avec votre profil. Cela repose sur votre consentement explicite (art. 9.2.a du RGPD) pour les données de grossesse et de santé, et sur l'exécution du service que vous demandez (art. 6.1.b) pour le compte et la synchronisation. Aucune décision automatisée ne produit d'effet juridique à votre égard."
     },
     "processors": {
       "title": "4. Prestataires",
       "text": "Ces services traitent des données pour notre compte, uniquement pour faire fonctionner l'application :",
       "firebase": "Google Firebase (Google Cloud) :",
-      "firebaseDesc": "connexion, base de données, et vérification que les requêtes viennent bien de l'application authentique (App Check, via Apple App Attest ou Google Play Integrity).",
+      "firebaseDesc": "connexion, base de données, et vérification que les requêtes viennent bien de l'application authentique (App Check, via Apple App Attest).",
       "expo": "Expo :",
       "expoDesc": "distribution des mises à jour de l'application ; il reçoit des informations techniques sur l'appareil (adresse IP, version de l'application) quand l'application vérifie une mise à jour.",
       "fonts": "Google Fonts :",
@@ -407,11 +407,11 @@
     },
     "storage": {
       "title": "5. Stockage, sécurité et transferts",
-      "text": "Les données de votre compte sont stockées sur les serveurs de Google Firebase. Les échanges avec ces serveurs sont chiffrés (HTTPS/TLS) et des règles d'accès réservent chaque donnée à sa propriétaire. L'éditeur est établi en France, et Google comme nos prestataires peuvent traiter vos données hors de votre pays, y compris aux États-Unis."
+      "text": "Les données de votre compte sont stockées sur les serveurs de Google Firebase. Les échanges avec ces serveurs sont chiffrés (HTTPS/TLS) et des règles d'accès limitent l'accès de l'application aux seules données de votre compte. L'éditeur est établi en France, et Google comme nos prestataires peuvent traiter vos données hors de votre pays, y compris aux États-Unis. Ces transferts reposent sur les garanties prévues par le RGPD (clauses contractuelles types de la Commission européenne et/ou cadre de protection des données UE–États-Unis)."
     },
     "retention": {
       "title": "6. Durée de conservation",
-      "text": "Les données de votre compte sont conservées tant que votre compte existe et effacées dès que vous le supprimez ; nous n'en gardons aucune copie. Les données gardées sur votre téléphone y restent jusqu'à ce que vous les effaciez, supprimiez votre compte ou désinstalliez l'application."
+      "text": "Les données de votre compte sont conservées tant que votre compte existe et effacées dès que vous le supprimez ; nous n'en gardons aucune copie de notre côté, et les sauvegardes techniques de Google sont purgées selon son propre calendrier. Les données gardées sur votre téléphone y restent jusqu'à ce que vous les effaciez, supprimiez votre compte ou désinstalliez l'application."
     },
     "rights": {
       "title": "7. Vos droits (RGPD)",
@@ -423,21 +423,25 @@
       "deletion": "Effacement :",
       "deletionDesc": "« {{profile}} » → « {{dangerZone}} » → « {{deleteFromProfile}} », ou « {{settings}} » → « {{dataSection}} » → « {{deleteFromSettings}} ». La suppression est immédiate et définitive : votre compte, les données enregistrées sur nos serveurs et la copie locale sur votre téléphone.",
       "consent": "Retrait du consentement :",
-      "consentDesc": "vous pouvez retirer à tout moment l'accord donné à la création de votre profil en effaçant vos données : « {{settings}} » → « {{dataSection}} » → « {{deleteFromSettings}} » avec un compte, ou « {{eraseGuest}} » sans compte. Le suivi médical déclaré se désactive à part dans « {{settings}} » → « {{medical}} », sans supprimer le reste de votre compte."
+      "consentDesc": "vous pouvez retirer à tout moment l'accord donné à la création de votre profil en effaçant vos données : « {{settings}} » → « {{dataSection}} » → « {{deleteFromSettings}} » avec un compte, ou « {{eraseGuest}} » sans compte. Le suivi médical déclaré se désactive à part dans « {{settings}} » → « {{medical}} », sans supprimer le reste de votre compte.",
+      "opposition": "Opposition et limitation (art. 18 et 21) :",
+      "oppositionDesc": "vous pouvez demander la limitation du traitement ou vous y opposer en écrivant à contact@mama-et-bebe.com.",
+      "complaint": "Réclamation :",
+      "complaintDesc": "si vous estimez que vos droits ne sont pas respectés, vous pouvez saisir la CNIL (cnil.fr) ou l'autorité de protection des données de votre pays."
     },
     "contact": {
       "title": "8. Contact",
       "text": "Pour toute question sur vos données ou vos droits :",
-      "publisher": "Éditeur :"
+      "publisher": "Développée par :"
     },
     "guestMode": {
       "title": "9. Mode Invitée",
       "text": "Sans compte, vous ne donnez aucune adresse e-mail. Ce que vous enregistrez est conservé sur votre téléphone. Une partie (par exemple les données de santé, les rendez-vous et les rappels) peut aussi être enregistrée sur nos serveurs sous un identifiant anonyme, sans adresse e-mail, pour que l'application fonctionne ; aucune donnée de conversation avec l'assistant n'est envoyée à un serveur. Les mouvements du bébé, les contractions et la valise de maternité restent uniquement sur votre téléphone jusqu'à ce que vous créiez un compte ; ils y sont alors enregistrés. Pour tout effacer, sur votre téléphone et sur nos serveurs : « {{settings}} » → « {{dataSection}} » → « {{eraseGuest}} ». Désinstaller l'application n'efface que ce qui se trouve sur votre téléphone."
     },
-    "footer": "Mama & Bébé © {{year}} Kossay El Benna - Tous droits réservés"
+    "footer": "Mama & Bébé — développée par Sawssen Jemaiel"
   },
   "legalTerms": {
-    "title": "Mentions Légales & CGU",
+    "title": "Confidentialité & CGU",
     "tabPrivacy": "Confidentialité",
     "tabTerms": "CGU",
     "tabCookies": "Cookies",
@@ -445,17 +449,18 @@
       "title": "Conditions Générales d'Utilisation",
       "intro": "L'utilisation de l'application implique l'acceptation pleine et entière des présentes CGU.",
       "medical": "AVERTISSEMENT MÉDICAL : Cette application fournit des informations à titre indicatif et ne remplace pas un avis médical professionnel.",
+      "emergency": "En cas d'urgence ou de signe inquiétant (saignements, douleurs, absence de mouvements du bébé), appelez immédiatement les secours de votre pays ou rendez-vous aux urgences.",
       "liability": "L'éditeur ne saurait être tenu responsable de l'utilisation faite des informations fournies.",
       "liabilityTitle": "Responsabilité",
       "content": "Le contenu (textes, images) est protégé par le droit d'auteur.",
       "ipTitle": "Propriété Intellectuelle",
-      "publisher": "Éditeur :",
+      "publisher": "Développée par :",
       "law": "Droit applicable : les présentes CGU sont régies par le droit français."
     },
     "cookies": {
       "title": "Cookies & Traceurs",
       "intro": "Nous n'utilisons pas de cookies publicitaires.",
-      "tech": "Nous utilisons des identifiants techniques (AsyncStorage) pour le fonctionnement de l'application (sauvegarde locale).",
+      "tech": "Nous utilisons des identifiants techniques (stockage local de l'application) pour le fonctionnement de l'application (sauvegarde locale).",
       "techTitle": "Identifiants techniques",
       "analytics_title": "Analyse d'erreurs",
       "analytics_desc": "Aucun service d'analyse d'erreurs n'est activé dans cette version de l'application.",
@@ -500,6 +505,8 @@
     "tooManyContacts": "Vous ne pouvez pas enregistrer plus de {{max}} contacts d’urgence."
   },
   "a11y": {
+    "increase": "Augmenter",
+    "decrease": "Diminuer",
     "previousDay": "Jour précédent",
     "nextDay": "Jour suivant",
     "previousWeek": "Semaine précédente",
@@ -851,7 +858,7 @@
     "hypertension": "Hypertension de la grossesse",
     "twins": "Grossesse gémellaire",
     "none": "Rien de tout cela ne me concerne, ou je préfère ne pas répondre : laissez tout décoché.",
-    "privacyNote": "Ces informations sont enregistrées dans votre compte, sur nos serveurs sécurisés. Elles ne sont ni partagées ni vendues, servent uniquement à ajuster vos rappels, et ne remplacent aucun avis médical.",
+    "privacyNote": "Ces informations sont enregistrées dans votre compte, sur nos serveurs (Google Firebase). Elles ne sont pas vendues, ne servent ni à la publicité ni au profilage commercial, servent uniquement à ajuster vos rappels, et ne remplacent aucun avis médical.",
     "settingsTitle": "Suivi médical",
     "settingsSubtitle": "Modifiable à tout moment",
     "notAnswered": "Non renseigné",

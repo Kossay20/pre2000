@@ -25,7 +25,7 @@ const CONSENT = { version: HEALTH_DATA_CONSENT_VERSION, at: '2026-09-30T08:00:00
 describe('the consent record', () => {
     it('is the policy version plus the moment of the tick', () => {
         expect(recordHealthDataConsent(new Date('2026-09-30T08:00:00.000Z'))).toEqual(CONSENT);
-        expect(HEALTH_DATA_CONSENT_VERSION).toBe('2026-09-30');
+        expect(HEALTH_DATA_CONSENT_VERSION).toBe('2026-10-16');
     });
 
     it('accepts only a complete, bounded record', () => {

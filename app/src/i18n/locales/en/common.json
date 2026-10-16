@@ -311,10 +311,10 @@
   },
   "privacy": {
     "title": "Privacy Policy",
-    "lastUpdated": "Last updated: September 30, 2026",
+    "lastUpdated": "Last updated: October 16, 2026",
     "intro": {
       "title": "1. Introduction",
-      "text": "Mama & Bébé is published by Kossay El Benna and developed by Sawssen Jemaiel. This policy explains what data the app collects, where it is kept, who processes it for us, how long it is kept and how to erase it."
+      "text": "Mama & Bébé is developed by Sawssen Jemaiel. This policy explains what data the app collects, where it is kept, who processes it for us, how long it is kept and how to erase it. The app is intended for people aged 18 or over. The publisher and data controller is identified at https://www.mama-et-bebe.com/privacy-en.html; contact: contact@mama-et-bebe.com."
     },
     "collection": {
       "title": "2. Data collected",
@@ -330,7 +330,7 @@
       "emergency": "Emergency contacts:",
       "emergencyDesc": "the names and numbers of the people you add yourself.",
       "device": "Kept only on your phone:",
-      "deviceDesc": "hydration, Ramadan tracking, daily checklist and saved articles. They are not sent to our servers.",
+      "deviceDesc": "hydration, daily checklist and saved articles. They are not sent to our servers.",
       "assistant": "Assistant:",
       "assistantDesc": "it runs entirely on your phone. Your messages are neither sent to a server nor saved."
     },
@@ -339,14 +339,14 @@
       "text": "Your data is used only to:",
       "item1": "provide pregnancy tracking and schedule your reminders on your phone;",
       "item2": "sync your data across your devices when you are signed in;",
-      "disclaimer": "We do not sell or rent your data, and we do not use it for advertising or profiling.",
-      "consent": "We process your pregnancy and health data with your explicit agreement: before saving your profile, the app asks you to tick a box allowing it to use this data to provide its features. Without that agreement, your profile is not saved. The date of your agreement and the version of this policy are kept with your profile."
+      "disclaimer": "We do not sell or rent your data, and we do not use it for advertising or commercial profiling.",
+      "consent": "We process your pregnancy and health data with your explicit agreement: before saving your profile, the app asks you to tick a box allowing it to use this data to provide its features. Without that agreement, your profile is not saved. The date of your agreement and the version of this policy are kept with your profile. This rests on your explicit consent (GDPR art. 9(2)(a)) for pregnancy and health data, and on performance of the service you request (art. 6(1)(b)) for the account and sync. No automated decision has a legal effect on you."
     },
     "processors": {
       "title": "4. Service providers",
       "text": "These services process data on our behalf, only to run the app:",
       "firebase": "Google Firebase (Google Cloud):",
-      "firebaseDesc": "sign-in, database, and checking that requests come from the genuine app (App Check, using Apple App Attest or Google Play Integrity).",
+      "firebaseDesc": "sign-in, database, and checking that requests come from the genuine app (App Check, using Apple App Attest).",
       "expo": "Expo:",
       "expoDesc": "delivers app updates; it receives technical device information (IP address, app version) when the app checks for an update.",
       "fonts": "Google Fonts:",
@@ -354,11 +354,11 @@
     },
     "storage": {
       "title": "5. Storage, security and transfers",
-      "text": "Your account data is stored on Google Firebase servers. Traffic with those servers is encrypted (HTTPS/TLS), and access rules restrict each record to its owner. The publisher is based in France, and Google and our providers may process your data outside your country, including in the United States."
+      "text": "Your account data is stored on Google Firebase servers. Traffic with those servers is encrypted (HTTPS/TLS), and access rules limit the app's access to your own account's data. The publisher is based in France, and Google and our providers may process your data outside your country, including in the United States. These transfers rely on GDPR safeguards (European Commission standard contractual clauses and/or the EU–US Data Privacy Framework)."
     },
     "retention": {
       "title": "6. Retention",
-      "text": "Your account data is kept as long as your account exists and erased as soon as you delete it; we keep no copy. Data kept on your phone stays there until you erase it, delete your account or uninstall the app."
+      "text": "Your account data is kept as long as your account exists and erased as soon as you delete it; we keep no copy ourselves, and Google's technical backups are purged on its own schedule. Data kept on your phone stays there until you erase it, delete your account or uninstall the app."
     },
     "rights": {
       "title": "7. Your rights (GDPR)",
@@ -370,18 +370,22 @@
       "deletion": "Erasure:",
       "deletionDesc": "“{{profile}}” → “{{dangerZone}}” → “{{deleteFromProfile}}”, or “{{settings}}” → “{{dataSection}}” → “{{deleteFromSettings}}”. Deletion is immediate and permanent: your account, the data stored on our servers and the local copy on your phone.",
       "consent": "Withdrawing consent:",
-      "consentDesc": "you can withdraw the agreement given when you created your profile at any time by erasing your data: “{{settings}}” → “{{dataSection}}” → “{{deleteFromSettings}}” with an account, or “{{eraseGuest}}” without one. The declared medical follow-up can be turned off separately in “{{settings}}” → “{{medical}}”, without deleting the rest of your account."
+      "consentDesc": "you can withdraw the agreement given when you created your profile at any time by erasing your data: “{{settings}}” → “{{dataSection}}” → “{{deleteFromSettings}}” with an account, or “{{eraseGuest}}” without one. The declared medical follow-up can be turned off separately in “{{settings}}” → “{{medical}}”, without deleting the rest of your account.",
+      "opposition": "Objection and restriction (art. 18 and 21):",
+      "oppositionDesc": "you can ask us to restrict the processing or object to it by writing to contact@mama-et-bebe.com.",
+      "complaint": "Complaint:",
+      "complaintDesc": "if you believe your rights are not respected, you can lodge a complaint with the CNIL (cnil.fr) or with the data protection authority of your country."
     },
     "contact": {
       "title": "8. Contact",
       "text": "For any question about your data or your rights:",
-      "publisher": "Publisher:"
+      "publisher": "Developed by:"
     },
     "guestMode": {
       "title": "9. Guest mode",
       "text": "Without an account, you give no email address. What you record is kept on your phone. Some of it (for example health entries, appointments and reminders) may also be saved on our servers under an anonymous identifier, with no email address, so that the app works; no assistant conversation data is sent to a server. Baby movements, contractions and your hospital bag stay only on your phone until you create an account; they are then saved to it. To erase everything, on your phone and on our servers: “{{settings}}” → “{{dataSection}}” → “{{eraseGuest}}”. Uninstalling the app erases only what is on your phone."
     },
-    "footer": "Mama & Bébé © {{year}} Kossay El Benna - All rights reserved"
+    "footer": "Mama & Bébé — developed by Sawssen Jemaiel"
   },
   "legalTerms": {
     "title": "Legal & Terms",
@@ -392,17 +396,18 @@
       "title": "Terms of Service",
       "intro": "Using this application implies full acceptance of these Terms of Service.",
       "medical": "MEDICAL DISCLAIMER: This app provides information for educational purposes only and does NOT replace professional medical advice.",
+      "emergency": "In an emergency or if you notice a warning sign (bleeding, pain, no baby movement), call your local emergency services or go to the ER immediately.",
       "liability": "The publisher cannot be held responsible for the use of the information provided.",
       "liabilityTitle": "Liability",
       "content": "All content (text, images) is protected by copyright.",
       "ipTitle": "Intellectual Property",
-      "publisher": "Publisher:",
+      "publisher": "Developed by:",
       "law": "Governing law: these terms are governed by French law."
     },
     "cookies": {
       "title": "Cookies & Trackers",
       "intro": "We do not use advertising cookies.",
-      "tech": "We use technical identifiers (AsyncStorage) for app functionality (local save).",
+      "tech": "We use technical identifiers (the app's local storage) for app functionality (local save).",
       "techTitle": "Technical Identifiers",
       "analytics_title": "Error Analysis",
       "analytics_desc": "No error-analysis service is enabled in this version of the app.",
@@ -411,6 +416,8 @@
     }
   },
   "a11y": {
+    "increase": "Increase",
+    "decrease": "Decrease",
     "passwordMin": "Password (6 chars min)",
     "retypePassword": "Retype password",
     "createMyAccount": "Create my account",
@@ -851,7 +858,7 @@
     "hypertension": "Pregnancy hypertension",
     "twins": "Twin pregnancy",
     "none": "None of these apply, or I'd rather not answer: leave everything unticked.",
-    "privacyNote": "This is saved to your account on our secure servers. It is never shared or sold, is used only to adjust your reminders, and replaces no medical advice.",
+    "privacyNote": "This is saved to your account on our servers (Google Firebase). It is not sold, is not used for advertising or commercial profiling, is used only to adjust your reminders, and replaces no medical advice.",
     "settingsTitle": "Medical follow-up",
     "settingsSubtitle": "Editable at any time",
     "notAnswered": "Not provided",

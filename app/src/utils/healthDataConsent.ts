@@ -16,7 +16,7 @@
  * date (privacy.lastUpdated). Stored with each consent so that what a user agreed to
  * can be traced to a version of the policy.
  */
-export const HEALTH_DATA_CONSENT_VERSION = '2026-09-30';
+export const HEALTH_DATA_CONSENT_VERSION = '2026-10-16';
 
 export interface HealthDataConsent {
     /** HEALTH_DATA_CONSENT_VERSION at the time of consent. */

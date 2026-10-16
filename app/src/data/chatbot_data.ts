@@ -148,7 +148,7 @@ export const RED_FLAGS: RedFlag[] = [
     "standard_message_fr": "Une fièvre inexpliquée peut indiquer une infection grave. Consultez un médecin sans attendre pour un diagnostic et un traitement approprié.",
     "standard_message_ar": "قد تشير الحمى غير المبررة إلى عدوى خطيرة. استشيري طبيباً دون انتظار للتشخيص والعلاج المناسب.",
     "standard_message_en": "Unexplained fever may indicate a serious infection. Consult a doctor without delay for diagnosis and appropriate treatment.",
-    "standard_message_tn": "السخانة في الحمل خطيرة. خذي دواء للحرارة واتصلي بالطبيب إذا ما نقصتش.",
+    "standard_message_tn": "السخانة في الحمل لازم يشوفها طبيب. اتصلي بالطبيب ولا بالسبيطار توّة.",
     "linked_articles_ids": [
       "a03_examens_médicaux_pendant"
     ]

@@ -9,8 +9,8 @@ import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
 // The published policy (website/privacy.html) names this address; mamabebe.app
 // has no mail server, so the previous value bounced every request.
 const CONTACT_EMAIL = 'contact@mama-et-bebe.com';
-// Postal address stays in Latin script in every language (it is a mailing address, not prose).
-const PUBLISHER_ADDRESS = 'Kossay El Benna, 378 rue Elie Gruyelle, 62110 Hénin-Beaumont, France';
+// The developer's name stays in Latin script in every language.
+const DEVELOPER_NAME = 'Sawssen Jemaiel';
 
 /**
  * PrivacyPolicyScreen - Legal compliance for App Store
@@ -144,6 +144,8 @@ export const PrivacyPolicyScreen = () => {
                                     <Text style={styles.bulletItem}>• <Text style={styles.bold}>{t('privacy.rights.rectification')}</Text> {t('privacy.rights.rectificationDesc', paths)}</Text>
                                     <Text style={styles.bulletItem}>• <Text style={styles.bold}>{t('privacy.rights.deletion')}</Text> {t('privacy.rights.deletionDesc', paths)}</Text>
                                     <Text style={styles.bulletItem}>• <Text style={styles.bold}>{t('privacy.rights.consent')}</Text> {t('privacy.rights.consentDesc', paths)}</Text>
+                                    <Text style={styles.bulletItem}>• <Text style={styles.bold}>{t('privacy.rights.opposition')}</Text> {t('privacy.rights.oppositionDesc')}</Text>
+                                    <Text style={styles.bulletItem}>• <Text style={styles.bold}>{t('privacy.rights.complaint')}</Text> {t('privacy.rights.complaintDesc')}</Text>
                                 </View>
                             </View>
 
@@ -153,7 +155,7 @@ export const PrivacyPolicyScreen = () => {
                                 <Text style={styles.paragraph}>
                                     {t('privacy.contact.text')}
                                 </Text>
-                                <Text style={styles.paragraph}>{t('privacy.contact.publisher')} {PUBLISHER_ADDRESS}</Text>
+                                <Text style={styles.paragraph}>{t('privacy.contact.publisher')} {DEVELOPER_NAME}</Text>
                                 <TouchableOpacity style={styles.contactButton} onPress={handleContactPress}>
                                     <Text style={styles.contactButtonText}>📧 {CONTACT_EMAIL}</Text>
                                 </TouchableOpacity>
@@ -180,6 +182,7 @@ export const PrivacyPolicyScreen = () => {
                                         {t('legalTerms.terms.medical')}
                                     </Text>
                                 </View>
+                                <Text style={styles.paragraph}>{t('legalTerms.terms.emergency')}</Text>
                             </View>
 
                             <View style={styles.section}>
@@ -193,7 +196,7 @@ export const PrivacyPolicyScreen = () => {
                             </View>
 
                             <View style={styles.section}>
-                                <Text style={styles.paragraph}>{t('legalTerms.terms.publisher')} {PUBLISHER_ADDRESS}</Text>
+                                <Text style={styles.paragraph}>{t('legalTerms.terms.publisher')} {DEVELOPER_NAME}</Text>
                                 <Text style={styles.paragraph}>{t('legalTerms.terms.law')}</Text>
                             </View>
                         </>
