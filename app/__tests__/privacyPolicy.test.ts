@@ -48,10 +48,12 @@ describe('in-app privacy policy', () => {
   it.each(LOCALES)('%s: names the processors and the health data it holds', lang => {
     const p = load(lang, 'common').privacy;
     expect(Object.keys(p.processors)).toEqual(
-      expect.arrayContaining(['firebase', 'sentry', 'expo', 'fonts']),
+      expect.arrayContaining(['firebase', 'expo', 'fonts']),
     );
+    // Sentry is disabled in production (no DSN in the EAS environment): it must not be named.
+    expect(Object.keys(p.processors)).not.toContain('sentry');
     expect(Object.keys(p.collection)).toEqual(
-      expect.arrayContaining(['health', 'medical', 'emergency', 'device', 'assistant', 'technical']),
+      expect.arrayContaining(['health', 'medical', 'emergency', 'device', 'assistant']),
     );
     expect(p.retention.text.length).toBeGreaterThan(0);
   });

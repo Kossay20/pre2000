@@ -385,16 +385,13 @@
       "device": "Données gardées uniquement sur votre téléphone :",
       "deviceDesc": "hydratation, suivi du Ramadan, checklist du jour et articles enregistrés. Elles ne sont pas envoyées à nos serveurs.",
       "assistant": "Assistant :",
-      "assistantDesc": "il fonctionne entièrement sur votre téléphone. Vos messages ne sont ni envoyés à un serveur ni enregistrés.",
-      "technical": "Données techniques :",
-      "technicalDesc": "en cas d'erreur, un rapport technique (description de l'erreur, écran concerné, modèle et système de l'appareil, version de l'application) accompagné d'un identifiant pseudonyme dérivé de votre compte, jamais de votre adresse email."
+      "assistantDesc": "il fonctionne entièrement sur votre téléphone. Vos messages ne sont ni envoyés à un serveur ni enregistrés."
     },
     "usage": {
       "title": "3. Utilisation des données",
       "text": "Vos données servent uniquement à :",
       "item1": "vous fournir le suivi de grossesse et programmer vos rappels sur votre téléphone ;",
       "item2": "synchroniser vos données entre vos appareils lorsque vous êtes connectée ;",
-      "item3": "corriger les erreurs de l'application grâce aux rapports techniques.",
       "disclaimer": "Nous ne vendons ni ne louons vos données, et nous ne les utilisons ni pour de la publicité ni pour du profilage.",
       "consent": "Nous traitons vos données de grossesse et de santé avec votre accord explicite : avant d'enregistrer votre profil, l'application vous demande de cocher une case qui l'autorise à les utiliser pour vous fournir ses fonctionnalités. Sans cet accord, votre profil n'est pas enregistré. La date de votre accord et la version de cette politique sont conservées avec votre profil."
     },
@@ -403,8 +400,6 @@
       "text": "Ces services traitent des données pour notre compte, uniquement pour faire fonctionner l'application :",
       "firebase": "Google Firebase (Google Cloud) :",
       "firebaseDesc": "connexion, base de données, et vérification que les requêtes viennent bien de l'application authentique (App Check, via Apple App Attest ou Google Play Integrity).",
-      "sentry": "Sentry :",
-      "sentryDesc": "réception des rapports d'erreur.",
       "expo": "Expo :",
       "expoDesc": "distribution des mises à jour de l'application ; il reçoit des informations techniques sur l'appareil (adresse IP, version de l'application) quand l'application vérifie une mise à jour.",
       "fonts": "Google Fonts :",
@@ -416,7 +411,7 @@
     },
     "retention": {
       "title": "6. Durée de conservation",
-      "text": "Les données de votre compte sont conservées tant que votre compte existe et effacées dès que vous le supprimez ; nous n'en gardons aucune copie. Les données gardées sur votre téléphone y restent jusqu'à ce que vous les effaciez, supprimiez votre compte ou désinstalliez l'application. Les rapports d'erreur sont supprimés automatiquement par Sentry au terme de sa durée de conservation."
+      "text": "Les données de votre compte sont conservées tant que votre compte existe et effacées dès que vous le supprimez ; nous n'en gardons aucune copie. Les données gardées sur votre téléphone y restent jusqu'à ce que vous les effaciez, supprimiez votre compte ou désinstalliez l'application."
     },
     "rights": {
       "title": "7. Vos droits (RGPD)",
@@ -437,7 +432,7 @@
     },
     "guestMode": {
       "title": "9. Mode Invitée",
-      "text": "Sans compte, vous ne donnez aucune adresse e-mail. Ce que vous enregistrez est conservé sur votre téléphone. Une partie (par exemple les données de santé, les rendez-vous et les rappels) peut aussi être enregistrée sur nos serveurs sous un identifiant anonyme, sans adresse e-mail, pour que l'application fonctionne ; en dehors de cela, seuls les rapports d'erreur techniques (section 2) quittent votre téléphone. Les mouvements du bébé, les contractions et la valise de maternité restent uniquement sur votre téléphone jusqu'à ce que vous créiez un compte ; ils y sont alors enregistrés. Pour tout effacer, sur votre téléphone et sur nos serveurs : « {{settings}} » → « {{dataSection}} » → « {{eraseGuest}} ». Désinstaller l'application n'efface que ce qui se trouve sur votre téléphone."
+      "text": "Sans compte, vous ne donnez aucune adresse e-mail. Ce que vous enregistrez est conservé sur votre téléphone. Une partie (par exemple les données de santé, les rendez-vous et les rappels) peut aussi être enregistrée sur nos serveurs sous un identifiant anonyme, sans adresse e-mail, pour que l'application fonctionne ; aucune donnée de conversation avec l'assistant n'est envoyée à un serveur. Les mouvements du bébé, les contractions et la valise de maternité restent uniquement sur votre téléphone jusqu'à ce que vous créiez un compte ; ils y sont alors enregistrés. Pour tout effacer, sur votre téléphone et sur nos serveurs : « {{settings}} » → « {{dataSection}} » → « {{eraseGuest}} ». Désinstaller l'application n'efface que ce qui se trouve sur votre téléphone."
     },
     "footer": "Mama & Bébé © {{year}} Kossay El Benna - Tous droits réservés"
   },
@@ -463,7 +458,7 @@
       "tech": "Nous utilisons des identifiants techniques (AsyncStorage) pour le fonctionnement de l'application (sauvegarde locale).",
       "techTitle": "Identifiants techniques",
       "analytics_title": "Analyse d'erreurs",
-      "analytics_desc": "Nous utilisons Sentry pour détecter les crashs et améliorer la stabilité.",
+      "analytics_desc": "Aucun service d'analyse d'erreurs n'est activé dans cette version de l'application.",
       "firebase_title": "Firebase",
       "firebase_desc": "Utilisé pour l'authentification et la base de données sécurisée."
     }

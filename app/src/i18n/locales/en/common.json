@@ -332,16 +332,13 @@
       "device": "Kept only on your phone:",
       "deviceDesc": "hydration, Ramadan tracking, daily checklist and saved articles. They are not sent to our servers.",
       "assistant": "Assistant:",
-      "assistantDesc": "it runs entirely on your phone. Your messages are neither sent to a server nor saved.",
-      "technical": "Technical data:",
-      "technicalDesc": "when an error occurs, a technical report (error description, screen, device model and operating system, app version) with a pseudonymous identifier derived from your account, never your email address."
+      "assistantDesc": "it runs entirely on your phone. Your messages are neither sent to a server nor saved."
     },
     "usage": {
       "title": "3. Use of data",
       "text": "Your data is used only to:",
       "item1": "provide pregnancy tracking and schedule your reminders on your phone;",
       "item2": "sync your data across your devices when you are signed in;",
-      "item3": "fix app errors using technical reports.",
       "disclaimer": "We do not sell or rent your data, and we do not use it for advertising or profiling.",
       "consent": "We process your pregnancy and health data with your explicit agreement: before saving your profile, the app asks you to tick a box allowing it to use this data to provide its features. Without that agreement, your profile is not saved. The date of your agreement and the version of this policy are kept with your profile."
     },
@@ -350,8 +347,6 @@
       "text": "These services process data on our behalf, only to run the app:",
       "firebase": "Google Firebase (Google Cloud):",
       "firebaseDesc": "sign-in, database, and checking that requests come from the genuine app (App Check, using Apple App Attest or Google Play Integrity).",
-      "sentry": "Sentry:",
-      "sentryDesc": "receives error reports.",
       "expo": "Expo:",
       "expoDesc": "delivers app updates; it receives technical device information (IP address, app version) when the app checks for an update.",
       "fonts": "Google Fonts:",
@@ -363,7 +358,7 @@
     },
     "retention": {
       "title": "6. Retention",
-      "text": "Your account data is kept as long as your account exists and erased as soon as you delete it; we keep no copy. Data kept on your phone stays there until you erase it, delete your account or uninstall the app. Error reports are deleted automatically by Sentry at the end of its retention period."
+      "text": "Your account data is kept as long as your account exists and erased as soon as you delete it; we keep no copy. Data kept on your phone stays there until you erase it, delete your account or uninstall the app."
     },
     "rights": {
       "title": "7. Your rights (GDPR)",
@@ -384,7 +379,7 @@
     },
     "guestMode": {
       "title": "9. Guest mode",
-      "text": "Without an account, you give no email address. What you record is kept on your phone. Some of it (for example health entries, appointments and reminders) may also be saved on our servers under an anonymous identifier, with no email address, so that the app works; apart from that, only technical error reports (section 2) leave your phone. Baby movements, contractions and your hospital bag stay only on your phone until you create an account; they are then saved to it. To erase everything, on your phone and on our servers: “{{settings}}” → “{{dataSection}}” → “{{eraseGuest}}”. Uninstalling the app erases only what is on your phone."
+      "text": "Without an account, you give no email address. What you record is kept on your phone. Some of it (for example health entries, appointments and reminders) may also be saved on our servers under an anonymous identifier, with no email address, so that the app works; no assistant conversation data is sent to a server. Baby movements, contractions and your hospital bag stay only on your phone until you create an account; they are then saved to it. To erase everything, on your phone and on our servers: “{{settings}}” → “{{dataSection}}” → “{{eraseGuest}}”. Uninstalling the app erases only what is on your phone."
     },
     "footer": "Mama & Bébé © {{year}} Kossay El Benna - All rights reserved"
   },
@@ -410,7 +405,7 @@
       "tech": "We use technical identifiers (AsyncStorage) for app functionality (local save).",
       "techTitle": "Technical Identifiers",
       "analytics_title": "Error Analysis",
-      "analytics_desc": "We use Sentry to detect crashes and improve stability.",
+      "analytics_desc": "No error-analysis service is enabled in this version of the app.",
       "firebase_title": "Firebase",
       "firebase_desc": "Used for secure authentication and database."
     }

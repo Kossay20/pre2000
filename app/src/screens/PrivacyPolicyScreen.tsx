@@ -94,7 +94,6 @@ export const PrivacyPolicyScreen = () => {
                                     <Text style={styles.bulletItem}>• <Text style={styles.bold}>{t('privacy.collection.emergency')}</Text> {t('privacy.collection.emergencyDesc')}</Text>
                                     <Text style={styles.bulletItem}>• <Text style={styles.bold}>{t('privacy.collection.device')}</Text> {t('privacy.collection.deviceDesc')}</Text>
                                     <Text style={styles.bulletItem}>• <Text style={styles.bold}>{t('privacy.collection.assistant')}</Text> {t('privacy.collection.assistantDesc')}</Text>
-                                    <Text style={styles.bulletItem}>• <Text style={styles.bold}>{t('privacy.collection.technical')}</Text> {t('privacy.collection.technicalDesc')}</Text>
                                 </View>
                             </View>
 
@@ -105,7 +104,6 @@ export const PrivacyPolicyScreen = () => {
                                 <View style={styles.bulletList}>
                                     <Text style={styles.bulletItem}>• {t('privacy.usage.item1')}</Text>
                                     <Text style={styles.bulletItem}>• {t('privacy.usage.item2')}</Text>
-                                    <Text style={styles.bulletItem}>• {t('privacy.usage.item3')}</Text>
                                 </View>
                                 {/* The consent asked on onboarding's last step (HealthDataConsentCheck). */}
                                 <Text style={styles.paragraph}>{t('privacy.usage.consent')}</Text>
@@ -120,7 +118,6 @@ export const PrivacyPolicyScreen = () => {
                                 <Text style={styles.paragraph}>{t('privacy.processors.text')}</Text>
                                 <View style={styles.bulletList}>
                                     <Text style={styles.bulletItem}>• <Text style={styles.bold}>{t('privacy.processors.firebase')}</Text> {t('privacy.processors.firebaseDesc')}</Text>
-                                    <Text style={styles.bulletItem}>• <Text style={styles.bold}>{t('privacy.processors.sentry')}</Text> {t('privacy.processors.sentryDesc')}</Text>
                                     <Text style={styles.bulletItem}>• <Text style={styles.bold}>{t('privacy.processors.expo')}</Text> {t('privacy.processors.expoDesc')}</Text>
                                     <Text style={styles.bulletItem}>• <Text style={styles.bold}>{t('privacy.processors.fonts')}</Text> {t('privacy.processors.fontsDesc')}</Text>
                                 </View>
