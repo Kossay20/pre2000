@@ -9,6 +9,8 @@ import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
 // The published policy (website/privacy.html) names this address; mamabebe.app
 // has no mail server, so the previous value bounced every request.
 const CONTACT_EMAIL = 'contact@mama-et-bebe.com';
+// Postal address stays in Latin script in every language (it is a mailing address, not prose).
+const PUBLISHER_ADDRESS = 'Kossay El Benna, 378 rue Elie Gruyelle, 62110 Hénin-Beaumont, France';
 
 /**
  * PrivacyPolicyScreen - Legal compliance for App Store
@@ -154,6 +156,7 @@ export const PrivacyPolicyScreen = () => {
                                 <Text style={styles.paragraph}>
                                     {t('privacy.contact.text')}
                                 </Text>
+                                <Text style={styles.paragraph}>{t('privacy.contact.publisher')} {PUBLISHER_ADDRESS}</Text>
                                 <TouchableOpacity style={styles.contactButton} onPress={handleContactPress}>
                                     <Text style={styles.contactButtonText}>📧 {CONTACT_EMAIL}</Text>
                                 </TouchableOpacity>
@@ -190,6 +193,11 @@ export const PrivacyPolicyScreen = () => {
                             <View style={styles.section}>
                                 <Text style={styles.sectionTitle}>{t('legalTerms.terms.ipTitle')}</Text>
                                 <Text style={styles.paragraph}>{t('legalTerms.terms.content')}</Text>
+                            </View>
+
+                            <View style={styles.section}>
+                                <Text style={styles.paragraph}>{t('legalTerms.terms.publisher')} {PUBLISHER_ADDRESS}</Text>
+                                <Text style={styles.paragraph}>{t('legalTerms.terms.law')}</Text>
                             </View>
                         </>
                     )}

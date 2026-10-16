@@ -432,7 +432,8 @@
     },
     "contact": {
       "title": "8. Contact",
-      "text": "Pour toute question sur vos données ou vos droits :"
+      "text": "Pour toute question sur vos données ou vos droits :",
+      "publisher": "Éditeur :"
     },
     "guestMode": {
       "title": "9. Mode Invitée",
@@ -452,7 +453,9 @@
       "liability": "L'éditeur ne saurait être tenu responsable de l'utilisation faite des informations fournies.",
       "liabilityTitle": "Responsabilité",
       "content": "Le contenu (textes, images) est protégé par le droit d'auteur.",
-      "ipTitle": "Propriété Intellectuelle"
+      "ipTitle": "Propriété Intellectuelle",
+      "publisher": "Éditeur :",
+      "law": "Droit applicable : les présentes CGU sont régies par le droit français."
     },
     "cookies": {
       "title": "Cookies & Traceurs",

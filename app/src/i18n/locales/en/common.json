@@ -379,7 +379,8 @@
     },
     "contact": {
       "title": "8. Contact",
-      "text": "For any question about your data or your rights:"
+      "text": "For any question about your data or your rights:",
+      "publisher": "Publisher:"
     },
     "guestMode": {
       "title": "9. Guest mode",
@@ -399,7 +400,9 @@
       "liability": "The publisher cannot be held responsible for the use of the information provided.",
       "liabilityTitle": "Liability",
       "content": "All content (text, images) is protected by copyright.",
-      "ipTitle": "Intellectual Property"
+      "ipTitle": "Intellectual Property",
+      "publisher": "Publisher:",
+      "law": "Governing law: these terms are governed by French law."
     },
     "cookies": {
       "title": "Cookies & Trackers",
