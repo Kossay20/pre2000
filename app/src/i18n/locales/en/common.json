@@ -359,7 +359,7 @@
     },
     "storage": {
       "title": "5. Storage, security and transfers",
-      "text": "Your account data is stored on Google Firebase servers. Traffic with those servers is encrypted (HTTPS/TLS), and access rules restrict each record to its owner. The publisher is based in the United States, and Google and our providers may process your data outside your country, including in the United States."
+      "text": "Your account data is stored on Google Firebase servers. Traffic with those servers is encrypted (HTTPS/TLS), and access rules restrict each record to its owner. The publisher is based in France, and Google and our providers may process your data outside your country, including in the United States."
     },
     "retention": {
       "title": "6. Retention",

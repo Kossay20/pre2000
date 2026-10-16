@@ -412,7 +412,7 @@
     },
     "storage": {
       "title": "5. Stockage, sécurité et transferts",
-      "text": "Les données de votre compte sont stockées sur les serveurs de Google Firebase. Les échanges avec ces serveurs sont chiffrés (HTTPS/TLS) et des règles d'accès réservent chaque donnée à sa propriétaire. L'éditeur est établi aux États-Unis, et Google comme nos prestataires peuvent traiter vos données hors de votre pays, y compris aux États-Unis."
+      "text": "Les données de votre compte sont stockées sur les serveurs de Google Firebase. Les échanges avec ces serveurs sont chiffrés (HTTPS/TLS) et des règles d'accès réservent chaque donnée à sa propriétaire. L'éditeur est établi en France, et Google comme nos prestataires peuvent traiter vos données hors de votre pays, y compris aux États-Unis."
     },
     "retention": {
       "title": "6. Durée de conservation",
