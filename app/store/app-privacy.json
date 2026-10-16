@@ -2,8 +2,7 @@
   "_status": "DRAFT FROM THE CODE. The owner MUST confirm every answer in App Store Connect > App Privacy before submitting. This file is checked against app.json ios.privacyManifests by __tests__/releaseConfig.test.ts; it is not read by the stores.",
   "_sources": [
     "app.json ios.privacyManifests",
-    "App.tsx (Sentry.init, tracesSampleRate 0.2, Sentry.wrap)",
-    "src/utils/logger.ts (Sentry.setUser with SHA-256 of the uid, 16 hex chars)",
+    "App.tsx (Sentry.init is disabled when EXPO_PUBLIC_SENTRY_DSN is absent in production)",
     "src/context/AuthContext.tsx (email/password sign-up, anonymous sign-in for guests)",
     "src/types/index.ts UserProfile (name, email, country, age range, first-pregnancy flag, medical flags, emergency contacts, consent record)",
     "src/screens/OnboardingScreen.tsx (collects the age range and the first-pregnancy answer; the city is passed as undefined, so it is not collected)",
@@ -76,46 +75,13 @@
       "linkedToUser": true,
       "usedForTracking": false,
       "purposes": ["App Functionality"],
-      "what": "Firebase Auth uid (registered or anonymous) keying every Firestore document; a SHA-256 hash of it is attached to Sentry events."
-    },
-    {
-      "manifestType": "NSPrivacyCollectedDataTypeCrashData",
-      "appStoreConnectCategory": "Diagnostics > Crash Data",
-      "linkedToUser": true,
-      "usedForTracking": false,
-      "purposes": ["App Functionality"],
-      "what": "Sentry crash and error reports, linked to the hashed uid. Only in production builds and only when EXPO_PUBLIC_SENTRY_DSN is set."
-    },
-    {
-      "manifestType": "NSPrivacyCollectedDataTypePerformanceData",
-      "appStoreConnectCategory": "Diagnostics > Performance Data",
-      "linkedToUser": true,
-      "usedForTracking": false,
-      "purposes": ["App Functionality"],
-      "what": "Sentry transactions, sampled at 20 percent (tracesSampleRate 0.2)."
-    },
-    {
-      "manifestType": "NSPrivacyCollectedDataTypeOtherDiagnosticData",
-      "appStoreConnectCategory": "Diagnostics > Other Diagnostic Data",
-      "linkedToUser": true,
-      "usedForTracking": false,
-      "purposes": ["App Functionality"],
-      "what": "Device and OS context attached to every Sentry event."
-    },
-    {
-      "manifestType": "NSPrivacyCollectedDataTypeProductInteraction",
-      "appStoreConnectCategory": "Usage Data > Product Interaction",
-      "linkedToUser": true,
-      "usedForTracking": false,
-      "purposes": ["App Functionality"],
-      "what": "Sentry.wrap adds a touch boundary, so taps become breadcrumbs on error events. No product analytics SDK is active (firebase analytics is a no-op, src/config/firebase.ts)."
+      "what": "Firebase Auth uid (registered or anonymous) keys every Firestore document. No analytics or crash-reporting service is enabled in the production EAS environment."
     }
   ],
   "ownerChecklist": [
     "Re-read each answer in App Store Connect against the published privacy policy (website/privacy.html).",
     "Confirm whether Firebase App Check attestation tokens need a Device ID line in your reading of Apple's definitions; the manifest does not declare one.",
-    "Device ID (NSPrivacyCollectedDataTypeDeviceID): the native Sentry SDK attaches an installation-scoped default user id to events sent before login (Language, AuthChoice and Login screens), when logger.setUser has not run yet. Read Sentry's and Apple's definitions and either declare Device ID (not used for tracking) or confirm it is out of scope; the manifest does not declare one. Events after login carry the hashed uid instead.",
     "After this file changed CoarseLocation to linked, re-enter that row in App Store Connect > App Privacy so it matches app.json (finding F-040).",
-    "If EXPO_PUBLIC_SENTRY_DSN is not set on the production EAS environment, crash reporting is off and the Diagnostics rows overstate collection (finding F-036)."
+    "The current production EAS environment has no EXPO_PUBLIC_SENTRY_DSN; if crash reporting is enabled later, revisit the Diagnostics and Product Interaction answers before shipping that build."
   ]
 }

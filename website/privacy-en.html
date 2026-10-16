@@ -55,9 +55,6 @@
             <li><strong>Kept only on your phone:</strong> hydration, Ramadan tracking, daily checklist and saved articles. They are not sent to our servers.</li>
             <li><strong>Assistant:</strong> it runs entirely on your phone. Your messages are neither sent to a
                 server nor saved.</li>
-            <li><strong>Technical data:</strong> when an error occurs, a technical report (error description,
-                screen, device model and operating system, app version) with a pseudonymous identifier derived from
-                your account, never your email address (via Sentry).</li>
         </ul>
 
         <h3>3. Use of Data</h3>
@@ -65,7 +62,6 @@
         <ul>
             <li>Provide pregnancy tracking and schedule your reminders on your phone.</li>
             <li>Sync your data across your devices (if you are signed in).</li>
-            <li>Fix app errors using technical reports (Sentry).</li>
         </ul>
         <p><strong>We do not sell, rent or share any personal data with third parties for commercial or advertising
                 purposes, and we do no profiling.</strong></p>
@@ -80,8 +76,6 @@
             <li><strong>Google Firebase (Google Cloud):</strong> sign-in, database, and checking that requests come
                 from the genuine app (App Check, using Apple App Attest or Google Play Integrity). <a
                     href="https://firebase.google.com/support/privacy" target="_blank">Firebase Policy</a>.</li>
-            <li><strong>Sentry:</strong> receives the error reports described in section 2. <a
-                    href="https://sentry.io/privacy/" target="_blank">Sentry Policy</a>.</li>
             <li><strong>Expo:</strong> delivers app updates; it receives technical device information (IP address,
                 app version) when the app checks for an update. <a href="https://expo.dev/privacy"
                     target="_blank">Expo Policy</a>.</li>
@@ -98,7 +92,7 @@
         <h3>6. Retention</h3>
         <p>Your account data is kept as long as your account exists and erased as soon as you delete it; we keep no
             copy. Data kept on your phone stays there until you erase it, delete your account or uninstall the app.
-            Error reports are deleted automatically by Sentry at the end of its retention period.</p>
+            No error-reporting service is enabled in the current production build.</p>
         <p>Data you save on our servers as a guest, under an anonymous identifier (section 8), stays there until you
             erase it with <em>Settings &rarr; My Data &rarr; Erase my data</em>; if you create an account, it becomes
             your account's data. We do not delete it automatically today: if you uninstall the app without erasing it
@@ -128,8 +122,8 @@
         <h3>8. Guest Mode</h3>
         <p>Without an account, you give no email address. What you record is kept on your phone. Some of it (for
             example health entries, appointments and reminders) may also be saved on our servers under an anonymous
-            identifier, with no email address, so that the app works; apart from that, only technical error reports
-            (section 2) leave your phone. Baby movements, contractions and your hospital bag stay only on your phone
+            identifier, with no email address, so that the app works; no assistant conversation data is sent to a
+            server. Baby movements, contractions and your hospital bag stay only on your phone
             until you create an account; they are then saved to it. To erase everything, on your phone and on our servers: <em>Settings &rarr;
                 My Data &rarr; Erase my data</em>. Uninstalling the app erases only what is on your phone.</p>
 

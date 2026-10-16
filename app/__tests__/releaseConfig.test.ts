@@ -120,14 +120,11 @@ describe('app.json store metadata', () => {
       expect(analytics).toEqual([]);
     });
 
-    it('declares what Sentry collects in production', () => {
+    it('does not declare disabled Sentry collection in the production manifest', () => {
       expect(appSource).toMatch(/Sentry\.init\(/);
-      expect(byType('CrashData')).toBeDefined();
-      expect(byType('OtherDiagnosticData')).toBeDefined(); // device/OS context on every event
-      const tracesSampleRate = Number(appSource.match(/tracesSampleRate:\s*([\d.]+)/)?.[1] ?? 0);
-      if (tracesSampleRate > 0) expect(byType('PerformanceData')).toBeDefined();
-      // Sentry.wrap adds a TouchEventBoundary: taps become breadcrumbs.
-      if (/Sentry\.wrap\(/.test(appSource)) expect(byType('ProductInteraction')).toBeDefined();
+      for (const type of ['CrashData', 'PerformanceData', 'OtherDiagnosticData', 'ProductInteraction']) {
+        expect(byType(type)).toBeUndefined();
+      }
     });
 
     it('marks everything stored under the account as linked (F-040)', () => {
@@ -223,23 +220,17 @@ describe('app.json store metadata', () => {
       }
     });
 
-    it('scrubs transactions and breadcrumbs, and flags the pre-login Device ID (F-042)', () => {
+    it('keeps the disabled telemetry path guarded and leaves App Check for owner confirmation', () => {
       expect(appSource).toMatch(/beforeSendTransaction:/);
       expect(appSource).toMatch(/beforeBreadcrumb:/);
       for (const file of ['store/app-privacy.json', 'store/data-safety.json']) {
-        expect(JSON.parse(read(file)).ownerChecklist.join(' ')).toMatch(/Device ID/);
+        expect(JSON.parse(read(file)).ownerChecklist.join(' ')).toMatch(/App Check/);
       }
     });
 
-    it('marks Sentry data as linked, because every event carries the user id hash', () => {
-      // logger.setUser sends SHA-256(uid) — a stable identifier, which Apple
-      // counts as linking the data to the user.
-      expect(read('src/utils/logger.ts')).toMatch(/setUser/);
+    it('does not claim Sentry data while the production DSN is absent', () => {
       for (const type of ['CrashData', 'PerformanceData', 'OtherDiagnosticData', 'ProductInteraction']) {
-        expect({ type, linked: byType(type)?.NSPrivacyCollectedDataTypeLinked }).toEqual({
-          type,
-          linked: true,
-        });
+        expect(byType(type)).toBeUndefined();
       }
     });
   });
@@ -403,9 +394,9 @@ describe('store privacy answers (store/app-privacy.json, store/data-safety.json)
     for (const c of covered) expect(entries.map((e) => e.NSPrivacyCollectedDataType)).toContain(c);
   });
 
-  it('Data safety names health data, crash logs and the deletion URL the binary ships', () => {
+  it('Data safety names health data and the deletion URL the binary ships', () => {
     const types = dataSafety.dataCollected.map((d: { playType: string }) => d.playType);
-    expect(types).toEqual(expect.arrayContaining(['Health info', 'Crash logs', 'Email address', 'User IDs']));
+    expect(types).toEqual(expect.arrayContaining(['Health info', 'Email address', 'User IDs']));
     expect(dataSafety.encryptedInTransit).toBe(true);
     expect(dataSafety.userCanRequestDeletion).toBe(true);
     expect(dataSafety.accountDeletionUrl).toBe(appJson.extra.accountDeletionUrl);

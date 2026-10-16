@@ -2,7 +2,7 @@
   "_status": "DRAFT FROM THE CODE. The owner MUST confirm every answer in Play Console > App content > Data safety before submitting. This file is checked against app.json ios.privacyManifests and android permissions by __tests__/releaseConfig.test.ts; it is not read by the stores.",
   "_sources": [
     "app.json (android.permissions, blockedPermissions, extra.accountDeletionUrl)",
-    "App.tsx and src/utils/logger.ts (Sentry)",
+    "App.tsx (Sentry is disabled because the production EAS environment has no DSN)",
     "src/context/AuthContext.tsx (userProfiles/{uid}: country, ageRange, isFirstPregnancy), src/screens/OnboardingScreen.tsx, src/context/gdprPurge.ts",
     "docs/RELEASE_READINESS_2026-08-19.md rows 9-10"
   ],
@@ -37,7 +37,7 @@
       "appleEquivalent": "NSPrivacyCollectedDataTypeUserID",
       "optional": false,
       "purposes": ["App functionality", "Account management"],
-      "note": "Firebase Auth uid, anonymous for guests. A SHA-256 hash is sent to Sentry."
+      "note": "Firebase Auth uid, anonymous for guests."
     },
     {
       "playCategory": "Personal info",
@@ -78,45 +78,12 @@
       "optional": true,
       "purposes": ["App functionality"],
       "note": "Country selected by the user, stored on the profile under the account uid; no location permission is declared."
-    },
-    {
-      "playCategory": "App info and performance",
-      "playType": "Crash logs",
-      "appleEquivalent": "NSPrivacyCollectedDataTypeCrashData",
-      "optional": false,
-      "purposes": ["App functionality", "Analytics"],
-      "note": "Sentry, production builds with a DSN only."
-    },
-    {
-      "playCategory": "App info and performance",
-      "playType": "Diagnostics",
-      "appleEquivalent": "NSPrivacyCollectedDataTypePerformanceData",
-      "optional": false,
-      "purposes": ["App functionality"],
-      "note": "Sentry traces sampled at 20 percent."
-    },
-    {
-      "playCategory": "App info and performance",
-      "playType": "Diagnostics",
-      "appleEquivalent": "NSPrivacyCollectedDataTypeOtherDiagnosticData",
-      "optional": false,
-      "purposes": ["App functionality"],
-      "note": "Device and OS context on Sentry events."
-    },
-    {
-      "playCategory": "App activity",
-      "playType": "App interactions",
-      "appleEquivalent": "NSPrivacyCollectedDataTypeProductInteraction",
-      "optional": false,
-      "purposes": ["App functionality"],
-      "note": "Taps recorded as Sentry breadcrumbs; no analytics SDK."
     }
   ],
   "ownerChecklist": [
     "Re-read each row in Play Console against the published privacy policy and the delete-account page, which must answer 200.",
     "Decide the retention period for anonymous guest data before enabling Anonymous Auth (RELEASE_READINESS row 5 ter).",
     "Confirm whether Firebase App Check (Play Integrity) needs a 'Device or other IDs' row in your reading of the Play definitions; it is not declared here.",
-    "Device ID: the native Sentry SDK attaches an installation-scoped default user id to events sent before login (Language, AuthChoice and Login screens), when logger.setUser has not run yet. Read Sentry's and Google's definitions and either add a 'Device or other IDs' row or confirm it is out of scope; it is not declared here. Events after login carry the hashed uid instead.",
-    "If EXPO_PUBLIC_SENTRY_DSN is not set on the production EAS environment, the App info and performance rows overstate collection (finding F-036)."
+    "If EXPO_PUBLIC_SENTRY_DSN is enabled in a future production environment, revisit the App info and performance rows before shipping that build."
   ]
 }
