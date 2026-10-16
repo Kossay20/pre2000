@@ -8,7 +8,7 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
-    "description": "Votre compagne de grossesse intelligente — suivi semaine par semaine, rappels, calendrier médical, recettes et conseils personnalisés.",
+    "description": "Votre compagne de grossesse intelligente — suivi semaine par semaine, rappels, calendrier médical, articles et conseils pratiques.",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
