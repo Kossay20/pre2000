@@ -1,5 +1,5 @@
 {
-  "versionNote": "Une application pensée pour accompagner votre quotidien",
+  "versionNote": "Version 1 — développée avec soin par Sawssen Jemaiel",
   "greeting": "Bonjour {{name}} 👋",
   "futureMom": "Future Maman",
   "loadingData": "Chargement de vos données...",

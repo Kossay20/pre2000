@@ -30,14 +30,14 @@ describe('Home version note', () => {
     expect(block).toMatch(/color: theme\.colors\.white/);
   });
 
-  it.each(['fr', 'en', 'ar', 'tn'])('has the %s translation without personal author data', (lng) => {
+  it.each(['fr', 'en', 'ar', 'tn'])('has the %s translation crediting the developer', (lng) => {
     const json = JSON.parse(read(`src/i18n/locales/${lng}/home.json`));
-    expect(json.versionNote).not.toMatch(/Sawssen|Jemaiel|Kossay/);
+    expect(json.versionNote).toMatch(/Sawssen Jemaiel/);
     expect(json.versionNote.length).toBeGreaterThan(10);
   });
 
-  it('keeps the anonymized French wording requested for store captures', () => {
+  it('keeps the French wording crediting the developer', () => {
     const fr = JSON.parse(read('src/i18n/locales/fr/home.json'));
-    expect(fr.versionNote).toBe('Une application pensée pour accompagner votre quotidien');
+    expect(fr.versionNote).toBe('Version 1 — développée avec soin par Sawssen Jemaiel');
   });
 });
