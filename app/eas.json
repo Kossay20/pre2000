@@ -45,7 +45,7 @@
                 "buildType": "app-bundle"
             },
             "ios": {
-                "image": "latest"
+                "image": "macos-sequoia-15.6-xcode-26.0"
             },
             "env": {
                 "APP_ENV": "production"
