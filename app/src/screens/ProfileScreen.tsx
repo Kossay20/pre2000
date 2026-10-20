@@ -314,7 +314,7 @@ export const ProfileScreen = () => {
                             <TouchableOpacity
                                 style={[styles.menuRow, { borderBottomWidth: 0 }]}
                                 accessibilityRole="button"
-                                accessibilityLabel={t('a11y.deleteAccount')}
+                                accessibilityLabel={t('profile.deleteAccount')}
                                 accessibilityHint={t('a11y.deleteAccountHint')}
                                 accessibilityState={{ disabled: deletionBusy, busy: deletionBusy }}
                                 disabled={deletionBusy}

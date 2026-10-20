@@ -258,6 +258,20 @@ describe('generateExportData — authenticated user', () => {
         expect(data.profile.medicalProfileAnsweredAt).toBe('2026-08-25T10:00:00.000Z');
     });
 
+    test('exports the profile answers the privacy policy lists (age range, first pregnancy, height, weight, cycle, language)', async () => {
+        const data = await generateExportData(
+            { ...authUser, ageRange: '25-29', isFirstPregnancy: true, height: 165, prePregnancyWeight: 58, cycleLength: 28, locale: 'fr' } as any,
+            profile,
+        );
+        expect(data.profile).toMatchObject({ ageRange: '25-29', isFirstPregnancy: true, height: 165, prePregnancyWeight: 58, cycleLength: 28, language: 'fr' });
+    });
+
+    test('keeps height and weight carried by the spread profile when the auth profile has none (guest)', async () => {
+        const data = await generateExportData({ ...authUser, height: undefined, prePregnancyWeight: undefined } as any, { ...profile, height: 170, prePregnancyWeight: 61 } as any);
+        expect(data.profile.height).toBe(170);
+        expect(data.profile.prePregnancyWeight).toBe(61);
+    });
+
     test('spreads the profile and stamps a fresh metadata envelope', async () => {
         const data = await generateExportData(authUser, profile);
 

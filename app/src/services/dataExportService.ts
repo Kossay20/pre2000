@@ -253,8 +253,9 @@ export const generateExportData = async (user: any, profile: any) => {
                 // Profile answers the privacy policy lists as exported (GDPR Art. 15/20).
                 ageRange: user?.ageRange,
                 isFirstPregnancy: user?.isFirstPregnancy,
-                height: user?.height,
-                prePregnancyWeight: user?.prePregnancyWeight,
+                // `??`: a guest has no auth-profile value, and the spread `profile` may carry it (D-083).
+                height: user?.height ?? (profile as any)?.height,
+                prePregnancyWeight: user?.prePregnancyWeight ?? (profile as any)?.prePregnancyWeight,
                 cycleLength: user?.cycleLength,
                 language: user?.locale,
             },
