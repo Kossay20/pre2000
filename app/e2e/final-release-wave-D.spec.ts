@@ -2391,7 +2391,7 @@ test.describe('ar', () => {
     await page.goto('/profile', { waitUntil: 'load' });
     await expect(firstAr).toBeVisible({ timeout: 30_000 });
     // 34a — the danger zone itself, in view (reset, delete), RTL.
-    const arDelete = page.getByRole('button', { name: 'حذف الحساب' });
+    const arDelete = page.getByRole('button', { name: 'حذف حسابي' });
     await arDelete.scrollIntoViewIfNeeded();
     await expect.soft(page.getByText('منطقة الخطر', { exact: true }), '34a: danger zone title in Arabic').toBeVisible();
     const dangerText = await page.locator('body').innerText();
@@ -2399,7 +2399,7 @@ test.describe('ar', () => {
     await state(ctx, '34a-ar-danger-zone');
 
     ctx.dialogs.next('dismiss');
-    const d34 = await clickForDialog(ctx, () => page.getByRole('button', { name: 'حذف الحساب' }).click());
+    const d34 = await clickForDialog(ctx, () => page.getByRole('button', { name: 'حذف حسابي' }).click());
     expect.soft(d34?.message ?? '(no dialog)', '34: delete confirm in Arabic').toMatch(/حذف الحساب[\s\S]*هل أنت متأكد/);
     await page.waitForTimeout(1500);
     expect.soft(await authAccountExists(acct.uid), '34: dismissed confirm keeps the account').toBe(true);
@@ -2429,7 +2429,7 @@ test.describe('ar', () => {
     await expect(page.getByRole('textbox', { name: 'الاسم الأول' })).toBeVisible({ timeout: 30_000 });
     const stale = await makeSessionStale(page, { waitMs: 0, shiftClock: false });
     await watchDeletionProgress(page);
-    await clickForDialog(ctx, () => page.getByRole('button', { name: 'حذف الحساب' }).click());
+    await clickForDialog(ctx, () => page.getByRole('button', { name: 'حذف حسابي' }).click());
     const field = page.getByRole('textbox', { name: 'كلمة المرور' }).last();
     await expect(field, '34c: re-auth prompt in Arabic').toBeVisible({ timeout: 30_000 });
     expect(stale.refusals.length, '34c: the forced refusal fired').toBeGreaterThan(0);
