@@ -1,4 +1,5 @@
 {
+  "profileLabel": "Profil",
   "versionNote": "Version 1 — développée avec soin par Sawssen Jemaiel",
   "greeting": "Bonjour {{name}} 👋",
   "futureMom": "Future Maman",

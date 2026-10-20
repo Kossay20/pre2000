@@ -225,6 +225,14 @@ export const styles = StyleSheet.create({
         right: 16,
         zIndex: 10,
     },
+    // Visible hint under the avatar: the profile (and the account deletion in it) is not a tab.
+    profileLabel: {
+        marginTop: 3,
+        fontSize: 12,
+        fontWeight: '600',
+        textAlign: 'center',
+        color: theme.colors.white,
+    },
     profileButton: {
         width: 50,
         height: 50,

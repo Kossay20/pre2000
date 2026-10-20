@@ -72,9 +72,13 @@ describe('weekly task rows expose their checked state on web', () => {
 describe('D-016 — Profile: safety feature above the destructive block, logout not red', () => {
     const src = read('src/screens/ProfileScreen.tsx');
 
-    it('renders emergency contacts before the danger zone', () => {
+    // App Review 5.1.1(v) rejected build 21: the delete-account button sat at the very bottom of a
+    // long form and was not found. The account block (logout, reset, delete) now opens the screen.
+    it('puts the account block (logout, delete account) first, so deletion is found without scrolling', () => {
         expect(src.indexOf('<EmergencyContactsSection />')).toBeGreaterThan(-1);
-        expect(src.indexOf('<EmergencyContactsSection />')).toBeLessThan(src.indexOf("t('common.dangerZone')"));
+        expect(src.indexOf("t('common.dangerZone')")).toBeGreaterThan(-1);
+        expect(src.indexOf("t('common.dangerZone')")).toBeLessThan(src.indexOf("t('profile.personalInfo')"));
+        expect(src.indexOf("t('profile.deleteAccount')")).toBeLessThan(src.indexOf("t('profile.personalInfo')"));
     });
 
     it('draws logout in the neutral text colour', () => {

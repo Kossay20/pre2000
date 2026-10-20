@@ -280,8 +280,56 @@ export const ProfileScreen = () => {
 
                 <View style={styles.content}>
 
+                    {/* Account actions first: sign out and delete account must be found without scrolling (App Review 5.1.1(v)). */}
+                    <Text style={[styles.sectionTitle, { marginTop: 0, color: theme.colors.error }]}>{t('common.dangerZone')}</Text>
+                    <View style={styles.menuSection}>
+                        <TouchableOpacity
+                            style={styles.menuRow}
+                            onPress={handleLogout}
+                            accessibilityRole="button"
+                            accessibilityLabel={t('a11y.logout')}
+                            accessibilityHint={t('a11y.logoutHint')}
+                        >
+                            <View style={styles.menuRowLeft}>
+                                {/* Signing out erases nothing: neutral, so the red is left to the
+                                    rows that do (reset, delete). */}
+                                <Ionicons name="log-out-outline" size={24} color={theme.colors.textSecondary} style={styles.menuIcon} />
+                                <Text style={styles.menuLabel}>{t('profile.logout')}</Text>
+                            </View>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={styles.menuRow}
+                            onPress={requestResetProfile}
+                            accessibilityRole="button"
+                            accessibilityLabel={t('profile.reset')}
+                        >
+                            <View style={styles.menuRowLeft}>
+                                <Ionicons name="refresh-circle-outline" size={24} color={theme.colors.orange900} style={styles.menuIcon} />
+                                <Text style={[styles.menuLabel, { color: theme.colors.deepOrange900 }]}>{t('profile.reset')}</Text>
+                            </View>
+                        </TouchableOpacity>
+
+                        {!user?.isGuest && (
+                            <TouchableOpacity
+                                style={[styles.menuRow, { borderBottomWidth: 0 }]}
+                                accessibilityRole="button"
+                                accessibilityLabel={t('a11y.deleteAccount')}
+                                accessibilityHint={t('a11y.deleteAccountHint')}
+                                accessibilityState={{ disabled: deletionBusy, busy: deletionBusy }}
+                                disabled={deletionBusy}
+                                onPress={requestDeleteAccount}
+                            >
+                                <View style={styles.menuRowLeft}>
+                                    <Ionicons name="trash-outline" size={24} color={theme.colors.materialRedDark} style={styles.menuIcon} />
+                                    <Text style={[styles.menuLabel, { color: theme.colors.error }]}>{t('profile.deleteAccount')}</Text>
+                                </View>
+                            </TouchableOpacity>
+                        )}
+                    </View>
+
                     {/* Section 1: Mon Compte (Inline Edit) */}
-                    <Text style={styles.sectionTitle}>{t('profile.personalInfo')}</Text>
+                    <Text style={[styles.sectionTitle, { marginTop: 24 }]}>{t('profile.personalInfo')}</Text>
                     <View style={styles.card}>
                         <View style={styles.form}>
                             {/* UNBOUNDED-INPUT FIX: these two had no maxLength (unlike
@@ -501,54 +549,6 @@ export const ProfileScreen = () => {
                                         ? t('profile.cloudOffline')
                                         : t('profile.cloudData')}
                         </Text>
-                    </View>
-
-                    {/* Section 5: Zone de danger -> Sécurité */}
-                    <Text style={[styles.sectionTitle, { marginTop: 24, color: theme.colors.error }]}>{t('common.dangerZone')}</Text>
-                    <View style={styles.menuSection}>
-                        <TouchableOpacity
-                            style={styles.menuRow}
-                            onPress={handleLogout}
-                            accessibilityRole="button"
-                            accessibilityLabel={t('a11y.logout')}
-                            accessibilityHint={t('a11y.logoutHint')}
-                        >
-                            <View style={styles.menuRowLeft}>
-                                {/* Signing out erases nothing: neutral, so the red is left to the
-                                    rows that do (reset, delete). */}
-                                <Ionicons name="log-out-outline" size={24} color={theme.colors.textSecondary} style={styles.menuIcon} />
-                                <Text style={styles.menuLabel}>{t('profile.logout')}</Text>
-                            </View>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                            style={styles.menuRow}
-                            onPress={requestResetProfile}
-                            accessibilityRole="button"
-                            accessibilityLabel={t('profile.reset')}
-                        >
-                            <View style={styles.menuRowLeft}>
-                                <Ionicons name="refresh-circle-outline" size={24} color={theme.colors.orange900} style={styles.menuIcon} />
-                                <Text style={[styles.menuLabel, { color: theme.colors.deepOrange900 }]}>{t('profile.reset')}</Text>
-                            </View>
-                        </TouchableOpacity>
-
-                        {!user?.isGuest && (
-                            <TouchableOpacity
-                                style={[styles.menuRow, { borderBottomWidth: 0 }]}
-                                accessibilityRole="button"
-                                accessibilityLabel={t('a11y.deleteAccount')}
-                                accessibilityHint={t('a11y.deleteAccountHint')}
-                                accessibilityState={{ disabled: deletionBusy, busy: deletionBusy }}
-                                disabled={deletionBusy}
-                                onPress={requestDeleteAccount}
-                            >
-                                <View style={styles.menuRowLeft}>
-                                    <Ionicons name="trash-outline" size={24} color={theme.colors.materialRedDark} style={styles.menuIcon} />
-                                    <Text style={[styles.menuLabel, { color: theme.colors.error }]}>{t('profile.deleteAccount')}</Text>
-                                </View>
-                            </TouchableOpacity>
-                        )}
                     </View>
 
 

@@ -523,6 +523,13 @@ export const HomeScreen = () => {
                                 </Text>
                             </LinearGradient>
                         </TouchableOpacity>
+                        <Text
+                            style={styles.profileLabel}
+                            accessibilityElementsHidden
+                            importantForAccessibility="no-hide-descendants"
+                        >
+                            {t('home.profileLabel')}
+                        </Text>
                     </Animated.View>
 
                     {/* Centered Content */}
