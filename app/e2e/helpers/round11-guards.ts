@@ -77,7 +77,7 @@ export async function greetingVsAvatar(page: Page, name: string): Promise<Greeti
       (e) => visible(e) && e.getBoundingClientRect().top < 260 && norm(Array.from(e.childNodes).filter((x) => x.nodeType === 3).map((x) => x.textContent || '').join('')).includes(n),
     );
     const avatar = (Array.from(document.querySelectorAll('[role=button],button')) as HTMLElement[]).find(
-      (e) => visible(e) && e.getBoundingClientRect().top < 160 && norm(e.innerText) === initial,
+      (e) => visible(e) && e.getBoundingClientRect().top < 160 && norm(e.innerText).split(' ')[0] === initial, // button = avatar initial + the 'Profil' caption
     );
     if (!greet || !avatar) return { found: false as const, greeting: !!greet, avatar: !!avatar };
     const range = document.createRange();
