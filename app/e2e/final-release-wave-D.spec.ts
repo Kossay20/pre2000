@@ -1315,7 +1315,7 @@ test('D-upgrade: real anonymous guest → account keeps uid, data and a complete
   expect.soft(localAfter.includes('@bookmarks_v1'), '21: bookmarks survive the upgrade on this device').toBe(true);
   expect.soft(localAfter.includes('hospital_bag_v1'), '21: bag survives the upgrade on this device').toBe(true);
   await page.goto('/profile', { waitUntil: 'load' });
-  await expect.soft(page.getByRole('button', { name: 'Supprimer le compte' }), '21: delete-account row visible once upgraded').toBeVisible({ timeout: 15_000 });
+  await expect.soft(page.getByRole('button', { name: 'Supprimer mon compte' }), '21: delete-account row visible once upgraded').toBeVisible({ timeout: 15_000 });
   await state(ctx, '21-upgrade-server-truth');
 
   // 22 — a fresh context (new phone) + login shows week 32 and the name.
@@ -1438,7 +1438,7 @@ test('D-delete-A: cancel keeps everything; confirm leaves zero server data and n
 
   // 26 — dismiss the confirm → nothing deleted.
   ctx.dialogs.next('dismiss');
-  const d26 = await clickForDialog(ctx, () => page.getByRole('button', { name: 'Supprimer le compte' }).click());
+  const d26 = await clickForDialog(ctx, () => page.getByRole('button', { name: 'Supprimer mon compte' }).click());
   expect.soft(d26?.message ?? '(no dialog)', '26: delete confirm').toMatch(/^Supprimer le compte\n\n.*irréversible/s);
   // From Profile the export lives in Settings — the confirm must say so (and not "on this screen").
   expect.soft(norm(d26?.message), '26: confirm points to the Settings export').toMatch(/Paramètres → « Exporter mes données »/);
@@ -1463,7 +1463,7 @@ test('D-delete-A: cancel keeps everything; confirm leaves zero server data and n
   });
   await watchDeletionProgress(page);
   const dialogsBefore27 = ctx.dialogs.dialogs.length;
-  await clickForDialog(ctx, () => page.getByRole('button', { name: 'Supprimer le compte' }).click());
+  await clickForDialog(ctx, () => page.getByRole('button', { name: 'Supprimer mon compte' }).click());
   const progress = page.getByTestId('deletion_progress');
   await expect.soft(progress, '27a (D-020): blocking progress modal while the account is being erased').toBeVisible({ timeout: 20_000 });
   await expect.soft(progress.getByText('Suppression en cours…'), '27a (D-020): the modal says what is happening').toBeVisible();
@@ -1479,7 +1479,7 @@ test('D-delete-A: cancel keeps everything; confirm leaves zero server data and n
   expect.soft(mid27.auth, '27a: Auth user not deleted yet (request held)').toBe(true);
   // The modal blocks the screen: the delete row under it cannot be pressed again.
   const blocked = await page
-    .getByRole('button', { name: 'Supprimer le compte' })
+    .getByRole('button', { name: 'Supprimer mon compte' })
     .click({ trial: true, timeout: 1_500 })
     .then(() => false, () => true);
   expect.soft(blocked, '27a (D-020): the screen under the progress modal is not clickable').toBe(true);
@@ -1537,7 +1537,7 @@ test('D-reauth-cancel: cancelling the re-auth prompt must not leave a half-purge
   note(testInfo, '30-stale-by', stale.aged ? 'emulator lastLoginAt backdated' : 'real wait (fallback)');
 
   // 30 — delete → re-auth prompt → Annuler.
-  await clickForDialog(ctx, () => page.getByRole('button', { name: 'Supprimer le compte' }).click());
+  await clickForDialog(ctx, () => page.getByRole('button', { name: 'Supprimer mon compte' }).click());
   await expect(reauthField(page), '30: re-auth prompt shown for a stale session').toBeVisible({ timeout: 20_000 });
   await state(ctx, '30-delete-reauth-prompt', [/status of 400/]);
   await page.getByRole('button', { name: 'Annuler', exact: true }).last().click();
@@ -1576,7 +1576,7 @@ test('D-reauth: wrong password → localized error; right password completes the
   note(testInfo, '29-stale-by', stale29.aged ? 'emulator lastLoginAt backdated' : 'real wait (fallback)');
 
   // 29 — prompt with a labelled password field.
-  await clickForDialog(ctx, () => page.getByRole('button', { name: 'Supprimer le compte' }).click());
+  await clickForDialog(ctx, () => page.getByRole('button', { name: 'Supprimer mon compte' }).click());
   const field = reauthField(page);
   await expect(field, '29: re-auth prompt').toBeVisible({ timeout: 20_000 });
   const label = await field.getAttribute('aria-label');
@@ -1623,7 +1623,7 @@ test('D-reauth: wrong password → localized error; right password completes the
 
   // Right password → deletion completes.
   if (!(await field.isVisible())) {
-    await clickForDialog(ctx, () => page.getByRole('button', { name: 'Supprimer le compte' }).click());
+    await clickForDialog(ctx, () => page.getByRole('button', { name: 'Supprimer mon compte' }).click());
     await expect(field).toBeVisible({ timeout: 20_000 });
   }
   await field.fill(acct.password);
@@ -1651,7 +1651,7 @@ test('D-reauth-after-purge: a refusal after the erase never leaves an emptied ac
   const stale = await makeSessionStale(page, { waitMs: 0, shiftClock: false });
 
   // 35 — delete → purge → accounts:delete refused → "finish" prompt.
-  await clickForDialog(ctx, () => page.getByRole('button', { name: 'Supprimer le compte' }).click());
+  await clickForDialog(ctx, () => page.getByRole('button', { name: 'Supprimer mon compte' }).click());
   await expect(reauthField(page), '35: finish-deletion prompt').toBeVisible({ timeout: 30_000 });
   expect(stale.refusals.length, '35: the forced CREDENTIAL_TOO_OLD refusal actually fired').toBeGreaterThan(0);
   await expect.soft(page.getByText(/Vos données ont déjà été effacées/).first(), '35: the prompt says the data is already erased').toBeVisible();
@@ -1707,7 +1707,7 @@ test('D-delete-second-phone: a deletion left unfinished on one phone is finished
   const stale = await makeSessionStale(page, { waitMs: 0, shiftClock: false });
 
   // 38 — phone 1: purge runs, the Auth delete is refused, she abandons the prompt.
-  await clickForDialog(ctx, () => page.getByRole('button', { name: 'Supprimer le compte' }).click());
+  await clickForDialog(ctx, () => page.getByRole('button', { name: 'Supprimer mon compte' }).click());
   await expect(reauthField(page), '38: finish-deletion prompt on phone 1').toBeVisible({ timeout: 30_000 });
   expect(stale.refusals.length, '38: the forced CREDENTIAL_TOO_OLD refusal actually fired').toBeGreaterThan(0);
   const marker38 = await pollServer(() => serverDoc(MARKER_DOC(acct.uid)), (d) => d !== null, 10_000);

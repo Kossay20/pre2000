@@ -505,31 +505,28 @@ export const HomeScreen = () => {
                 style={styles.headerGradient}
             >
                 <Animated.View style={[styles.header, { opacity: fadeAnim, transform: [{ scale: scaleAnim }] }]}>
-                    {/* Profile Button - Absolute Top Right */}
+                    {/* Profile Button - Absolute Top Right: ONE control for the avatar and its caption,
+                        so the caption is tappable, has an accessible name and a >= 44pt target. */}
                     <Animated.View style={[styles.profileButtonContainer, { transform: [{ scale: pulseAnim }] }]}>
                         <TouchableOpacity
-                            style={styles.profileButton}
                             onPress={() => navigation.navigate('Profile')}
                             activeOpacity={0.8}
                             accessibilityLabel={t('a11y.profile')}
                             accessibilityRole="button"
+                            style={styles.profileTouch}
                         >
-                            <LinearGradient
-                                colors={[theme.colors.headerChipBg, theme.colors.blackAlpha10]}
-                                style={styles.profileGradient}
-                            >
-                                <Text style={styles.profileButtonText}>
-                                    {displayName.charAt(0).toUpperCase()}
-                                </Text>
-                            </LinearGradient>
+                            <View style={styles.profileButton}>
+                                <LinearGradient
+                                    colors={[theme.colors.headerChipBg, theme.colors.blackAlpha10]}
+                                    style={styles.profileGradient}
+                                >
+                                    <Text style={styles.profileButtonText}>
+                                        {displayName.charAt(0).toUpperCase()}
+                                    </Text>
+                                </LinearGradient>
+                            </View>
+                            <Text style={styles.profileLabel}>{t('home.profileLabel')}</Text>
                         </TouchableOpacity>
-                        <Text
-                            style={styles.profileLabel}
-                            accessibilityElementsHidden
-                            importantForAccessibility="no-hide-descendants"
-                        >
-                            {t('home.profileLabel')}
-                        </Text>
                     </Animated.View>
 
                     {/* Centered Content */}

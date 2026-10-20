@@ -209,7 +209,7 @@ export const styles = StyleSheet.create({
     headerTextContainer: {
         alignItems: 'center',
         marginBottom: 16,
-        ...(width < 340 ? { marginTop: 54 } : { paddingLeft: 76, paddingRight: 76 }),
+        ...(width < 340 ? { marginTop: 80 } : { paddingLeft: 76, paddingRight: 76 }),
     },
     weekInfo: {
         fontSize: 14,
@@ -224,6 +224,11 @@ export const styles = StyleSheet.create({
         top: 0,
         right: 16,
         zIndex: 10,
+    },
+    profileTouch: {
+        alignItems: 'center',
+        minWidth: 56,
+        minHeight: 44,
     },
     // Visible hint under the avatar: the profile (and the account deletion in it) is not a tab.
     profileLabel: {

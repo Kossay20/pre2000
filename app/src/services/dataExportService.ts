@@ -250,6 +250,13 @@ export const generateExportData = async (user: any, profile: any) => {
                 hasHypertension: user?.hasHypertension,
                 isTwinPregnancy: user?.isTwinPregnancy,
                 medicalProfileAnsweredAt: user?.medicalProfileAnsweredAt,
+                // Profile answers the privacy policy lists as exported (GDPR Art. 15/20).
+                ageRange: user?.ageRange,
+                isFirstPregnancy: user?.isFirstPregnancy,
+                height: user?.height,
+                prePregnancyWeight: user?.prePregnancyWeight,
+                cycleLength: user?.cycleLength,
+                language: user?.locale,
             },
             appointments,
             tasks,

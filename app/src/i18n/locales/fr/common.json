@@ -558,7 +558,7 @@
     "deleteContact": "Supprimer le contact {{name}}",
     "logout": "Se déconnecter",
     "logoutHint": "Déconnecte votre compte",
-    "deleteAccount": "Supprimer le compte",
+    "deleteAccount": "Supprimer mon compte",
     "deleteAccountHint": "Supprime définitivement votre compte et vos données",
     "toggleReminder": "Activer ou désactiver ce rappel",
     "expandSection": "Déplier la section",

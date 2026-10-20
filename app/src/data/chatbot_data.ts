@@ -262,7 +262,7 @@ export const RED_FLAGS: RedFlag[] = [
     "standard_message_fr": "Si vous avez des pensées de vous faire du mal ou de faire du mal à votre bébé, il s'agit d'une urgence psychiatrique. Contactez immédiatement les services d'urgence ou un professionnel de santé mentale.",
     "standard_message_ar": "إذا كانت لديك أفكار لإيذاء نفسك أو طفلك، فهذه حالة طوارئ نفسية. اتصلي بخدمات الطوارئ أو أخصائي الصحة العقلية فوراً.",
     "standard_message_en": "If you have thoughts of harming yourself or your baby, this is a psychiatric emergency. Contact emergency services or a mental health professional immediately.",
-    "standard_message_tn": "إذا عندك أفكار خايبة، اتكلمي مع حد تثقي فيه أو اتصلي بطبيب توة. مش وحدك.",
+    "standard_message_tn": "إذا عندك أفكار خايبة، اتكلمي مع حد تثقي فيه أو اتصلي بطبيب توة. مش وحدك. وكان تحسي براسك في خطر، اتصلي بالإسعاف ولّا امشي للطوارئ فوراً.",
     "linked_articles_ids": [
       "a15_dépression_post-partum"
     ]

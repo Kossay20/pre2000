@@ -34,9 +34,10 @@ describe('E56 — statistics range chips and locked badges', () => {
 });
 
 describe('E-008 / E-019 — 280 pt layouts', () => {
-  it('Home greeting starts below the avatar on a narrow screen', () => {
+  // 80 = avatar 50 + the 'Profil' caption (12pt + 3) + gap: below 54 the caption printed over the credit line (E-076).
+  it('Home greeting starts below the avatar and its caption on a narrow screen', () => {
     const src = read('src/screens/HomeScreen.styles.ts');
-    expect(src).toMatch(/headerTextContainer: \{[^}]*width < 340 \? \{ marginTop: 54 \}/s);
+    expect(src).toMatch(/headerTextContainer: \{[^}]*width < 340 \? \{ marginTop: 80 \}/s);
   });
 
   it('the appointment date field is wider than the time field', () => {
