@@ -32,7 +32,7 @@ interface JournalData {
 const generateHTML = (data: JournalData, t: TFunction, locale: Locale, langCode: string = 'fr') => {
     const { profile, weightHistory, appointments, notes } = data;
     const today = format(new Date(), 'd MMMM yyyy', { locale });
-    const displayName = escapeHtml(profile.firstName || t('common.futureMom'));
+    const displayName = escapeHtml(profile.firstName || t('home.futureMom'));
     const isRTL = langCode === 'ar' || langCode === 'tn';
 
     // Sort data

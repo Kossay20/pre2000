@@ -5,36 +5,60 @@
  * under the avatar -> the first section of the Profile screen.
  */
 import { test, expect } from '@playwright/test';
-import { createAccount, seedProfile, newAccountEmail, E2E_PASSWORD, uiLogin, waveUse } from './helpers/emulator-account';
+import path from 'path';
+import {
+  createAccount, seedProfile, newAccountEmail, E2E_PASSWORD, uiLogin, waveUse, type AppLocale,
+} from './helpers/emulator-account';
+import { attachMegaAuditRecorder } from './helpers/mega-audit-snap';
 
 test.use(waveUse('fr'));
 
-const TAB_BAR = 70; // bottom tab bar (~60 px): a button under it is not really visible
+// Visible caption under the Home avatar and visible label of the delete row, per locale
+// (src/i18n/locales/<l>/home.json "profileLabel", profile.json "deleteAccount").
+const LOCALES: { l: AppLocale; caption: string; del: string }[] = [
+  { l: 'fr', caption: 'Profil', del: 'Supprimer mon compte' },
+  { l: 'en', caption: 'Profile', del: 'Delete my account' },
+  { l: 'ar', caption: 'ملفي', del: 'حذف حسابي' },
+  { l: 'tn', caption: 'ملفي', del: 'نفسّخ الكونت متاعي' },
+];
 
-for (const vp of [
+const VIEWPORTS = [
   { width: 390, height: 844 },
   { width: 375, height: 667 },
-]) {
-  test(`delete account: Home -> Profil -> visible without scrolling at ${vp.width}x${vp.height}`, async ({ page }) => {
-    const acct = await createAccount(newAccountEmail('discover', `${vp.width}`), E2E_PASSWORD);
-    await seedProfile(acct.uid, acct.idToken, { week: 30, country: 'france', firstName: 'Salma' });
-    await page.setViewportSize(vp);
-    await uiLogin(page, acct.email, acct.password, 'fr');
+  { width: 320, height: 568 },
+];
 
-    // Tap 1: the visible "Profil" caption under the avatar must itself be tappable.
-    const caption = page.getByText('Profil', { exact: true }).first();
-    await expect(caption, 'the Profil caption is visible on Home').toBeVisible({ timeout: 30_000 });
-    // The avatar block pulses forever, so Playwright never sees it as stable: force the real click.
-    await caption.click({ force: true });
+const quartetDir = (): string => process.env.E2E_QUARTET_DIR || path.join('test-results', 'disc-quartet');
 
-    // The account block opens the Profile screen: sign out, reset, DELETE.
-    await expect(page.getByText('Zone de danger').first()).toBeVisible({ timeout: 30_000 });
-    const del = page.getByRole('button', { name: 'Supprimer mon compte' });
-    await expect(del, 'visible label and accessible name are both "Supprimer mon compte"').toBeVisible();
-    const box = await del.boundingBox();
-    expect(box, 'delete button has a box').not.toBeNull();
-    expect(box!.y + box!.height, 'delete button sits above the tab bar, no scrolling needed').toBeLessThanOrEqual(vp.height - TAB_BAR);
-  });
+for (const { l, caption, del } of LOCALES) {
+  for (const vp of VIEWPORTS) {
+    test(`delete account [${l}]: Home -> ${caption} -> visible above the tab bar at ${vp.width}x${vp.height}`, async ({ page }) => {
+      const rec = attachMegaAuditRecorder(page, quartetDir());
+      const acct = await createAccount(newAccountEmail('discover', `${l}${vp.width}`), E2E_PASSWORD);
+      await seedProfile(acct.uid, acct.idToken, { week: 30, country: 'france', firstName: 'Salma' });
+      await page.setViewportSize(vp);
+      await uiLogin(page, acct.email, acct.password, l);
+
+      // Tap 1: the visible caption under the avatar must itself be tappable (one accessible button).
+      const profileBtn = page.getByRole('button', { name: new RegExp(caption, 'i') }).first();
+      await expect(profileBtn, `the "${caption}" button is on Home`).toBeVisible({ timeout: 30_000 });
+      await page.waitForTimeout(1200); // header entrance animation
+      await rec.snap(`${l}-${vp.width}x${vp.height}-1-home`);
+      // The avatar block pulses forever, so Playwright never sees it as stable: force the real click.
+      await profileBtn.click({ force: true });
+
+      // The account block opens the Profile screen: sign out, reset, DELETE.
+      const delBtn = page.getByRole('button', { name: del });
+      await expect(delBtn, `visible label and accessible name are both "${del}"`).toBeVisible({ timeout: 30_000 });
+      await page.waitForTimeout(600);
+      await rec.snap(`${l}-${vp.width}x${vp.height}-2-profile`);
+      const box = await delBtn.boundingBox();
+      const tabs = await page.getByRole('tablist').first().boundingBox();
+      expect(box, 'delete button has a box').not.toBeNull();
+      expect(tabs, 'tab bar has a box').not.toBeNull();
+      expect(box!.y + box!.height, `delete button ends above the tab bar (top ${tabs!.y}): no scrolling needed`).toBeLessThanOrEqual(tabs!.y);
+    });
+  }
 }
 
 test('Home credit line and Profil caption do not overlap at 320 px (Slide Over)', async ({ page }) => {

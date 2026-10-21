@@ -124,16 +124,16 @@ describe('supportService — happy path (mail client available)', () => {
         expect(mockedAlert).not.toHaveBeenCalled();
     });
 
-    test('builds subject from common.appName + support.reportProblemSubject', async () => {
+    test('builds subject from common.common.appName + support.reportProblemSubject', async () => {
         const t = makeT();
         await openSupportEmail(t);
 
-        expect(t).toHaveBeenCalledWith('common.appName');
+        expect(t).toHaveBeenCalledWith('common.common.appName');
         expect(t).toHaveBeenCalledWith('support.reportProblemSubject');
 
         const openedUrl = mockedOpenURL.mock.calls[0][0] as string;
-        // subject = `[common.appName] support.reportProblemSubject`
-        const expectedSubject = `[common.appName] support.reportProblemSubject`;
+        // subject = `[common.common.appName] support.reportProblemSubject`
+        const expectedSubject = `[common.common.appName] support.reportProblemSubject`;
         expect(openedUrl).toContain(`subject=${encodeURIComponent(expectedSubject)}`);
     });
 
@@ -311,7 +311,7 @@ describe('supportService — outer catch (unexpected error)', () => {
         // Make t throw only while building the subject/body, but succeed in
         // the outer catch (so the catch Alert itself does not throw).
         const t = jest.fn((key: string, _opts?: any) => {
-            if (key === 'common.appName') {
+            if (key === 'common.common.appName') {
                 throw new Error('translation explosion');
             }
             return key;
@@ -332,7 +332,7 @@ describe('supportService — outer catch (unexpected error)', () => {
 
     test('does not throw out of openSupportEmail even on internal failure', async () => {
         const t = jest.fn((key: string) => {
-            if (key === 'common.appName') {
+            if (key === 'common.common.appName') {
                 throw new Error('boom');
             }
             return key;

@@ -480,7 +480,7 @@ export const ArticleDetailScreen = () => {
                        Now shows the proper "content coming soon" placeholder. */
                     <View style={styles.fallbackContainer}>
                         <Text style={styles.fallbackText}>
-                            {t('article.contentComingSoon')} 🚧
+                            {t('article.contentComingSoon')}
                         </Text>
                         <Text style={theme.typography.body}>
                             {getLocalizedContent(article, 'summary') || t('common.noDataAvailable')}

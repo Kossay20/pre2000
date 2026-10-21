@@ -43,7 +43,11 @@ export const setupRTL = async () => {
                     log.info('Skipping Updates.reloadAsync in dev — RTL change visible after manual restart');
                     return;
                 }
-                await Updates.reloadAsync();
+                try {
+                    await Updates.reloadAsync();
+                } catch (reloadError) {
+                    log.warn('Could not reload app for RTL change:', reloadError);
+                }
             }, 100);
         } catch (error) {
             log.warn('Could not reload app for RTL change:', error);

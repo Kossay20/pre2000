@@ -87,7 +87,7 @@
         },
         "bpSevere": {
             "title": "Very high blood pressure",
-            "message": "Very high blood pressure. Contact your healthcare provider without delay — risk of pre-eclampsia."
+            "message": "Very high blood pressure. Call emergency services or go to the maternity unit right away — risk of pre-eclampsia."
         },
         "bpLow": {
             "title": "Low blood pressure",

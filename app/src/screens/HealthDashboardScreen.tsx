@@ -241,9 +241,11 @@ export const HealthDashboardScreen = () => {
                 buttons.push({
                     text: `${t('dashboard.alerts.callEmergency')} (${emergencyNumberLabel(t, contact)})`,
                     onPress: () => {
-                        Linking.openURL(`tel:${number}`).catch(err =>
-                            log.error('[HealthDashboard] Failed to open dialer:', err),
-                        );
+                        Linking.openURL(`tel:${number}`).catch(err => {
+                            log.error('[HealthDashboard] Failed to open dialer:', err);
+                            // No dialer (iPad): give the number to call from another phone.
+                            showAlert(t('common.chatEmergency'), `${t('common.chatEmergencyAction')} ${number}`);
+                        });
                     },
                 });
             }

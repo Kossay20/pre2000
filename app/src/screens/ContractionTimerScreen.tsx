@@ -23,6 +23,7 @@ import { emergencyNumberLabel } from '../utils/emergencyNumberLabel';
 import { EmergencyNumberNote } from '../components/common/EmergencyNumberNote';
 import { getDeviceRegionCode } from '../utils/deviceRegion';
 import { confirmAction } from '../utils/uiUtils';
+import { showAlert } from '../utils/alert';
 import {
     ContractionTimerState,
     buildShareSummary,
@@ -113,8 +114,11 @@ export const ContractionTimerScreen: React.FC = () => {
 
     const onCallEmergency = useCallback(() => {
         if (!emergencyNumber) return;
-        Linking.openURL(`tel:${emergencyNumber}`).catch(() => {});
-    }, [emergencyNumber]);
+        // An iPad (or a phone without a SIM) has no tel: handler: say so instead of a dead button.
+        Linking.openURL(`tel:${emergencyNumber}`).catch(() =>
+            showAlert(t('common.chatEmergency'), `${t('common.chatEmergencyAction')} ${emergencyNumber}`),
+        );
+    }, [emergencyNumber, t]);
 
     const elapsedActive = state.activeStartedAt ? now - state.activeStartedAt : 0;
 

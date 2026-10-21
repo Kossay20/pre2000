@@ -792,3 +792,53 @@ describe('Chatbot triage — W6 #2: AR/TN negated symptoms must NOT over-escalat
     });
   }
 });
+
+// Apple-review audit (2026-10-21): these natural Arabic / Tunisian phrasings returned an
+// unrelated article or the fallback instead of an emergency.
+describe('Chatbot triage — natural Arabic / Tunisian emergencies in Arabic script', () => {
+  const phrases: { lang: string; text: string }[] = [
+    { lang: 'ar', text: 'أنا أنزف بشدة' },
+    { lang: 'ar', text: 'أريد أن أقتل نفسي' },
+    { lang: 'ar', text: 'الجنين لا يتحرك' },
+    { lang: 'ar', text: 'نزل مني ماء' },
+    { lang: 'tn', text: 'نحب نموت' },
+    { lang: 'tn', text: 'ما نحسش بالبيبي يتحرك' },
+    { lang: 'tn', text: 'البيبي ما يتحركش' },
+    { lang: 'tn', text: 'نزلت عليا الماء' },
+  ];
+  for (const { lang, text } of phrases) {
+    it(`[${lang}] "${text}" escalates`, async () => {
+      expect(escalates(await analyzeMessage(text))).toBe(true);
+    });
+  }
+  it('"I feel unwell" is not the suicide emergency', async () => {
+    const r: any = await analyzeMessage('I feel unwell');
+    expect(r.redFlag?.red_flag_id).not.toBe('pensées suicidaires');
+  });
+});
+
+// Apple-review audit, second pass (2026-10-21): plain first-person phrasings a reviewer types.
+describe('Chatbot triage — plain bleeding / self-harm / reduced-movement phrasings escalate', () => {
+  const phrases: { lang: string; text: string; flag?: string }[] = [
+    { lang: 'en', text: 'I am bleeding', flag: 'hemorragie_antepartum' },
+    { lang: 'en', text: "I'm bleeding", flag: 'hemorragie_antepartum' },
+    { lang: 'en', text: 'I have bleeding', flag: 'hemorragie_antepartum' },
+    { lang: 'en', text: 'there is blood in my underwear', flag: 'hemorragie_antepartum' },
+    { lang: 'en', text: 'vaginal bleeding', flag: 'hemorragie_antepartum' },
+    { lang: 'en', text: 'I feel like hurting myself', flag: 'pensées suicidaires' },
+    { lang: 'en', text: 'I want to end it', flag: 'pensées suicidaires' },
+    { lang: 'fr', text: "j'ai envie de me tuer", flag: 'pensées suicidaires' },
+    { lang: 'fr', text: 'je veux me faire du mal', flag: 'pensées suicidaires' },
+    { lang: 'ar', text: 'أريد قتل نفسي', flag: 'pensées suicidaires' },
+    { lang: 'ar', text: 'لا أريد أن أعيش', flag: 'pensées suicidaires' },
+    { lang: 'tn', text: 'البيبي قل حركتو', flag: 'ne sens plus le bébé' },
+    { lang: 'tn', text: 'راسي يوجعني برشا', flag: 'céphalée' },
+  ];
+  for (const { lang, text, flag } of phrases) {
+    it(`[${lang}] "${text}" escalates${flag ? ` to ${flag}` : ''}`, async () => {
+      const r: any = await analyzeMessage(text);
+      expect(escalates(r)).toBe(true);
+      if (flag) expect(r.redFlag?.red_flag_id).toBe(flag);
+    });
+  }
+});

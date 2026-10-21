@@ -11,7 +11,7 @@ const log = createLogger('SupportService');
 
 export const openSupportEmail = async (t: (key: string, options?: any) => string) => {
     try {
-        const subject = `[${t('common.appName')}] ${t('support.reportProblemSubject')}`;
+        const subject = `[${t('common.common.appName')}] ${t('support.reportProblemSubject')}`;
         const body = `
 ${t('support.emailBodyIntro')}
 

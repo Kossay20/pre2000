@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Linking, TouchableOpacity, Platform } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import * as Clipboard from 'expo-clipboard';
+import { showAlert } from '../utils/alert';
 import { theme } from '../theme';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
 
@@ -37,8 +39,18 @@ export const PrivacyPolicyScreen = () => {
         medical: t('common.medicalProfile.settingsTitle'),
     };
 
-    const handleContactPress = () => {
-        Linking.openURL(`mailto:${CONTACT_EMAIL}`);
+    const handleContactPress = async () => {
+        // A device with no Mail account has no mailto: handler: copy the address instead of a dead tap.
+        try {
+            await Linking.openURL(`mailto:${CONTACT_EMAIL}`);
+        } catch {
+            try {
+                await Clipboard.setStringAsync(CONTACT_EMAIL);
+            } catch {
+                // clipboard unavailable: the address is still shown on the button
+            }
+            showAlert(t('support.reportProblem'), t('support.mailUnavailableCopied', { email: CONTACT_EMAIL }));
+        }
     };
 
     return (

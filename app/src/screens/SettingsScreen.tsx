@@ -409,7 +409,7 @@ export const SettingsScreen = () => {
                             // P3.6 FIX: pass the real Profile (firstName, lmp, country) — was passing
                             // pregnancyInfo (just week/day) which produced a structurally invalid PDF profile block.
                             if (!profile) {
-                                showAlert(t('common.error'), t('common.profileRequired') || t('common.error'));
+                                showAlert(t('common.error'), t('common.common.profileRequired'));
                                 return;
                             }
                             await generateAndSharePDF({

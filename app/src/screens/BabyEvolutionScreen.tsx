@@ -191,6 +191,11 @@ export const BabyEvolutionScreen = () => {
                 ))}
             </View>
 
+            {/* Hint sits above the card: under it, the tab bar hid it on the screen the user lands on. */}
+            <Text style={styles.bottomText}>
+                {t('home.tapDotToSee')}
+            </Text>
+
             {/* Month Label */}
             <Text style={styles.monthLabel}>
                 {allMonths[activeMonth - 1]
@@ -202,13 +207,6 @@ export const BabyEvolutionScreen = () => {
                 {allMonths[activeMonth - 1]
                     ? renderMonthCard(allMonths[activeMonth - 1], activeMonth - 1)
                     : null}
-            </View>
-
-            {/* Bottom Info */}
-            <View style={styles.bottomInfo}>
-                <Text style={styles.bottomText}>
-                    {t('home.tapDotToSee')}
-                </Text>
             </View>
         </SafeAreaView>
     );
@@ -418,11 +416,10 @@ const styles = StyleSheet.create({
         fontSize: 12,
         color: theme.colors.purple700,
     },
-    bottomInfo: {
-        padding: 16,
-        alignItems: 'center',
-    },
     bottomText: {
+        textAlign: 'center',
+        paddingHorizontal: 16,
+        marginBottom: 4,
         fontSize: 13,
         color: theme.colors.textMuted,
         fontStyle: 'italic',
