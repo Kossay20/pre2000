@@ -1,5 +1,6 @@
 import { StyleSheet } from 'react-native';
 import { theme } from '../theme';
+import { MODAL_MAX_WIDTH } from '../utils/layout';
 
 export const styles = StyleSheet.create({
     container: {
@@ -22,7 +23,8 @@ export const styles = StyleSheet.create({
         fontSize: 12,
         color: theme.colors.textLight,
         lineHeight: 18,
-        textAlign: 'left',
+        // Cycle 4 F823 RTL : `auto` au lieu de hardcoded 'left' → suit la direction du parent.
+        textAlign: 'auto',
     },
     centerContainer: {
         flex: 1,
@@ -47,7 +49,7 @@ export const styles = StyleSheet.create({
     },
     headerSubtitle: {
         fontSize: 16,
-        color: theme.colors.whiteAlpha90,
+        color: theme.colors.white,
         marginTop: 4,
     },
     section: {
@@ -73,18 +75,30 @@ export const styles = StyleSheet.create({
         color: theme.colors.text,
     },
     addButton: {
-        backgroundColor: theme.colors.primary,
+        backgroundColor: theme.colors.accent,
         paddingHorizontal: 12,
         paddingVertical: 6,
         borderRadius: theme.borderRadius.m,
+        // 44pt tall in the box itself (hitSlop is ignored on web); the negative margin keeps the
+        // section header's height, as linkTouch does (E-006).
+        minHeight: 44,
+        justifyContent: 'center',
+        marginVertical: -8,
     },
     addButtonText: {
         color: theme.colors.white,
         fontSize: 14,
         fontWeight: '600',
     },
+    // "See all" text links: 44pt tall pressable, negative margin keeps the header height.
+    linkTouch: {
+        minHeight: 44,
+        justifyContent: 'center',
+        marginVertical: -12,
+        paddingHorizontal: 4,
+    },
     linkText: {
-        color: theme.colors.primary,
+        color: theme.colors.accent,
         fontSize: 14,
         fontWeight: '600',
     },
@@ -96,9 +110,22 @@ export const styles = StyleSheet.create({
     statBox: {
         alignItems: 'center',
     },
+    // The two halves of the Glycémie summary. A box as wide as its text let "Mesure hors
+    // objectif ce mois-ci" run on one line into the card's edge; an equal share of the
+    // row makes the label wrap inside it.
+    glucoseStatBox: {
+        flex: 1,
+        minWidth: 0,
+        alignItems: 'center',
+        paddingHorizontal: 4,
+    },
+    glucoseStatText: {
+        textAlign: 'center',
+        alignSelf: 'stretch',
+    },
     statLabel: {
         fontSize: 14,
-        color: theme.colors.neutral400,
+        color: theme.colors.textMuted,
         marginBottom: 4,
     },
     statValue: {
@@ -112,7 +139,7 @@ export const styles = StyleSheet.create({
     },
     emptyText: {
         textAlign: 'center',
-        color: theme.colors.neutral400,
+        color: theme.colors.textMuted,
         fontSize: 14,
         fontStyle: 'italic',
         paddingVertical: 20,
@@ -136,7 +163,7 @@ export const styles = StyleSheet.create({
     },
     bpDate: {
         fontSize: 12,
-        color: theme.colors.neutral400,
+        color: theme.colors.textMuted,
         marginTop: 4,
     },
     bpHistoryItem: {
@@ -151,9 +178,19 @@ export const styles = StyleSheet.create({
         fontWeight: '600',
         color: theme.colors.text,
     },
+    historyValueColumn: {
+        flexShrink: 1,
+        alignItems: 'flex-start',
+    },
+    historyFlag: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: theme.colors.deepOrange900,
+        marginTop: 2,
+    },
     bpHistoryDate: {
         fontSize: 14,
-        color: theme.colors.neutral400,
+        color: theme.colors.textMuted,
     },
     appointmentsRow: {
         flexDirection: 'row',
@@ -210,6 +247,7 @@ export const styles = StyleSheet.create({
     },
     modal: {
         width: '85%',
+        maxWidth: MODAL_MAX_WIDTH,
         backgroundColor: theme.colors.white,
         borderRadius: theme.borderRadius.xl,
         padding: 24,
@@ -225,6 +263,12 @@ export const styles = StyleSheet.create({
         color: theme.colors.text,
         marginBottom: 20,
         textAlign: 'center',
+    },
+    inputLabel: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: theme.colors.text,
+        marginBottom: 6,
     },
     input: {
         borderWidth: 1,
@@ -249,7 +293,7 @@ export const styles = StyleSheet.create({
         backgroundColor: theme.colors.borderLight,
     },
     modalButtonSave: {
-        backgroundColor: theme.colors.primary,
+        backgroundColor: theme.colors.primaryStrong,
     },
     modalButtonText: {
         fontSize: 16,
@@ -286,7 +330,7 @@ export const styles = StyleSheet.create({
         fontWeight: '500',
     },
     symptomLabelActive: {
-        color: theme.colors.primary,
+        color: theme.colors.accent,
         fontWeight: '600',
     },
 });

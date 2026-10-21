@@ -1,11 +1,13 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { format } from 'date-fns';
 import { useTranslation } from 'react-i18next';
 import { getDateLocale } from '../../utils/i18nHelpers';
 import { CombinedEvent } from '../../types';
 import { theme } from '../../theme';
 import { getShadowStyle } from '../../utils/styleUtils';
+import { importanceTier, templateCategory } from '../../utils/calendarTemplateTags';
 
 interface EventCardProps {
     event: CombinedEvent;
@@ -14,10 +16,16 @@ interface EventCardProps {
     onPress?: () => void;
 }
 
+// Capitalise only the first letter (the weekday): the month keeps the locale's own case so the
+// card reads like Weight/Health ('Samedi 3 oct.'). Arabic has no case, so this is a no-op there.
+const upperFirst = (value: string): string => (value ? value.charAt(0).toLocaleUpperCase() + value.slice(1) : value);
+
 export const EventCard: React.FC<EventCardProps> = React.memo(({ event, onEdit, onDelete, onPress }) => {
     const isUserEvent = event.source === 'user';
     const { t, i18n } = useTranslation();
     const dateLocale = getDateLocale(i18n.language);
+    const category = isUserEvent ? null : templateCategory(event.type);
+    const importance = isUserEvent ? null : importanceTier(event.importance);
 
     return (
         <View style={[styles.card, isUserEvent && styles.userEventCard]}>
@@ -29,14 +37,17 @@ export const EventCard: React.FC<EventCardProps> = React.memo(({ event, onEdit, 
                 activeOpacity={0.7}
                 disabled={!onPress}
                 accessibilityRole="button"
-                accessibilityLabel={`${event.title}, ${format(event.date, 'EEEE dd MMM HH:mm', { locale: dateLocale })}`}
+                accessibilityLabel={`${event.title}, ${format(event.date, 'EEEE d MMM HH:mm', { locale: dateLocale })}`}
                 accessibilityHint={onPress ? t('a11y.openAppointment') : undefined}
                 accessibilityState={{ disabled: !onPress }}
             >
                 {/* Header Row */}
                 <View style={styles.header}>
                     <View style={styles.iconBadge}>
-                        <Text style={styles.iconText}>{isUserEvent ? '📝' : '📅'}</Text>
+                        {/* The category decides the glyph: a check-up is not a memo. */}
+                        {isUserEvent && event.category === 'medical'
+                            ? <MaterialCommunityIcons name="stethoscope" size={22} color={theme.colors.indigoAccent} />
+                            : <Ionicons name="calendar-outline" size={22} color={isUserEvent ? theme.colors.indigoAccent : theme.colors.textSecondary} />}
                     </View>
                     <Text style={styles.title} numberOfLines={1}>{event.title}</Text>
                 </View>
@@ -49,7 +60,7 @@ export const EventCard: React.FC<EventCardProps> = React.memo(({ event, onEdit, 
                         </Text>
                     </View>
                     <Text style={styles.dateText}>
-                        {format(event.date, 'EEEE dd MMM', { locale: dateLocale })}
+                        {upperFirst(format(event.date, 'EEEE d MMM', { locale: dateLocale }))}
                     </Text>
                 </View>
 
@@ -65,18 +76,29 @@ export const EventCard: React.FC<EventCardProps> = React.memo(({ event, onEdit, 
 
                 {/* Tags */}
                 <View style={styles.tagsContainer}>
-                    <View style={[styles.tag, isUserEvent && styles.userTag]}>
-                        <Text style={[styles.tagText, isUserEvent && styles.userTagText]}>
-                            {isUserEvent ? t('calendar.myAppointment') : event.type}
-                        </Text>
-                    </View>
-                    {event.importance && !isUserEvent && (
-                        <View style={[styles.tag, { backgroundColor: event.priorityColor + '20' }]}>
-                            <Text style={[styles.tagText, { color: event.priorityColor }]}>
-                                {event.importance}
+                    {(isUserEvent || category) && (
+                        <View style={[styles.tag, isUserEvent && styles.userTag]}>
+                            <Text style={[styles.tagText, isUserEvent && styles.userTagText]}>
+                                {/* CAL-04: surface the persisted Medical/Personal nature when present;
+                                    fall back to the generic "my appointment" label for legacy events. */}
+                                {isUserEvent
+                                    ? (event.category === 'medical'
+                                        ? t('addAppointment.typeMedical')
+                                        : event.category === 'other'
+                                            ? t('addAppointment.typeOther')
+                                            : t('calendar.myAppointment'))
+                                    : t(`calendar.category.${category}`)}
                             </Text>
                         </View>
                     )}
+                    {/* Template events only: the raw value used to print "undefined". */}
+                    {importance ? (
+                        <View style={[styles.tag, { backgroundColor: event.priorityColor + '20' }]}>
+                            <Text style={[styles.tagText, { color: event.priorityColor }]}>
+                                {t(`calendar.importance.${importance}`)}
+                            </Text>
+                        </View>
+                    ) : null}
                 </View>
 
                 {/* Description or Notes */}
@@ -153,9 +175,6 @@ const styles = StyleSheet.create({
     iconBadge: {
         marginEnd: theme.spacing.xs,
     },
-    iconText: {
-        fontSize: 20,
-    },
     title: {
         flex: 1,
         fontSize: 16,
@@ -169,7 +188,7 @@ const styles = StyleSheet.create({
         gap: 10,
     },
     timeBadge: {
-        backgroundColor: theme.colors.primary,
+        backgroundColor: theme.colors.accent,
         paddingHorizontal: 10,
         paddingVertical: 4,
         borderRadius: 8,
@@ -182,7 +201,8 @@ const styles = StyleSheet.create({
     dateText: {
         fontSize: 13,
         color: theme.colors.textLight,
-        textTransform: 'capitalize',
+        // No textTransform: 'capitalize' (it upper-cased the month too: 'Samedi 3 Oct.' while Weight
+        // and Health print '3 oct. 2026'); only the weekday is capitalised, in upperFirst().
     },
     locationRow: {
         flexDirection: 'row',
@@ -207,14 +227,19 @@ const styles = StyleSheet.create({
         paddingHorizontal: theme.spacing.s,
         paddingVertical: 4,
         borderRadius: theme.borderRadius.s,
-        backgroundColor: theme.colors.secondary,
+        // A11Y-CONTRAST (R5-CONTRAST-02): use a LIGHT pink fill so the accent label
+        // reaches AA. The old secondary fill (#FF8FA3) only gave accent text 2.72:1;
+        // accent (#C2185B) on surfacePinkTint (#FCE4EC) = 4.88:1.
+        backgroundColor: theme.colors.surfacePinkTint,
     },
     userTag: {
         backgroundColor: theme.colors.indigoAccentMuted,
     },
     tagText: {
         fontSize: 11,
-        color: theme.colors.primary,
+        // A11Y-CONTRAST-01 / R5-CONTRAST-02: accent #C2185B label on the light
+        // surfacePinkTint `tag` fill = 4.88:1 (AA pass).
+        color: theme.colors.accent,
         fontWeight: '500' as const,
     },
     userTagText: {

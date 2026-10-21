@@ -6,7 +6,7 @@
     "label_en": "Bright red blood",
     "keywords_fr": "hémorragie,sang,rouge,vif",
     "keywords_ar": "نزيف,دم,أحمر,فاتح",
-    "keywords_en": "hemorrhage,blood,red,bright",
+    "keywords_en": "hemorrhage,blood,red,bright,bleeding,heavy bleeding,bleeding heavily",
     "severity": "emergency",
     "standard_message_fr": "Ces signes peuvent indiquer une complication grave (placenta prævia, décollement placentaire, fausse couche tardive). Consultez immédiatement un médecin, une maternité ou les services d’urgence. Ne vous déplacez pas seule.",
     "standard_message_ar": "قد تشير هذه العلامات إلى مضاعفات خطيرة (المشيمة المنزاحة، انفصال المشيمة، إجهاض متأخر). استشيري طبيباً أو مستشفى الولادة أو خدمات الطوارئ فوراً. لا تذهبي بمفردك.",
@@ -17,7 +17,7 @@
     ],
     "sources": "OMS 2024, ACOG 2023, NHS",
     "label_tn": "دم أحمر فاتح",
-    "keywords_tn": "نزيف,دم,أحمر,فاتح",
+    "keywords_tn": "نزيف,دم,أحمر,فاتح,nzif,dam,shwit dam,nzef,yanzef,دم,نزف,حمرة",
     "standard_message_tn": "قد تشير هذه العلامات إلى مضاعفات خطيرة (المشيمة المنزاحة، انفصال المشيمة، إجهاض متأخر). استشيري طبيباً أو مستشفى الولادة أو خدمات الطوارئ فوراً. لا تذهبي بمفردك."
   },
   {
@@ -38,7 +38,7 @@
     ],
     "sources": "OMS 2024, ACOG 2023, NHS",
     "label_tn": "ألم في جانب واحد",
-    "keywords_tn": "تشنجات شديدة,ألم,جانب واحد",
+    "keywords_tn": "تشنجات شديدة,ألم,جانب واحد,wji3a,wji3 qawi,karch youja3,wja3 janb,crampes",
     "standard_message_tn": "قد تشير هذه العلامات إلى مضاعفات (حمل خارج الرحم، انفصال المشيمة، التهاب الزائدة الدودية). استشيري طبيباً أو اذهبي إلى الطوارئ دون انتظار."
   },
   {
@@ -47,8 +47,8 @@
     "label_ar": "حركات الجنين ضعيفة",
     "label_en": "Weak movements",
     "keywords_fr": "ne sens plus le bébé,mouvements,faibles",
-    "keywords_ar": "لا أشعر بالطفل,حركات,ضعيفة",
-    "keywords_en": "no longer feel baby,movements,weak",
+    "keywords_ar": "لا أشعر بالطفل,لا أشعر بحركة الجنين,حركة الجنين,توقف الجنين عن الحركة,حركات,ضعيفة",
+    "keywords_en": "no longer feel baby,movements,weak,baby stopped moving,stopped moving,baby not moving,no kicks,baby not kicking,fewer movements",
     "severity": "urgent_consult",
     "standard_message_fr": "Une diminution des mouvements fœtaux peut être un signe de souffrance fœtale. Consultez immédiatement un médecin ou une maternité pour un contrôle. Ne tentez pas de stimuler le bébé vous-même.",
     "standard_message_ar": "قد يكون انخفاض حركات الجنين علامة على ضائقة جنينية. استشيري طبيباً أو مستشفى الولادة فوراً للفحص. لا تحاولي تحفيز الطفل بنفسك.",
@@ -58,7 +58,7 @@
     ],
     "sources": "",
     "label_tn": "حركات الجنين ضعيفة",
-    "keywords_tn": "لا أشعر بالطفل,حركات,ضعيفة",
+    "keywords_tn": "لا أشعر بالطفل,حركات,ضعيفة,bebe ma ybou3sh,ma yahraksh,ma nhiss bih,weld ma ybou3sh",
     "standard_message_tn": "قد يكون انخفاض حركات الجنين علامة على ضائقة جنينية. استشيري طبيباً أو مستشفى الولادة فوراً للفحص. لا تحاولي تحفيز الطفل بنفسك."
   },
   {
@@ -78,7 +78,7 @@
     ],
     "sources": "",
     "label_tn": "ألم شديد في الرأس",
-    "keywords_tn": "صداع,ألم,شديد",
+    "keywords_tn": "صداع,ألم,شديد,ras youja3,sda3 qawi,rassi youja3,tasdiya",
     "standard_message_tn": "هذه العلامات، وخاصة إذا كانت مصحوبة باضطرابات في الرؤية أو آلام في المعدة، قد تكون علامة على تسمم الحمل. استشيري طبيباً أو اذهبي إلى الطوارئ دون انتظار."
   },
   {
@@ -98,7 +98,7 @@
     ],
     "sources": "",
     "label_tn": "بقع أمام العينين",
-    "keywords_tn": "ومضات ضوئية,بقع,أمام,العينين",
+    "keywords_tn": "ومضات ضوئية,بقع,أمام,العينين,3eyni mzghlala,mzaghzgha,choosha,3eyen mzghlla",
     "standard_message_tn": "قد ترتبط هذه العلامات بارتفاع ضغط الدم أو تسمم الحمل. استشيري طبيباً أو مستشفى الولادة فوراً."
   },
   {
@@ -108,7 +108,7 @@
     "label_en": "Infection",
     "keywords_fr": "température élevée,infection",
     "keywords_ar": "حرارة مرتفعة,عدوى",
-    "keywords_en": "high temperature,infection",
+    "keywords_en": "high temperature,infection,fever,high fever",
     "severity": "urgent_consult",
     "standard_message_fr": "Une fièvre inexpliquée peut indiquer une infection grave. Consultez un médecin sans attendre pour un diagnostic et un traitement approprié.",
     "standard_message_ar": "قد تشير الحمى غير المبررة إلى عدوى خطيرة. استشيري طبيباً دون انتظار للتشخيص والعلاج المناسب.",
@@ -118,7 +118,7 @@
     ],
     "sources": "",
     "label_tn": "عدوى",
-    "keywords_tn": "حرارة مرتفعة,عدوى",
+    "keywords_tn": "حرارة مرتفعة,عدوى,s5ana,skhana,s7ana,skhona,te7rak,7ama",
     "standard_message_tn": "قد تشير الحمى غير المبررة إلى عدوى خطيرة. استشيري طبيباً دون انتظار للتشخيص والعلاج المناسب."
   },
   {
@@ -128,7 +128,7 @@
     "label_en": "Dehydration",
     "keywords_fr": "ne garde rien,déshydratation",
     "keywords_ar": "لا أبقي شيئاً,جفاف",
-    "keywords_en": "can't keep anything down,dehydration",
+    "keywords_en": "can't keep anything down,dehydration,keep vomiting,can't stop vomiting,vomiting everything,throwing up everything",
     "severity": "urgent_consult",
     "standard_message_fr": "Des vomissements si sévères que vous ne parvenez pas à vous hydrater nécessitent une prise en charge médicale pour éviter la déshydratation et la malnutrition.",
     "standard_message_ar": "القيء الشديد لدرجة أنك لا تستطيعين شرب الماء يتطلب رعاية طبية لتجنب الجفاف وسوء التغذية.",
@@ -138,7 +138,7 @@
     ],
     "sources": "",
     "label_tn": "جفاف",
-    "keywords_tn": "لا أبقي شيئاً,جفاف",
+    "keywords_tn": "لا أبقي شيئاً,جفاف,nraddh,ma nqedersh nakol,ma njmsh neshreb,nettaqayeh",
     "standard_message_tn": "القيء الشديد لدرجة أنك لا تستطيعين شرب الماء يتطلب رعاية طبية لتجنب الجفاف وسوء التغذية."
   },
   {
@@ -148,7 +148,7 @@
     "label_en": "Edema",
     "keywords_fr": "gonflement visage,œdème",
     "keywords_ar": "تورم الوجه,إديميا",
-    "keywords_en": "face swelling,edema",
+    "keywords_en": "face swelling,edema,swollen face,face is swollen,puffy face,facial swelling",
     "severity": "urgent_consult",
     "standard_message_fr": "Un œdème soudain et important du visage, des mains ou des pieds peut être un signe de pré-éclampsie. Consultez un médecin rapidement.",
     "standard_message_ar": "قد يكون التورم المفاجئ والكبير في الوجه أو اليدين أو القدمين علامة على تسمم الحمل. استشيري طبيباً بسرعة.",
@@ -158,7 +158,7 @@
     ],
     "sources": "",
     "label_tn": "تورم (إديميا)",
-    "keywords_tn": "تورم الوجه,إديميا",
+    "keywords_tn": "تورم الوجه,إديميا,wajhha yentefkh,netefkhet,nafkha,yaddi yentafkh",
     "standard_message_tn": "قد يكون التورم المفاجئ والكبير في الوجه أو اليدين أو القدمين علامة على تسمم الحمل. استشيري طبيباً بسرعة."
   },
   {
@@ -178,7 +178,7 @@
     ],
     "sources": "",
     "label_tn": "إفرازات مهبلية",
-    "keywords_tn": "سائل دافئ,إفرازات,مهبلية",
+    "keywords_tn": "سائل دافئ,إفرازات,مهبلية,ma dafi,ma tazel,maya tal3et,ifrazet,souela",
     "standard_message_tn": "قد يشير فقدان السوائل (شفافة، صفراء أو خضراء) إلى تمزق مبكر للأغشية (ماء الرأس). استشيري مستشفى الولادة فوراً."
   },
   {
@@ -188,7 +188,7 @@
     "label_en": "Urinary tract infection",
     "keywords_fr": "cystite,infection,urinaire",
     "keywords_ar": "التهاب المثانة,عدوى,بولية",
-    "keywords_en": "cystitis,infection,urinary",
+    "keywords_en": "cystitis,infection,urinary,burning when i pee,painful urination,burning urination,burning when i urinate",
     "severity": "urgent_consult",
     "standard_message_fr": "Ces signes peuvent indiquer une infection urinaire qui, si elle n'est pas traitée, peut entraîner une infection rénale ou un accouchement prématuré. Consultez un médecin.",
     "standard_message_ar": "قد تشير هذه العلامات إلى عدوى في المسالك البولية، والتي إذا لم تُعالج، قد تؤدي إلى عدوى كلوية أو ولادة مبكرة. استشيري طبيباً.",
@@ -198,7 +198,7 @@
     ],
     "sources": "",
     "label_tn": "عدوى المسالك البولية",
-    "keywords_tn": "التهاب المثانة,عدوى,بولية",
+    "keywords_tn": "التهاب المثانة,عدوى,بولية,hargan fil bawla,bourni 3and twalit,3aret bawla,harig",
     "standard_message_tn": "قد تشير هذه العلامات إلى عدوى في المسالك البولية، والتي إذا لم تُعالج، قد تؤدي إلى عدوى كلوية أو ولادة مبكرة. استشيري طبيباً."
   },
   {
@@ -208,7 +208,7 @@
     "label_en": "Difficulty breathing",
     "keywords_fr": "essoufflement,difficulté,respirer",
     "keywords_ar": "ضيق تنفس,صعوبة,تنفس",
-    "keywords_en": "shortness of breath,difficulty,breathing",
+    "keywords_en": "shortness of breath,difficulty,breathing,can't breathe,cannot breathe,hard to breathe,trouble breathing,struggling to breathe",
     "severity": "emergency",
     "standard_message_fr": "Ces signes peuvent indiquer une complication cardiaque ou pulmonaire grave (embolie pulmonaire). Appelez immédiatement les services d'urgence.",
     "standard_message_ar": "قد تشير هذه العلامات إلى مضاعفات قلبية أو رئوية خطيرة (انسداد رئوي). اتصلي بخدمات الطوارئ فوراً.",
@@ -218,7 +218,7 @@
     ],
     "sources": "",
     "label_tn": "صعوبة في التنفس",
-    "keywords_tn": "ضيق تنفس,صعوبة,تنفس",
+    "keywords_tn": "ضيق تنفس,صعوبة,تنفس,nafes ma yaji,ma nelqash nafes,yzoqni",
     "standard_message_tn": "قد تشير هذه العلامات إلى مضاعفات قلبية أو رئوية خطيرة (انسداد رئوي). اتصلي بخدمات الطوارئ فوراً."
   },
   {
@@ -228,7 +228,7 @@
     "label_en": "Unwell feeling",
     "keywords_fr": "pensées suicidaires,mal-être",
     "keywords_ar": "أفكار انتحارية,شعور سيء",
-    "keywords_en": "suicidal thoughts,unwell",
+    "keywords_en": "suicidal thoughts,suicidal,suicide,kill myself,want to die,end my life,harm myself,don't want to live,better off dead,end it all,no reason to live,unwell",
     "severity": "emergency",
     "standard_message_fr": "Si vous avez des pensées de vous faire du mal ou de faire du mal à votre bébé, il s'agit d'une urgence psychiatrique. Contactez immédiatement les services d'urgence ou un professionnel de santé mentale.",
     "standard_message_ar": "إذا كانت لديك أفكار لإيذاء نفسك أو طفلك، فهذه حالة طوارئ نفسية. اتصلي بخدمات الطوارئ أو أخصائي الصحة العقلية فوراً.",
@@ -238,7 +238,7 @@
     ],
     "sources": "",
     "label_tn": "شعور سيء",
-    "keywords_tn": "أفكار انتحارية,شعور سيء",
+    "keywords_tn": "أفكار انتحارية,شعور سيء,afkar khaybha,nheb naarraj,9ahr,mish ta9a,mich ta9a",
     "standard_message_tn": "إذا كانت لديك أفكار لإيذاء نفسك أو طفلك، فهذه حالة طوارئ نفسية. اتصلي بخدمات الطوارئ أو أخصائي الصحة العقلية فوراً."
   },
   {
@@ -248,7 +248,7 @@
     "label_en": "Convulsions / eclampsia",
     "keywords_fr": "convulsions,éclampsie,crise,tremblements,perte de conscience,évanouissement",
     "keywords_ar": "تشنجات,تسمم الحمل,نوبة,ارتعاش,فقدان الوعي,إغماء",
-    "keywords_en": "convulsions,eclampsia,seizure,fits,loss of consciousness,fainting",
+    "keywords_en": "convulsions,eclampsia,seizure,fits,loss of consciousness,fainting,passed out,blacked out,pass out,fainted,i fainted",
     "severity": "emergency",
     "standard_message_fr": "Les convulsions ou une perte de conscience peuvent être un signe d'éclampsie (complication grave de la pré-éclampsie). Appelez immédiatement les services d'urgence.",
     "standard_message_ar": "قد تكون التشنجات أو فقدان الوعي علامة على تسمم الحمل (مضاعفات خطيرة لما قبل تسمم الحمل). اتصلي بخدمات الطوارئ فوراً.",
@@ -258,7 +258,7 @@
     ],
     "sources": "",
     "label_tn": "تشنجات / تسمم الحمل",
-    "keywords_tn": "تشنجات,تسمم الحمل,نوبة,فقدان الوعي,إغماء",
+    "keywords_tn": "تشنجات,تسمم الحمل,نوبة,فقدان الوعي,إغماء,ghimet,deyakha,dayekha,3aqlet,3aqlet 3liya,tachannouj",
     "standard_message_tn": "التشنجات ولا الغيمة الفجائية في الحمل ممكن تكون علامة تسمم الحمل (إكلامبسيا). إتصلي بالإسعاف توة."
   },
   {
@@ -278,7 +278,7 @@
     ],
     "sources": "",
     "label_tn": "متلازمة هيلب",
-    "keywords_tn": "ألم الكبد,متلازمة,هيلب",
+    "keywords_tn": "ألم الكبد,متلازمة,هيلب,wji3 foie,kari youja3,tahta kari",
     "standard_message_tn": "قد تشير هذه العلامات إلى مضاعفات خطيرة مثل متلازمة HELLP أو تسمم الحمل الشديد. استشيري خدمات الطوارئ فوراً."
   },
   {
@@ -288,7 +288,7 @@
     "label_en": "Blood loss",
     "keywords_fr": "hémorragie,perte,sang",
     "keywords_ar": "نزيف,فقدان,دم",
-    "keywords_en": "hemorrhage,loss,blood",
+    "keywords_en": "hemorrhage,loss,blood,bleeding,heavy bleeding,postpartum bleeding",
     "severity": "emergency",
     "standard_message_fr": "Un saignement abondant après l'accouchement est une urgence vitale. Appelez immédiatement les services d'urgence.",
     "standard_message_ar": "النزيف الغزير بعد الولادة هو حالة طوارئ تهدد الحياة. اتصلي بخدمات الطوارئ فوراً.",

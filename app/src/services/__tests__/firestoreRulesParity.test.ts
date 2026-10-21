@@ -20,7 +20,10 @@ const SRC_DIR = path.join(APP_ROOT, 'src');
 
 /** Collections that the code references through an indirect constant
  *  (the regex below cannot see them directly) and that we know are used. */
-const KNOWN_INDIRECT_COLLECTIONS = ['weight_entries']; // WEIGHT_COLLECTION const in weightService.ts
+const KNOWN_INDIRECT_COLLECTIONS = [
+    'weight_entries',   // WEIGHT_COLLECTION const in weightService.ts
+    'deletionRequests', // DELETION_REQUESTS_COLLECTION const in accountDeletion.ts
+];
 
 /** Recursively gather all .ts / .tsx source files (excluding tests). */
 const readAllTsFiles = (dir: string): string[] => {
@@ -105,6 +108,7 @@ describe('firestore.rules ↔ code parity (P1.1 / P1.2 guard)', () => {
         'userReminderSettings',
         'userEvents',
         'userTasks',
+        'deletionRequests', // without it a deletion falls back to the device-only marker
     ])('rules declare critical collection "%s"', (col) => {
         expect(rulesCollections.has(col)).toBe(true);
     });

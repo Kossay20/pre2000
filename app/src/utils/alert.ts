@@ -1,38 +1,69 @@
 import { Alert, Platform } from 'react-native';
 
+export interface AlertButton {
+    text?: string;
+    style?: 'default' | 'cancel' | 'destructive';
+    onPress?: () => void;
+}
+
 /**
  * Cross-platform alert utility.
- * Uses Alert.alert on Native and window.alert on Web.
+ * Uses Alert.alert on native and window.alert / window.confirm on web.
+ *
+ * WEB DOUBLE-DIALOG FIX: the previous implementation ALWAYS called
+ * `window.alert(title\n\nmessage)` first, and then — when the caller passed two
+ * or more buttons — called `window.confirm(title\n\nmessage)` with the exact
+ * same text. The user had to dismiss the identical message twice before the
+ * confirmation even appeared. Now web picks exactly one dialog:
+ *   • 2+ buttons  → a single window.confirm (a real choice), or one confirm per
+ *                   positive button when there are several
+ *   • 0-1 buttons → a single window.alert
+ *
+ * Web also never invoked the cancel button's `onPress`, unlike Alert.alert on
+ * native, so a caller relying on cancel cleanup silently did nothing. Both
+ * platforms now behave the same.
+ *
+ * Note that `window.alert`/`window.confirm` are synchronous and block the page.
+ * They are acceptable for the web *preview* of a native-first app; a real web
+ * release should route these through the in-app modal instead.
  */
-export const showAlert = (title: string, message: string, buttons?: any[]) => {
-    if (Platform.OS === 'web') {
-        // On Web, window.alert only takes a message. We combine title and message.
-        window.alert(`${title}\n\n${message}`);
+export const showAlert = (title: string, message: string, buttons?: AlertButton[]) => {
+    if (Platform.OS !== 'web') {
+        Alert.alert(title, message, buttons);
+        return;
+    }
 
-        // If there are buttons with onPress, we can't easily simulate them with window.alert
-        // For simple "OK" buttons, window.alert is fine.
-        // For confirmation dialogs (Yes/No), we should use window.confirm, but that's synchronous.
-        // For now, let's assume simple alerts.
-        if (buttons && buttons.length > 0) {
-            const confirmButton = buttons.find(b => b.style !== 'cancel');
-            if (confirmButton && confirmButton.onPress) {
-                // Execute the positive action immediately or after a confirm?
-                // Let's just execute it if it's the only way, or maybe we shouldn't?
-                // Actually, for "Email already in use" -> "Login", we need a confirm.
+    const text = `${title}\n\n${message}`;
+    const confirmButton = buttons?.find(b => b.style !== 'cancel');
+    const cancelButton = buttons?.find(b => b.style === 'cancel');
+    const positiveButtons = buttons?.filter(b => b.style !== 'cancel') ?? [];
 
-                // Basic confirm support
-                if (buttons.length > 1) {
-                    const result = window.confirm(`${title}\n\n${message}`);
-                    if (result) {
-                        confirmButton.onPress();
-                    }
-                } else {
-                    // Just an OK button with a callback?
-                    confirmButton.onPress();
-                }
+    // Several positive choices (the clinical alert's "call emergency" and "save anyway")
+    // cannot fit in one OK/Cancel dialog: OK used to mean the first of them, so the others
+    // were unreachable on web. Each one is offered in turn, named in the dialog, and
+    // dismissing them all is the cancel.
+    if (positiveButtons.length > 1) {
+        for (const button of positiveButtons) {
+            if (window.confirm(`${text}\n\n➜ ${button.text ?? ''}`)) {
+                button.onPress?.();
+                return;
             }
         }
-    } else {
-        Alert.alert(title, message, buttons);
+        cancelButton?.onPress?.();
+        return;
     }
+
+    // A genuine choice — two or more buttons, one of them positive — gets ONE
+    // confirm dialog and no preceding alert. With no positive button there is
+    // nothing to confirm, and window.confirm cannot report *which* cancel was
+    // tapped, so that degenerate case stays informational.
+    if (buttons && buttons.length > 1 && confirmButton) {
+        if (window.confirm(text)) confirmButton?.onPress?.();
+        else cancelButton?.onPress?.();
+        return;
+    }
+
+    // Informational, or a single acknowledge button.
+    window.alert(text);
+    confirmButton?.onPress?.();
 };

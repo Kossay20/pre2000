@@ -7,23 +7,28 @@ import {
     StyleSheet,
     TouchableOpacity,
     Animated,
-    Dimensions,
-} from 'react-native';
+    } from 'react-native';
 import { Week } from '../../types';
 import { getLocalizedContent } from '../../utils/i18nHelpers';
+import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getBabyGrowthForWeek } from '../../config/babyGrowthData';
 import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { RtlAwareChevron } from '../common/RtlAwareChevron';
+import { babyIllustrationSize, getContentWidth } from '../../utils/layout';
+import { pregnancyProgressPercent } from './BabyGrowthCard.helpers';
 
-const { width } = Dimensions.get('window');
+const width = getContentWidth();
 
 interface BabyGrowthCardProps {
     currentWeek: number;
     /** U-FIX-6: optional day-in-week (1..7) for accurate dayOfPregnancy display.
      *  When omitted, falls back to `currentWeek * 7` (legacy behavior). */
     currentDay?: number;
+    /** Her real day of pregnancy (displayedPregnancyAge). Past the due date the content
+     *  week stays on 40, so deriving the day from it froze the counter on "Jour 280". */
+    dayOfPregnancy?: number;
     babyName?: string;
     dueDate?: Date;
     weekData?: Week;
@@ -32,6 +37,7 @@ interface BabyGrowthCardProps {
 export const BabyGrowthCard = React.memo<BabyGrowthCardProps>(({
     currentWeek,
     currentDay,
+    dayOfPregnancy: realDayOfPregnancy,
     babyName,
     dueDate,
     weekData,
@@ -44,15 +50,14 @@ export const BabyGrowthCard = React.memo<BabyGrowthCardProps>(({
     // Get baby growth data for current week
     const monthData = getBabyGrowthForWeek(currentWeek);
 
-    // Calculate progression
-    const totalWeeks = 40;
-    const progressPercent = Math.min((currentWeek / totalWeeks) * 100, 100);
     // U-FIX-6: was `currentWeek * 7` which always overshot by `7 - dayInWeek` days.
     // E.g. week 10 day 3 displayed day 70 instead of day 66 (= (10-1)*7 + 3).
     // Falls back to legacy formula if currentDay isn't passed (no regression).
-    const dayOfPregnancy = currentDay != null
-        ? Math.max(1, (currentWeek - 1) * 7 + currentDay)
-        : currentWeek * 7;
+    const dayOfPregnancy = realDayOfPregnancy
+        ?? (currentDay != null
+            ? Math.max(1, (currentWeek - 1) * 7 + currentDay)
+            : currentWeek * 7);
+    const progressPercent = pregnancyProgressPercent(dayOfPregnancy);
 
     // Animation on mount/update
     useEffect(() => {
@@ -113,7 +118,7 @@ export const BabyGrowthCard = React.memo<BabyGrowthCardProps>(({
             {/* Timeline Info */}
             <View style={[styles.timeline, { justifyContent: 'center' }]}>
                 <View style={[styles.timelineItem, { justifyContent: 'center' }]}>
-                    <Text style={styles.timelineIcon}>📅</Text>
+                    <Ionicons name="calendar-outline" size={18} color={theme.colors.neutral900} />
                     <Text style={styles.timelineText}>
                         {t('home.day')} {dayOfPregnancy}
                     </Text>
@@ -193,7 +198,7 @@ const styles = StyleSheet.create({
     monthBadge: {
         fontSize: 14,
         fontWeight: '600',
-        color: theme.colors.primary,
+        color: theme.colors.accent,
         backgroundColor: theme.colors.surfaceBlush,
         paddingHorizontal: 12,
         paddingVertical: 6,
@@ -208,14 +213,12 @@ const styles = StyleSheet.create({
         position: 'relative',
         marginBottom: 16,
     },
-    babyImage: {
-        width: width * 0.6,
-        height: 240,
-    },
+    babyImage: babyIllustrationSize(width),
     comparisonBadge: {
         position: 'absolute',
         bottom: 16,
-        right: 16,
+        // Cycle 2 F311 RTL : `end` flip auto en arabe.
+        end: 16,
         backgroundColor: theme.colors.whiteAlpha95,
         paddingHorizontal: 16,
         paddingVertical: 10,
@@ -239,7 +242,7 @@ const styles = StyleSheet.create({
     },
     sizeText: {
         fontSize: 11,
-        color: theme.colors.gray600,
+        color: theme.colors.textSecondary,
     },
     timeline: {
         flexDirection: 'row',
@@ -254,9 +257,6 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 6,
-    },
-    timelineIcon: {
-        fontSize: 16,
     },
     timelineText: {
         fontSize: 14,
@@ -289,7 +289,7 @@ const styles = StyleSheet.create({
     progressText: {
         fontSize: 14,
         fontWeight: '700',
-        color: theme.colors.primary,
+        color: theme.colors.accent,
         minWidth: 45,
         textAlign: 'right',
     },
@@ -316,7 +316,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: theme.colors.primary,
+        backgroundColor: theme.colors.accent,
         paddingVertical: 14,
         paddingHorizontal: 20,
         borderRadius: 14,

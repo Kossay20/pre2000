@@ -13,8 +13,10 @@ import { collection, addDoc, doc, getDocs, query, setDoc, where, orderBy, Timest
 import { HealthMetric, HealthStats } from '../types';
 import { loadUserEvents } from './calendarService';
 import { loadTaskStatusesAuth } from './reminderPersistence';
+import { fetchTasksForWeekV2 } from './remindersV2Service';
 import { getWeightHistory as getWeightHistoryV2 } from './weightService';
 import { createLogger } from '../utils/logger';
+import { toLocalDateKey } from '../utils/localDate';
 
 // Create scoped logger for this service
 const log = createLogger('HealthService');
@@ -222,7 +224,9 @@ export const saveDailySymptoms = async (
         log.warn('[HealthService] Guest user blocked from symptoms write');
         return 'guest_blocked';
     }
-    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    // The LOCAL day the user is logging for. The UTC day filed an evening entry in New York
+    // (or a morning one east of UTC+12) under the wrong date.
+    const today = toLocalDateKey(); // YYYY-MM-DD
     // C10/F13: deterministic doc ID eliminates the query→addDoc race window
     // (two concurrent writes for the same day previously could produce 2 docs).
     // Firestore rule constrains logId to `${auth.uid}_YYYY-MM-DD` to prevent
@@ -249,7 +253,7 @@ export const getDailySymptoms = async (userId: string, dateStr?: string): Promis
     if (!userId || userId.startsWith('guest_')) {
         return null;
     }
-    const targetDate = dateStr || new Date().toISOString().split('T')[0];
+    const targetDate = dateStr || toLocalDateKey();
     try {
         const q = query(
             collection(db, 'symptomsLog'),
@@ -273,7 +277,7 @@ export const getSymptomsHistory = async (userId: string, limitDays = 30): Promis
     try {
         const since = new Date();
         since.setDate(since.getDate() - limitDays);
-        const sinceStr = since.toISOString().split('T')[0];
+        const sinceStr = toLocalDateKey(since);
         const q = query(
             collection(db, 'symptomsLog'),
             where('user_id', '==', userId),
@@ -290,12 +294,47 @@ export const getSymptomsHistory = async (userId: string, limitDays = 30): Promis
 
 
 /**
+ * F-HS-05: one weighing per day across `healthMetrics` and `weight_entries`.
+ *
+ * Must pick the same weighing as the tracker's `latestWeighingPerDay`
+ * (weightService.ts), or Health and "Mon Poids" show different weights for the
+ * same day. Same rule: the phone's calendar day, the later weighing of that day
+ * wins, then the later created_at, then the tracker's own entry (V2 entries are
+ * concatenated after legacy ones, so the later-iterated tie goes to them).
+ */
+export const dedupeWeightByDate = (entries: HealthMetric[]): HealthMetric[] => {
+    const byDay = new Map<string, HealthMetric>();
+    const ms = (value: string | undefined, fallback: number): number => {
+        const t = value ? new Date(value).getTime() : NaN;
+        return Number.isNaN(t) ? fallback : t;
+    };
+    const weighedAt = (m: HealthMetric) => ms(m.date, 0);
+    const createdAt = (m: HealthMetric) => ms(m.created_at, weighedAt(m));
+
+    for (const entry of entries) {
+        const dayKey = toLocalDateKey(new Date(entry.date));
+        const existing = byDay.get(dayKey);
+        const wins =
+            !existing ||
+            weighedAt(entry) > weighedAt(existing) ||
+            (weighedAt(entry) === weighedAt(existing) && createdAt(entry) >= createdAt(existing));
+        if (wins) byDay.set(dayKey, entry);
+    }
+
+    return Array.from(byDay.values()).sort(
+        (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+    );
+};
+
+/**
  * P3.7 FIX: Single source of truth for weight history.
  * Merges entries from `healthMetrics` (legacy / dashboard inputs) and `weight_entries`
  * (WeightTrackerScreen inputs) into a unified HealthMetric[] sorted by date.
  *
  * Use this helper anywhere a complete weight view is needed (graphs, stats, exports).
  * Avoids the bug where the dashboard graph showed only one half of the user's data.
+ *
+ * F-HS-05: same-date entries are deduplicated (most-recent created_at wins per day).
  */
 export const getMergedWeightHistory = async (userId: string): Promise<HealthMetric[]> => {
     if (!userId || userId.startsWith('guest_')) {
@@ -317,12 +356,14 @@ export const getMergedWeightHistory = async (userId: string): Promise<HealthMetr
         created_at: w.date,
     }));
 
-    return [...oldEntries, ...v2AsHealthMetric].sort(
-        (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-    );
+    return dedupeWeightByDate([...oldEntries, ...v2AsHealthMetric]);
 };
 
-export const getHealthStats = async (userId: string, currentWeek: number): Promise<HealthStats> => {
+export const getHealthStats = async (
+    userId: string,
+    currentWeek: number,
+    prePregnancyWeight?: number,
+): Promise<HealthStats> => {
     // P0 FIX: Block Firestore reads for guest users
     if (!userId || userId.startsWith('guest_')) {
         log.warn('[HealthService] Guest user blocked from health stats (guest mode)');
@@ -343,12 +384,14 @@ export const getHealthStats = async (userId: string, currentWeek: number): Promi
             bpHistory,
             appointments,
             taskStatuses,
+            weeklyTasks,
         ] = await Promise.all([
             getWeightHistory(userId),
             getWeightHistoryV2(userId),
             getBloodPressureHistory(userId),
             loadUserEvents(userId),
             loadTaskStatusesAuth(userId, currentWeek),
+            fetchTasksForWeekV2(currentWeek),
         ]);
 
         // Convert weightService entries to HealthMetric-compatible format and merge
@@ -363,13 +406,25 @@ export const getHealthStats = async (userId: string, currentWeek: number): Promi
             created_at: w.date,
         }));
 
-        // Merge and deduplicate by date (prefer the most recent entry for same date)
-        const allWeights = [...weightHistoryOld, ...weightFromV2]
-            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        // F-HS-05 FIX: real deduplication by calendar day (was a plain concat despite the
+        // comment claiming dedup → same-date entries double-counted). Most-recent created_at
+        // wins per day. Result is sorted ascending by date.
+        const allWeights = dedupeWeightByDate([...weightHistoryOld, ...weightFromV2]);
 
         const weightCurrent = allWeights.length > 0 ? (allWeights[allWeights.length - 1].value as number) : undefined;
-        const weightInitial = allWeights.length > 0 ? (allWeights[0].value as number) : undefined;
-        const weightGain = weightCurrent && weightInitial ? weightCurrent - weightInitial : 0;
+        // F-HS-04 FIX: the weight-gain baseline must be the user's pre-pregnancy weight
+        // (clinical reference, matches WeightTrackerScreen), NOT the first LOGGED entry —
+        // which is typically recorded mid-pregnancy and understates the real gain.
+        // Fall back to the earliest logged entry only when prePregnancyWeight is unknown.
+        const weightInitial =
+            prePregnancyWeight && prePregnancyWeight > 0
+                ? prePregnancyWeight
+                : allWeights.length > 0
+                    ? (allWeights[0].value as number)
+                    : undefined;
+        const weightGain = weightCurrent !== undefined && weightInitial !== undefined
+            ? weightCurrent - weightInitial
+            : 0;
 
         const lastBP = bpHistory.length > 0
             ? {
@@ -383,8 +438,14 @@ export const getHealthStats = async (userId: string, currentWeek: number): Promi
         const upcomingAppointments = appointments.filter(a => new Date(a.date) >= now).length;
         const pastAppointments = appointments.filter(a => new Date(a.date) < now).length;
 
-        const remindersCompletedThisWeek = Object.values(taskStatuses).filter(t => t.completed).length;
-        const remindersTotalThisWeek = Object.keys(taskStatuses).length;
+        // Same list the Tasks tab shows as "Tâches de la semaine". The status docs only
+        // exist once a task is ticked, so counting them gave "0 / 0" beside a tab listing
+        // five tasks. The total is the week's task list; a status counts when its task is
+        // in that list (statuses are keyed `${task_id}_w${week}`).
+        const remindersTotalThisWeek = weeklyTasks.length;
+        const remindersCompletedThisWeek = weeklyTasks.filter(
+            task => taskStatuses[`${task.task_id}_w${currentWeek}`]?.completed,
+        ).length;
 
         return {
             weightCurrent,

@@ -14,6 +14,7 @@
     "sinceStart": "since start",
     "below": "💛 Slightly below",
     "above": "💛 Slightly above",
+    "aboveSignificant": "💛 Above the zone: talk to your midwife",
     "indicativeZone": "Indicative zone",
     "targetWeek": "🎯 Goal week",
     "targetWeekNumber": "🎯 Goal week {{week}}",
@@ -24,8 +25,8 @@
     "about": "about",
     "evolution": "📈 Evolution",
     "start": "Start:",
-    "addWeightTitle": "➕ Add my weight",
-    "addDailyWeight": "➕ Add today's weight",
+    "addWeightTitle": "Add my weight",
+    "addDailyWeight": "Add today's weight",
     "history": "📋 History",
     "startTracking": "Start tracking",
     "startTrackingDesc": "Record your first weight to see your progress",
@@ -64,6 +65,7 @@
     "savedTitle": "✅ Saved!",
     "savedMsg": "Your weight has been added. Keep it up! 💚",
     "errorSave": "Unable to save weight.",
+    "setupSaveFailed": "Your details could not be saved to your account. Check your connection and try again.",
     "invalidHeight": "Please enter a valid height (100-250 cm)",
     "resetConfirmTitle": "Delete?",
     "resetConfirmMsg": "Do you want to delete this entry?",
@@ -98,7 +100,7 @@
         "t1Vitamins": "Take your prenatal vitamins every day",
         "t2Protein": "Focus on proteins (meat, fish, eggs) and calcium",
         "t2Walk": "30 minutes of walking per day is recommended",
-        "t3Hydration": "Stay hydrated (2L/day) to reduce water retention",
+        "t3Hydration": "Stay well hydrated to reduce water retention",
         "t3Rest": "Rest regularly with your feet elevated",
         "statusLow": "Increase your portions slightly if your doctor recommends it",
         "statusHigh": "Focus on vegetables and fiber for satiety",
@@ -107,9 +109,9 @@
         "listenBody": "Listen to your body and your hunger/fullness cues"
     },
     "trimester": {
-        "t1": "1st trimester: Variations are normal with nausea. Stay hydrated! 💛",
-        "t2": "2nd trimester: Baby is growing fast. Balanced nutrition is key! 🌱",
-        "t3": "3rd trimester: Water retention is common. Rest and hydrate! 💧"
+        "t1": "{{trimester}}: Variations are normal with nausea. Stay hydrated! 💛",
+        "t2": "{{trimester}}: Baby is growing fast. Balanced nutrition is key! 🌱",
+        "t3": "{{trimester}}: Water retention is common. Rest and hydrate! 💧"
     },
     "errorReset": "Unable to reset data.",
     "weekShort": "W",

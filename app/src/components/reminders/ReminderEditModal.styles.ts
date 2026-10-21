@@ -1,5 +1,6 @@
 import { StyleSheet } from 'react-native';
 import { theme } from '../../theme';
+import { TABLET_CONTENT_MAX_WIDTH } from '../../utils/layout';
 
 export const styles = StyleSheet.create({
     overlay: {
@@ -8,6 +9,11 @@ export const styles = StyleSheet.create({
         justifyContent: 'flex-end',
     },
     modalContainer: {
+        // Bottom sheet: full width on a phone, the app's column width on a tablet
+        // (the Modal renders over the whole window, outside TabletFrame).
+        width: '100%',
+        maxWidth: TABLET_CONTENT_MAX_WIDTH,
+        alignSelf: 'center',
         backgroundColor: theme.colors.white,
         borderTopStartRadius: 24,
         borderTopEndRadius: 24,
@@ -22,7 +28,8 @@ export const styles = StyleSheet.create({
     closeButton: {
         position: 'absolute',
         top: 16,
-        right: 16,
+        // Cycle 2 F310 RTL : `end` flip auto en arabe.
+        end: 16,
         width: 32,
         height: 32,
         borderRadius: 16,
@@ -114,7 +121,7 @@ export const styles = StyleSheet.create({
     },
     hint: {
         fontSize: 13,
-        color: theme.colors.neutral350,
+        color: theme.colors.textMuted,
         marginTop: 8,
         fontStyle: 'italic',
     },
@@ -139,7 +146,7 @@ export const styles = StyleSheet.create({
     },
     intensityOptionSubtext: {
         fontSize: 12,
-        color: theme.colors.neutral350,
+        color: theme.colors.textMuted,
         marginTop: 2,
     },
     timeInputError: {
@@ -197,11 +204,11 @@ export const styles = StyleSheet.create({
     },
     intensityDisplaySubtext: {
         fontSize: 14,
-        color: theme.colors.neutral350,
+        color: theme.colors.textMuted,
     },
     advancedLink: {
         fontSize: 13,
-        color: theme.colors.neutral350,
+        color: theme.colors.textMuted,
         textDecorationLine: 'underline',
         marginTop: 8,
     },
@@ -212,7 +219,7 @@ export const styles = StyleSheet.create({
     },
     resetButtonText: {
         fontSize: 14,
-        color: theme.colors.neutral350,
+        color: theme.colors.textMuted,
     },
     // V2.2: Dynamic time slots styles
     timeRowV2: {
@@ -239,7 +246,8 @@ export const styles = StyleSheet.create({
         alignItems: 'center',
         backgroundColor: theme.colors.lavenderBlush,
         borderRadius: 12,
-        marginLeft: 4,
+        // Cycle 2 F310 RTL.
+        marginStart: 4,
     },
     removeTimeIcon: {
         fontSize: 18,

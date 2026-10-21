@@ -2,14 +2,25 @@ import { createLogger } from '../utils/logger';
 const log = createLogger('WeekRecommendationsScreen');
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useCurrentWeek } from '../services/useCurrentWeek';
 import { Article, Supplement } from '../types';
 import { getLocalizedContent } from '../utils/i18nHelpers';
+import { getCardExcerpt } from '../utils/cardExcerpt';
+import { getCategoryIcon } from '../utils/categoryIcon';
+import { normalizeSupplementSafety } from '../utils/supplementSafety';
+import { getLocalArticle, getLocalSupplement } from '../services/localContentFallback';
+import { withoutUnreviewedContent } from '../config/unreviewedContent';
+import { FIRESTORE_GUEST_TIMEOUT_MS, withTimeout } from '../utils/withTimeout';
 import { theme } from '../theme';
 import { Card } from '../components/common/Card';
 import { SectionHeader } from '../components/common/SectionHeader';
+import { EmptyState } from '../components/common/EmptyState';
+import { Button } from '../components/common/Button';
+import { MedicalDisclaimer } from '../components/common/MedicalDisclaimer';
+import { SourcesFooter } from '../components/common/SourcesFooter';
 import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
@@ -27,30 +38,25 @@ export const WeekRecommendationsScreen = () => {
         const fetchRecommendations = async () => {
             if (!weekData) return;
 
+            const articleIds = (weekData.recommended_articles_ids || '').split(',').filter(Boolean);
+            const supplementIds = (weekData.recommended_supplements_ids || '').split(',').filter(Boolean);
             try {
-                // Fetch recommended articles
-                const articleIds = (weekData.recommended_articles_ids || '').split(',').filter(Boolean);
-                const articlePromises = articleIds.map((id: string) =>
-                    getDoc(doc(db, 'articles', id.trim()))
+                const articleDocs = await Promise.all(
+                    articleIds.map((id: string) =>
+                        withTimeout(getDoc(doc(db, 'articles', id.trim())), FIRESTORE_GUEST_TIMEOUT_MS)
+                    ),
                 );
-                const articleDocs = await Promise.all(articlePromises);
-                const fetchedArticles = articleDocs
-                    .filter((doc: any) => doc.exists())
-                    .map((doc: any) => doc.data() as Article);
-                setArticles(fetchedArticles);
-
-                // Fetch recommended supplements
-                const supplementIds = (weekData.recommended_supplements_ids || '').split(',').filter(Boolean);
-                const supplementPromises = supplementIds.map((id: string) =>
-                    getDoc(doc(db, 'supplements', id.trim()))
+                setArticles(withoutUnreviewedContent(articleDocs.filter((d: any) => d.exists()).map((d: any) => d.data() as Article)));
+                const supplementDocs = await Promise.all(
+                    supplementIds.map((id: string) =>
+                        withTimeout(getDoc(doc(db, 'supplements', id.trim())), FIRESTORE_GUEST_TIMEOUT_MS)
+                    ),
                 );
-                const supplementDocs = await Promise.all(supplementPromises);
-                const fetchedSupplements = supplementDocs
-                    .filter((doc: any) => doc.exists())
-                    .map((doc: any) => doc.data() as Supplement);
-                setSupplements(fetchedSupplements);
-            } catch (error) {
-                log.error('Error fetching recommendations:', error);
+                setSupplements(supplementDocs.filter((d: any) => d.exists()).map((d: any) => d.data() as Supplement));
+            } catch (fsErr) {
+                log.error('Error fetching recommendations:', fsErr);
+                setArticles(articleIds.map((id) => getLocalArticle(id.trim())).filter(Boolean) as Article[]);
+                setSupplements(supplementIds.map((id) => getLocalSupplement(id.trim())).filter(Boolean) as Supplement[]);
             } finally {
                 setLoading(false);
             }
@@ -87,14 +93,79 @@ export const WeekRecommendationsScreen = () => {
         );
     }
 
+    // Every safety lookup goes through the shared normaliser, so an accented or unknown token
+    // reads the same (caution) here as in the supplements list and its filter.
     const getSafetyColor = (safety: string) => {
-        switch (safety) {
+        switch (normalizeSupplementSafety(safety)) {
             case 'ok': return theme.colors.success;
             case 'a_surveiller': return theme.colors.warning;
             case 'deconseille': return theme.colors.error;
             default: return theme.colors.secondary;
         }
     };
+
+    // W5 #2 (a11y): the safety LABEL renders in a DARK token (the pastel getSafetyColor failed WCAG
+    // as text on the light card — 1.6–2.6:1). Verified ≥4.5:1 on white. getSafetyColor stays for the
+    // decorative icon-container background.
+    const getSafetyTextColor = (safety: string) => {
+        switch (normalizeSupplementSafety(safety)) {
+            case 'ok': return theme.colors.green800;
+            case 'a_surveiller': return theme.colors.deepOrange900;
+            case 'deconseille': return theme.colors.red800;
+            default: return theme.colors.textSecondary;
+        }
+    };
+
+    // The supplement icon on the safety-coloured block: white reads on the green and red
+    // blocks but is 1.9:1 on the amber one and 2.2:1 on the pale pink, so those take a dark
+    // glyph (pairs pinned in theme/__tests__/contrast.test.ts).
+    const getSafetyIconColor = (safety: string) => {
+        switch (normalizeSupplementSafety(safety)) {
+            case 'ok':
+            case 'deconseille': return theme.colors.white;
+            case 'a_surveiller': return theme.colors.deepOrange900;
+            default: return theme.colors.text;
+        }
+    };
+
+    // D6-07 a11y: convey safety with an icon + text label, not color alone.
+    const getSafetyIcon = (safety: string) => {
+        switch (normalizeSupplementSafety(safety)) {
+            case 'ok': return '✓';
+            case 'a_surveiller': return '⚠';
+            case 'deconseille': return '✗';
+            default: return 'ℹ';
+        }
+    };
+    const getSafetyLabel = (safety: string) => {
+        switch (normalizeSupplementSafety(safety)) {
+            case 'ok': return t('common.supplementSafety.safe');
+            case 'a_surveiller': return t('common.supplementSafety.caution');
+            case 'deconseille': return t('common.supplementSafety.avoid');
+            default: return t('common.supplementSafety.unknown');
+        }
+    };
+
+    // P2: richer empty-state — illustration + gentle "check back" copy + a CTA that
+    // sends the user to the Resources tab so they're never stranded on a blank screen.
+    if (articles.length === 0 && supplements.length === 0) {
+        return (
+            <View style={styles.container}>
+                <EmptyState
+                    icon="🌱"
+                    title={t('common.noRecommendation')}
+                    subtitle={t('common.noRecommendationSubtitle')}
+                    action={
+                        <Button
+                            title={t('common.exploreResources')}
+                            variant="primary"
+                            onPress={() => navigation.navigate('Ressources')}
+                        />
+                    }
+                />
+            </View>
+        );
+    }
 
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
@@ -106,15 +177,18 @@ export const WeekRecommendationsScreen = () => {
                             key={article.article_id}
                             onPress={() => navigation.navigate('ArticleDetail', { articleId: article.article_id })}
                             activeOpacity={0.7}
+                            accessibilityRole="button"
+                            accessibilityLabel={getLocalizedContent(article, 'title', i18n.language)}
+                            accessibilityHint={t('a11y.readArticle')}
                         >
                             <Card style={styles.card}>
-                                <View style={styles.iconContainer}>
-                                    <Text style={styles.icon}>📚</Text>
+                                <View style={styles.iconContainer} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+                                    <Ionicons name={getCategoryIcon(article.category)} size={32} color={theme.colors.white} />
                                 </View>
                                 <View style={styles.content}>
                                     <Text style={[theme.typography.h3, styles.title] as any}>{getLocalizedContent(article, 'title', i18n.language)}</Text>
                                     <Text numberOfLines={2} style={[theme.typography.body, styles.summary]}>
-                                        {getLocalizedContent(article, 'summary', i18n.language) || t('common.seeMore')}
+                                        {getCardExcerpt(article, 'summary', i18n.language) || t('common.seeMore')}
                                     </Text>
                                 </View>
                             </Card>
@@ -131,13 +205,26 @@ export const WeekRecommendationsScreen = () => {
                             key={supplement.supplement_id}
                             onPress={() => navigation.navigate('SupplementDetail', { supplementId: supplement.supplement_id })}
                             activeOpacity={0.7}
+                            accessibilityRole="button"
+                            accessibilityLabel={`${getLocalizedContent(supplement, 'name', i18n.language)} — ${getSafetyLabel(supplement.pregnancy_safety)}`}
                         >
                             <Card style={styles.card}>
                                 <View style={[styles.iconContainer, { backgroundColor: getSafetyColor(supplement.pregnancy_safety) }]}>
-                                    <Text style={styles.icon}>💊</Text>
+                                    {/* The same glyph as the Home supplement cards, not the 💊 stand-in (C-059). */}
+                                    <Ionicons
+                                        name="medkit-outline"
+                                        size={32}
+                                        color={getSafetyIconColor(supplement.pregnancy_safety)}
+                                    />
                                 </View>
                                 <View style={styles.content}>
                                     <Text style={[theme.typography.h3, styles.title] as any}>{getLocalizedContent(supplement, 'name', i18n.language)}</Text>
+                                    {/* D6-07: explicit safety icon + label so safety isn't conveyed by color alone */}
+                                    <View style={styles.safetyRow}>
+                                        <Text style={[styles.safetyText, { color: getSafetyTextColor(supplement.pregnancy_safety) }]}>
+                                            {getSafetyIcon(supplement.pregnancy_safety)} {getSafetyLabel(supplement.pregnancy_safety)}
+                                        </Text>
+                                    </View>
                                     <Text numberOfLines={2} style={[theme.typography.body, styles.summary]}>
                                         {getLocalizedContent(supplement, 'short_description', i18n.language)}
                                     </Text>
@@ -148,11 +235,9 @@ export const WeekRecommendationsScreen = () => {
                 </View>
             )}
 
-            {articles.length === 0 && supplements.length === 0 && (
-                <View style={styles.centerContainer}>
-                    <Text style={theme.typography.body}>{t('common.noRecommendation')}</Text>
-                </View>
-            )}
+            <SourcesFooter sources={weekData.sources} />
+
+            <MedicalDisclaimer />
         </ScrollView>
     );
 };
@@ -181,13 +266,11 @@ const styles = StyleSheet.create({
         overflow: 'hidden',
     },
     iconContainer: {
-        width: 60,
-        backgroundColor: theme.colors.secondary,
+        width: 70, // the same block as the Articles list
+        // primaryStrong: the white icon is 4.6:1 on it (secondary #FF8FA3 was 2.2:1)
+        backgroundColor: theme.colors.primaryStrong,
         alignItems: 'center',
         justifyContent: 'center',
-    },
-    icon: {
-        fontSize: 28,
     },
     content: {
         flex: 1,
@@ -199,5 +282,12 @@ const styles = StyleSheet.create({
     summary: {
         color: theme.colors.textLight,
         lineHeight: 20,
+    },
+    safetyRow: {
+        marginBottom: theme.spacing.xs,
+    },
+    safetyText: {
+        fontSize: 12,
+        fontWeight: '700',
     },
 });

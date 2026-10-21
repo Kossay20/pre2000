@@ -30,11 +30,15 @@ export const styles = StyleSheet.create({
         color: theme.colors.neutral900,
     },
     closeButton: {
-        padding: 4,
+        minWidth: 44,
+        minHeight: 44,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginEnd: -theme.spacing.s,
     },
     closeText: {
         fontSize: 24,
-        color: theme.colors.neutral400,
+        color: theme.colors.textMuted,
     },
     inputGroup: {
         marginBottom: 20,
@@ -68,27 +72,33 @@ export const styles = StyleSheet.create({
         alignItems: 'center',
     },
     priorityButtonActiveHigh: {
-        borderColor: theme.colors.red600,
-        backgroundColor: theme.colors.red600,
+        borderColor: theme.colors.red800,
+        backgroundColor: theme.colors.red800,
     },
+    // Medium is calm amber with dark text (the Calendar Suggestions pill's pair). Brick red
+    // next to the red "Haute" chip read as a second, alarming level.
     priorityButtonActiveMedium: {
-        borderColor: theme.colors.orange400,
-        backgroundColor: theme.colors.orange400,
+        borderColor: theme.colors.accentAmberDark,
+        backgroundColor: theme.colors.accentAmber,
     },
     priorityButtonActiveLow: {
-        borderColor: theme.colors.green400,
-        backgroundColor: theme.colors.green400,
+        borderColor: theme.colors.green800,
+        backgroundColor: theme.colors.green800,
     },
     priorityButtonText: {
         fontSize: 14,
         fontWeight: '600',
         color: theme.colors.textSecondary,
     },
+    // White on the filled chip — the Active* fills above are the dark (AA) shades.
     priorityButtonTextActive: {
         color: theme.colors.white,
     },
+    priorityButtonTextActiveMedium: {
+        color: theme.colors.text,
+    },
     error: {
-        color: theme.colors.red600,
+        color: theme.colors.error,
         fontSize: 14,
         marginBottom: 12,
         textAlign: 'center',
@@ -175,8 +185,8 @@ export const styles = StyleSheet.create({
         alignItems: 'center',
     },
     dateOptionButtonActive: {
-        backgroundColor: theme.colors.primary,
-        borderColor: theme.colors.primary,
+        backgroundColor: theme.colors.accent,
+        borderColor: theme.colors.accent,
     },
     dateOptionText: {
         fontSize: 13,

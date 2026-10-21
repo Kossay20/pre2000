@@ -1,0 +1,16 @@
+import { chromium } from 'playwright';
+const BASE='http://localhost:8081';
+const STATE='/Users/1millnonstop/Downloads/pregnancy-app/pre2000/app/e2e/.auth/state.json';
+const route=process.argv[2]||'KickCounter';
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const b=await chromium.launch();
+const c=await b.newContext({storageState:STATE,baseURL:BASE,viewport:{width:390,height:844}});
+const p=await c.newPage();
+const all=[];
+p.on('console',m=>all.push(`[${m.type()}] ${m.text()}`));
+p.on('pageerror',e=>all.push(`[PAGEERROR] ${e.stack||e.message}`));
+await p.goto(`${BASE}/${route}`,{waitUntil:'domcontentloaded'});
+await sleep(5000);
+console.log('=== FULL CONSOLE for',route,'(non-wasm) ===');
+all.filter(l=>!/magic word|ArrayBuffer instantiation|Incorrect response MIME|wasm streaming|workerMessageHandler|DatabaseService|Failed to initialize database|DB Init|insufficient permissions|React DevTools|Setting a timer|AsyncStorage has been extracted/i.test(l)).forEach(l=>console.log(l.slice(0,600)));
+await b.close();

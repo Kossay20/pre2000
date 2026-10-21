@@ -1,12 +1,24 @@
 import { theme } from '../theme';
 import * as Print from 'expo-print';
+import { Platform } from 'react-native';
 import * as Sharing from 'expo-sharing';
 import { shareAsync } from 'expo-sharing';
+import * as FileSystem from 'expo-file-system/legacy';
 import { format } from 'date-fns';
 import { Locale } from 'date-fns';
 import { TFunction } from 'i18next';
 import { Profile } from '../context/PregnancyContext';
 import { createLogger } from '../utils/logger';
+import { parseLocalDateKey, storedDateKey } from '../utils/localDate';
+import { formatDecimal } from '../utils/localizedFormat';
+import { escapeHtml } from '../utils/escapeHtml';
+
+/** A stored LMP or due date names a calendar day: read it as that day, not as an instant
+ *  (UTC midnight is the evening before west of UTC). */
+const calendarDay = (iso: string): Date => {
+    const date = new Date(iso);
+    return parseLocalDateKey(storedDateKey(date)) ?? date;
+};
 
 const log = createLogger('PDFExportService');
 
@@ -19,8 +31,8 @@ interface JournalData {
 
 const generateHTML = (data: JournalData, t: TFunction, locale: Locale, langCode: string = 'fr') => {
     const { profile, weightHistory, appointments, notes } = data;
-    const today = format(new Date(), 'dd MMMM yyyy', { locale });
-    const displayName = profile.firstName || t('common.futureMom');
+    const today = format(new Date(), 'd MMMM yyyy', { locale });
+    const displayName = escapeHtml(profile.firstName || t('home.futureMom'));
     const isRTL = langCode === 'ar' || langCode === 'tn';
 
     // Sort data
@@ -162,7 +174,7 @@ const generateHTML = (data: JournalData, t: TFunction, locale: Locale, langCode:
                 background: var(--bg);
                 color: var(--primary-dark);
                 font-weight: 600;
-                text-align: left;
+                text-align: start; /* follows dir=rtl: the body cells already do */
                 padding: 12px;
                 border-top-left-radius: 8px;
                 border-top-right-radius: 8px;
@@ -236,21 +248,21 @@ const generateHTML = (data: JournalData, t: TFunction, locale: Locale, langCode:
                 <div class="profile-grid">
                     <div class="profile-item">
                         <div class="profile-label">${t('pdf.name')}</div>
-                        <div class="profile-value">${profile.firstName || '-'} ${profile.lastName || ''}</div>
+                        <div class="profile-value">${escapeHtml(profile.firstName || '-')} ${escapeHtml(profile.lastName || '')}</div>
                     </div>
                     <div class="profile-item">
                         <div class="profile-label">${t('pdf.country')}</div>
-                        <div class="profile-value">${profile.country === 'tunisia' ? t('common.countries.tunisia') : profile.country || '-'}</div>
+                        <div class="profile-value">${profile.country ? escapeHtml(t(`common.countries.${profile.country}`, { defaultValue: profile.country })) : '-'}</div>
                     </div>
                     ${profile.lmp ? `
                     <div class="profile-item">
                         <div class="profile-label">${t('pdf.lmp')}</div>
-                        <div class="profile-value">${format(new Date(profile.lmp), 'dd MMM yyyy', { locale })}</div>
+                        <div class="profile-value">${format(calendarDay(profile.lmp), 'd MMMM yyyy', { locale })}</div>
                     </div>` : ''}
                     ${profile.dpa ? `
                     <div class="profile-item">
                         <div class="profile-label">${t('pdf.dpa')}</div>
-                        <div class="profile-value">${format(new Date(profile.dpa), 'dd MMM yyyy', { locale })}</div>
+                        <div class="profile-value">${format(calendarDay(profile.dpa), 'd MMMM yyyy', { locale })}</div>
                     </div>` : ''}
                 </div>
             </div>
@@ -269,8 +281,8 @@ const generateHTML = (data: JournalData, t: TFunction, locale: Locale, langCode:
                     <tbody>
                         ${sortedWeight.map(w => `
                         <tr>
-                            <td>${format(new Date(w.date), 'dd MMMM yyyy', { locale })}</td>
-                            <td><strong>${w.weight} kg</strong></td>
+                            <td>${format(new Date(w.date), 'd MMMM yyyy', { locale })}</td>
+                            <td><strong><span dir="ltr">${formatDecimal(w.weight, langCode, 1)}&nbsp;kg</span></strong></td>
                         </tr>
                         `).join('')}
                     </tbody>
@@ -293,9 +305,9 @@ const generateHTML = (data: JournalData, t: TFunction, locale: Locale, langCode:
                     <tbody>
                         ${sortedApps.map(a => `
                         <tr>
-                            <td>${format(new Date(a.date), 'dd/MM/yyyy HH:mm')}</td>
-                            <td><span style="color: var(--primary-dark); font-weight: 500;">${a.title}</span></td>
-                            <td style="font-size: 13px; color: ${theme.colors.textSecondary};">${a.notes || '-'}</td>
+                            <td>${format(new Date(a.date), 'd MMMM yyyy HH:mm', { locale })}</td>
+                            <td><span style="color: var(--primary-dark); font-weight: 500;">${escapeHtml(a.title)}</span></td>
+                            <td style="font-size: 13px; color: ${theme.colors.textSecondary};">${escapeHtml(a.notes || '-')}</td>
                         </tr>
                         `).join('')}
                     </tbody>
@@ -309,8 +321,8 @@ const generateHTML = (data: JournalData, t: TFunction, locale: Locale, langCode:
                 <h2><span class="icon">📝</span> ${t('pdf.personalNotes')}</h2>
                 ${sortedNotes.map(n => `
                 <div class="note-item">
-                    <div class="note-date">${format(new Date(n.date), 'dd MMMM yyyy HH:mm', { locale })}</div>
-                    <div class="note-content">${n.content}</div>
+                    <div class="note-date">${format(new Date(n.date), 'd MMMM yyyy HH:mm', { locale })}</div>
+                    <div class="note-content">${escapeHtml(n.content)}</div>
                 </div>
                 `).join('')}
             </div>
@@ -326,10 +338,41 @@ const generateHTML = (data: JournalData, t: TFunction, locale: Locale, langCode:
     `;
 };
 
+/**
+ * Web: expo-print's printToFileAsync prints the current page and resolves to nothing, so the
+ * export crashed on `{ uri }` and the user got an error. Print the journal itself from a
+ * hidden frame instead — the browser's print dialog offers "Save as PDF".
+ */
+const printJournalOnWeb = async (html: string) => {
+    const frame = document.createElement('iframe');
+    frame.setAttribute('aria-hidden', 'true');
+    frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
+    document.body.appendChild(frame);
+    const win = frame.contentWindow;
+    if (!win) {
+        frame.remove();
+        throw new Error('Print frame unavailable');
+    }
+    win.document.open();
+    win.document.write(html);
+    win.document.close();
+    // Let the frame lay the journal out before the dialog snapshots it.
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    const cleanup = () => frame.remove();
+    win.addEventListener('afterprint', cleanup, { once: true });
+    setTimeout(cleanup, 60_000);
+    win.focus();
+    win.print();
+};
+
 export const generateAndSharePDF = async (data: JournalData, t: TFunction, locale: Locale, fileName: string = 'Journal_Grossesse.pdf', langCode: string = 'fr') => {
     try {
         log.info('Generating PDF with premium design...');
         const html = generateHTML(data, t, locale, langCode);
+        if (Platform.OS === 'web') {
+            await printJournalOnWeb(html);
+            return;
+        }
         const { uri } = await Print.printToFileAsync({
             html,
             base64: false
@@ -339,10 +382,18 @@ export const generateAndSharePDF = async (data: JournalData, t: TFunction, local
 
         // P3.5 FIX: was `if (await shareAsync)` which awaits the function reference (always truthy)
         // → "sharing not available" branch was dead. Use the SDK availability probe.
-        if (await Sharing.isAvailableAsync()) {
-            await shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf', dialogTitle: fileName });
-        } else {
-            log.warn('Sharing is not available on this platform');
+        try {
+            if (await Sharing.isAvailableAsync()) {
+                await shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf', dialogTitle: fileName });
+            } else {
+                log.warn('Sharing is not available on this platform');
+            }
+        } finally {
+            // The journal is health data; the share sheet has its own copy by now, and the
+            // generated file otherwise stayed on the phone indefinitely.
+            await FileSystem.deleteAsync(uri, { idempotent: true }).catch((e: unknown) =>
+                log.warn('Could not remove the temporary PDF', e),
+            );
         }
 
     } catch (error) {

@@ -22,6 +22,32 @@ export const styles = StyleSheet.create({
         ...theme.typography.body,
         color: theme.colors.textLight,
     },
+    // Guest banner — shown above the form so the account requirement is known
+    // before anything is typed, not after Save.
+    guestBanner: {
+        backgroundColor: theme.colors.surfaceBlueTint,
+        borderRadius: 12,
+        padding: theme.spacing.m,
+        marginBottom: theme.spacing.l,
+        borderStartWidth: 4,
+        borderStartColor: theme.colors.info,
+    },
+    guestBannerTitle: {
+        ...theme.typography.body,
+        fontWeight: '700' as const,
+        color: theme.colors.info,
+        marginBottom: theme.spacing.xs,
+    },
+    guestBannerMsg: {
+        ...theme.typography.caption,
+        color: theme.colors.textSecondary,
+    },
+    guestBannerCta: {
+        ...theme.typography.body,
+        fontWeight: '700' as const,
+        color: theme.colors.accent,
+        marginTop: theme.spacing.s,
+    },
     form: {
         gap: theme.spacing.l,
     },
@@ -61,6 +87,38 @@ export const styles = StyleSheet.create({
         ...theme.typography.body,
         color: theme.colors.text,
     },
+    // CAL-07: localized human-readable read-out shown under the web date control
+    dateReadout: {
+        fontSize: 12,
+        color: theme.colors.textLight,
+        marginTop: theme.spacing.xs,
+    },
+    fieldError: {
+        fontSize: 12,
+        fontWeight: '600' as const,
+        color: theme.colors.error,
+        marginTop: theme.spacing.xs,
+    },
+    // Shown while an edited appointment loads, or when it no longer exists.
+    centerState: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: theme.spacing.l,
+        gap: theme.spacing.m,
+        backgroundColor: theme.colors.background,
+    },
+    centerStateTitle: {
+        fontSize: 18,
+        fontWeight: '700' as const,
+        color: theme.colors.text,
+        textAlign: 'center',
+    },
+    centerStateMsg: {
+        ...theme.typography.body,
+        color: theme.colors.textSecondary,
+        textAlign: 'center',
+    },
     actions: {
         flexDirection: 'row',
         gap: theme.spacing.m,
@@ -83,7 +141,7 @@ export const styles = StyleSheet.create({
         color: theme.colors.text,
     },
     saveButton: {
-        backgroundColor: theme.colors.primary,
+        backgroundColor: theme.colors.accent,
     },
     saveButtonDisabled: {
         opacity: 0.5,
@@ -104,11 +162,14 @@ export const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: theme.colors.border,
         backgroundColor: theme.colors.white,
+        flexDirection: 'row',
+        justifyContent: 'center',
         alignItems: 'center',
+        gap: 6,
     },
     typeButtonActive: {
-        backgroundColor: theme.colors.primary,
-        borderColor: theme.colors.primary,
+        backgroundColor: theme.colors.accent,
+        borderColor: theme.colors.accent,
     },
     typeText: {
         fontSize: 14,
@@ -129,7 +190,7 @@ export const styles = StyleSheet.create({
     remindersSectionTitle: {
         fontSize: 15,
         fontWeight: '600' as const,
-        color: theme.colors.accentOrangeDeep,
+        color: theme.colors.deepOrange900,
         marginBottom: theme.spacing.m,
     },
     reminderRow: {
@@ -204,7 +265,7 @@ export const styles = StyleSheet.create({
         backgroundColor: theme.colors.borderLight,
     },
     closePickerText: {
-        color: theme.colors.primary,
+        color: theme.colors.accent,
         fontWeight: '600',
         fontSize: 16,
     },

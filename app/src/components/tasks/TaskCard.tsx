@@ -1,9 +1,10 @@
+import { plainLabel } from '../../utils/a11yLabel';
 import { theme } from '../../theme';
 import { createLogger } from '../../utils/logger';
 import { getShadowStyle } from '../../utils/styleUtils';
 const log = createLogger('TaskCard');
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
 import { usePregnancy } from '../../context/PregnancyContext';
 import { useTranslation } from 'react-i18next';
@@ -77,6 +78,12 @@ export const TaskCard: React.FC<TaskCardProps> = React.memo(({ task }) => {
         <TouchableOpacity
             style={[styles.taskCard, completed && styles.taskCardCompleted]}
             onPress={handleToggle}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: completed }}
+            // react-native-web does not map accessibilityState.checked to aria-checked, so
+            // a screen reader heard every weekly task as an unchecked checkbox.
+            {...(Platform.OS === 'web' ? { 'aria-checked': completed } : {})}
+            accessibilityLabel={plainLabel(getLocalizedContent(task, 'label', i18n.language)) || t('tasks.suggestedTask')}
         >
             <View style={[styles.taskCheckbox, completed && styles.taskCheckboxCheckedContainer]}>
                 {completed ? (
@@ -147,6 +154,6 @@ const styles = StyleSheet.create({
     },
     taskTitleCompleted: {
         textDecorationLine: 'line-through',
-        color: theme.colors.gray500,
+        color: theme.colors.textMuted,
     },
 });

@@ -3,24 +3,28 @@ import { theme } from '../../../theme';
 
 describe('Button helpers', () => {
     describe('resolveButtonVariant', () => {
-        it('returns primary palette by default', () => {
+        it('returns accent (AA-passing) bg + white text by default', () => {
+            // A11Y-CONTRAST-01 : primary actionable fill routed to accent #C2185B (5.87:1)
+            // instead of decorative #FF6B9D (2.68:1, WCAG AA fail).
             const v = resolveButtonVariant('primary', false);
-            expect(v.backgroundColor).toBe(theme.colors.primary);
+            expect(v.backgroundColor).toBe(theme.colors.accent);
             expect(v.textColor).toBe(theme.colors.white);
             expect(v.borderColor).toBeUndefined();
         });
 
-        it('returns transparent + primary text + primary border for outline', () => {
+        it('returns transparent + accent text (AA) + primary border for outline', () => {
+            // A11Y-CONTRAST-01 : outline text routed to accent #C2185B (5.87:1) instead
+            // of primary #FF6B9D (2.68:1 fail). Border stays decorative #FF6B9D.
             const v = resolveButtonVariant('outline', false);
             expect(v.backgroundColor).toBe('transparent');
-            expect(v.textColor).toBe(theme.colors.primary);
+            expect(v.textColor).toBe(theme.colors.accent);
             expect(v.borderColor).toBe(theme.colors.primary);
         });
 
-        it('returns transparent + primary text without border for ghost', () => {
+        it('returns transparent + accent text (AA) without border for ghost', () => {
             const v = resolveButtonVariant('ghost', false);
             expect(v.backgroundColor).toBe('transparent');
-            expect(v.textColor).toBe(theme.colors.primary);
+            expect(v.textColor).toBe(theme.colors.accent);
             expect(v.borderColor).toBeUndefined();
         });
 
@@ -37,9 +41,11 @@ describe('Button helpers', () => {
         });
 
         it('returns disabled palette when disabled (filled variants)', () => {
+            // Cycle 2 F301 fix : disabled text passe à neutral700 (~7:1 ratio)
+            // au lieu de white (~1.4:1 fail WCAG AA).
             const v = resolveButtonVariant('primary', true);
             expect(v.backgroundColor).toBe(theme.colors.disabled);
-            expect(v.textColor).toBe(theme.colors.white);
+            expect(v.textColor).toBe(theme.colors.neutral700);
         });
 
         it('returns transparent + placeholder text when disabled (outline)', () => {
@@ -58,10 +64,12 @@ describe('Button helpers', () => {
     });
 
     describe('resolveButtonSize', () => {
-        it('returns small dimensions', () => {
+        it('returns small dimensions (a11y compliant ≥ 44pt Apple HIG)', () => {
+            // Cycle 2 F300 fix : small minHeight bumpé 36→44 pour passer Apple HIG
+            // (44pt) et Material (48dp non atteint mais 44 acceptable iOS-first).
             const s = resolveButtonSize('small');
             expect(s.fontSize).toBe(14);
-            expect(s.minHeight).toBeLessThanOrEqual(40);
+            expect(s.minHeight).toBeGreaterThanOrEqual(44);
         });
 
         it('returns medium dimensions by default', () => {

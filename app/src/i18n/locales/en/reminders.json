@@ -26,7 +26,9 @@
         "remindersTimeRange": "Between 8am and 10pm",
         "enableReminders": "Enable reminders",
         "save": "Save",
-        "concept": "On conception date"
+        "concept": "On conception date",
+        "outOf": "of {{goalL}} L",
+        "unitLitre": "L"
     },
     "frequenciesShort": {
         "per_day": "day",
@@ -40,6 +42,8 @@
         "emptyMsg": "Enable reminders in the Reminders tab! 💡",
         "allDone": "All done! Rest well 💖",
         "remainingTasks": "{{count}} tasks remaining",
+        "remainingTasks_one": "{{count}} task remaining",
+        "remainingTasks_other": "{{count}} tasks remaining",
         "hideTodayTitle": "Hide for today?",
         "hideTodayMsg": "This reminder will remain hidden today, but will return tomorrow.",
         "hide": "Hide",
@@ -71,6 +75,8 @@
         "emptyMsg": "No tasks for today",
         "allDone": "All tasks completed!",
         "remainingTasks": "{{count}} tasks remaining",
+        "remainingTasks_one": "{{count}} task remaining",
+        "remainingTasks_other": "{{count}} tasks remaining",
         "hideTodayTitle": "Hide for today?",
         "hideTodayMsg": "This task will reappear tomorrow",
         "hide": "Hide",

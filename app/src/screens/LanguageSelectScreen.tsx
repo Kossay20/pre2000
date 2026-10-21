@@ -1,30 +1,53 @@
 import { createLogger } from '../utils/logger';
 const log = createLogger('LanguageSelectScreen');
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform } from 'react-native';
+// Cycle 3 F206 : toast non-bloquant à la place de Alert.alert pour le succès.
+import { useToast } from '../context/ToastContext';
+import { showAlert } from '../utils/alert';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useNavigation, CommonActions } from '@react-navigation/native';
+import { useNavigation, useRoute, CommonActions } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import i18n from '../i18n';
 import { theme } from '../theme';
 import { RtlAwareChevron } from '../components/common/RtlAwareChevron';
 import { useTranslation } from 'react-i18next';
-import { changeLanguage } from '../i18n/rtl';
+import { useAuth } from '../context/AuthContext';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
+import { useRtl } from '../hooks/useRtl';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+// T7-FIX-F53 : utiliser le nom natif comme label principal pour AR/TN aussi
+// (idem FR/EN). Un user arabophone reconnaît "العربية" en premier coup d'œil
+// alors que "Arabic" était caché en subtitle.
+// P3-FIX : le sous-titre (descKey) est désormais localisé via t() au lieu d'une
+// chaîne figée. Avant, la carte TN affichait toujours "Arabe + Darija" (FR) et
+// la carte AR "Arabic" (EN) quelle que soit la langue active de l'UI.
 const LANGUAGES = [
-    { code: 'fr', name: 'Français', flag: '🇫🇷', nativeName: 'Français' },
-    { code: 'ar', name: 'Arabic', flag: '🇩🇿', nativeName: 'العربية' },
-    { code: 'tn', name: 'Arabe + Darija', flag: '🇹🇳', nativeName: 'العربية + الدارجة (Beta)' },
-    { code: 'en', name: 'English', flag: '🇬🇧', nativeName: 'English' },
+    { code: 'fr', name: 'Français', flag: '🇫🇷', descKey: 'common.langDescFr' },
+    // #12b: MSA Arabic is pan-regional, not one country — a globe avoids arbitrarily picking a
+    // single Arab nation's flag (Derja below keeps 🇹🇳, which IS Tunisia-specific).
+    { code: 'ar', name: 'العربية', flag: '🌍', descKey: 'common.langDescAr' },
+    // No beta suffix on the name: the first screen a reviewer sees must not present any
+    // part of the app as unfinished (App Store 2.2).
+    { code: 'tn', name: 'العربية + الدارجة', flag: '🇹🇳', descKey: 'common.langDescTn' },
+    { code: 'en', name: 'English', flag: '🇬🇧', descKey: 'common.langDescEn' },
 ];
 
 export const LanguageSelectScreen = () => {
     useScreenAnalytics('LanguageSelectScreen');
     const navigation = useNavigation();
+    const route = useRoute();
     const { t } = useTranslation();
+    const { showToast } = useToast();
+    const { setLocale } = useAuth();
+    // AR-RTL fix: react-native-web puts `dir="auto"` on every Text, so a Latin
+    // label ("English", "Français") was left-aligned while its Arabic subtitle was
+    // right-aligned inside the same card. Pin the alignment to the UI language.
+    const { textAlign } = useRtl();
     const [selectedLanguage, setSelectedLanguage] = useState(i18n.language || 'fr');
     const [loading, setLoading] = useState(false);
+    const insets = useSafeAreaInsets();
 
     useEffect(() => {
         // Load saved language
@@ -44,130 +67,212 @@ export const LanguageSelectScreen = () => {
     const handleLanguageSelect = async (languageCode: string) => {
         setLoading(true);
         try {
-            await changeLanguage(languageCode);
+            // Through AuthContext: a signed-in account (Home > LanguageSelect) also saves it.
+            await setLocale(languageCode);
 
             // Save language preference (redundant if changeLanguage does it, but safe)
             await AsyncStorage.setItem('app_locale', languageCode);
             setSelectedLanguage(languageCode);
 
-            // Show success message
-            Alert.alert(
-                t('common.languageUpdated'),
-                t('common.languageUpdatedMsg'),
-                [
-                    {
-                        text: t('common.ok'),
-                        onPress: () => navigation.navigate('AuthChoice'),
-                    },
-                ]
-            );
+            // Cycle 3 F206 : toast non-bloquant à la place de l'Alert (qui bloquait
+            // le flux et forçait un tap OK). Pas de navigation auto — l'utilisatrice
+            // confirme via le bouton "Continue" en bas de l'écran (l'helper E2E
+            // bootstrap-main-tabs.ts:21 + audit-screens spec 02 cliquent ce bouton).
+            // Cela préserve aussi un meilleur UX : si l'utilisatrice se trompe de
+            // langue, elle peut re-cliquer une autre carte sans être navigated away.
+            // Use i18n.getFixedT(newLang) instead of t() here: the React useTranslation hook
+            // captures its value at render time and lags one cycle behind i18n.changeLanguage,
+            // so t('languageUpdated') would show the OLD language's string (e.g. "Langue mise
+            // à jour" in French even after switching to Arabic). getFixedT reads the new locale
+            // directly from the i18n instance without waiting for a React re-render.
+            // Not in the signed-out funnel (route 'Language'): the toast covered the globe and
+            // the title there, and the ticked card already says it (E-050).
+            if (route.name === 'LanguageSelect') {
+                showToast(i18n.getFixedT(languageCode)('common.languageUpdated'), 'success');
+            }
         } catch (error) {
             log.error('Error saving language:', error);
-            Alert.alert(t('common.error'), t('common.languageChangeError'));
+            showAlert(t('common.error'), t('common.languageChangeError'));
         } finally {
             setLoading(false);
         }
     };
 
+    // The same screen is registered twice: 'Language' opens the signed-out funnel, where
+    // Continue leads to AuthChoice; 'LanguageSelect' sits in the signed-in Home stack
+    // (/language), where AuthChoice does not exist and the reset silently did nothing.
+    // There Continue returns to where she came from, or to Home on a direct link.
+    const handleContinue = () => {
+        if (route.name !== 'LanguageSelect') {
+            navigation.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'AuthChoice' }] }));
+        } else if (navigation.canGoBack()) {
+            navigation.goBack();
+        } else {
+            navigation.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'HomeMain' }] }));
+        }
+    };
+
+    // GJ-006: Continue lives in a footer outside the ScrollView. At the end of the
+    // list it sat below the fold on a phone (y≈1044 on a 390×844 screen in French,
+    // ≈982 in Arabic): the one action this screen exists for was invisible until the
+    // user thought to scroll past an info box.
     return (
-        <ScrollView style={styles.container}>
-            {/* Header with Gradient */}
-            <LinearGradient
-                colors={[theme.colors.primary, theme.colors.accent]}
-                style={styles.header}
-            >
-                <Text style={styles.headerEmoji}>🌐</Text>
-                <Text style={styles.headerTitle}>{t('common.chooseLanguage')}</Text>
-                <Text style={styles.headerSubtitle}>
-                    {t('common.chooseLanguageSubtitle')}
-                </Text>
-            </LinearGradient>
-
-            <View style={styles.content}>
-                <Text style={styles.infoText}>
-                    {t('common.selectLanguageHint')}
-                </Text>
-
-                {LANGUAGES.map((language) => (
-                    <TouchableOpacity
-                        key={language.code}
-                        style={[
-                            styles.languageCard,
-                            selectedLanguage === language.code && styles.languageCardSelected,
-                        ]}
-                        onPress={() => handleLanguageSelect(language.code)}
-                        disabled={loading}
-                        activeOpacity={0.7}
+        <View style={styles.screen}>
+            <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
+                {/* Header with Gradient */}
+                {/* primaryStrong, not primary, under white text: the subtitle measured
+                    under 4.5:1 on the light end of the old gradient. */}
+                <LinearGradient
+                    colors={[theme.colors.primaryStrong, theme.colors.accent]}
+                    style={[styles.header, { paddingTop: Math.max(insets.top + 12, 36) }]}
+                >
+                    <Text style={styles.headerEmoji}>🌐</Text>
+                    {/* The page title is a heading. In the signed-out funnel ('Language', no stack header) it
+                        is the only one, so h1; from Home ('LanguageSelect') the stack header already
+                        carries the route title as the h1, so this one is its h2 (web only). */}
+                    <Text
+                        style={styles.headerTitle}
+                        accessibilityRole="header"
+                        {...(Platform.OS === 'web' && route.name === 'LanguageSelect' ? { 'aria-level': 2 } : {})}
                     >
-                        <View style={styles.languageContent}>
-                            <Text style={styles.languageFlag}>{language.flag}</Text>
-                            <View style={styles.languageInfo}>
-                                <Text style={[
-                                    styles.languageName,
-                                    selectedLanguage === language.code && styles.languageNameSelected,
-                                ]}>
-                                    {language.name}
-                                </Text>
-                                <Text style={[
-                                    styles.languageNative,
-                                    selectedLanguage === language.code && styles.languageNativeSelected,
-                                ]}>
-                                    {language.nativeName}
-                                </Text>
-                            </View>
-                        </View>
-                        {selectedLanguage === language.code && (
-                            <View style={styles.checkmark}>
-                                <Text style={styles.checkmarkText}>✓</Text>
-                            </View>
-                        )}
-                    </TouchableOpacity>
-                ))}
+                        {t('common.chooseLanguage')}
+                    </Text>
+                    {/* One line per language. As one wrapping line it broke inside a phrase
+                        and split the Arabic one across lines ("اختر" / "لغتك"); each run is its
+                        own paragraph with its own direction (RN-web gives a root Text dir=auto). */}
+                    <View style={styles.headerSubtitleBlock}>
+                        {t('common.chooseLanguageSubtitle').split('•').map((part) => (
+                            <Text key={part} style={styles.headerSubtitle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>
+                                {part.trim()}
+                            </Text>
+                        ))}
+                    </View>
+                </LinearGradient>
 
-                {/* Info Box */}
-                <View style={styles.infoBox}>
-                    <Text style={styles.infoBoxTitle}>{t('common.infoTitle')}</Text>
-                    <Text style={styles.infoBoxText}>
-                        • {t('common.infoLanguageApplied')}
+                <View style={styles.content}>
+                    <Text style={styles.infoText}>
+                        {t('common.selectLanguageHint')}
                     </Text>
-                    <Text style={styles.infoBoxText}>
-                        • {t('common.infoTranslationsWIP')}
-                    </Text>
-                    <Text style={styles.infoBoxText}>
-                        • {t('common.infoFrenchComplete')}
-                    </Text>
+
+                    {/* A single choice: each card is a radio with its checked state and a
+                        name. They were role-less <div tabindex=0> on web — announced with no
+                        name, no role and no hint of which language was active. */}
+                    <View accessibilityRole="radiogroup" accessibilityLabel={t('common.chooseLanguage')}>
+                        {LANGUAGES.map((language) => (
+                            <TouchableOpacity
+                                key={language.code}
+                                accessibilityRole="radio"
+                                // Name only when the description repeats it ("Français, Français" in French).
+                                accessibilityLabel={t(language.descKey) === language.name ? language.name : `${language.name}, ${t(language.descKey)}`}
+                                accessibilityState={{ checked: selectedLanguage === language.code, disabled: loading }}
+                                {...(Platform.OS === 'web' ? { 'aria-checked': selectedLanguage === language.code } : {})}
+                                // Stable E2E hook. The suite used to locate these cards by
+                                // flag emoji and positional index; when the Arabic card swapped
+                                // 🇩🇿 for a region-neutral 🌍 the regex silently matched only
+                                // three cards, so the "ar" test was actually clicking the
+                                // Tunisian card and the en/tn tests broke outright. A testID
+                                // cannot drift with the visual design.
+                                testID={`lang_card_${language.code}`}
+                                style={[
+                                    styles.languageCard,
+                                    selectedLanguage === language.code && styles.languageCardSelected,
+                                ]}
+                                onPress={() => handleLanguageSelect(language.code)}
+                                disabled={loading}
+                                activeOpacity={0.7}
+                            >
+                                <View style={styles.languageContent}>
+                                    <Text style={styles.languageFlag}>{language.flag}</Text>
+                                    <View style={styles.languageInfo}>
+                                        <Text style={[
+                                            styles.languageName,
+                                            { textAlign },
+                                            selectedLanguage === language.code && styles.languageNameSelected,
+                                        ]}>
+                                            {language.name}
+                                        </Text>
+                                        <Text style={[
+                                            styles.languageNative,
+                                            { textAlign },
+                                            selectedLanguage === language.code && styles.languageNativeSelected,
+                                        ]}>
+                                            {t(language.descKey)}
+                                        </Text>
+                                    </View>
+                                    {/* AR-RTL fix: the checkmark used `position:absolute; right:20`, a
+                                        physical inset that stayed on the right in Arabic and collided
+                                        with the flag. In-flow at the end of the row it mirrors for free. */}
+                                    {selectedLanguage === language.code && (
+                                        <View style={styles.checkmark}>
+                                            <Text style={styles.checkmarkText}>✓</Text>
+                                        </View>
+                                    )}
+                                </View>
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+
+                    {/* Info Box */}
+                    <View style={styles.infoBox}>
+                        <Text style={styles.infoBoxTitle}>{t('common.infoTitle')}</Text>
+                        {/* The "some translations are in progress" / "French is the most
+                            complete" bullets are gone: the first screen of a store build told
+                            every user the product was unfinished, while ar, tn and en ship as
+                            first-class languages. */}
+                        <Text style={styles.infoBoxText}>
+                            {t('common.infoLanguageApplied')}
+                        </Text>
+                    </View>
                 </View>
+            </ScrollView>
 
-                {/* Continue Button */}
+            {/* Continue Button */}
+            <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
                 <TouchableOpacity
-                    style={styles.backButton}
-                    onPress={() => navigation.dispatch(
-                        CommonActions.reset({ index: 0, routes: [{ name: 'AuthChoice' }] })
-                    )}
+                    style={styles.continueButton}
+                    onPress={handleContinue}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('common.continue')}
                 >
                     <View style={styles.continueRow}>
-                        <Text style={styles.backButtonText}>{t('common.continue')}</Text>
-                        <RtlAwareChevron direction="forward" variant="arrow" size={18} color={theme.colors.textSecondary} />
+                        <Text style={styles.continueButtonText}>{t('common.continue')}</Text>
+                        <RtlAwareChevron direction="forward" variant="arrow" size={18} color={theme.colors.white} />
                     </View>
                 </TouchableOpacity>
             </View>
-        </ScrollView>
+        </View>
     );
 };
 
 const styles = StyleSheet.create({
+    screen: {
+        flex: 1,
+        backgroundColor: theme.colors.surface,
+    },
     container: {
         flex: 1,
         backgroundColor: theme.colors.surface,
     },
+    scrollContent: {
+        flexGrow: 1,
+    },
+    footer: {
+        paddingHorizontal: 16,
+        paddingTop: 12,
+        backgroundColor: theme.colors.surface,
+        borderTopWidth: 1,
+        borderTopColor: theme.colors.disabled,
+    },
+    // Compact on purpose: with a 60pt top, a 64pt globe and 20pt-padded cards the fourth
+    // card ended under the 72pt Continue footer on an 844pt screen (A-044).
     header: {
-        paddingTop: 60,
-        paddingBottom: 32,
+        paddingTop: 36,
+        paddingBottom: 20,
         alignItems: 'center',
     },
     headerEmoji: {
-        fontSize: 64,
-        marginBottom: 16,
+        fontSize: 48,
+        marginBottom: 8,
     },
     headerTitle: {
         fontSize: 28,
@@ -175,27 +280,35 @@ const styles = StyleSheet.create({
         color: theme.colors.white,
         marginBottom: 8,
     },
+    headerSubtitleBlock: {
+        // The trilingual subtitle ran edge to edge (x=2 in a 375 viewport).
+        paddingHorizontal: 16,
+        alignSelf: 'stretch',
+        alignItems: 'center',
+    },
     headerSubtitle: {
         fontSize: 14,
-        color: theme.colors.whiteAlpha90,
+        lineHeight: 20,
+        // Full white: 90 % white over the gradient fell under 4.5:1.
+        color: theme.colors.white,
         textAlign: 'center',
     },
     content: {
         padding: 16,
-        paddingBottom: 32,
+        paddingBottom: 16,
     },
     infoText: {
         fontSize: 15,
         color: theme.colors.textSecondary,
         textAlign: 'center',
-        marginBottom: 24,
+        marginBottom: 16,
         lineHeight: 22,
     },
     languageCard: {
         backgroundColor: theme.colors.white,
         borderRadius: 16,
-        padding: 20,
-        marginBottom: 12,
+        padding: 14,
+        marginBottom: 10,
         borderWidth: 2,
         borderColor: theme.colors.disabled,
         shadowColor: theme.colors.black,
@@ -233,16 +346,14 @@ const styles = StyleSheet.create({
         color: theme.colors.textSecondary,
     },
     languageNativeSelected: {
-        color: theme.colors.primary,
+        color: theme.colors.accent,
     },
     checkmark: {
-        position: 'absolute',
-        top: 20,
-        right: 20,
+        marginStart: 12,
         width: 32,
         height: 32,
         borderRadius: 16,
-        backgroundColor: theme.colors.primary,
+        backgroundColor: theme.colors.accent,
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -256,7 +367,6 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         padding: 16,
         marginTop: 24,
-        marginBottom: 24,
         borderWidth: 1,
         borderColor: theme.colors.blue100,
     },
@@ -269,21 +379,22 @@ const styles = StyleSheet.create({
     infoBoxText: {
         fontSize: 14,
         color: theme.colors.blue800,
-        marginBottom: 8,
         lineHeight: 20,
     },
-    backButton: {
-        backgroundColor: theme.colors.white,
+    // The screen's only action, filled like every primary button in the funnel (the
+    // shared Button's primary: accent fill, white text). Grey-on-white read as disabled.
+    continueButton: {
+        backgroundColor: theme.colors.accent,
         paddingVertical: 14,
+        minHeight: 48,
         borderRadius: 12,
         alignItems: 'center',
-        borderWidth: 1,
-        borderColor: theme.colors.disabled,
+        justifyContent: 'center',
     },
-    backButtonText: {
+    continueButtonText: {
         fontSize: 16,
-        fontWeight: '600',
-        color: theme.colors.textSecondary,
+        fontWeight: '700',
+        color: theme.colors.white,
     },
     continueRow: {
         flexDirection: 'row',

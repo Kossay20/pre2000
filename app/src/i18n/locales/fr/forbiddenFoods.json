@@ -15,8 +15,9 @@
         "low": "💡 Modérer"
     },
     "all": "Tous",
-    "riskLabel": "⚠️ Risque :",
-    "detailsLabel": "📝 Détails :",
-    "alternativeLabel": "✅ Alternative :",
-    "disclaimer": "⚠️ Cette liste est basée sur les recommandations de l'OMS et de l'ANSES.\nEn cas de doute, consultez votre médecin ou sage-femme."
+    "subtitle": "Aliments à éviter ou limiter pendant la grossesse",
+    "riskLabel": "⚠️ Risque :",
+    "detailsLabel": "📝 Détails :",
+    "alternativeLabel": "✅ Alternative :",
+    "disclaimer": "⚠️ Liste d'information générale sur les aliments à éviter pendant la grossesse.\nEn cas de doute, consultez votre médecin ou sage-femme."
 }

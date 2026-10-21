@@ -287,7 +287,12 @@ export const ReminderEditModal: React.FC<ReminderEditModalProps> = ({
                 <View style={styles.modalContainer}>
                     {/* Header */}
                     <View style={styles.header}>
-                        <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+                        <TouchableOpacity
+                            onPress={onClose}
+                            style={styles.closeButton}
+                            accessibilityRole="button"
+                            accessibilityLabel={t('a11y.closeModal')}
+                        >
                             <Text style={styles.closeButtonText}>✕</Text>
                         </TouchableOpacity>
                         <View style={styles.headerContent}>
@@ -326,6 +331,8 @@ export const ReminderEditModal: React.FC<ReminderEditModalProps> = ({
                                             <TouchableOpacity
                                                 style={styles.removeTimeButton}
                                                 onPress={() => removeTimeSlot(index)}
+                                                accessibilityRole="button"
+                                                accessibilityLabel={t('a11y.removeTimeSlot')}
                                             >
                                                 <Text style={styles.removeTimeIcon}>🗑️</Text>
                                             </TouchableOpacity>
@@ -371,7 +378,10 @@ export const ReminderEditModal: React.FC<ReminderEditModalProps> = ({
                             disabled={saving}
                         >
                             <Text style={styles.saveButtonText}>
-                                {saving ? t('common.save') : t('common.save').replace('...', ' 💕')}
+                                {/* W4 #3: idle shows the action verb (common.save — corrected to
+                                    'Save'/'حفظ' in en/ar/tn, was the 'Saving…' loading string); loading
+                                    shows common.saving. Dropped the brittle '...'→💕 replace hack. */}
+                                {saving ? t('common.saving') : `${t('common.save')} 💕`}
                             </Text>
                         </TouchableOpacity>
                     </View>

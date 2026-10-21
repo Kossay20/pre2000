@@ -1,6 +1,6 @@
 import { createLogger } from '../utils/logger';
 const log = createLogger('AddAppointmentScreen');
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useMemo } from 'react';
 import {
     View,
     Text,
@@ -8,24 +8,40 @@ import {
     TouchableOpacity,
     Platform,
     ScrollView,
-    Alert,
     Switch,
+    ActivityIndicator,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { usePregnancy } from '../context/PregnancyContext';
-import { saveUserEvent, calculateWeekFromDate, updateUserEvent } from '../services/calendarService';
+import { saveUserEvent, calculateWeekFromDate, updateUserEvent, newUserEventId, getUserEvent } from '../services/calendarService';
+import { UserEvent } from '../types';
+import { parseLocalDateKey, toLocalDateKey, isOnLocalDay } from '../utils/localDate';
+import { initialAppointmentDate, withLocalDay, withLocalTime, toMinute } from '../utils/appointmentDate';
+import { Button } from '../components/common/Button';
 import { scheduleRDVReminders, cancelRDVReminders, getRDVReminders, getRDVPreference } from '../services/rdvNotificationService';
+import { requestNotificationsAndResync } from '../services/notificationPermissionFlow';
 import { analyticsService } from '../services/analyticsService';
 import { trackPositiveAction } from '../services/inAppReviewService';
 import { theme } from '../theme';
-import { format } from 'date-fns';
+import { switchThumbProps } from '../utils/styleUtils';
+import { Ionicons } from '@expo/vector-icons';
+import { format, isValid } from 'date-fns';
 import { useTranslation } from 'react-i18next';
 import { useDateLocale } from '../hooks/useDateLocale';
 import { getPickerLocale } from '../utils/pickerLocale';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
+import { showAlert } from '../utils/alert';
+import { confirmAction } from '../utils/uiUtils';
+import { waitForPendingWrites } from 'firebase/firestore';
+import { db } from '../config/firebase';
+import {
+    savePendingAppointmentDraft,
+    loadPendingAppointmentDraft,
+    clearPendingAppointmentDraft,
+} from '../utils/pendingAppointmentDraft';
 import { styles } from './AddAppointmentScreen.styles';
 
 
@@ -33,22 +49,99 @@ import { styles } from './AddAppointmentScreen.styles';
 
 
 
+/** The event being edited, as the form reads it. */
+interface EditableEvent {
+    id: string;
+    title: string;
+    date: string;
+    type?: string;
+    category?: 'medical' | 'other';
+    location?: string;
+    notes?: string;
+}
+
+const toEditable = (event: UserEvent): EditableEvent => ({
+    id: event.event_id,
+    title: event.title,
+    date: event.date,
+    type: event.type,
+    category: event.category,
+    location: event.location,
+    notes: event.notes,
+});
+
+/**
+ * Edit mode is addressed by `eventId` alone and the event is read from the server here.
+ * The Calendar used to pass the whole event object: on web that param became
+ * "[object Object]" in the URL, so a reload reopened an "edit" form with every field
+ * empty, and the Month view passed an object without the location.
+ */
 export const AddAppointmentScreen = () => {
     useScreenAnalytics('AddAppointmentScreen');
     const navigation = useNavigation();
     const route = useRoute<any>();
+    const { t } = useTranslation();
+    const eventId: string | undefined = typeof route.params?.eventId === 'string' && route.params.eventId
+        ? route.params.eventId
+        : undefined;
+    const [loaded, setLoaded] = useState<{ id: string; event: EditableEvent | null } | null>(null);
+
+    // The stack's static title says "Ajouter un RDV"; editing one must not. Set from the
+    // route param so it is right from the first frame, while the event is still loading.
+    useLayoutEffect(() => {
+        navigation.setOptions({
+            title: eventId ? t('addAppointment.editTitle') : t('common.screen.addAppointment'),
+        });
+    }, [navigation, eventId, t]);
+
+    useEffect(() => {
+        if (!eventId) return;
+        let cancelled = false;
+        getUserEvent(eventId).then((event) => {
+            if (!cancelled) setLoaded({ id: eventId, event: event ? toEditable(event) : null });
+        });
+        return () => { cancelled = true; };
+    }, [eventId]);
+
+    if (!eventId) return <AppointmentForm />;
+
+    if (!loaded || loaded.id !== eventId) {
+        return (
+            <View style={styles.centerState}>
+                <ActivityIndicator size="large" color={theme.colors.primary} />
+                <Text style={styles.centerStateMsg}>{t('common.loading')}</Text>
+            </View>
+        );
+    }
+
+    if (!loaded.event) {
+        return (
+            <View style={styles.centerState}>
+                <Text style={styles.centerStateTitle} accessibilityRole="header">{t('addAppointment.notFoundTitle')}</Text>
+                <Text style={styles.centerStateMsg}>{t('addAppointment.notFoundMsg')}</Text>
+                <Button
+                    title={t('addAppointment.backToCalendar')}
+                    onPress={() => navigation.navigate('CalendarMain' as never)}
+                />
+            </View>
+        );
+    }
+
+    return <AppointmentForm key={loaded.id} editingEvent={loaded.event} />;
+};
+
+const AppointmentForm = ({ editingEvent }: { editingEvent?: EditableEvent }) => {
+    const navigation = useNavigation();
+    const route = useRoute<any>();
     const { user, firebaseUser } = useAuth();
 
-    const { profile } = usePregnancy();
+    const { profile, pregnancyInfo } = usePregnancy();
     const { showToast } = useToast();
     const { t, i18n } = useTranslation();
 
     // Get date locale based on current language
     // Get date locale using shared hook (handles tn -> arTN correctly)
     const dateLocale = useDateLocale();
-
-    // Check if we are in edit mode
-    const editingEvent = route.params?.event;
 
     // DEBUG: Log incoming params
     useEffect(() => {
@@ -57,59 +150,79 @@ export const AddAppointmentScreen = () => {
     }, []);
 
     const [title, setTitle] = useState(editingEvent?.title || '');
-    const [type, setType] = useState<'medical' | 'other'>(editingEvent?.type === 'appointment' ? 'medical' : 'other'); // Simplified mapping
+    // CAL-04: prefer the persisted `category` (Medical/Personal) so re-opening an
+    // event restores the real choice. Legacy events without `category` fall back to
+    // the old type-based heuristic (every user event has type 'appointment' → 'medical').
+    // A new appointment starts on Medical: in a pregnancy app most of them are (scans,
+    // midwife, lab work), and it used to start on Personal only because a missing event
+    // fell through the legacy heuristic.
+    const initialType = (
+        !editingEvent
+            ? 'medical'
+            : editingEvent.category === 'medical' || editingEvent.category === 'other'
+                ? editingEvent.category
+                : (editingEvent.type === 'appointment' ? 'medical' : 'other')
+    ) as 'medical' | 'other';
+    const [type, setType] = useState<'medical' | 'other'>(initialType);
 
-    // FIX: Ensure valid date initialization with smart time defaults
     const getInitialDate = () => {
         if (editingEvent?.date) return new Date(editingEvent.date);
-
-        if (route.params?.selectedDate) {
-            const dateStr = route.params.selectedDate;
-            const paramDate = new Date(dateStr);
-            // Check if valid date
-            if (!isNaN(paramDate.getTime())) {
-                // Determine if it was passed as a simple date string (YYYY-MM-DD)
-                if (typeof dateStr === 'string' && dateStr.length <= 10) {
-                    const parts = dateStr.split('-');
-                    if (parts.length === 3) {
-                        return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]), 9, 0, 0);
-                    }
-                }
-
-                // SMART UX: If the time is essentially midnight locally (00:00, or 01:00 from UTC offset)
-                if (paramDate.getHours() <= 2 && paramDate.getMinutes() === 0) {
-                    const now = new Date();
-                    const isToday = paramDate.toDateString() === now.toDateString();
-
-                    if (isToday) {
-                        return now; // Default to NOW if adding for today
-                    } else {
-                        // For future dates, default to 09:00 instead of midnight
-                        const smartTime = new Date(paramDate);
-                        smartTime.setHours(9, 0, 0, 0);
-                        return smartTime;
-                    }
-                }
-                return paramDate;
-            }
-        }
-        return new Date(); // Fallback to now
+        const selected = route.params?.selectedDate;
+        return initialAppointmentDate(typeof selected === 'string' ? selected : undefined);
     };
 
     const [date, setDate] = useState(getInitialDate());
     const [tempDate, setTempDate] = useState<Date>(date);
+    // Web types the day as text. The text is kept as typed so an impossible day
+    // ("2026-02-31") stays on screen with an error instead of being rolled over to 3 March
+    // by the Date constructor; `date` only takes days that exist.
+    const [dateText, setDateText] = useState(() => toLocalDateKey(date));
     const [location, setLocation] = useState(editingEvent?.location || '');
-    const [notes, setNotes] = useState(editingEvent?.notes || editingEvent?.description || '');
+    const [notes, setNotes] = useState(editingEvent?.notes || '');
 
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [showTimePicker, setShowTimePicker] = useState(false);
     const [saving, setSaving] = useState(false);
+    // One document id per form: a second Save (after an error, or a retry while the
+    // first write is still queued offline) overwrites that document instead of
+    // creating a duplicate appointment.
+    const newEventIdRef = React.useRef<string>(newUserEventId());
 
     // Reminder settings - 3 independent options
     const [reminderJ1, setReminderJ1] = useState(true);   // Veille à 8h
     const [reminderJ, setReminderJ] = useState(true);     // Jour J à 8h
     const [reminderH2, setReminderH2] = useState(false);  // 2h avant
     const [loadingReminders, setLoadingReminders] = useState(!!editingEvent);
+
+    const isGuest = !!user?.isGuest;
+
+    // GUEST-DRAFT FIX (restore side). When a guest hits Save we stash the form and
+    // send them to the account screen; on the way back, authenticated, we refill it
+    // so they don't have to retype anything. Only restores for a real account and
+    // only for a fresh form (never clobbers an event being edited).
+    useEffect(() => {
+        if (isGuest || editingEvent) return;
+        let cancelled = false;
+        (async () => {
+            const draft = await loadPendingAppointmentDraft();
+            if (!draft || cancelled) return;
+            setTitle(draft.title);
+            setType(draft.type);
+            const restoredDate = new Date(draft.date);
+            if (!isNaN(restoredDate.getTime())) {
+                setDate(restoredDate);
+                setTempDate(restoredDate);
+            }
+            setLocation(draft.location);
+            setNotes(draft.notes);
+            setReminderJ1(draft.reminderJ1);
+            setReminderJ(draft.reminderJ);
+            setReminderH2(draft.reminderH2);
+            await clearPendingAppointmentDraft();
+            showToast(t('addAppointment.draftRestored'), 'success');
+        })();
+        return () => { cancelled = true; };
+    }, [isGuest, editingEvent]);
 
     // Load existing reminder preferences when editing
     useEffect(() => {
@@ -153,6 +266,18 @@ export const AddAppointmentScreen = () => {
 
     const isTitleValid = title.trim().length > 0;
 
+    // A date set from elsewhere (restored draft, native picker) replaces the text unless
+    // the text already names that day.
+    useEffect(() => {
+        setDateText((prev) => (parseLocalDateKey(prev) && isOnLocalDay(date, prev) ? prev : toLocalDateKey(date)));
+    }, [date]);
+
+    const dateError = Platform.OS !== 'web'
+        ? null
+        : dateText.trim() === ''
+            ? t('addAppointment.errors.dateRequired')
+            : parseLocalDateKey(dateText) ? null : t('addAppointment.errors.dateInvalid');
+
     // PERFECT-FIX-3: snapshot the full initial form state at mount so hasUnsavedChanges
     // covers title, date, location, type, notes AND reminder toggles
     // (previously only title + notes were compared → users lost silent edits on back).
@@ -161,8 +286,8 @@ export const AddAppointmentScreen = () => {
         title: editingEvent?.title || '',
         dateMs: date.getTime(),
         location: editingEvent?.location || '',
-        type: (editingEvent?.type === 'appointment' ? 'medical' : 'other') as 'medical' | 'other',
-        notes: editingEvent?.notes || editingEvent?.description || '',
+        type: initialType,
+        notes: editingEvent?.notes || '',
         reminderJ1: editingEvent ? false : true,
         reminderJ: editingEvent ? false : true,
         reminderH2: false,
@@ -206,20 +331,32 @@ export const AddAppointmentScreen = () => {
             // Prevent default behavior of leaving the screen
             e.preventDefault();
 
-            // Prompt the user before leaving
-            Alert.alert(
+            // CAL-02: Alert.alert is a no-op on react-native-web, which trapped the
+            // user (Cancel/back/tab all blocked) because preventDefault() ran but no
+            // dialog ever appeared. On web, use the synchronous window.confirm and
+            // dispatch the blocked action immediately when the user confirms.
+            if (Platform.OS === 'web') {
+                const confirmDiscard = window.confirm(
+                    `${t('addAppointment.discardTitle')}\n\n${t('addAppointment.discardMsg')}`
+                );
+                if (confirmDiscard) {
+                    navigation.dispatch(e.data.action);
+                }
+                return;
+            }
+
+            // Prompt the user before leaving (native — web handled above via window.confirm).
+            // WEB-ALERT: confirmAction keeps the destructive "discard" callback (dispatch the
+            // blocked action) and the "keep editing" cancel label.
+            confirmAction(
                 t('addAppointment.discardTitle'),
                 t('addAppointment.discardMsg'),
-                [
-                    { text: t('addAppointment.keepEditing'), style: 'cancel', onPress: () => { } },
-                    {
-                        text: t('addAppointment.discard'),
-                        style: 'destructive',
-                        // If the user confirmed, then we dispatch the action we blocked earlier
-                        // This will continue the action that had triggered the removal of the screen
-                        onPress: () => navigation.dispatch(e.data.action),
-                    },
-                ]
+                // If the user confirmed, then we dispatch the action we blocked earlier
+                // This will continue the action that had triggered the removal of the screen
+                () => navigation.dispatch(e.data.action),
+                undefined,
+                t('addAppointment.keepEditing'),
+                t('addAppointment.discard')
             );
         });
 
@@ -243,24 +380,19 @@ export const AddAppointmentScreen = () => {
         }
     };
 
-    const handleWebDateChange = (e: any) => {
-        const value = e.target?.value || e.nativeEvent?.text;
-        if (value) {
-            const [year, month, day] = value.split('-').map(Number);
-            const newDate = new Date(date);
-            newDate.setFullYear(year, month - 1, day);
-            setDate(newDate);
-        }
+    const handleWebDateChange = (text: string) => {
+        setDateText(text);
+        // Only a day that exists is committed; anything else stays as typed, flagged by
+        // dateError, and Save is held back until it is fixed.
+        const next = withLocalDay(date, text);
+        if (next) setDate(next);
     };
 
-    const handleWebTimeChange = (e: any) => {
-        const value = e.target?.value || e.nativeEvent?.text;
-        if (value) {
-            const [hours, minutes] = value.split(':').map(Number);
-            const newDate = new Date(date);
-            newDate.setHours(hours, minutes);
-            setDate(newDate);
-        }
+    const handleWebTimeChange = (text: string) => {
+        // Seconds are zeroed: `date` starts from new Date(), and an appointment saved at
+        // "10:30" was stored as 10:30:13.559.
+        const next = withLocalTime(date, text);
+        if (next) setDate(next);
     };
 
     const handleTimeChange = (event: any, selectedTime?: Date) => {
@@ -282,7 +414,12 @@ export const AddAppointmentScreen = () => {
 
     const handleSave = async () => {
         if (!isTitleValid) {
-            Alert.alert(t('addAppointment.missingTitleTitle'), t('addAppointment.missingTitleMsg'));
+            // WEB-ALERT: showAlert surfaces the message on web too (Alert.alert is a no-op there).
+            showAlert(t('addAppointment.missingTitleTitle'), t('addAppointment.missingTitleMsg'));
+            return;
+        }
+        if (dateError) {
+            showAlert(t('addAppointment.errorSaveTitle'), dateError);
             return;
         }
 
@@ -302,22 +439,62 @@ export const AddAppointmentScreen = () => {
 
         if (!effectiveUid) {
             log.error('[AddAppointmentScreen] No UID available. User may not be authenticated.');
-            Alert.alert(t('addAppointment.notConnectedTitle'), t('addAppointment.notConnectedMsg'));
+            // DEAD-END FIX: this used to show a message and stop, leaving the user
+            // stuck on a form they could never submit. Offer the way out — same
+            // draft-preserving path as the guest branch below.
+            await savePendingAppointmentDraft({
+                title: title.trim(),
+                type,
+                date: date.toISOString(),
+                location,
+                notes,
+                reminderJ1,
+                reminderJ,
+                reminderH2,
+            });
+            confirmAction(
+                t('addAppointment.notConnectedTitle'),
+                t('addAppointment.notConnectedMsg'),
+                () => navigation.getParent()?.navigate('Home', { screen: 'GuestUpgrade' }),
+                undefined,
+                t('addAppointment.cancel'),
+                t('addAppointment.guestAlertCreate')
+            );
             return;
         }
 
         // Guest check
         if (user?.isGuest) {
-            Alert.alert(
+            // GUEST-DRAFT FIX: a guest used to lose everything they had typed here —
+            // the form was fully open, Save was the first sign an account was needed,
+            // and the data was dropped on the way to the signup screen. Persist the
+            // draft first; RegisterScreen sends them back here after signup and the
+            // restore effect above refills the form.
+            await savePendingAppointmentDraft({
+                title: title.trim(),
+                type,
+                date: date.toISOString(),
+                location,
+                notes,
+                reminderJ1,
+                reminderJ,
+                reminderH2,
+            });
+
+            const goToUpgrade = () =>
+                navigation.getParent()?.navigate('Home', { screen: 'GuestUpgrade' });
+
+            // confirmAction handles both platforms (window.confirm on web,
+            // Alert.alert on native). The previous web branch called window.confirm
+            // directly, which cannot render the localized "create account" button
+            // label — it always showed the browser's OK/Cancel.
+            confirmAction(
                 t('addAppointment.guestAlertTitle'),
                 t('addAppointment.guestAlertMsg'),
-                [
-                    { text: t('addAppointment.cancel'), style: 'cancel' },
-                    {
-                        text: t('addAppointment.guestAlertCreate'),
-                        onPress: () => navigation.navigate('AuthChoice')
-                    }
-                ]
+                goToUpgrade,
+                undefined,
+                t('addAppointment.cancel'),
+                t('addAppointment.guestAlertCreate')
             );
             return;
         }
@@ -326,38 +503,56 @@ export const AddAppointmentScreen = () => {
 
         try {
             const lmpDate = new Date(effectiveLmp);
-            const week = calculateWeekFromDate(lmpDate, date);
+            const when = toMinute(date);
+            const week = calculateWeekFromDate(lmpDate, when);
 
             let eventId: string;
 
             if (editingEvent?.id) {
-                // UPDATE existing event
+                // UPDATE existing event. An emptied location/notes is sent as null (= clear):
+                // the update is a merge, so leaving the key out kept the old text.
                 eventId = editingEvent.id;
-                await updateUserEvent(editingEvent.id, {
+                const { pendingSync } = await updateUserEvent(editingEvent.id, {
                     title: title.trim(),
-                    date: date.toISOString(),
+                    date: when.toISOString(),
                     week,
                     type: 'appointment',
-                    location: location.trim() || undefined,
-                    notes: notes.trim() || undefined,
+                    category: type, // CAL-04: persist the real Medical/Personal selection
+                    location: location.trim() || null,
+                    notes: notes.trim() || null,
                 });
-                showToast(t('addAppointment.successEdit'), 'success');
+                // Persistent: the form closes right after, and the toast is about the calendar she returns to.
+                showToast(pendingSync ? t('addAppointment.savedOffline') : t('addAppointment.successEdit'), pendingSync ? 'info' : 'success', {
+                    persistent: true,
+                    // Back online while the "saved offline" toast is still up: say it went through.
+                    ...(pendingSync ? { replaceOnReconnect: t('addAppointment.successEdit'), replaceWhen: waitForPendingWrites(db) } : {}),
+                });
             } else {
                 // CREATE new event
                 const result = await saveUserEvent({
                     user_id: effectiveUid, // Use the robust UID
                     title: title.trim(),
-                    date: date.toISOString(),
+                    date: when.toISOString(),
                     week,
                     type: 'appointment',
+                    category: type, // CAL-04: persist the real Medical/Personal selection
                     location: location.trim() || undefined,
                     notes: notes.trim() || undefined,
-                });
+                }, { eventId: newEventIdRef.current });
                 // U-FIX-3: was `(result as any)?.id` but saveUserEvent returns `event_id`,
                 // so eventId always fell back to `temp_*` — notifications were orphaned from
                 // the real Firestore doc. Now reads the correct field.
                 eventId = result?.event_id || `temp_${Date.now()}`;
-                showToast(t('addAppointment.successAdd'), 'success');
+                // Offline the write is queued, not lost: say so instead of claiming it
+                // reached the server (and instead of spinning on "Enregistrement…").
+                showToast(
+                    result.pendingSync ? t('addAppointment.savedOffline') : t('addAppointment.successAdd'),
+                    result.pendingSync ? 'info' : 'success',
+                    {
+                        persistent: true,
+                        ...(result.pendingSync ? { replaceOnReconnect: t('addAppointment.successAdd'), replaceWhen: waitForPendingWrites(db) } : {}),
+                    },
+                );
                 // Engagement: Track positive action
                 trackPositiveAction('add_rdv');
                 await analyticsService.logEvent('appointment_created', { type: type });
@@ -369,9 +564,12 @@ export const AddAppointmentScreen = () => {
                 const hasAnyReminder = reminderJ1 || reminderJ || reminderH2;
                 if (hasAnyReminder && eventId) {
                     log.debug('[AddAppointmentScreen] Scheduling reminders for:', eventId);
+                    // Asking here (rather than inside scheduleRDVReminders) means a first
+                    // grant from this screen also schedules her other reminders.
+                    await requestNotificationsAndResync({ week: pregnancyInfo?.week, locale: i18n.language, userId: user?.uid });
                     // P3.1 FIX: pass user.country so notifications fire in user's timezone
                     // (was defaulting to Africa/Algiers for everyone — wrong for FR/MA/TN/etc.)
-                    await scheduleRDVReminders(eventId, title.trim(), date, {
+                    await scheduleRDVReminders(eventId, title.trim(), when, {
                         reminderJ1: reminderJ1,
                         reminderJ: reminderJ,
                         reminderH2: reminderH2,
@@ -384,13 +582,15 @@ export const AddAppointmentScreen = () => {
             } catch (notifError) {
                 log.error('[AddAppointmentScreen] Failed to schedule reminders (non-blocking):', notifError);
                 // We don't throw here to ensure the RDV is kept
-                Alert.alert(t('addAppointment.reminderInfoTitle'), t('addAppointment.reminderInfoMsg'));
+                // WEB-ALERT: showAlert surfaces this info on web too (Alert.alert is a no-op there).
+                showAlert(t('addAppointment.reminderInfoTitle'), t('addAppointment.reminderInfoMsg'));
             }
 
             navigation.goBack();
         } catch (error: any) {
             log.error('Error saving appointment:', error);
-            Alert.alert(t('addAppointment.errorSaveTitle'), t('addAppointment.errorSaveMsg', { error: error.message || t('common.unknownError') }));
+            // WEB-ALERT: showAlert surfaces the save error on web too (Alert.alert is a no-op there).
+            showAlert(t('addAppointment.errorSaveTitle'), t('addAppointment.errorSaveMsg', { error: error.message || t('common.unknownError') }));
         } finally {
             setSaving(false);
         }
@@ -402,21 +602,42 @@ export const AddAppointmentScreen = () => {
                 <View style={styles.header}>
                     <Text style={styles.headerTitle}>{editingEvent ? t('addAppointment.editTitle') : t('addAppointment.newTitle')}</Text>
                     <Text style={styles.headerSubtitle}>
-                        {editingEvent ? t('addAppointment.editSubtitle') : t('addAppointment.newSubtitle')}
+                        {/* Follows the Type chosen below: the form opens on Médical, and a fixed
+                            "rendez-vous personnel" contradicted it. */}
+                        {editingEvent
+                            ? t('addAppointment.editSubtitle')
+                            : t(type === 'medical' ? 'addAppointment.newSubtitleMedical' : 'addAppointment.newSubtitle')}
                     </Text>
                 </View>
+
+                {/* GUEST-BANNER FIX: a guest used to get the whole form with no hint
+                    that saving needs an account — the block only fired on Save, after
+                    everything was typed. Say it up front, with the way out one tap away. */}
+                {isGuest && (
+                    <TouchableOpacity
+                        style={styles.guestBanner}
+                        onPress={() => navigation.getParent()?.navigate('Home', { screen: 'GuestUpgrade' })}
+                        accessibilityRole="button"
+                        accessibilityLabel={t('addAppointment.guestAlertCreate')}
+                    >
+                        <Text style={styles.guestBannerTitle}>{t('addAppointment.guestBannerTitle')}</Text>
+                        <Text style={styles.guestBannerMsg}>{t('addAppointment.guestBannerMsg')}</Text>
+                        <Text style={styles.guestBannerCta}>{t('addAppointment.guestAlertCreate')}</Text>
+                    </TouchableOpacity>
+                )}
 
                 <View style={styles.form}>
                     {/* Title Input */}
                     <View style={styles.inputGroup}>
                         <Text style={styles.label}>{t('addAppointment.titleLabel')}</Text>
                         <TextInput
-                            style={[styles.input, !isTitleValid && title.length > 0 && { borderColor: 'red' }]}
+                            style={[styles.input, !isTitleValid && title.length > 0 && { borderColor: theme.colors.error }]}
                             placeholder={t('addAppointment.titlePlaceholder')}
                             placeholderTextColor={theme.colors.textLight}
                             value={title}
                             onChangeText={setTitle}
                             maxLength={100}
+                            accessibilityLabel={t('addAppointment.titleLabel')}
                         />
                     </View>
 
@@ -430,7 +651,13 @@ export const AddAppointmentScreen = () => {
                                 accessibilityRole="button"
                                 accessibilityLabel={t('addAppointment.typeMedical')}
                                 accessibilityState={{ selected: type === 'medical' }}
+                                // CAL-R2-03: RN-web 0.21.2 drops accessibilityState.selected → expose aria explicitly.
+                                // aria-pressed, not aria-selected: selected is not allowed on role=button (E-070).
+                                {...(Platform.OS === 'web' ? { 'aria-pressed': type === 'medical' } : {})}
                             >
+                                {/* A vector icon, not an emoji: it takes the label's colour, where 🩺 stayed
+                                    mid-grey on the selected magenta chip (about 1.5:1). */}
+                                <Ionicons name="medkit-outline" size={16} color={type === 'medical' ? theme.colors.white : theme.colors.text} />
                                 <Text style={[styles.typeText, type === 'medical' && styles.typeTextActive]}>{t('addAppointment.typeMedical')}</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
@@ -439,7 +666,11 @@ export const AddAppointmentScreen = () => {
                                 accessibilityRole="button"
                                 accessibilityLabel={t('addAppointment.typeOther')}
                                 accessibilityState={{ selected: type === 'other' }}
+                                // CAL-R2-03: RN-web 0.21.2 drops accessibilityState.selected → expose aria explicitly.
+                                // aria-pressed, not aria-selected: selected is not allowed on role=button (E-070).
+                                {...(Platform.OS === 'web' ? { 'aria-pressed': type === 'other' } : {})}
                             >
+                                <Ionicons name="person-outline" size={16} color={type === 'other' ? theme.colors.white : theme.colors.text} />
                                 <Text style={[styles.typeText, type === 'other' && styles.typeTextActive]}>{t('addAppointment.typeOther')}</Text>
                             </TouchableOpacity>
                         </View>
@@ -447,17 +678,34 @@ export const AddAppointmentScreen = () => {
 
                     {/* Date & Time Pickers Row */}
                     <View style={styles.row}>
-                        <View style={[styles.inputGroup, { flex: 1 }]}>
+                        {/* The date ("2026-10-02") is the wider value: at 280pt equal halves cut it
+                            off, so it takes 3 parts to the time's 2. */}
+                        <View style={[styles.inputGroup, { flex: 3 }]}>
                             <Text style={styles.label}>{t('addAppointment.dateLabel')}</Text>
                             {Platform.OS === 'web' ? (
-                                <TextInput
-                                    style={styles.dateButton}
-                                    value={format(date, 'yyyy-MM-dd')}
-                                    onChangeText={(text) => handleWebDateChange({ target: { value: text } })}
-                                    placeholder="YYYY-MM-DD"
-                                    // @ts-ignore - Web specific attribute
-                                    inputMode="none"
-                                />
+                                <>
+                                    <TextInput
+                                        style={[styles.dateButton, !!dateError && { borderColor: theme.colors.error }]}
+                                        value={dateText}
+                                        onChangeText={handleWebDateChange}
+                                        placeholder="YYYY-MM-DD"
+                                        placeholderTextColor={theme.colors.neutral400}
+                                        accessibilityLabel={t('addAppointment.dateLabel')}
+                                        // @ts-ignore - Web specific attribute
+                                        inputMode="none"
+                                    />
+                                    {dateError ? (
+                                        <Text style={styles.fieldError} accessibilityLiveRegion="polite" role="alert">
+                                            {dateError}
+                                        </Text>
+                                    ) : isValid(date) && (
+                                        // CAL-07: the control keeps a yyyy-MM-dd value (required for
+                                        // parsing), but raw ISO is unfriendly — show a localized read-out.
+                                        <Text style={styles.dateReadout}>
+                                            {format(date, 'd MMMM yyyy', { locale: dateLocale })}
+                                        </Text>
+                                    )}
+                                </>
                             ) : (
                                 <TouchableOpacity
                                     style={[styles.dateButton, showDatePicker && { borderColor: theme.colors.primary, borderWidth: 2 }]}
@@ -467,25 +715,28 @@ export const AddAppointmentScreen = () => {
                                         setShowTimePicker(false); // Close other picker
                                     }}
                                     accessibilityRole="button"
-                                    accessibilityLabel={`${t('addAppointment.dateLabel')}: ${format(date, 'dd MMMM yyyy', { locale: dateLocale })}`}
+                                    accessibilityLabel={`${t('addAppointment.dateLabel')}: ${format(date, 'd MMMM yyyy', { locale: dateLocale })}`}
                                     accessibilityHint={t('a11y.selectDate')}
                                     accessibilityState={{ expanded: showDatePicker }}
+                                    // CAL-R2-03: this picker button renders on NATIVE only (web uses the
+                                    // <TextInput> branch above), so no web aria is needed here.
                                 >
                                     <Text style={styles.dateText}>
-                                        {format(date, 'dd MMMM yyyy', { locale: dateLocale })}
+                                        {format(date, 'd MMMM yyyy', { locale: dateLocale })}
                                     </Text>
                                 </TouchableOpacity>
                             )}
                         </View>
 
-                        <View style={[styles.inputGroup, { flex: 1 }]}>
+                        <View style={[styles.inputGroup, { flex: 2 }]}>
                             <Text style={styles.label}>{t('addAppointment.timeLabel')}</Text>
                             {Platform.OS === 'web' ? (
                                 <TextInput
                                     style={styles.dateButton}
-                                    value={format(date, 'HH:mm')}
-                                    onChangeText={(text) => handleWebTimeChange({ target: { value: text } })}
+                                    value={isValid(date) ? format(date, 'HH:mm') : ''}
+                                    onChangeText={handleWebTimeChange}
                                     placeholder="HH:MM"
+                                    placeholderTextColor={theme.colors.neutral400}
                                     // @ts-ignore - Web specific attribute
                                     inputMode="none"
                                 />
@@ -501,6 +752,8 @@ export const AddAppointmentScreen = () => {
                                     accessibilityLabel={`${t('addAppointment.timeLabel')}: ${format(date, 'HH:mm')}`}
                                     accessibilityHint={t('a11y.selectTime')}
                                     accessibilityState={{ expanded: showTimePicker }}
+                                    // CAL-R2-03: this picker button renders on NATIVE only (web uses the
+                                    // <TextInput> branch above), so no web aria is needed here.
                                 >
                                     <Text style={styles.dateText}>
                                         {format(date, 'HH:mm')}
@@ -545,6 +798,7 @@ export const AddAppointmentScreen = () => {
                             value={location}
                             onChangeText={setLocation}
                             maxLength={200}
+                            accessibilityLabel={t('addAppointment.locationLabel')}
                         />
                     </View>
 
@@ -560,6 +814,7 @@ export const AddAppointmentScreen = () => {
                             multiline
                             numberOfLines={4}
                             maxLength={500}
+                            accessibilityLabel={t('addAppointment.notesLabel')}
                         />
                     </View>
 
@@ -577,7 +832,8 @@ export const AddAppointmentScreen = () => {
                                 value={reminderJ1}
                                 onValueChange={setReminderJ1}
                                 trackColor={{ false: theme.colors.disabled, true: theme.colors.primarySoft }}
-                                thumbColor={reminderJ1 ? theme.colors.primary : theme.colors.neutral400}
+                                {...switchThumbProps(reminderJ1 ? theme.colors.primary : theme.colors.neutral400)}
+                                accessibilityLabel={t('addAppointment.reminderJ1')}
                             />
                         </View>
 
@@ -591,7 +847,8 @@ export const AddAppointmentScreen = () => {
                                 value={reminderJ}
                                 onValueChange={setReminderJ}
                                 trackColor={{ false: theme.colors.disabled, true: theme.colors.primarySoft }}
-                                thumbColor={reminderJ ? theme.colors.primary : theme.colors.neutral400}
+                                {...switchThumbProps(reminderJ ? theme.colors.primary : theme.colors.neutral400)}
+                                accessibilityLabel={t('addAppointment.reminderJ')}
                             />
                         </View>
 
@@ -605,7 +862,8 @@ export const AddAppointmentScreen = () => {
                                 value={reminderH2}
                                 onValueChange={setReminderH2}
                                 trackColor={{ false: theme.colors.disabled, true: theme.colors.primarySoft }}
-                                thumbColor={reminderH2 ? theme.colors.primary : theme.colors.neutral400}
+                                {...switchThumbProps(reminderH2 ? theme.colors.primary : theme.colors.neutral400)}
+                                accessibilityLabel={t('addAppointment.reminderH2')}
                             />
                         </View>
                     </View>
@@ -627,14 +885,14 @@ export const AddAppointmentScreen = () => {
                             accessibilityRole="button"
                             accessibilityLabel={t('a11y.saveChanges')}
                             accessibilityHint={t('a11y.saveChangesHint')}
-                            accessibilityState={{ disabled: !isTitleValid || saving, busy: saving }}
+                            accessibilityState={{ disabled: !isTitleValid || !!dateError || saving, busy: saving }}
                             style={[
                                 styles.button,
                                 styles.saveButton,
-                                (!isTitleValid || saving) && styles.saveButtonDisabled
+                                (!isTitleValid || !!dateError || saving) && styles.saveButtonDisabled
                             ]}
                             onPress={handleSave}
-                            disabled={saving || !isTitleValid}
+                            disabled={saving || !isTitleValid || !!dateError}
                         >
                             <Text style={styles.saveButtonText}>
                                 {saving ? t('addAppointment.saving') : t('addAppointment.save')}

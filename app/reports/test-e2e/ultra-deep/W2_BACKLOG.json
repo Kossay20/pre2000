@@ -1,0 +1,460 @@
+{
+ "summary": "109 raw findings across 10 lenses on HomeScreen (990 LOC, already visually GREEN). I read HomeScreen.tsx/.styles.ts, localizedFormat.ts, all 4 locale dirs, and the BabyEvolution RTL precedent, then verified each high-impact claim at file:line. CONFIRMED real defects: (1) home.updateStatus missing in ALL 4 langs (grep = 0 hits) so the FR default leaks to en/ar/tn screen readers; (2) formatMeasure interpolates raw value — null/undefined Firestore field → literal \"null cm\" + no fr/tn comma-decimal; (3) babySize split('{{')[0] is a dead no-op returning a 2-line dangling \"...taille\\nd'un(e)\" fragment (reproduced in node); (4) curiousBanner/postpartumBanner use fixed flexDirection:'row' (NOT isRTL-gated, unlike the pills) → no RTL mirror; (5) recommendations horizontal ScrollView lacks the documented dir=ltr DOM fix that BabyEvolutionScreen.tsx:73 already applies; (6) TTC home recomputes cycleDay inline (DST-buggy, fabricates Day 1 on missing LMP) instead of using ttcInfo; (7) isInvalid (>40wk) still renders full week-40 fetal stats under the \"did you deliver?\" banner; (8) multiple AA contrast misses (coral heroStatValue 2.5:1, toolSubtitle #999 2.85:1, white-on-#FF6B9D 2.68:1) all fixable with existing theme tokens; (9) disabled chevrons lack accessibilityState; (10) week change is silent to screen readers. DISPUTED/DROPPED as low-value or false-positive: overrideDay-dead-state cluster (latent only, masked); useScreenAnalytics (analyst self-verified clean); the perf cluster (useMemo/React.memo — real but micro on a static screen, GREEN); key={index} (stable in common path); many duplicate RTL/contrast/TTC findings merged. DEDUPED heavily: dir=ltr scroller in 4 lenses, home.updateStatus in 2, TTC dead-end in 5, two-baby-hero in 2, curiousBanner-no-mirror in 2. Net: 30 survivors, ranked by impact×inverse-effort. Genuine P0=0; P1 concentrated in i18n-leak + RTL + a11y-announce + data-integrity. Bulk of value is UX-tier amelioration per user-type (TTC/guest dead-ends) and a11y/RTL edges. All fixes cite real file:line, use theme tokens only, and flag i18n keys that must be added to all 4 langs.",
+ "improvements": [
+  {
+   "rank": 1,
+   "sev": "P1",
+   "screen": "S2 Home — postpartum banner a11y label",
+   "anchor": "src/screens/HomeScreen.tsx:597",
+   "title": "home.updateStatus missing in ALL 4 langs → FR string leaks to en/ar/tn screen readers",
+   "fix": "Verified via grep: 'updateStatus' has 0 hits in common.json AND home.json across fr/en/ar/tn. Add 'updateStatus' to the home block in all 4 home.json (fr 'Mettre à jour le statut', en 'Update status', ar 'تحديث الحالة', tn 'بدّل الحالة'), then drop the inline FR default at :597 to t('home.updateStatus').",
+   "impact": "med",
+   "effort": "S",
+   "acceptance": "VoiceOver/TalkBack on the postpartum banner CTA in en/ar/tn announces the localized label, not French. grep 'updateStatus' returns 4 hits.",
+   "confidence": "high",
+   "merged_from": [
+    "logic-flow updateStatus",
+    "reasoner-ux updateStatus"
+   ]
+  },
+  {
+   "rank": 2,
+   "sev": "P1",
+   "screen": "S2 Home — hero stat cards (size/weight)",
+   "anchor": "src/utils/localizedFormat.ts:50",
+   "title": "formatMeasure renders 'null cm'/'undefined غ' on missing Firestore field + no fr/tn comma decimal",
+   "fix": "Confirmed formatMeasure does `${value} ${unit}` with no guard and no decimal localization (localizedFormat.ts:50), while formatDecimal in the same file enforces comma for fr/tn. Guard + localize: `if(value==null||(typeof value==='number'&&!Number.isFinite(value)))return '—'; const num=typeof value==='number'?formatDecimal(value,language):value;` then join. Single choke-point for both hero stats (HomeScreen.tsx:637,641).",
+   "impact": "med",
+   "effort": "S",
+   "acceptance": "A week doc missing baby_size_cm renders '—' not 'null cm'; wk9 (2.3cm) renders '2,3 cm' in fr/tn, '2.3 cm' in en/ar.",
+   "confidence": "high",
+   "merged_from": [
+    "data-integrity null cm",
+    "i18n-rtl formatMeasure decimal"
+   ]
+  },
+  {
+   "rank": 3,
+   "sev": "P1",
+   "screen": "S2 Home — recommendations carousel (RTL)",
+   "anchor": "src/screens/HomeScreen.tsx:971",
+   "title": "Horizontal recommendations ScrollView missing dir=ltr DOM fix → broken scroll geometry in ar/tn",
+   "fix": "Repo already fixed this exact gotcha in BabyEvolutionScreen.tsx:73 (getScrollableNode().setAttribute('dir','ltr')). Add a ref to the ScrollView at :971 and in a useEffect gated by Platform.OS==='web' && isRTL call node.setAttribute('dir','ltr'). Keep paddingEnd/marginEnd (logical, mirror natively). Do NOT add a 'direction' style key (RN-Web rejects it).",
+   "impact": "med",
+   "effort": "S",
+   "acceptance": "In ar/tn web, the rec carousel starts at offset 0 with the first card flush at the trailing edge and swipes in the correct direction; matches BabyEvolution behavior.",
+   "confidence": "high",
+   "merged_from": [
+    "logic-flow dir-ltr",
+    "reasoner-ux dir-ltr",
+    "micro-state dir-ltr",
+    "ux-microinteraction dir-ltr"
+   ]
+  },
+  {
+   "rank": 4,
+   "sev": "P1",
+   "screen": "S2 Home — curious + postpartum banners (RTL)",
+   "anchor": "src/screens/HomeScreen.styles.ts:93",
+   "title": "Curious & postpartum banners use fixed flexDirection:'row' → emoji/CTA do not mirror in ar/tn",
+   "fix": "Confirmed styles.curiousBanner:94 and postpartumBanner are hardcoded flexDirection:'row' while the pills explicitly flip via isRTL?'row-reverse':'row' (HomeScreen.tsx:500,525). Add inline {flexDirection: isRTL?'row-reverse':'row'} to the curiousBanner View (HomeScreen.tsx:396) and postpartumBanner View (:588). isRTL already in scope from useRtl(). Logical marginEnd/marginStart then balance correctly. Do not also set dir (would double-reverse a flex row).",
+   "impact": "med",
+   "effort": "S",
+   "acceptance": "In ar/tn the 👀/🍼 emoji sits at the start (right) and the CTA at the end (left), matching every other Home row.",
+   "confidence": "high",
+   "merged_from": [
+    "adversarial-break banner-rtl",
+    "ux-hierarchy banner-rtl"
+   ]
+  },
+  {
+   "rank": 5,
+   "sev": "P1",
+   "screen": "S2 Home — week navigation a11y",
+   "anchor": "src/screens/HomeScreen.tsx:454",
+   "title": "Week change silent to SR + disabled chevrons lack accessibilityState; cue is color-only",
+   "fix": "Two fixes on the chevrons (:454,:473) which set disabled= but only swap color to whiteAlpha30 (1.3:1): (a) add accessibilityState={{disabled: currentWeekNumber<=1}} / {{disabled: currentWeekNumber>=40}}. (b) In handlePrevWeek/handleNextWeek/handleReturnToToday after setOverrideWeek call AccessibilityInfo.announceForAccessibility(`${t('common.week')} ${newWeek}, ${trimesterText}`) so the new week is spoken. Optionally drop the navButton opacity to 0.4 at the bound so dimming is perceivable, not a near-invisible color delta.",
+   "impact": "med",
+   "effort": "S",
+   "acceptance": "At wk1/wk40 SR announces the chevron as dimmed/unavailable; paging weeks announces 'Semaine N, trimester'.",
+   "confidence": "high",
+   "merged_from": [
+    "micro-state disabled-chevron",
+    "a11y disabled-chevron",
+    "a11y week-liveregion",
+    "adversarial-break disabled-chevron"
+   ]
+  },
+  {
+   "rank": 6,
+   "sev": "P2",
+   "screen": "S2 Home — postpartum/eternal-pregnancy state",
+   "anchor": "src/screens/HomeScreen.tsx:609",
+   "title": "isInvalid (>40wk) still renders full week-40 fetal stats under the 'did you deliver?' banner",
+   "fix": "When isInvalid, the BabyGrowthCard (:609), hero stats block (:618), daily essentials (:668) and 'cette semaine' (:704) still show advancing week-40 size/weight — incoherent beside the postpartum banner. Wrap those four blocks in `!isInvalid && (...)` (mirror the existing `!user?.isTTC &&` suppression pattern), leaving banner + tools + appointments. Prevents presenting fetal stats as the current state for someone who delivered.",
+   "impact": "med",
+   "effort": "M",
+   "acceptance": "With LMP>40wk, Home shows the postpartum banner + tools/appointments only; no week-40 BabyGrowthCard/hero stats.",
+   "confidence": "med"
+  },
+  {
+   "rank": 7,
+   "sev": "P1",
+   "screen": "S2 Home — TTC home cycleDay",
+   "anchor": "src/screens/HomeScreen.tsx:261",
+   "title": "TTC cycleDay recomputed inline (DST-buggy, fabricates Day 1 on missing LMP) — second source of truth",
+   "fix": "Confirmed :262-267 recompute cycleDay via raw Date.now()-getTime ms math and substitute new Date() when profile.lmp is missing (→ always 'Day 1'), and read user.cycleLength||28 unclamped. PregnancyContext already exposes ttcInfo (cycleDay/cycleLength clamped, null on missing LMP). Replace with `const {ttcInfo}=usePregnancy()` and render t('home.ttcDay',{day:ttcInfo?.cycleDay??'—',total:ttcInfo?.cycleLength??28}); when cycleDay is null show a 'set last period' affordance instead of a fake Day 1.",
+   "impact": "med",
+   "effort": "S",
+   "acceptance": "TTC user with no LMP sees '—'/prompt not 'Day 1'; cycleDay matches the canonical fertility util across DST.",
+   "confidence": "high",
+   "merged_from": [
+    "data-integrity ttc-cycleday",
+    "adversarial-break ttc-loadingguard"
+   ]
+  },
+  {
+   "rank": 8,
+   "sev": "P2",
+   "screen": "S2 Home — hero comparison label",
+   "anchor": "src/screens/HomeScreen.tsx:650",
+   "title": "babySize .split('{{')[0] is a dead no-op leaking a 2-line dangling 'd'un(e)' fragment",
+   "fix": "Reproduced in node: i18next interpolates {{label}}/{{emoji}} to '' BEFORE split runs, so '{{' never remains and [0] returns the whole string incl. the hard \\n — fr renders 'Votre bébé fait la taille' / 'd'un(e)' as a dangling label above the value. Add a dedicated common.babySizeLabel in all 4 langs (fr 'Taille d'un', en 'Size of', ar/tn 'بحجم') and render t('common.babySizeLabel') at :650.",
+   "impact": "med",
+   "effort": "S",
+   "acceptance": "Comparison label shows a clean single-line 'Taille d'un'/'Size of'/'بحجم'; no embedded newline or dangling 'd'un(e)'.",
+   "confidence": "high"
+  },
+  {
+   "rank": 9,
+   "sev": "P2",
+   "screen": "S2 Home — gradient header contrast",
+   "anchor": "src/screens/HomeScreen.tsx:416",
+   "title": "White text on #FF6B9D primary band fails WCAG AA (2.68:1)",
+   "fix": "Confirmed primary=#FF6B9D, accent=#C2185B in theme. The gradient start (top-left, where greeting/weekSubtitle/pill labels sit) is bare primary = 2.68:1. Reorder colors at :416 to [theme.colors.accent, theme.colors.primary, theme.colors.deepPink] so the origin is the darker accent (5.87:1) while keeping the pink centre. No new tokens.",
+   "impact": "med",
+   "effort": "S",
+   "acceptance": "Contrast check of greeting/weekSubtitle against the sampled top-left gradient pixel ≥4.5:1.",
+   "confidence": "med",
+   "merged_from": [
+    "a11y header-contrast",
+    "a11y pills-contrast"
+   ]
+  },
+  {
+   "rank": 10,
+   "sev": "P2",
+   "screen": "S2 Home — hero stat values contrast",
+   "anchor": "src/screens/HomeScreen.styles.ts:933",
+   "title": "heroStatValue coral on white = 2.50:1 (FAILS even as large text)",
+   "fix": "Confirmed heroStatValue.color = theme.colors.coral (#FF7F50) on white card, 22px-800. Swap to theme.colors.accent (#C2185B = 5.87:1) at styles:933 — passes AA and matches recBadge/CTA accent. One-token change, no layout impact.",
+   "impact": "med",
+   "effort": "S",
+   "acceptance": "Baby size/weight numbers render in accent pink at ≥4.5:1 on the white stat card.",
+   "confidence": "high"
+  },
+  {
+   "rank": 11,
+   "sev": "P2",
+   "screen": "S2 Home — tool subtitles contrast",
+   "anchor": "src/screens/HomeScreen.styles.ts:1058",
+   "title": "toolSubtitle neutral400 (#999) on white = 2.85:1 (sub-AA, smallest secondary line)",
+   "fix": "Confirmed toolSubtitle.color = theme.colors.neutral400 (#999999). Swap to theme.colors.textSecondary (#666 = 5.2:1) at styles:1058. One-token change covers all 7 tool-card subtitles.",
+   "impact": "med",
+   "effort": "S",
+   "acceptance": "All tool-card subtitles render at ≥4.5:1 on white.",
+   "confidence": "high"
+  },
+  {
+   "rank": 12,
+   "sev": "P2",
+   "screen": "S2 Home — tip category contrast",
+   "anchor": "src/screens/HomeScreen.styles.ts:880",
+   "title": "tipCategoryText accentOrangeDeep on white badly sub-AA (2.70:1)",
+   "fix": "tipCategoryText uses theme.colors.accentOrangeDeep on a white chip, 12px. Darken the token (or add an accentOrangeDarker token in theme) to clear 4.5:1 on white; chip bg stays white so only text changes.",
+   "impact": "low",
+   "effort": "S",
+   "acceptance": "Tip category label ≥4.5:1 on the white badge.",
+   "confidence": "med"
+  },
+  {
+   "rank": 13,
+   "sev": "UX",
+   "screen": "S2 Home — TTC home",
+   "anchor": "src/screens/HomeScreen.tsx:261",
+   "title": "TTC home is a bare dead-end EmptyState — no nav, no fertility data, no tools",
+   "fix": "Confirmed the isTTC branch returns ONLY <ScrollView><EmptyState/></ScrollView> with no action, no profile button, no quick actions. Build a minimal TTC hero: consume ttcInfo (cycleDay/daysToOvulation/inFertileWindow), show a fertile-window chip, add the persistent profile avatar (reuse styles.profileButton) and 1-2 quick-action pills (Calendrier, Rappels). New keys ttc.fertileToday / ttc.ovulationInDays in all 4 langs. Keep EmptyState only as the no-LMP fallback.",
+   "impact": "high",
+   "effort": "M",
+   "acceptance": "A TTC user sees fertile-window status + at least Calendrier/Rappels access + profile avatar; not a single inert card.",
+   "confidence": "high",
+   "merged_from": [
+    "reasoner-ux ttc-deadend",
+    "micro-state ttc-deadend",
+    "ux-hierarchy ttc-deadend",
+    "a11y ttc-deadend",
+    "ux-microinteraction ttc-barren"
+   ]
+  },
+  {
+   "rank": 14,
+   "sev": "UX",
+   "screen": "S2 Home — guest experience",
+   "anchor": "src/screens/HomeScreen.tsx:374",
+   "title": "Guests get identical pregnant Home — no save-account conversion nudge, no 'data is local' cue",
+   "fix": "Confirmed zero isGuest branch in HomeScreen. Add a dismissible low-emphasis guest strip gated by user?.isGuest && !user?.isCurious && !showWelcome, styled like curiousBanner, copy 🔒 + 'Sauvegardez votre suivi' → navigation.navigate('Register',{upgradeMode:true}) (RegisterScreen supports upgradeMode). Gate dismissal behind AsyncStorage @home_guest_cta_seen. Add home.guestCtaTitle/guestCtaBody/guestCtaButton in all 4 langs.",
+   "impact": "high",
+   "effort": "M",
+   "acceptance": "A guest sees a dismissible save-account banner on Home that routes to Register upgrade; registered users never see it; flag persists dismissal.",
+   "confidence": "high",
+   "merged_from": [
+    "logic-flow guest-cta",
+    "reasoner-ux guest-cta",
+    "ux-hierarchy guest-cta"
+   ]
+  },
+  {
+   "rank": 15,
+   "sev": "UX",
+   "screen": "S2 Home — empty appointments/recommendations",
+   "anchor": "src/screens/HomeScreen.tsx:930",
+   "title": "Appointments & recommendations sections vanish silently when empty (dead air for week-1 / no-appt users)",
+   "fix": "Both sections are hard-gated on length>0 (:930,:963), so a no-appointment or content-gap week shows nothing. For appointments render a compact EmptyState 'Aucun rendez-vous' + a 'Planifier' action → AddAppointment when length===0. For recommendations, when IDs existed but both arrays resolved empty, render a compact 'Explorez nos ressources' card → Ressources instead of dropping the whole block. EmptyState already imported. Add home.noAppointments / home.recsUnavailable in 4 langs.",
+   "impact": "med",
+   "effort": "M",
+   "acceptance": "A week-1 user with no appointments/recs sees a compact empty affordance with an action, not blank space.",
+   "confidence": "med",
+   "merged_from": [
+    "reasoner-ux empty-sections",
+    "micro-state recs-empty",
+    "ux-microinteraction appt-empty"
+   ]
+  },
+  {
+   "rank": 16,
+   "sev": "UX",
+   "screen": "S2 Home — recommendations loading",
+   "anchor": "src/screens/HomeScreen.tsx:150",
+   "title": "Recommendations have NO loading skeleton — abrupt pop-in after the main skeleton cleared",
+   "fix": "The rec fetch (:150) runs after the main loading gate releases, so cards pop in mid-scroll (layout shift). Add a recsLoading flag (true before Promise.all at :162, false in finally). When weekData has non-empty recommended_*_ids && recsLoading, render 2-3 <Skeleton width={width*0.45} height={140} marginEnd:12> inside the same horizontal ScrollView to reserve the slot. Skeleton already imported.",
+   "impact": "med",
+   "effort": "M",
+   "acceptance": "On week load/change the rec strip shows skeleton cards that cross-fade into content; no downward layout shift.",
+   "confidence": "high",
+   "merged_from": [
+    "micro-state recs-skeleton",
+    "ux-microinteraction recs-loading"
+   ]
+  },
+  {
+   "rank": 17,
+   "sev": "UX",
+   "screen": "S2 Home — stale recommendations on week change",
+   "anchor": "src/screens/HomeScreen.tsx:179",
+   "title": "Previous week's rec cards linger during week navigation (never cleared before refetch)",
+   "fix": "The rec effect (:150-181) only ever sets new arrays, never clears, so chevron navigation shows week N-1's cards until the fetch resolves. At the top of fetchRecommendations (after the weekData guard) call setArticles([]); setSupplements([]) before awaiting, so the section reflects the current week immediately (combine with rank 16 skeleton).",
+   "impact": "low",
+   "effort": "S",
+   "acceptance": "Tapping a week chevron clears old rec cards instantly; new cards (or skeleton) appear for the new week.",
+   "confidence": "high",
+   "merged_from": [
+    "adversarial-break stale-recs",
+    "data-integrity stale-recs"
+   ]
+  },
+  {
+   "rank": 18,
+   "sev": "UX",
+   "screen": "S2 Home — two stacked baby heroes",
+   "anchor": "src/screens/HomeScreen.tsx:618",
+   "title": "BabyGrowthCard + size/weight hero duplicate the baby focus, pushing 'what to do' far down",
+   "fix": "BabyGrowthCard (:610) and the heroCardGradient (:618-663) are two consecutive full-width baby cards (emoji appears 3×). Fold size/weight/comparison/dev-text into BabyGrowthCard (e.g. as timeline chips / an expandable 'Détails du développement') and delete the standalone hero block, removing ~45 lines of LinearGradient and shortening scroll-to-action by a full card.",
+   "impact": "high",
+   "effort": "L",
+   "acceptance": "Home shows ONE baby hero; daily essentials + tools sit higher; size/weight still reachable inside the single card.",
+   "confidence": "med",
+   "merged_from": [
+    "reasoner-ux two-heroes",
+    "ux-hierarchy two-heroes"
+   ]
+  },
+  {
+   "rank": 19,
+   "sev": "UX",
+   "screen": "S2 Home — recommendations section rhythm",
+   "anchor": "src/screens/HomeScreen.tsx:962",
+   "title": "Recommendations block is the only group rendered OUTSIDE a sectionContainer — orphan strip",
+   "fix": "Groups 2-5 use styles.sectionContainer (white rounded card, 16px inset, 24px bottom). The rec block (:962) is a bare Animated.View, so its header hugs the edge and the carousel is full-bleed — reads as 'finished then orphan'. Wrap in <View style={styles.sectionContainer}>, and give the inner ScrollView marginHorizontal:-theme.spacing.l + contentContainerStyle paddingStart:theme.spacing.l so cards still bleed while the section gains card + rhythm.",
+   "impact": "med",
+   "effort": "S",
+   "acceptance": "Recommendations sits in a white card with 16px inset header + 24px bottom margin, matching the other groups; carousel still scrolls edge-to-edge.",
+   "confidence": "high"
+  },
+  {
+   "rank": 20,
+   "sev": "UX",
+   "screen": "S2 Home — empty 'L'essentiel du jour' card",
+   "anchor": "src/screens/HomeScreen.tsx:668",
+   "title": "GROUP 2 renders a titled empty white card when both message & tip are null (early weeks/fetch gap)",
+   "fix": "GROUP 2 always renders the sectionContainer + title (:668-669) but babyMessage & dailyTip are both conditional and can be null. Guard the whole wrapper: {(babyMessage || dailyTip) && (<View style={styles.sectionContainer}>...)} mirroring the appointments pattern at :930.",
+   "impact": "low",
+   "effort": "S",
+   "acceptance": "When no message/tip exists, no titled empty card appears.",
+   "confidence": "high"
+  },
+  {
+   "rank": 21,
+   "sev": "UX",
+   "screen": "S2 Home — press feedback on RN-Web",
+   "anchor": "src/screens/HomeScreen.tsx:785",
+   "title": "Tool cards / appointment rows / banner & welcome CTAs omit activeOpacity → harsh 0.2 black flash; no web focus ring/cursor",
+   "fix": "Tool cards (:785,802,819,836,855,875,893,911), appointment row (:938), curiousBannerCta (:404), postpartumButton (:593) and welcomeDismiss (:381) omit activeOpacity → RN default 0.2 (near-black flash). Add activeOpacity={0.85} to each. For web, add Platform.OS==='web' cursor:'pointer' fragments to toolCard/recommendationCard/quickActionPill/CTA styles and do not suppress the focus outline (WCAG 2.4.7).",
+   "impact": "med",
+   "effort": "M",
+   "acceptance": "Pressing any card dims gently (~0.85) not to near-black; on web, cards show pointer cursor and a visible keyboard focus ring.",
+   "confidence": "high",
+   "merged_from": [
+    "micro-state no-pressed-state",
+    "ux-microinteraction activeopacity"
+   ]
+  },
+  {
+   "rank": 22,
+   "sev": "UX",
+   "screen": "S2 Home — reduced-motion gating",
+   "anchor": "src/screens/HomeScreen.tsx:91",
+   "title": "Reduce-motion gates only the pulse loop — entrance fade/scale + 3 week-transition fades still animate",
+   "fix": "Confirmed only the pulse is gated (:109). Wrap the entrance Animated.parallel (:93-105) and the three week-transition sequences (handlePrevWeek :224, handleNextWeek :236, handleReturnToToday :249) in if(!getReducedMotionSync()); in reduced-motion set fadeAnim.setValue(1)/scaleAnim.setValue(1) synchronously. Extract a flashTransition() helper for the three handlers. Also gate the Skeleton.tsx pulse (it runs unconditionally).",
+   "impact": "med",
+   "effort": "M",
+   "acceptance": "With OS reduce-motion on, Home mounts and pages weeks with no fade/scale; content is fully visible; skeletons are static.",
+   "confidence": "high",
+   "merged_from": [
+    "adversarial-break reduced-motion",
+    "ux-microinteraction entrance-rm",
+    "ux-microinteraction week-fade-rm",
+    "ux-microinteraction skeleton-rm"
+   ]
+  },
+  {
+   "rank": 23,
+   "sev": "UX",
+   "screen": "S2 Home — curious banner CTA destination",
+   "anchor": "src/screens/HomeScreen.tsx:406",
+   "title": "Curious 'Je suis enceinte' CTA dumps user on generic Profile with no conversion path",
+   "fix": "The curious CTA (:406) and postpartum CTA (:595) both navigate('Profile') with no param/affordance to actually set a real pregnancy. Route to the onboarding/status flow (or Profile with {action:'setPregnancy'}) and have that surface focus the due-date field. Confirm the destination exposes one clear 'set my due date' action.",
+   "impact": "med",
+   "effort": "M",
+   "acceptance": "Tapping the curious/postpartum CTA lands on a focused date/status entry, not a generic settings wall.",
+   "confidence": "med"
+  },
+  {
+   "rank": 24,
+   "sev": "UX",
+   "screen": "S2 Home — pull-to-refresh",
+   "anchor": "src/screens/HomeScreen.tsx:10",
+   "title": "RefreshControl imported but never wired — no pull-to-refresh despite stale-prone data",
+   "fix": "Confirmed RefreshControl is imported (:10) and used in zero ScrollViews. Add refreshing state + onRefresh that awaits refetch() and re-runs the appointment/daily-content fetchers, then pass refreshControl={<RefreshControl refreshing onRefresh tintColor={theme.colors.primary} colors={[theme.colors.primary]}/>} to the main ScrollView (:375). Native spinner is reduced-motion-neutral.",
+   "impact": "med",
+   "effort": "S",
+   "acceptance": "Pulling down on Home triggers a refresh spinner and re-fetches week/appointments/tip; data updates without re-navigation.",
+   "confidence": "high"
+  },
+  {
+   "rank": 25,
+   "sev": "UX",
+   "screen": "S2 Home — warnings markdown parser",
+   "anchor": "src/screens/HomeScreen.tsx:742",
+   "title": "Warnings always fully expanded (dead showFullWarnings state); ':' heuristic over-matches → '18:' styled as red header",
+   "fix": "Confirmed showFullWarnings is declared (:81) but never used; the parser (:747) promotes any line ending ':' to a red bold header (a time like '18:' or 'Consultez si:' both trigger). Harden: require startsWith('**') for headers (drop the endsWith(':') branch), and wire showFullWarnings to collapse to ~3 lines with a see-more toggle mirroring the 'Votre corps' card (:710-725), or delete the dead state if a full list is intended.",
+   "impact": "med",
+   "effort": "M",
+   "acceptance": "A sentence ending ':' or a time no longer renders as a red header; long warnings collapse with a working see-more (or the dead state is removed).",
+   "confidence": "high",
+   "merged_from": [
+    "reasoner-ux warnings-collapse",
+    "adversarial-break warnings-parser"
+   ]
+  },
+  {
+   "rank": 26,
+   "sev": "UX",
+   "screen": "S2 Home — quick-action pill icons",
+   "anchor": "src/screens/HomeScreen.tsx:538",
+   "title": "Two quick-action pills share '➕' (Tâche + RDV) — indistinguishable, worse under ar/tn truncation",
+   "fix": "addTask (:538) and addAppointment (:560) both use '➕'. Differentiate: addTask → '📝' (or '✅'), keep addAppointment '➕'/'🗓️'. Better, collapse the two add pills into one 'Ajouter' pill opening an action sheet (RDV/Tâche), reducing to 3 pills that read cleaner in RTL. Labels already exist in 4 langs.",
+   "impact": "low",
+   "effort": "S",
+   "acceptance": "The two add-pills carry distinct glyphs (or are merged); neither collapses to a lone '+' in ar/tn.",
+   "confidence": "med",
+   "merged_from": [
+    "reasoner-ux dup-plus-icon",
+    "ux-hierarchy pill-order"
+   ]
+  },
+  {
+   "rank": 27,
+   "sev": "UX",
+   "screen": "S2 Home — Tâche quick-action deep-link",
+   "anchor": "src/screens/HomeScreen.tsx:531",
+   "title": "'Add task' pill sends action:'add' param that TasksTab never consumes",
+   "fix": "The pill navigates with params {action:'add'} (:531) but TasksTab reportedly only reads route.params.highlightId, so the user lands on the list with no add modal. In TasksTab useFocusEffect mirror the highlightId pattern: read route.params.action; if 'add' → setShowAddModal(true) + navigation.setParams({action:undefined}). Add 'action' to TasksTab params in navigation.ts. (Cross-screen — verify TasksTab.tsx before fixing.)",
+   "impact": "med",
+   "effort": "M",
+   "acceptance": "Tapping the Tâche pill opens the Add-Task modal on TasksTab; refocus does not re-open it.",
+   "confidence": "med"
+  },
+  {
+   "rank": 28,
+   "sev": "UX",
+   "screen": "S2 Home — overdue week bounds",
+   "anchor": "src/screens/HomeScreen.tsx:231",
+   "title": "Badge asserts literal 'Semaine 40' for post-term users (weeks 41-42 unreachable)",
+   "fix": "pregnancyCalculator caps at week 40 + isInvalid, so a true wk42 shows 'Semaine 40' and can't chevron further. Medically safest: when isInvalid, replace the 'Semaine N' badge text with a 'à terme'/post-term label (new 4-lang key home.atTerm) rather than fabricating week 41/42 content. Pairs with rank 6.",
+   "impact": "low",
+   "effort": "M",
+   "acceptance": "A post-term user sees a 'à terme' badge, not a wrong 'Semaine 40' assertion.",
+   "confidence": "low"
+  },
+  {
+   "rank": 29,
+   "sev": "UX",
+   "screen": "S2 Home — whitespace firstName",
+   "anchor": "src/screens/HomeScreen.tsx:320",
+   "title": "Whitespace-only firstName yields blank avatar initial + 'Bonjour   👋'",
+   "fix": "'  ' is truthy so displayName='  '; charAt(0) is a space. Normalize once: const trimmedName=(profile?.firstName||user?.firstName||'').trim(); const displayName=trimmedName||t('home.futureMom'); reuse displayName for both the avatar initial (:436) and the greeting (:446, which currently re-derives the expression inline — also fixes that drift).",
+   "impact": "low",
+   "effort": "S",
+   "acceptance": "A space-only firstName falls back to 'Future maman'; avatar shows the fallback initial; greeting reuses displayName.",
+   "confidence": "high",
+   "merged_from": [
+    "adversarial-break whitespace-name",
+    "i18n-rtl greeting-dup"
+   ]
+  },
+  {
+   "rank": 30,
+   "sev": "UX",
+   "screen": "S2 Home — daily tip category localization",
+   "anchor": "src/screens/HomeScreen.tsx:697",
+   "title": "dailyTip.category rendered raw (likely FR-only seed) in otherwise-translated card",
+   "fix": "Line 697 renders {dailyTip.category} directly, bypassing getLocalizedContent used for every other field. Confirm the tips seed schema: if category is single-language, add category_fr/en/ar/tn and read via getLocalizedContent(dailyTip,'category'), or map enum slugs to common.tipCategories.<slug>. Do not show a raw FR string in ar/tn/en.",
+   "impact": "low",
+   "effort": "M",
+   "acceptance": "Tip category renders in the active language (or a mapped slug), not a raw FR string.",
+   "confidence": "low"
+  }
+ ],
+ "counts": {
+  "P0": 0,
+  "P1": 5,
+  "P2": 7,
+  "P3": 0,
+  "UX": 18
+ },
+ "raw_count": 109,
+ "lenses_ok": 10,
+ "wave": "W2",
+ "system": "S2 Home",
+ "generated": "2026-06-20"
+}

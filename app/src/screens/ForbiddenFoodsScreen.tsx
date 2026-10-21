@@ -16,16 +16,19 @@ import {
     ScrollView,
     TextInput,
     TouchableOpacity,
+    Platform,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '../theme';
 import { getShadowStyle } from '../utils/styleUtils';
 import { getLocalizedContent } from '../utils/i18nHelpers';
+import { normalizeForSearch } from '../utils/searchNormalize';
 
 // Import data
 import forbiddenFoodsData from '../data/forbidden_foods.json';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
+import { HALAL_GUIDANCE_REVIEWED } from '../config/featureFlags';
 
 interface ForbiddenFood {
     id: string;
@@ -52,11 +55,22 @@ const categories = [
     { id: 'herbs', icon: '🌿' },
 ];
 
+// The card's edge stripe: decorative, the rating itself is spelled out in the badge.
 const severityColors = {
     critical: theme.colors.red700,
     high: theme.colors.accentOrangeDeep,
     medium: theme.colors.orange400,
     low: theme.colors.green400,
+};
+
+// Text and fill of the rating badge. Dark text on a light tint of the same hue, each pair
+// at least 4.5:1 (pinned in the theme contrast test). The badge used to print the stripe
+// colour on a 12 % wash of itself — 1.8:1 for "Limit", 2.4:1 for "Avoid".
+const severityBadgeColors = {
+    critical: { text: theme.colors.red800, background: theme.colors.surfaceRose },
+    high: { text: theme.colors.deepOrange900, background: theme.colors.surfaceOrangeTint },
+    medium: { text: theme.colors.warningTextDark, background: theme.colors.surfaceAmberTint },
+    low: { text: theme.colors.green800, background: theme.colors.surfaceGreenTint },
 };
 
 // Removed hardcoded severityLabels, will use t() directly
@@ -66,6 +80,7 @@ export const ForbiddenFoodsScreen = () => {
     const { t, i18n } = useTranslation();
     const isRTL = ['ar', 'tn'].includes(i18n.language); // ── FIX: RTL layout
     const [searchQuery, setSearchQuery] = useState('');
+    const [searchFocused, setSearchFocused] = useState(false);
     const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
@@ -78,17 +93,24 @@ export const ForbiddenFoodsScreen = () => {
         }
 
         if (searchQuery.trim()) {
-            const query = searchQuery.toLowerCase();
+            // W5: diacritic/case/script-insensitive — "pate" matches "pâté", and Arabic matches
+            // regardless of harakat/alef-hamza. Safety-critical: a mis-accented query must still
+            // surface a forbidden food.
+            const query = normalizeForSearch(searchQuery);
             result = result.filter(f =>
-                getLocalizedContent(f, 'name', i18n.language).toLowerCase().includes(query) ||
-                getLocalizedContent(f, 'risk', i18n.language).toLowerCase().includes(query) ||
-                getLocalizedContent(f, 'alternative', i18n.language).toLowerCase().includes(query)
+                normalizeForSearch(getLocalizedContent(f, 'name', i18n.language)).includes(query) ||
+                normalizeForSearch(getLocalizedContent(f, 'risk', i18n.language)).includes(query) ||
+                normalizeForSearch(getLocalizedContent(f, 'alternative', i18n.language)).includes(query)
             );
         }
 
-        // Sort by severity
+        // Sort by severity.
+        // MUTATION FIX: this used to call `result.sort(...)` directly. With no
+        // filter active, `result` IS `foods` — the array object from the JSON module
+        // import — so Array.prototype.sort reordered shared module state in place,
+        // permanently, for every other consumer of that import. Copy before sorting.
         const severityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
-        return result.sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
+        return [...result].sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
     }, [searchQuery, selectedCategory, i18n.language]);
 
     const toggleExpand = (id: string) => {
@@ -103,29 +125,59 @@ export const ForbiddenFoodsScreen = () => {
         });
     };
 
+    // Hidden until an imam and a dietitian sign the content off — the card renders
+    // its own "pending review" note, and shipping that is the same App Review 2.1
+    // exposure as the Ramadan screen. See featureFlags.ts.
+    const showHalalLens =
+        HALAL_GUIDANCE_REVIEWED && (i18n.language === 'ar' || i18n.language === 'tn');
+    const halalItemKeys = ['alcohol', 'pork', 'gelatin', 'nonHalalMeat', 'cookingWine'];
+
     return (
         <SafeAreaView style={styles.safeArea} edges={['top']}>
         <ScrollView style={styles.container} contentContainerStyle={styles.content}>
             {/* Header */}
             <View style={styles.header}>
-                <Text style={styles.title}>🍽️ {t('common.toAvoid')}</Text>
+                <Text style={styles.title} accessibilityRole="header">🍽️ {t('common.toAvoid')}</Text>
                 <Text style={styles.subtitle}>
-                    {t('common.defaultWarning')}
+                    {t('forbiddenFoods.subtitle')}
                 </Text>
             </View>
 
+            {/* Cycle 8 Epic 2 — Halal lens (AR/TN only). Content TODO clinician + imam review. */}
+            {showHalalLens && (
+                <View style={styles.halalCard}>
+                    <Text style={styles.halalTitle}>🌙 {t('cycle8.forbiddenFoodsHalal.title')}</Text>
+                    <Text style={styles.halalIntro}>{t('cycle8.forbiddenFoodsHalal.intro')}</Text>
+                    {halalItemKeys.map((k) => (
+                        <Text key={k} style={styles.halalBullet}>
+                            • <Text style={styles.halalBulletStrong}>{t(`cycle8.forbiddenFoodsHalal.items.${k}.label`)}</Text>{' '}
+                            — {t(`cycle8.forbiddenFoodsHalal.items.${k}.note`)}
+                        </Text>
+                    ))}
+                    <Text style={styles.halalDraft}>{t('cycle8.forbiddenFoodsHalal.draftNote')}</Text>
+                </View>
+            )}
+
             {/* Search Bar */}
-            <View style={styles.searchContainer}>
+            <View style={[styles.searchContainer, searchFocused && styles.searchContainerFocused]}>
+                <Text style={styles.searchIcon} importantForAccessibility="no" accessibilityElementsHidden>🔍</Text>
                 <TextInput
                     style={styles.searchInput}
+                    onFocus={() => setSearchFocused(true)}
+                    onBlur={() => setSearchFocused(false)}
                     placeholder={t('common.searchFoodPlaceholder')}
                     value={searchQuery}
                     onChangeText={setSearchQuery}
-                    placeholderTextColor={theme.colors.neutral400}
+                    placeholderTextColor={theme.colors.textMuted}
+                    accessibilityLabel={t('common.searchFoodPlaceholder')}
+                    returnKeyType="search"
+                    clearButtonMode="while-editing"
                 />
             </View>
 
-            {/* Category Filters */}
+            {/* Category Filters. The row takes the page's direction: in ar/tn it starts at
+                the right with "All" first, like every other chip row. It used to be forced
+                to dir=ltr on web, which put "All" at the far left and clipped the row's end. */}
             <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -138,6 +190,11 @@ export const ForbiddenFoodsScreen = () => {
                         selectedCategory === null && styles.categoryChipActive
                     ]}
                     onPress={() => setSelectedCategory(null)}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: selectedCategory === null }}
+                    // react-native-web drops accessibilityState, so on web the lit chip is
+                    // exposed as aria-pressed (the ARIA state for an on/off button).
+                    {...(Platform.OS === 'web' ? { 'aria-pressed': selectedCategory === null } : {})}
                 >
                     <Text style={[
                         styles.categoryChipText,
@@ -154,6 +211,9 @@ export const ForbiddenFoodsScreen = () => {
                         onPress={() => setSelectedCategory(
                             selectedCategory === cat.id ? null : cat.id
                         )}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: selectedCategory === cat.id }}
+                        {...(Platform.OS === 'web' ? { 'aria-pressed': selectedCategory === cat.id } : {})}
                     >
                         <Text style={[
                             styles.categoryChipText,
@@ -187,6 +247,11 @@ export const ForbiddenFoodsScreen = () => {
                             ]}
                             onPress={() => toggleExpand(food.id)}
                             activeOpacity={0.7}
+                            accessibilityRole="button"
+                            accessibilityState={{ expanded: isExpanded }}
+                            // react-native-web drops accessibilityState: aria-expanded carries it on web.
+                            {...(Platform.OS === 'web' ? { 'aria-expanded': isExpanded } : {})}
+                            accessibilityLabel={`${getLocalizedContent(food, 'name', i18n.language)}, ${t(`forbiddenFoods.severity.${food.severity}`)}`}
                         >
                             <View style={styles.foodHeader}>
                                 <Text style={styles.foodIcon}>{food.icon}</Text>
@@ -194,15 +259,15 @@ export const ForbiddenFoodsScreen = () => {
                                     <Text style={[styles.foodName, isRTL && { textAlign: 'right' }]}>{getLocalizedContent(food, 'name', i18n.language)}</Text>
                                     <View style={[
                                         styles.severityBadge,
-                                        { backgroundColor: severityColors[food.severity] + '20' }
+                                        { backgroundColor: severityBadgeColors[food.severity].background }
                                     ]}>
                                         <Text style={[
                                             styles.severityText,
-                                            { color: severityColors[food.severity] }
+                                            { color: severityBadgeColors[food.severity].text }
                                         ]}>{t(`forbiddenFoods.severity.${food.severity}`)}</Text>
                                     </View>
                                 </View>
-                                <Text style={styles.expandIcon}>{isExpanded ? '▲' : '▼'}</Text>
+                                <Text style={styles.expandIcon} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">{isExpanded ? '▲' : '▼'}</Text>
                             </View>
 
                             {isExpanded && (
@@ -241,7 +306,7 @@ export const ForbiddenFoodsScreen = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: theme.colors.surface,
+        backgroundColor: theme.colors.background,
     },
     content: {
         padding: 16,
@@ -249,6 +314,40 @@ const styles = StyleSheet.create({
     },
     header: {
         marginBottom: 20,
+    },
+    halalCard: {
+        backgroundColor: theme.colors.surfacePurpleTint,
+        padding: 16,
+        borderRadius: 12,
+        marginBottom: 20,
+    },
+    halalTitle: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: theme.colors.purple700,
+        marginBottom: 8,
+    },
+    halalIntro: {
+        fontSize: 14,
+        color: theme.colors.text,
+        marginBottom: 12,
+        lineHeight: 20,
+    },
+    halalBullet: {
+        fontSize: 14,
+        color: theme.colors.text,
+        lineHeight: 22,
+        marginBottom: 4,
+    },
+    halalBulletStrong: {
+        fontWeight: '700',
+        color: theme.colors.text,
+    },
+    halalDraft: {
+        marginTop: 12,
+        fontSize: 12,
+        color: theme.colors.textLight,
+        fontStyle: 'italic',
     },
     title: {
         fontSize: 28,
@@ -260,16 +359,33 @@ const styles = StyleSheet.create({
         color: theme.colors.textSecondary,
         marginTop: 4,
     },
+    // Same search row as the Articles list: magnifier + field in one rounded bar.
     searchContainer: {
         marginBottom: 16,
-    },
-    searchInput: {
+        flexDirection: 'row',
+        alignItems: 'center',
         backgroundColor: theme.colors.white,
         borderRadius: 12,
-        padding: 14,
-        fontSize: 16,
+        paddingHorizontal: 12,
         borderWidth: 1,
         borderColor: theme.colors.disabled,
+    },
+    searchContainerFocused: {
+        borderColor: theme.colors.accent,
+    },
+    searchIcon: {
+        fontSize: 16,
+        marginEnd: 8,
+    },
+    searchInput: {
+        flex: 1,
+        fontSize: 16,
+        paddingVertical: 14,
+        paddingHorizontal: 4,
+        color: theme.colors.neutral900,
+        // The bar draws its own focus border (searchBarFocused): the browser's square default
+        // outline sat inside the rounded bar with the text flush against it (C-069). Native has none.
+        ...(Platform.OS === 'web' ? ({ outlineStyle: 'none', outlineWidth: 0 } as object) : {}),
     },
     categoriesScroll: {
         marginBottom: 12,
@@ -282,14 +398,17 @@ const styles = StyleSheet.create({
     categoryChip: {
         paddingHorizontal: 14,
         paddingVertical: 8,
+        // Chips with an emoji are taller; the text-only "All" stretches to their height
+        // and must keep its label in the middle.
+        justifyContent: 'center',
         borderRadius: 20,
         backgroundColor: theme.colors.white,
         borderWidth: 1,
         borderColor: theme.colors.disabled,
     },
     categoryChipActive: {
-        backgroundColor: theme.colors.primary,
-        borderColor: theme.colors.primary,
+        backgroundColor: theme.colors.accent,
+        borderColor: theme.colors.accent,
     },
     categoryChipText: {
         fontSize: 13,
@@ -343,7 +462,7 @@ const styles = StyleSheet.create({
     },
     expandIcon: {
         fontSize: 12,
-        color: theme.colors.neutral400,
+        color: theme.colors.textMuted,
         marginStart: 8,
     },
     foodDetails: {
@@ -383,7 +502,7 @@ const styles = StyleSheet.create({
         color: theme.colors.green800,
         lineHeight: 20,
     },
-    safeArea: { flex: 1, backgroundColor: theme.colors.neutral100 },
+    safeArea: { flex: 1, backgroundColor: theme.colors.background },
     emptyState: {
         alignItems: 'center',
         paddingVertical: 48,
@@ -391,7 +510,7 @@ const styles = StyleSheet.create({
     emptyStateEmoji: { fontSize: 48, marginBottom: 12 },
     emptyStateText: {
         fontSize: 16,
-        color: theme.colors.neutral400,
+        color: theme.colors.textMuted,
         textAlign: 'center',
     },
     disclaimer: {
@@ -404,7 +523,7 @@ const styles = StyleSheet.create({
     },
     disclaimerText: {
         fontSize: 12,
-        color: theme.colors.accentOrangeDeep,
+        color: theme.colors.deepOrange900,
         lineHeight: 18,
     },
 });

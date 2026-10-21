@@ -3,8 +3,7 @@ const log = createLogger('LoginScreen');
 import React, { useState, useRef } from 'react';
 import {
     View, Text, StyleSheet, TextInput, ScrollView,
-    TouchableOpacity, KeyboardAvoidingView, Platform,
-    I18nManager, TouchableWithoutFeedback, Keyboard,
+    TouchableOpacity, KeyboardAvoidingView, Platform, ActivityIndicator,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { auth } from '../config/firebase';
@@ -13,20 +12,23 @@ import { sendPasswordResetEmail } from 'firebase/auth';
 import { theme } from '../theme';
 import { Button } from '../components/common/Button';
 import { RtlAwareChevron } from '../components/common/RtlAwareChevron';
+import { DismissKeyboardView } from '../components/common/DismissKeyboardView';
 import { ErrorMessage } from '../components/common/ErrorMessage';
 import { SuccessMessage } from '../components/common/SuccessMessage';
 import { validateEmail, validatePasswordForLogin } from '../utils/validation';
-import { getFirebaseErrorMessage } from '../utils/firebaseErrors';
+import { getFirebaseErrorMessage, isExpectedAuthError } from '../utils/firebaseErrors';
 import { useTranslation } from 'react-i18next';
 import { useNavigation } from '@react-navigation/native';
 import { useAuthLoading } from '../hooks/useAuthLoading';
 import { retryOperation } from '../utils/retry';
+// Cycle 3 F404 : authLimiter (5 tentatives / 5 min) — anti brute-force client-side.
+import { authLimiter } from '../utils/rateLimiter';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
 
 export const LoginScreen = () => {
     useScreenAnalytics('LoginScreen');
     const { login } = useAuth();
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const navigation = useNavigation<any>();
     const { loading, withLoading } = useAuthLoading();
 
@@ -35,9 +37,18 @@ export const LoginScreen = () => {
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [showPassword, setShowPassword] = useState(false);
+    // W1 #14: guard the reset-email send so a fast double-tap can't fire two
+    // sendPasswordResetEmail calls (and surface a spinner on the link).
+    const [resetLoading, setResetLoading] = useState(false);
 
     const passwordRef = useRef<TextInput>(null);
-    const isRTL = I18nManager.isRTL;
+    // AUDIT-FIX (page-by-page validation 2026-06-02): derive RTL from the active LANGUAGE, not
+    // I18nManager.isRTL. On web, setupRTL() skips forceRTL (avoids a reload loop), so
+    // I18nManager.isRTL stays false even in ar/tn — which left the absolute-positioned back-arrow
+    // stranded on the LEFT instead of mirroring to the RIGHT. Language-derived isRTL is correct on
+    // BOTH web and native (they agree on native). Same proven pattern as RtlAwareChevron/CalendarScreen.
+    const isRTL = i18n.language === 'ar' || i18n.language === 'tn';
+    const showInlineBack = !navigation.canGoBack();
 
     const handleLogin = async () => {
         setError('');
@@ -45,7 +56,7 @@ export const LoginScreen = () => {
 
         const emailValidation = validateEmail(email);
         if (!emailValidation.valid) {
-            setError(t(emailValidation.error || 'auth.invalidEmail'));
+            setError(t(emailValidation.error || 'invalidEmail'));
             return;
         }
 
@@ -54,17 +65,45 @@ export const LoginScreen = () => {
         // Firebase Auth itself rejects wrong passwords; we only check non-empty here.
         const passwordValidation = validatePasswordForLogin(password);
         if (!passwordValidation.valid) {
-            setError(t(passwordValidation.error || 'auth.invalidPassword'));
+            setError(t(passwordValidation.error || 'invalidPassword'));
+            return;
+        }
+
+        // Cycle 3 F404 : check rate limiter AVANT d'appeler Firebase (anti
+        // brute-force / credential-stuffing). 5 tentatives / 5 min par appareil.
+        // Complète le throttling Firebase Auth (qui est lâche : ~5/sec/IP).
+        if (!authLimiter.tryRequest()) {
+            const seconds = Math.ceil(authLimiter.getTimeUntilReset() / 1000);
+            const minutes = Math.ceil(seconds / 60);
+            // W1 #2 FIX: there is no `auth:` namespace (auth.json is spread at ROOT in
+            // i18n/locales/*/index.ts), so `t('auth.tooManyAttempts')` leaked the raw key and
+            // dropped the {{minutes}} interpolation. Root key resolves + interpolates correctly.
+            setError(t('tooManyAttempts', { minutes }));
             return;
         }
 
         await withLoading(async () => {
             try {
-                await retryOperation(() => login(email.trim(), password));
+                const outcome = await retryOperation(() => login(email.trim(), password));
+                if (outcome === 'deletion-pending') {
+                    // This account had asked to be deleted, and the sign-in was used to
+                    // finish that; AuthContext tells her how it went. Leaving the deleted
+                    // account's e-mail and password in the form read as "try again".
+                    setEmail('');
+                    setPassword('');
+                    setShowPassword(false);
+                    authLimiter.reset();
+                    return;
+                }
                 await analyticsService.logEvent('login', { method: 'email' });
                 await analyticsService.setUserId(auth.currentUser?.uid || null);
+                // Cycle 3 F404 : reset après succès (l'utilisatrice a légitimement
+                // saisi son password, on ne pénalise pas un login OK).
+                authLimiter.reset();
             } catch (error: any) {
-                log.error('[LoginScreen] Login error:', error);
+                // A wrong password is the user's to fix and the form says so; logging it
+                // as an error sent every typo to Sentry. Unexpected failures still go.
+                (isExpectedAuthError(error) ? log.warn : log.error)('[LoginScreen] Login error:', error);
                 const errorMessage = error.code
                     ? t(getFirebaseErrorMessage(error.code))
                     : t('errorOccurred');
@@ -74,6 +113,7 @@ export const LoginScreen = () => {
     };
 
     const handleForgotPassword = async () => {
+        if (resetLoading) return;
         setError('');
         setSuccess('');
 
@@ -88,15 +128,26 @@ export const LoginScreen = () => {
             return;
         }
 
+        setResetLoading(true);
         try {
             await sendPasswordResetEmail(auth, email.trim());
             setSuccess(t('resetEmailSent'));
         } catch (error: any) {
-            log.error(error);
+            // No account for this email: answer exactly as for a real one. Mapping it to
+            // "Email ou mot de passe incorrect" was confusing in a reset form (there is no
+            // password here) and told anyone which emails have an account when the
+            // project's email-enumeration protection is off.
+            if (error?.code === 'auth/user-not-found') {
+                setSuccess(t('resetEmailSent'));
+                return;
+            }
+            (isExpectedAuthError(error) ? log.warn : log.error)('[LoginScreen] Password reset error:', error);
             const errorMessage = error.code
                 ? t(getFirebaseErrorMessage(error.code))
                 : t('cannotSendResetEmail');
             setError(errorMessage);
+        } finally {
+            setResetLoading(false);
         }
     };
 
@@ -105,22 +156,32 @@ export const LoginScreen = () => {
             style={{ flex: 1 }}
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-            <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+            {/* FOCUS FIX: on web, Pressable's responder preventDefault()s pointer-down
+                and blocks focusing the inputs underneath — the form could not be typed
+                into at all. DismissKeyboardView is a no-op on web, unchanged on native. */}
+            <DismissKeyboardView>
                 <ScrollView
-                    contentContainerStyle={styles.container}
+                    contentContainerStyle={[styles.container, showInlineBack && styles.containerWithInlineBack]}
                     keyboardShouldPersistTaps="handled"
                 >
-                    {/* Back arrow */}
-                    <TouchableOpacity
-                        style={[styles.backButton, isRTL && styles.backButtonRTL]}
-                        onPress={() => navigation.navigate('AuthChoice')}
-                        accessibilityRole="button"
-                        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                    >
-                        <RtlAwareChevron direction="back" variant="arrow" size={24} color={theme.colors.textSecondary} />
-                    </TouchableOpacity>
+                    {/* Back arrow — only when the stack header has none to show (a deep link
+                        to /login opens with no history); otherwise the header back is the one
+                        control. Position the side EXPLICITLY (not via a `left:undefined`
+                        override, which react-native-web does not reliably clear, leaving the
+                        button stranded on the left in RTL). Only one of left/right is ever set. */}
+                    {showInlineBack && (
+                        <TouchableOpacity
+                            style={[styles.backButton, { [isRTL ? 'right' : 'left']: theme.spacing.l }]}
+                            onPress={() => navigation.navigate('AuthChoice')}
+                            accessibilityRole="button"
+                            accessibilityLabel={t('common.back')}
+                            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                        >
+                            <RtlAwareChevron direction="back" variant="arrow" size={24} color={theme.colors.textSecondary} />
+                        </TouchableOpacity>
+                    )}
 
-                    <Text style={[styles.title, isRTL && styles.rtlText]}>{t('loginTitle')}</Text>
+                    <Text style={[styles.title, isRTL && styles.rtlText]} accessibilityRole="header">{t('loginTitle')}</Text>
                     <Text style={[styles.subtitle, isRTL && styles.rtlText]}>
                         {t('loginSubtitle')}
                     </Text>
@@ -128,8 +189,11 @@ export const LoginScreen = () => {
                     <View style={styles.form}>
                         {/* Email */}
                         <Text style={[styles.label, isRTL && styles.rtlText]}>{t('email')}</Text>
+                        {/* W1 #14: email is LTR data — never force RTL text/caret even in ar/tn
+                            (the label above still mirrors). Keeps the caret + typed address sane. */}
                         <TextInput
-                            style={[styles.input, isRTL && styles.inputRTL]}
+                            style={styles.input}
+                            placeholderTextColor={theme.colors.neutral400}
                             placeholder={t('emailPlaceholder')}
                             value={email}
                             onChangeText={(text) => { setEmail(text); setError(''); setSuccess(''); }}
@@ -139,6 +203,10 @@ export const LoginScreen = () => {
                             returnKeyType="next"
                             onSubmitEditing={() => passwordRef.current?.focus()}
                             testID="login_email_input"
+                            accessibilityLabel={t('email')}
+                            textContentType="emailAddress"
+                            autoComplete="email"
+                            inputMode="email"
                         />
 
                         {/* Password with show/hide toggle */}
@@ -148,7 +216,8 @@ export const LoginScreen = () => {
                         <View style={styles.passwordContainer}>
                             <TextInput
                                 ref={passwordRef}
-                                style={[styles.passwordInput, isRTL && styles.inputRTL]}
+                                style={styles.passwordInput}
+                                placeholderTextColor={theme.colors.neutral400}
                                 placeholder={t('passwordPlaceholder')}
                                 value={password}
                                 onChangeText={(text) => { setPassword(text); setError(''); setSuccess(''); }}
@@ -157,13 +226,19 @@ export const LoginScreen = () => {
                                 returnKeyType="done"
                                 onSubmitEditing={handleLogin}
                                 testID="login_password_input"
+                                accessibilityLabel={t('password')}
+                                textContentType="password"
+                                autoComplete="current-password"
                             />
                             <TouchableOpacity
                                 style={styles.eyeButton}
                                 onPress={() => setShowPassword(v => !v)}
                                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                accessibilityRole="button"
+                                accessibilityLabel={showPassword ? t('hidePassword') : t('showPassword')}
+                                accessibilityState={{ selected: showPassword }}
                             >
-                                <Text style={styles.eyeIcon}>{showPassword ? '🙈' : '👁'}</Text>
+                                <Text style={styles.eyeIcon} accessibilityElementsHidden importantForAccessibility="no">{showPassword ? '🙈' : '👁'}</Text>
                             </TouchableOpacity>
                         </View>
 
@@ -180,13 +255,23 @@ export const LoginScreen = () => {
 
                         {/* Forgot password */}
                         <TouchableOpacity
-                            style={styles.forgotPasswordButton}
+                            style={[styles.forgotPasswordButton, resetLoading && styles.forgotPasswordButtonDisabled]}
                             onPress={handleForgotPassword}
+                            disabled={resetLoading}
                             testID="forgot_password_button"
                             accessibilityRole="button"
-                            accessibilityLabel={t('forgotPassword')}
+                            accessibilityLabel={resetLoading ? t('sendingResetEmail') : t('forgotPassword')}
+                            accessibilityState={{ disabled: resetLoading, busy: resetLoading }}
                         >
-                            <Text style={styles.forgotPasswordText}>{t('forgotPassword')}</Text>
+                            {/* In flight: a spinner plus a real word. The label used to fall
+                                back to a bare "…" (the key did not exist), which read as a
+                                broken button rather than one that was working. */}
+                            <View style={styles.forgotPasswordRow}>
+                                {resetLoading && <ActivityIndicator size="small" color={theme.colors.accent} />}
+                                <Text style={styles.forgotPasswordText}>
+                                    {resetLoading ? t('sendingResetEmail') : t('forgotPassword')}
+                                </Text>
+                            </View>
                         </TouchableOpacity>
 
                         {/* Separator */}
@@ -208,28 +293,35 @@ export const LoginScreen = () => {
                         </TouchableOpacity>
                     </View>
                 </ScrollView>
-            </TouchableWithoutFeedback>
+            </DismissKeyboardView>
         </KeyboardAvoidingView>
     );
 };
 
 const styles = StyleSheet.create({
+    // Top-aligned under the stack header. Centred, with 60pt kept for the old inline back,
+    // the short form left a 100-170pt empty band above its title.
     container: {
         flexGrow: 1,
         backgroundColor: theme.colors.background,
         padding: theme.spacing.l,
-        paddingTop: 60,
-        justifyContent: 'center',
+        justifyContent: 'flex-start',
+    },
+    // Deep link with no history: no stack header, so the inline back (top 54, 44pt tall)
+    // takes that room and the title starts below it.
+    containerWithInlineBack: {
+        paddingTop: 54 + 44 + theme.spacing.s,
     },
     backButton: {
         position: 'absolute',
         top: 54,
-        left: theme.spacing.l,
         padding: 4,
-    },
-    backButtonRTL: {
-        left: undefined,
-        right: theme.spacing.l,
+        // left/right set inline per isRTL (see render) — avoids the RN-Web `left:undefined` gotcha.
+        // W1 #20: WCAG 2.5.5 — 44pt tap target (chevron is 24pt; hitSlop covers native, this covers web).
+        minWidth: 44,
+        minHeight: 44,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     title: {
         fontSize: 28,
@@ -260,7 +352,12 @@ const styles = StyleSheet.create({
         borderWidth: 1.5,
         borderColor: theme.colors.border,
         borderRadius: theme.borderRadius.m,
-        padding: theme.spacing.m,
+        paddingVertical: theme.spacing.m,
+        // The address is LTR data even in ar/tn, so its end is the physical right. It ran
+        // into the right padding and its last characters were cut ("...@e2e.te"): less
+        // padding on that side so the whole address fits the field.
+        paddingLeft: theme.spacing.m,
+        paddingRight: theme.spacing.s,
         fontSize: 16,
         backgroundColor: theme.colors.white,
     },
@@ -286,6 +383,10 @@ const styles = StyleSheet.create({
         paddingHorizontal: 14,
         justifyContent: 'center',
         alignItems: 'center',
+        // 44pt target on every platform: hitSlop does not exist on react-native-web,
+        // where the toggle measured 49×21.
+        minWidth: 44,
+        minHeight: 44,
     },
     eyeIcon: {
         fontSize: 18,
@@ -296,9 +397,20 @@ const styles = StyleSheet.create({
     forgotPasswordButton: {
         marginTop: theme.spacing.m,
         alignItems: 'center',
+        justifyContent: 'center',
+        // The link was 17px tall: a 44pt target without changing how it looks.
+        minHeight: 44,
+    },
+    forgotPasswordRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    forgotPasswordButtonDisabled: {
+        opacity: 0.5,
     },
     forgotPasswordText: {
-        color: theme.colors.primary,
+        color: theme.colors.accent,
         fontSize: 14,
         textDecorationLine: 'underline',
     },
@@ -319,10 +431,12 @@ const styles = StyleSheet.create({
     },
     crossNavButton: {
         alignItems: 'center',
+        justifyContent: 'center',
         paddingVertical: 8,
+        minHeight: 44,
     },
     crossNavText: {
-        color: theme.colors.primary,
+        color: theme.colors.accent,
         fontSize: 14,
         fontWeight: '600',
         textAlign: 'center',

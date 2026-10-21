@@ -13,6 +13,9 @@ import {
     ReminderDefinition,
     ContextRuleThen
 } from '../types/remindersV2';
+import { trimesterFromWeek } from './pregnancyCalculator';
+import { toLocalDateKey } from './localDate';
+import { RAMADAN_GUIDANCE_CLINICALLY_REVIEWED } from '../config/featureFlags';
 
 /**
  * Match a number against a comparator or exact value
@@ -32,6 +35,14 @@ function matchNum(value: number, cond: number | NumComparator): boolean {
 
 /**
  * Check if a rule's "when" condition matches the user's profile
+ *
+ * A boolean condition compared against a profile key that is absent reads the
+ * absence as `false`: the flags are diagnoses, and one that was never declared
+ * was not declared. Without this, `buildContextProfile` was the only thing
+ * standing between a hand-built profile and the bug where
+ * `when: { has_gestational_diabetes: false } → disable` silently never fired.
+ * Both directions stay conservative — an undeclared diagnosis cannot switch on a
+ * condition-specific reminder, nor raise a reminder's intensity.
  */
 export function matchContext(rule: ContextRuleWhen, profile: ContextProfile): boolean {
     for (const key of Object.keys(rule) as (keyof ContextRuleWhen)[]) {
@@ -45,7 +56,9 @@ export function matchContext(rule: ContextRuleWhen, profile: ContextProfile): bo
                 return false;
             }
         } else {
-            if (actual !== expected) return false;
+            const resolved =
+                actual === undefined && typeof expected === 'boolean' ? false : actual;
+            if (resolved !== expected) return false;
         }
     }
     return true;
@@ -103,40 +116,64 @@ export function isHotSeason(): boolean {
 }
 
 /**
- * Approximate Ramadan window per Gregorian year (start/end inclusive, UTC dates).
+ * Approximate Ramadan windows (start/end inclusive, UTC date strings, sorted).
  *
- * MS6: previously this function was a hardcoded `return false` with TODO. We now use
- * a static table covering 2024-2030 (Umm al-Qura calendar approximations). The table
- * needs to be extended once a year. For a long-term fix, switch to a Hijri library
- * (e.g. `hijri-converter` or `@umalqura/core`) — kept minimal here to avoid bundle bloat.
+ * A LIST, not a map keyed by Gregorian year. The previous shape —
+ * `Record<year, [start, end]>` — could hold only one window per year, and that is
+ * not how the Hijri calendar falls: Ramadan moves ~11 days earlier each Gregorian
+ * year, so **2030 has two of them**, one starting 5 January and one starting 26
+ * December that runs into January 2031. Under the old shape a date in late
+ * December 2030 looked up 2030, found the January window, and returned false; a
+ * date in January 2031 found nothing at all. The table was not merely due to
+ * expire in 2030 — it was already wrong across the back half of its own range.
  *
- * If the user sets `is_ramadan: true` manually in their profile (userFlags), it
- * overrides this calculation in `buildContextProfile`.
+ * These are Umm al-Qura arithmetic approximations and can be a day out either
+ * way; the real start is settled by moon sighting and announced locally. Nothing
+ * here may drive a medical determination — the only consumer is a hydration
+ * reminder's time-shift, and being a day early or late on that is harmless.
+ * Anything with clinical weight must come from the user's own declaration
+ * (`userFlags.is_ramadan`), which overrides this in `buildContextProfile`.
+ *
+ * `ramadanTableHorizonYears()` reports how far this reaches; a unit test fails
+ * while there are fewer than three years left, so the table cannot rot quietly
+ * the way the old one did.
  */
-const RAMADAN_WINDOWS: Record<number, [string, string]> = {
-    2024: ['2024-03-11', '2024-04-09'],
-    2025: ['2025-03-01', '2025-03-30'],
-    2026: ['2026-02-18', '2026-03-19'],
-    2027: ['2027-02-08', '2027-03-08'],
-    2028: ['2028-01-28', '2028-02-26'],
-    2029: ['2029-01-16', '2029-02-14'],
-    2030: ['2030-01-05', '2030-02-03'],
-};
+const RAMADAN_WINDOWS: ReadonlyArray<readonly [string, string]> = [
+    ['2024-03-11', '2024-04-09'],
+    ['2025-03-01', '2025-03-30'],
+    ['2026-02-18', '2026-03-19'],
+    ['2027-02-08', '2027-03-09'],
+    ['2028-01-28', '2028-02-26'],
+    ['2029-01-16', '2029-02-14'],
+    ['2030-01-05', '2030-02-03'],
+    ['2030-12-26', '2031-01-24'],
+    ['2031-12-15', '2032-01-13'],
+    ['2032-12-04', '2033-01-02'],
+    ['2033-11-23', '2033-12-22'],
+    ['2034-11-12', '2034-12-11'],
+    ['2035-11-01', '2035-11-30'],
+    ['2036-10-20', '2036-11-18'],
+    ['2037-10-10', '2037-11-08'],
+    ['2038-09-29', '2038-10-28'],
+    ['2039-09-19', '2039-10-18'],
+    ['2040-09-07', '2040-10-06'],
+];
 
-export function isRamadan(now: Date = new Date()): boolean {
-    const year = now.getFullYear();
-    const window = RAMADAN_WINDOWS[year];
-    if (!window) {
-        // Unknown year (table not extended) — return false rather than guess
-        return false;
-    }
-    const todayStr = now.toISOString().split('T')[0];
-    return todayStr >= window[0] && todayStr <= window[1];
+/** Last date the table covers — the guard against silent rot. */
+export function ramadanTableHorizon(): string {
+    return RAMADAN_WINDOWS[RAMADAN_WINDOWS.length - 1][1];
 }
 
-/**
- * Build a ContextProfile from user data
- */
+export function isRamadan(now: Date = new Date()): boolean {
+    // Her day, not the UTC one: the windows are calendar days where she lives, and the UTC
+    // day started the fast an hour late in Tunis and ended it hours early in the evening
+    // west of Greenwich.
+    const todayStr = toLocalDateKey(now);
+    // Past the horizon, return false rather than guess. A wrong "yes" would shift
+    // a pregnant woman's hydration reminders into the middle of the night.
+    return RAMADAN_WINDOWS.some(([from, to]) => todayStr >= from && todayStr <= to);
+}
+
 export function buildContextProfile(
     weekOfPregnancy: number,
     userFlags?: {
@@ -147,16 +184,19 @@ export function buildContextProfile(
         is_ramadan?: boolean;
     }
 ): ContextProfile {
-    const trimester: 1 | 2 | 3 = weekOfPregnancy <= 12 ? 1 : weekOfPregnancy <= 27 ? 2 : 3;
+    const trimester: 1 | 2 | 3 = trimesterFromWeek(weekOfPregnancy);
 
     return {
         trimester,
         week_of_pregnancy: weekOfPregnancy,
         is_hot_season: isHotSeason(),
-        is_ramadan: userFlags?.is_ramadan ?? false,
-        has_gestational_diabetes: userFlags?.has_gestational_diabetes,
-        has_hypertension: userFlags?.has_hypertension,
-        is_twins: userFlags?.is_twins,
+        // The Ramadan rule moves hydration reminders to the night (21:30, 23:30, 03:30):
+        // fasting guidance, applied by calendar to every user whether she fasts or not.
+        // It is the hidden Ramadan screen's subject, so it waits for the same sign-off.
+        is_ramadan: RAMADAN_GUIDANCE_CLINICALLY_REVIEWED && (userFlags?.is_ramadan ?? isRamadan()),
+        has_gestational_diabetes: userFlags?.has_gestational_diabetes ?? false,
+        has_hypertension: userFlags?.has_hypertension ?? false,
+        is_twins: userFlags?.is_twins ?? false,
         work_schedule: userFlags?.work_schedule,
     };
 }

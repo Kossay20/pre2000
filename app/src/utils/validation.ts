@@ -132,6 +132,18 @@ export const validateAppointment = (data: {
 };
 
 /**
+ * The bounds firestore.rules (validHealthMetric) puts on a healthMetrics write, all strict
+ * `<`. The form used to accept exactly 300/200 mmHg, which the rules refuse: the entry went
+ * through the clinical alert and then failed on the server. The form now stops one unit
+ * short of each bound, and healthBounds.test.ts reads the rules file to keep the two equal.
+ */
+export const HEALTH_RULE_LIMITS = {
+    weightKgBelow: 500,
+    systolicBelow: 300,
+    diastolicBelow: 200,
+} as const;
+
+/**
  * Validate health metric entry (weight, blood pressure)
  */
 export const validateHealthEntry = (data: {
@@ -153,10 +165,10 @@ export const validateHealthEntry = (data: {
         if (!data.systolic || !data.diastolic) {
             return { valid: false, error: 'weight.errors.bpRequired' };
         }
-        if (data.systolic < 50 || data.systolic > 300) {
+        if (data.systolic < 50 || data.systolic >= HEALTH_RULE_LIMITS.systolicBelow) {
             return { valid: false, error: 'weight.errors.bpSystolicInvalid' };
         }
-        if (data.diastolic < 30 || data.diastolic > 200) {
+        if (data.diastolic < 30 || data.diastolic >= HEALTH_RULE_LIMITS.diastolicBelow) {
             return { valid: false, error: 'weight.errors.bpDiastolicInvalid' };
         }
         if (data.diastolic >= data.systolic) {

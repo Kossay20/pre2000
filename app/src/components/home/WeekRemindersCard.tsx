@@ -189,7 +189,7 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 20,
         fontWeight: 'bold',
-        color: theme.colors.orange900,
+        color: theme.colors.deepOrange900,
         flex: 1,
     },
     viewAllButton: {

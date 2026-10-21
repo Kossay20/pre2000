@@ -64,7 +64,7 @@ export const CompletedTasksScreen = () => {
             await updateTaskStatus(taskId, false);
 
             // 3. Show success
-            showToast(t('common.taskRestored'), 'success');
+            showToast(t('common.taskRestored'), 'success', { persistent: true });
             log.debug('[CompletedTasksScreen] ✅ Task restored');
 
             // 4. Navigate back after a short delay to allow toast to be seen
@@ -126,7 +126,7 @@ export const CompletedTasksScreen = () => {
         return (
             <View style={styles.container}>
                 <LinearGradient
-                    colors={[theme.colors.primary, theme.colors.accent]}
+                    colors={[theme.colors.primaryStrong, theme.colors.accent]}
                     style={styles.headerGradient}
                 >
                     <Text style={styles.headerTitle}>✓ {t('common.completedTasks')}</Text>
@@ -147,7 +147,7 @@ export const CompletedTasksScreen = () => {
     return (
         <View style={styles.container}>
             <LinearGradient
-                colors={[theme.colors.primary, theme.colors.accent]}
+                colors={[theme.colors.primaryStrong, theme.colors.accent]}
                 style={styles.headerGradient}
             >
                 <Text style={styles.headerTitle}>✓ {t('common.completedTasks')}</Text>
@@ -166,7 +166,7 @@ export const CompletedTasksScreen = () => {
                                 </Text>
                                 {task.completed_at && (
                                     <Text style={styles.completedDate}>
-                                        {t('common.completedOn', { date: format(task.completed_at, 'dd MMMM yyyy', { locale: dateLocale }) })}
+                                        {t('common.completedOn', { date: format(task.completed_at, 'd MMMM yyyy', { locale: dateLocale }) })}
                                     </Text>
                                 )}
                             </View>
@@ -279,7 +279,7 @@ const styles = StyleSheet.create({
     },
     completedDate: {
         fontSize: 12,
-        color: theme.colors.neutral400,
+        color: theme.colors.textMuted,
         fontStyle: 'italic',
     },
     taskActions: {
@@ -298,7 +298,7 @@ const styles = StyleSheet.create({
     restoreButtonText: {
         fontSize: 14,
         fontWeight: '600',
-        color: theme.colors.green500,
+        color: theme.colors.success,
     },
     deleteButton: {
         flex: 1,

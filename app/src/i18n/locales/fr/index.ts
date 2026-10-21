@@ -15,12 +15,29 @@ import babyGrowthFr from './babyGrowth.json';
 import remindersFr from './reminders.json';
 import forbiddenFoodsFr from './forbiddenFoods.json';
 import notificationsFr from './notifications.json';
+import cycle8Fr from './cycle8.json';
 
 
+
+// P0-2 FIX (E2E audit 2026-05-08): commonFr.errors was shadowing authFr.errors
+// because `...commonFr` spreads after `...authFr`. Result: keys like
+// `errors.emailRequired` (defined only in auth.json) resolved to the raw key.
+// Explicit deep-merge of the `errors` sub-block — auth wins, common is base.
+const mergedErrors = { ...(commonFr as any).errors, ...(authFr as any).errors };
+
+// AUTH-01 FIX: commonFr.home holds the TTC/Curious/postpartum keys, but
+// `home: homeFr` would overwrite the whole subtree (home.json lacks those 8 keys).
+// Deep-merge `home` — home.json wins, common.home is the base (mirrors `errors`).
+const mergedHome = { ...(commonFr as any).home, ...(homeFr as any) };
 
 export default {
     ...authFr,
     ...commonFr,
+    errors: mergedErrors,
+    // AUTH-03 FIX (ultra-deep W1): `...commonFr` shadows authFr.passwordMin with a stale
+    // "6 caractères" string — the helper under the register password field then LIES about the
+    // real policy (10+ chars, 1 digit, 1 uppercase). Re-assert the auth.json full-rule value.
+    passwordMin: (authFr as any).passwordMin,
     common: commonFr,
     profile: profileFr,
     onboarding: onboardingFr,
@@ -28,12 +45,13 @@ export default {
     calendar: calendarFr,
     dashboard: dashboardFr,
     weight: weightFr,
-    home: homeFr,
+    home: mergedHome,
     tasks: tasksFr,
     babyGrowth: babyGrowthFr,
     reminders: remindersFr,
     forbiddenFoods: forbiddenFoodsFr,
     notifications: notificationsFr,
+    cycle8: cycle8Fr,
 
 
 };

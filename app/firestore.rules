@@ -45,6 +45,65 @@ service cloud.firestore {
       return request.resource.data.size() < 30;
     }
 
+    // Free-text profile names bounded to 50 chars, mirroring validation.ts:182-188.
+    // Written with `merge:true`, so request.resource.data is the merged document and a
+    // field may legitimately be absent on the very first write — hence the `in` guard.
+    function validProfileNames() {
+      return (!('firstName' in request.resource.data)
+              || (request.resource.data.firstName is string
+                  && request.resource.data.firstName.size() <= 50))
+          && (!('lastName' in request.resource.data)
+              || (request.resource.data.lastName is string
+                  && request.resource.data.lastName.size() <= 50));
+    }
+
+    // Declared conditions (gestational diabetes / hypertension / twin pregnancy).
+    // These are health data and they drive the reminders catalogue's context rules,
+    // which compare with strict equality: a string "true" persisted here would be
+    // compared against a boolean and quietly match nothing — reproducing, from the
+    // server side, exactly the inert-rule defect the client fix closed. Typed here
+    // so no direct SDK call can plant one.
+    // The profile document is the one that carries declared diagnoses, and the
+    // GDPR export reads it through a hand-written whitelist — so a field nobody
+    // declared is a field the subject can never see in her own export and the
+    // purge logic does not know to reason about. Owner-scoped, so this is not a
+    // cross-user hole; it stops a compromised or hand-rolled client from planting
+    // arbitrary health fields in it.
+    //
+    // Deliberately not hasReasonableSize()'s < 30: a complete profile already
+    // carries around 27 fields, so that ceiling would break on the next feature
+    // rather than on an attack.
+    function profileFieldCountSane() {
+      return request.resource.data.size() <= 45;
+    }
+
+    function validMedicalFlags() {
+      return (!('hasGestationalDiabetes' in request.resource.data)
+              || request.resource.data.hasGestationalDiabetes is bool)
+          && (!('hasHypertension' in request.resource.data)
+              || request.resource.data.hasHypertension is bool)
+          && (!('isTwinPregnancy' in request.resource.data)
+              || request.resource.data.isTwinPregnancy is bool)
+          && (!('medicalProfileAnsweredAt' in request.resource.data)
+              || (request.resource.data.medicalProfileAnsweredAt is string
+                  && request.resource.data.medicalProfileAnsweredAt.size() <= 40));
+    }
+
+    // Consent to the processing of pregnancy/health data (utils/healthDataConsent.ts):
+    // the policy version and the moment she ticked the box, nothing else. It is the
+    // record that the processing is allowed, so its shape is fixed here like the flags.
+    function validHealthDataConsent() {
+      return !('healthDataConsent' in request.resource.data)
+          || (request.resource.data.healthDataConsent is map
+              && request.resource.data.healthDataConsent.keys().hasOnly(['version', 'at'])
+              && request.resource.data.healthDataConsent.version is string
+              && request.resource.data.healthDataConsent.version.size() > 0
+              && request.resource.data.healthDataConsent.version.size() <= 40
+              && request.resource.data.healthDataConsent.at is string
+              && request.resource.data.healthDataConsent.at.size() > 0
+              && request.resource.data.healthDataConsent.at.size() <= 40);
+    }
+
     // user_id présent et = auth.uid (string).
     function userIdMatches() {
       return isAuthenticated()
@@ -113,17 +172,122 @@ service cloud.firestore {
           && request.resource.data.date is string;
     }
 
+    // Tracker history (kickCounterService / contractionTimerService). The document id is
+    // `${auth.uid}_${localId}`, pinned to the owner like symptomsLog, so re-sending the
+    // same record is idempotent and nobody can create ids in another user's namespace.
+    // hasOnly() fixes the shape: these are the only fields the client writes.
+    function ownedTrackerId(docId) {
+      return docId.matches('^' + request.auth.uid + '_[A-Za-z0-9-]{1,40}$');
+    }
+
+    function validTrackerTimes() {
+      return request.resource.data.id is string
+          && request.resource.data.id.size() <= 40
+          && request.resource.data.startedAt is number
+          && request.resource.data.endedAt is number
+          && request.resource.data.endedAt >= request.resource.data.startedAt;
+    }
+
+    function validKickSession(sessionId) {
+      return userIdMatches()
+          && ownedTrackerId(sessionId)
+          && request.resource.data.keys().hasOnly(['user_id', 'id', 'startedAt', 'endedAt', 'kicks'])
+          && validTrackerTimes()
+          && request.resource.data.kicks is list
+          && request.resource.data.kicks.size() <= 2000;
+    }
+
+    function validContraction(contractionId) {
+      return userIdMatches()
+          && ownedTrackerId(contractionId)
+          && request.resource.data.keys().hasOnly(['user_id', 'id', 'startedAt', 'endedAt'])
+          && validTrackerTimes();
+    }
+
+    // Hospital bag (hospitalBagService): one document per user, id = uid. Only her ticks
+    // and her own items are stored; the default list ships with the app.
+    function validHospitalBag(bagId) {
+      return userIdMatches()
+          && bagId == request.auth.uid
+          && request.resource.data.keys().hasOnly(['user_id', 'checked', 'customItems', 'updatedAt'])
+          && request.resource.data.checked is map
+          && request.resource.data.checked.size() <= 300
+          && request.resource.data.customItems is list
+          && request.resource.data.customItems.size() <= 100
+          && request.resource.data.updatedAt is number;
+    }
+
     // =========================================================
     // 👤 USER PROFILES
     // =========================================================
     
+    // GDPR SUBCOLLECTION FIX (Art. 17). In rules_version 2 a `match /col/{id}` rule
+    // covers ONLY the document — never its subcollections, which are default-deny
+    // unless a nested match exists. Legacy versions wrote health data under
+    // userProfiles/{uid}/{weights,events,journal,chatbot_history}, and
+    // gdprPurge.ts:73-80 tries to delete exactly those. Every getDocs there returned
+    // permission-denied, was swallowed by the per-collection catch, and downgraded to
+    // a log.warn — so "delete my account" reported success while the legacy health
+    // data survived forever, contradicting the erasure promise in PrivacyPolicyScreen.
+    // The nested wildcard is still owner-scoped, so this grants no cross-user access.
+    // NOTE on the nested match shape: `match /{document=**}` would match ZERO or
+    // more segments, i.e. it also matches the PARENT document — which silently
+    // short-circuits any guard placed on the parent's own `allow write` (verified
+    // live: a 1 MB firstName was accepted). `/{sub}/{doc=**}` requires at least a
+    // collection + document, so it covers subcollections only.
+    //
+    // The subcollection names are enumerated, not wildcarded. A client cannot list the
+    // subcollections of a document, so the purge can only sweep names it knows; a name the
+    // rules accepted but the purge did not know would survive "delete my account". The
+    // list is gdprPurge.ts `legacySubCollections`, and gdprPurge.test.ts fails if the two
+    // differ.
+    function isPurgedSubcollection(sub) {
+      return sub in ['weights', 'events', 'journal', 'chatbot_history'];
+    }
+
     match /users/{userId} {
       allow read, write: if isOwner(userId);
+      match /{sub}/{doc=**} {
+        allow read, write: if isOwner(userId) && isPurgedSubcollection(sub);
+      }
     }
 
     // User Profiles (used by AuthContext, PregnancyContext, OnboardingScreen)
     match /userProfiles/{userId} {
-      allow read, write: if isOwner(userId);
+      allow read: if isOwner(userId);
+      // Server-side length cap on the free-text name fields. Client maxLength does
+      // not bind a direct SDK call, and the profile edit screen never ran
+      // validateProfile, so an arbitrarily large string could be persisted and then
+      // re-read on every cold start — a per-user storage/bandwidth amplifier.
+      // Split create/update from delete, the way every other collection in this
+      // file already does. `allow write` covers delete too, and on a delete
+      // `request.resource` is null — so both validators dereferenced null, the
+      // rules engine raised, and the owner could not delete their own profile.
+      // gdprPurge deletes this document first and does not catch, so account
+      // deletion rejected outright: no auth-user delete, no collection purges, no
+      // local AsyncStorage wipe. "Delete my account" was broken end to end, and a
+      // health diagnosis is now among what it failed to erase. GDPR art. 17.
+      allow create, update: if isOwner(userId)
+                            && validProfileNames()
+                            && validMedicalFlags()
+                            && validHealthDataConsent()
+                            && profileFieldCountSane();
+      allow delete: if isOwner(userId);
+      match /{sub}/{doc=**} {
+        allow read, write: if isOwner(userId) && isPurgedSubcollection(sub);
+      }
+    }
+
+    // A deletion she asked for (accountDeletion.ts). Written before anything is erased and
+    // read at sign-in on any device, so a deletion whose last step failed (the login could
+    // not be deleted) is finished wherever she signs in next, instead of the emptied
+    // account being opened as a new one. One document per user, id = uid, holding only the
+    // server time of the request. No `list`: nobody needs to enumerate who asked.
+    match /deletionRequests/{userId} {
+      allow get, delete: if isOwner(userId);
+      allow create, update: if isOwner(userId)
+                            && request.resource.data.keys().hasOnly(['requestedAt'])
+                            && request.resource.data.requestedAt == request.time;
     }
 
     // =========================================================
@@ -208,6 +372,34 @@ service cloud.firestore {
       allow create: if validSymptoms()
                   && logId.matches('^' + request.auth.uid + '_[0-9]{4}-[0-9]{2}-[0-9]{2}$');
       allow update: if isOwnerOfResource() && validSymptoms();
+      allow delete: if isOwnerOfResource();
+    }
+
+    // Tracker history — kick sessions, contractions, hospital bag. These used to live on
+    // the device only: a logout wiped them and a new phone started empty. Owner-only, and
+    // listed by gdprPurge.ts so deleting the account erases them.
+    match /kickSessions/{sessionId} {
+      allow read: if isOwnerOfResource();
+      allow create: if validKickSession(sessionId);
+      allow update: if isOwnerOfResource() && validKickSession(sessionId);
+      allow delete: if isOwnerOfResource();
+    }
+
+    match /contractions/{contractionId} {
+      allow read: if isOwnerOfResource();
+      allow create: if validContraction(contractionId);
+      allow update: if isOwnerOfResource() && validContraction(contractionId);
+      allow delete: if isOwnerOfResource();
+    }
+
+    // `get` is decided on the id: the app reads hospitalBags/{uid} before one exists, and
+    // a missing document has no user_id to compare. `list` (the GDPR purge's query by
+    // user_id) is decided on the data, which the query constrains.
+    match /hospitalBags/{bagId} {
+      allow get: if isOwner(bagId);
+      allow list: if isOwnerOfResource();
+      allow create: if validHospitalBag(bagId);
+      allow update: if isOwnerOfResource() && validHospitalBag(bagId);
       allow delete: if isOwnerOfResource();
     }
 

@@ -9,31 +9,42 @@ import {
     TouchableOpacity,
     ScrollView,
     KeyboardAvoidingView,
-    Dimensions,
     Animated,
     BackHandler,
-    Alert,
 } from 'react-native';
+import { showAlert } from '../utils/alert';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { LinearGradient } from 'expo-linear-gradient';
-import * as Localization from 'expo-localization';
-import { useNavigation } from '@react-navigation/native';
+import { getDeviceRegionCode } from '../utils/deviceRegion';
+import { COUNTRY_OPTIONS, countryFromRegion } from '../utils/clinicalChecks';
+import { useNavigation, usePreventRemove } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { usePregnancy } from '../context/PregnancyContext';
 import { theme } from '../theme';
+import { Ionicons } from '@expo/vector-icons';
+import { RtlAwareChevron } from '../components/common/RtlAwareChevron';
+import { medicalFlagsFromAnswers } from '../utils/medicalFlags';
 import { Button } from '../components/common/Button';
+import { resolveButtonVariant } from '../components/common/Button.helpers';
 import { ErrorMessage } from '../components/common/ErrorMessage';
+import { HealthDataConsentCheck } from '../components/common/HealthDataConsentCheck';
+import { recordHealthDataConsent } from '../utils/healthDataConsent';
+import { storedDateKey } from '../utils/localDate';
 import { format, subDays } from 'date-fns';
 import { useTranslation } from 'react-i18next';
-import { analytics, auth } from '../config/firebase';
+import { analytics, auth, db } from '../config/firebase';
+import { doc, getDoc } from 'firebase/firestore';
+import { shouldPreserveExistingProfile } from '../context/loginHelpers';
 import { logEvent } from 'firebase/analytics';
 import { getFirebaseErrorMessage } from '../utils/firebaseErrors';
 import { useAuthLoading } from '../hooks/useAuthLoading';
 import { retryOperation } from '../utils/retry';
-import { calculatePregnancyWeek } from '../utils/pregnancyCalculator';
+import { calculatePregnancyWeek, displayedPregnancyAge } from '../utils/pregnancyCalculator';
+import { formatGestationalAge } from '../utils/gestationalAge';
 import { useDateLocale } from '../hooks/useDateLocale';
 import { getPickerLocale } from '../utils/pickerLocale';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
+import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { calculateFertileWindow } from '../utils/fertility';
 import { validateProfile } from '../utils/validation';
@@ -44,9 +55,33 @@ import {
     type DateMethod,
 } from './onboardingConstants';
 import { styles } from './OnboardingScreen.styles';
+import { getContentWidth } from '../utils/layout';
+import { plainLabel } from '../utils/a11yLabel';
 
-const { width } = Dimensions.get('window');
+const width = getContentWidth();
 
+// The last step's gradient buttons, switched off: the shared Button's disabled pair
+// (dark-grey label on light grey, no shadow), as on step 2 and the consent sheet. They
+// used white on a grey gradient with a pink shadow, about 1.6:1 — she could not read
+// what ticking the box would unlock.
+const OFF = resolveButtonVariant('primary', true);
+const START_OFF_COLORS = [OFF.backgroundColor, OFF.backgroundColor] as const;
+const START_ON_COLORS = [theme.colors.primaryStrong, theme.colors.accent] as const;
+
+// Single-choice options (status, date method, age, country, first pregnancy).
+// accessibilityState reaches VoiceOver/TalkBack, but react-native-web drops it: on
+// web every option was a plain button and nothing said which one was chosen — the
+// only cue was a border colour. aria-pressed is the state a screen reader reads on
+// a toggle button (aria-selected is not allowed on role=button).
+const choiceA11y = (selected: boolean) => ({
+    accessibilityState: { selected },
+    ...(Platform.OS === 'web' ? { 'aria-pressed': selected } : {}),
+});
+
+// The step question is the screen's heading. The stack header already draws the route
+// title ("Bienvenue") as the page h1, so the step title is its h2 on web (RN-web turns
+// accessibilityRole="header" into an <h1> unless aria-level says otherwise).
+const STEP_TITLE_LEVEL = Platform.OS === 'web' ? ({ 'aria-level': 2 } as const) : {};
 
 export const OnboardingScreen = () => {
     useScreenAnalytics('OnboardingScreen');
@@ -54,6 +89,12 @@ export const OnboardingScreen = () => {
     const { setProfile } = usePregnancy();
     const navigation = useNavigation();
     const { t, i18n } = useTranslation();
+    // W1 #6: language-derived RTL (I18nManager.isRTL is false on web). Used for TEXT alignment
+    // only — layout rows mirror automatically via document.dir=rtl (web) / I18nManager (native),
+    // so we never row-reverse here (would double-mirror — see reference_rnweb_rtl_gotchas).
+    const isRTL = i18n.language === 'ar' || i18n.language === 'tn';
+    const rtlText = isRTL ? ({ textAlign: 'right' as const, writingDirection: 'rtl' as const }) : null;
+    const reducedMotion = usePrefersReducedMotion();
 
     // Get date locale using shared hook (handles all languages including tn → arTN)
     const dateLocale = useDateLocale();
@@ -65,21 +106,51 @@ export const OnboardingScreen = () => {
     // Data collected
     const [pregnancyStatus, setPregnancyStatus] = useState<PregnancyStatus>(null);
     const [dateMethod, setDateMethod] = useState<DateMethod>('ddr');
-    const [selectedDate, setSelectedDate] = useState(new Date());
+    // PHASE 2.5 FIX (E2E audit 2026-05-08): pre-fill date 8 weeks ago instead of
+    // today. Previously the absurd "Semaine 1, 0 SA + 1 jour" was shown to every
+    // user who landed on step 2 without changing the date. 8 weeks is the median
+    // moment users discover their pregnancy and seek tracking apps.
+    const [selectedDate, setSelectedDate] = useState(() => {
+        const d = new Date();
+        d.setDate(d.getDate() - 8 * 7);
+        return d;
+    });
     const [firstName, setFirstName] = useState('');
     const [isFirstPregnancy, setIsFirstPregnancy] = useState<boolean | null>(null);
+    // Declared conditions. REMINDERS_V2.json has always carried context rules keyed
+    // on these — the glucose-check reminder is authored for gestational diabetes
+    // only — but nothing collected the answers, so the rules never fired and the
+    // reminder was listed for everyone. Optional: leaving all three off records an
+    // answered "no", which is what the rules read as "not declared".
+    const [hasGestationalDiabetes, setHasGestationalDiabetes] = useState(false);
+    const [hasHypertension, setHasHypertension] = useState(false);
+    const [isTwinPregnancy, setIsTwinPregnancy] = useState(false);
+    // Collapsed by default — see disclosureHeader in the styles for why.
+    const [medicalOpen, setMedicalOpen] = useState(false);
 
     // TTC-specific state
     const [cycleLength, setCycleLength] = useState(28);
-    const [lastPeriodDate, setLastPeriodDate] = useState(new Date());
+    const [lastPeriodDate, setLastPeriodDate] = useState(() => {
+        // For TTC, default to 14 days ago (mid-cycle, common when user starts tracking)
+        const d = new Date();
+        d.setDate(d.getDate() - 14);
+        return d;
+    });
     const [showCycleDatePicker, setShowCycleDatePicker] = useState(false);
 
     // Curious-specific state
     const [exploreWeek, setExploreWeek] = useState(20);
 
     // Personal info
-    const [country, setCountry] = useState('tunisia');
+    // No preselected country: it decides which emergency number the app dials.
+    // The region effect below fills it in when the device region is one we know.
+    const [country, setCountry] = useState('');
     const [ageRange, setAgeRange] = useState<string>('');
+
+    // Explicit consent to the processing of her pregnancy/health data, asked on the last
+    // step of every flow — the step that first saves the profile. Unticked until she ticks
+    // it; no save button works without it.
+    const [healthConsent, setHealthConsent] = useState(false);
 
     // Account creation (required at the end)
     const [email, setEmail] = useState('');
@@ -96,26 +167,13 @@ export const OnboardingScreen = () => {
 
         // F7: detect country from device locale instead of remote IP lookup
         // (avoids leaking the user's IP to a third party — see C2 audit).
-        try {
-            const region = Localization.getLocales?.()[0]?.regionCode || null;
-            if (region) {
-                const regionMap: { [key: string]: string } = {
-                    TN: 'tunisia',
-                    FR: 'france',
-                    BE: 'belgium',
-                    MA: 'morocco',
-                    DZ: 'algeria',
-                };
-                const detected = regionMap[region.toUpperCase()];
-                if (detected) {
-                    log.debug(`[Onboarding] 🌍 Detected region: ${region} → ${detected}`);
-                    setCountry(detected);
-                } else {
-                    log.debug(`[Onboarding] 🌍 Region ${region} not in map, keeping default country`);
-                }
-            }
-        } catch (e) {
-            log.debug('[Onboarding] ⚠️ Could not read locale, using default country');
+        const region = getDeviceRegionCode();
+        const detected = countryFromRegion(region);
+        if (detected) {
+            log.debug(`[Onboarding] 🌍 Detected region: ${region} → ${detected}`);
+            setCountry(detected);
+        } else {
+            log.debug(`[Onboarding] 🌍 Region ${region} not in map, leaving country unselected`);
         }
     }, []);
 
@@ -140,6 +198,11 @@ export const OnboardingScreen = () => {
     }, [selectedDate, dateMethod]);
 
     const weekComparison = WEEK_COMPARISONS[pregnancyInfo.week] || WEEK_COMPARISONS[1];
+    // The week and day in progress for display, unclamped: a post-term pregnancy reads
+    // "Semaine 41" here, while pregnancyInfo.week stays on 40 for the week content. The
+    // same helper feeds Home, Profile and the dashboards, so they all print the same week.
+    const { week: displayWeek, dayOfPregnancy } = displayedPregnancyAge(pregnancyInfo.completedWeeks, pregnancyInfo.completedDays);
+    const gestationalAge = formatGestationalAge(t, pregnancyInfo.completedWeeks, pregnancyInfo.completedDays);
 
     // Animation for step transitions
     const stepRef = useRef(step);
@@ -162,6 +225,15 @@ export const OnboardingScreen = () => {
         animateTransition(() => setStep(s => s + 1));
     }, [animateTransition]);
 
+    // W1 #7: step-1 status cards auto-advance. Set the status, then let the selected highlight
+    // register before transitioning so the tap feels acknowledged (Flo/Glow pattern). The short
+    // dwell is skipped under reduced-motion (advance immediately, no artificial wait).
+    const selectStatusAndAdvance = useCallback((status: PregnancyStatus) => {
+        setPregnancyStatus(status);
+        if (reducedMotion) { nextStep(); return; }
+        setTimeout(() => nextStep(), 220);
+    }, [nextStep, reducedMotion]);
+
     useEffect(() => {
         const sub = BackHandler.addEventListener('hardwareBackPress', () => {
             if (stepRef.current <= 1) return false;
@@ -171,30 +243,60 @@ export const OnboardingScreen = () => {
         return () => sub.remove();
     }, [prevStep]);
 
+    // A-015: the stack header's back arrow (and the browser's back button on web)
+    // popped the whole Onboarding route from any step, silently dropping the date,
+    // name, country and medical answers — while the in-body "Retour" and Android's
+    // back went one step back. Past step 1 every back now means "previous step".
+    usePreventRemove(step > 1, () => {
+        prevStep();
+    });
+
     const handleDateChange = (event: any, date?: Date) => {
         setShowDatePicker(Platform.OS === 'ios');
         if (date) setSelectedDate(date);
     };
 
+    // A-023. The step-4 email already had an account and we signed into it. If that
+    // account already holds a pregnancy profile, the answers just given must not
+    // replace it silently — nor be thrown away silently. Ask. Resolves true only when
+    // she chooses to replace it. False means keep it (also when it cannot be read) —
+    // or that there is nothing to keep, where loginAsGuest's normal create runs.
+    const confirmReplaceExistingProfile = async (uid: string): Promise<boolean> => {
+        try {
+            const snap = await getDoc(doc(db, 'userProfiles', uid));
+            if (!shouldPreserveExistingProfile(snap)) return false;
+        } catch (readError) {
+            log.warn('[Onboarding] ⚠️ Could not read the existing profile — keeping it:', readError);
+            return false;
+        }
+        return new Promise<boolean>((resolve) => {
+            showAlert(t('onboarding.existingProfile.title'), t('onboarding.existingProfile.message'), [
+                { text: t('onboarding.existingProfile.keep'), style: 'cancel', onPress: () => resolve(false) },
+                { text: t('onboarding.existingProfile.replace'), style: 'destructive', onPress: () => resolve(true) },
+            ]);
+        });
+    };
+
     const handleFinish = async (createAccount: boolean = false) => {
+        if (!healthConsent) return;
         setError('');
         const lmpDate = getLmpDate();
 
         // F18: validate the collected profile before creating the account / guest profile.
         // Blocks invalid first names and impossible LMP dates from reaching AuthContext.
         const validation = validateProfile({
-            firstName: firstName || t('onboarding.step4.defaultName'),
+            firstName: firstName.trim() || t('onboarding.step4.defaultName'),
             lmp: lmpDate,
         });
         if (!validation.valid) {
             const message = validation.error ? t(validation.error) : t('common.unknownError');
-            Alert.alert(t('common.error'), message);
+            showAlert(t('common.error'), message);
             return;
         }
 
         log.debug('[Onboarding] 🎯 handleFinish called', { createAccount });
         log.debug(`[Onboarding] 📊 Profile data:`, {
-            firstName: firstName || t('onboarding.step4.defaultName'),
+            firstName: firstName.trim() || t('onboarding.step4.defaultName'),
             lmpDate: lmpDate.toISOString(),
             dateMethod,
             week: pregnancyInfo.week,
@@ -208,13 +310,14 @@ export const OnboardingScreen = () => {
         await withLoading(async () => {
             try {
                 let authenticatedUser = null;
+                let replaceExisting = false;
 
                 // Create account if requested
                 if (createAccount && email && password) {
                     log.debug('[Onboarding] 📝 Creating account...');
                     try {
                         authenticatedUser = await retryOperation(
-                            () => register(email.trim(), password),
+                            () => register(email.trim(), password, { profileFollows: true }),
                             { maxRetries: 1, initialDelay: 500 }
                         );
                     } catch (regError: any) {
@@ -222,13 +325,16 @@ export const OnboardingScreen = () => {
                         // try to log in instead to recover the session and proceed to profile creation.
                         if (regError.code === 'auth/email-already-in-use') {
                             log.warn('[Onboarding] ⚠️ Email already in use, attempting login to recover...');
-                            await login(email.trim(), password);
+                            await login(email.trim(), password, { profileFollows: true });
                             // If login succeeds, we continue. The auth state will update.
                             // We need access to the user object. logic inside login sets the state.
                             // But we need the user object returned here to pass to loginAsGuest.
                             // The login function in AuthContext doesn't return the user, it sets state.
                             // But we can get the current user from auth.currentUser immediately after await.
                             authenticatedUser = auth.currentUser;
+                            if (authenticatedUser) {
+                                replaceExisting = await confirmReplaceExistingProfile(authenticatedUser.uid);
+                            }
                         } else {
                             throw regError;
                         }
@@ -241,14 +347,21 @@ export const OnboardingScreen = () => {
 
                 // Create profile (guest or authenticated)
                 await retryOperation(() => loginAsGuest(
-                    firstName || t('onboarding.step4.defaultName'),
+                    firstName.trim() || t('onboarding.step4.defaultName'),
                     lmpDate,
                     country,
                     undefined, // lastName
                     undefined, // city
                     ageRange || undefined,
                     isFirstPregnancy ?? undefined,
-                    authenticatedUser ?? undefined
+                    authenticatedUser ?? undefined,
+                    undefined, // ttcOptions
+                    undefined, // curiousOptions
+                    medicalFlagsFromAnswers(
+                        { hasGestationalDiabetes, hasHypertension, isTwinPregnancy },
+                        new Date().toISOString(),
+                    ),
+                    { replaceExisting, healthDataConsent: recordHealthDataConsent() },
                 ));
 
                 log.debug('[Onboarding] ✅ Profile created successfully!');
@@ -277,25 +390,34 @@ export const OnboardingScreen = () => {
     // RENDER STEPS
     // ==========================================
 
-    const renderProgressBar = () => (
-        <View style={styles.progressContainer}>
-            <View style={[styles.progressBar, { width: `${(step / getStepCount(pregnancyStatus)) * 100}%` }]} />
-        </View>
-    );
+    const renderProgressBar = () => {
+        const totalSteps = getStepCount(pregnancyStatus);
+        return (
+            <View>
+                <View style={styles.progressContainer}>
+                    <View style={[styles.progressBar, { width: `${(step / totalSteps) * 100}%` }]} />
+                </View>
+                {/* Cycle 5 F901 — Stepper text explicite (Flo/Glow pattern). */}
+                <Text style={styles.stepperText}>
+                    {t('onboarding.stepper', { current: step, total: totalSteps })}
+                </Text>
+            </View>
+        );
+    };
 
     // STEP 1: Pregnancy Status
     const renderStep1 = () => (
         <View style={styles.stepContent}>
             <Text style={styles.stepEmoji}>🌸</Text>
-            <Text style={styles.stepTitle}>{t('onboarding.step1.title')}</Text>
+            <Text style={styles.stepTitle} accessibilityRole="header" {...STEP_TITLE_LEVEL}>{t('onboarding.step1.title')}</Text>
 
             <View style={styles.optionsContainer}>
                 <TouchableOpacity
                     style={[styles.optionCard, pregnancyStatus === 'pregnant' && styles.optionCardSelected]}
-                    onPress={() => { setPregnancyStatus('pregnant'); nextStep(); }}
+                    onPress={() => selectStatusAndAdvance('pregnant')}
                     accessibilityRole="button"
                     accessibilityLabel={t('onboarding.step1.pregnant')}
-                    accessibilityState={{ selected: pregnancyStatus === 'pregnant' }}
+                    {...choiceA11y(pregnancyStatus === 'pregnant')}
                 >
                     <Text style={styles.optionEmoji}>🤰</Text>
                     <Text style={styles.optionText}>{t('onboarding.step1.pregnant')}</Text>
@@ -303,10 +425,10 @@ export const OnboardingScreen = () => {
 
                 <TouchableOpacity
                     style={[styles.optionCard, pregnancyStatus === 'trying' && styles.optionCardSelected]}
-                    onPress={() => { setPregnancyStatus('trying'); nextStep(); }}
+                    onPress={() => selectStatusAndAdvance('trying')}
                     accessibilityRole="button"
                     accessibilityLabel={t('onboarding.step1.trying')}
-                    accessibilityState={{ selected: pregnancyStatus === 'trying' }}
+                    {...choiceA11y(pregnancyStatus === 'trying')}
                 >
                     <Text style={styles.optionEmoji}>💕</Text>
                     <Text style={styles.optionText}>{t('onboarding.step1.trying')}</Text>
@@ -314,23 +436,34 @@ export const OnboardingScreen = () => {
 
                 <TouchableOpacity
                     style={[styles.optionCard, pregnancyStatus === 'curious' && styles.optionCardSelected]}
-                    onPress={() => { setPregnancyStatus('curious'); nextStep(); }}
+                    onPress={() => selectStatusAndAdvance('curious')}
                     accessibilityRole="button"
                     accessibilityLabel={t('onboarding.step1.curious')}
-                    accessibilityState={{ selected: pregnancyStatus === 'curious' }}
+                    {...choiceA11y(pregnancyStatus === 'curious')}
                 >
                     <Text style={styles.optionEmoji}>👀</Text>
                     <Text style={styles.optionText}>{t('onboarding.step1.curious')}</Text>
                 </TouchableOpacity>
             </View>
+
+            {/* Step 1 is the one screen both the guest and the account path go through,
+                so the medical disclaimer is stated here, once, before any content. */}
+            <Text
+                style={[styles.privacyNote, rtlText, { marginTop: 24, textAlign: 'center' }]}
+                accessibilityRole="text"
+            >
+                {t('legalTerms.terms.medical')}
+            </Text>
         </View>
     );
 
     // STEP 2: Date Selection (Smart)
     const renderStep2 = () => (
         <View style={styles.stepContent}>
-            <Text style={styles.stepEmoji}>📅</Text>
-            <Text style={styles.stepTitle}>{t('onboarding.step2.title')}</Text>
+            {/* A drawn calendar, not the 📅 emoji: that glyph has a date printed on it
+                ("JUL 17" on Apple) right above the date she is asked for. */}
+            <Ionicons name="calendar-outline" size={64} color={theme.colors.primaryStrong} style={styles.stepIcon} />
+            <Text style={styles.stepTitle} accessibilityRole="header" {...STEP_TITLE_LEVEL}>{t('onboarding.step2.title')}</Text>
             <Text style={styles.stepSubtitle}>{t('onboarding.step2.subtitle')}</Text>
 
             {/* Method Selection */}
@@ -340,22 +473,40 @@ export const OnboardingScreen = () => {
                     onPress={() => setDateMethod('ddr')}
                     accessibilityRole="button"
                     accessibilityLabel={t('onboarding.step2.methodDdr')}
-                    accessibilityState={{ selected: dateMethod === 'ddr' }}
+                    {...choiceA11y(dateMethod === 'ddr')}
                 >
-                    <Text style={[styles.methodText, dateMethod === 'ddr' && styles.methodTextActive]}>
-                        {t('onboarding.step2.methodDdr')}
-                    </Text>
+                    <View style={styles.methodContent}>
+                        <Ionicons
+                            name="calendar-outline"
+                            size={16}
+                            color={dateMethod === 'ddr' ? theme.colors.accent : theme.colors.textSecondary}
+                            accessibilityElementsHidden
+                            importantForAccessibility="no"
+                        />
+                        <Text style={[styles.methodText, dateMethod === 'ddr' && styles.methodTextActive]}>
+                            {t('onboarding.step2.methodDdr')}
+                        </Text>
+                    </View>
                 </TouchableOpacity>
                 <TouchableOpacity
                     style={[styles.methodButton, dateMethod === 'conception' && styles.methodButtonActive]}
                     onPress={() => setDateMethod('conception')}
                     accessibilityRole="button"
                     accessibilityLabel={t('onboarding.step2.methodConception')}
-                    accessibilityState={{ selected: dateMethod === 'conception' }}
+                    {...choiceA11y(dateMethod === 'conception')}
                 >
-                    <Text style={[styles.methodText, dateMethod === 'conception' && styles.methodTextActive]}>
-                        {t('onboarding.step2.methodConception')}
-                    </Text>
+                    <View style={styles.methodContent}>
+                        <Ionicons
+                            name="moon-outline"
+                            size={16}
+                            color={dateMethod === 'conception' ? theme.colors.accent : theme.colors.textSecondary}
+                            accessibilityElementsHidden
+                            importantForAccessibility="no"
+                        />
+                        <Text style={[styles.methodText, dateMethod === 'conception' && styles.methodTextActive]}>
+                            {t('onboarding.step2.methodConception')}
+                        </Text>
+                    </View>
                 </TouchableOpacity>
             </View>
 
@@ -370,14 +521,23 @@ export const OnboardingScreen = () => {
                 {Platform.OS === 'web' ? (
                     <input
                         type="date"
-                        value={selectedDate.toISOString().split('T')[0]}
+                        // The day the week is counted from (storedDateKey): a typed day is UTC
+                        // midnight, the default "8 weeks ago" is a local instant whose UTC day is
+                        // tomorrow in a New York evening.
+                        value={storedDateKey(selectedDate)}
                         onChange={(e) => {
                             const newDate = new Date(e.target.value);
                             if (!isNaN(newDate.getTime())) setSelectedDate(newDate);
                         }}
-                        max={new Date().toISOString().split('T')[0]}
+                        // Local today, not UTC: between local and UTC midnight in UTC+1/+2
+                        // the ISO date was yesterday, so today could not be picked.
+                        max={format(new Date(), 'yyyy-MM-dd')}
+                        aria-label={dateMethod === 'ddr' ? t('onboarding.step2.labelDdr') : t('onboarding.step2.labelConception')}
                         style={{
                             width: '100%',
+                            // Padding and the 2px border sit inside the 100%, not on top of it
+                            // (the field ran past the column on web).
+                            boxSizing: 'border-box',
                             padding: 16,
                             fontSize: 18,
                             borderRadius: 12,
@@ -417,15 +577,21 @@ export const OnboardingScreen = () => {
                 <View style={styles.previewBox}>
                     {pregnancyInfo.isInvalid ? (
                         <Text style={[styles.previewLabel, { color: theme.colors.red700, textAlign: 'center', fontWeight: 'bold' }]}>
-                            {t('onboarding.step2.invalidDate', 'Date invalide : votre grossesse dépasse 40 semaines.')}
+                            {t('onboarding.step2.invalidDate')}
                         </Text>
                     ) : (
                         <>
                             <Text style={styles.previewLabel}>{t('onboarding.step2.previewLabel')}</Text>
-                            <Text style={styles.previewWeek}>{t('onboarding.step2.week')} {pregnancyInfo.week}</Text>
+                            <Text style={styles.previewWeek}>{t('onboarding.step2.week')} {displayWeek}</Text>
                             <Text style={styles.previewSa}>
-                                {t('onboarding.step2.saDays', { week: pregnancyInfo.week - 1, day: pregnancyInfo.day })}
+                                {t('onboarding.step2.saDays', { ga: gestationalAge })}
                             </Text>
+                            {pregnancyInfo.isPostTerm && (
+                                <Text style={[styles.previewLabel, { textAlign: 'center', marginTop: 8 }]} testID="onboarding_postterm_note">
+                                    {/* The line above already gives the SA: Home's note would say it twice. */}
+                                    {t('onboarding.step2.postTermNote')}
+                                </Text>
+                            )}
                         </>
                     )}
                 </View>
@@ -458,22 +624,23 @@ export const OnboardingScreen = () => {
             showsVerticalScrollIndicator={false}
         >
             <Text style={styles.stepEmoji}>👋</Text>
-            <Text style={styles.stepTitle}>{t('onboarding.step3.title')}</Text>
+            <Text style={styles.stepTitle} accessibilityRole="header" {...STEP_TITLE_LEVEL}>{t('onboarding.step3.title')}</Text>
 
             <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>{t('onboarding.step3.firstNameLabel')}</Text>
+                <Text style={[styles.inputLabel, rtlText]}>{t('onboarding.step3.firstNameLabel')}</Text>
                 <TextInput
-                    style={styles.textInput}
+                    style={[styles.textInput, rtlText]}
                     placeholder={t('onboarding.step3.firstNamePlaceholder')}
                     value={firstName}
                     onChangeText={setFirstName}
                     autoCapitalize="words"
                     placeholderTextColor={theme.colors.neutral400}
+                    accessibilityLabel={t('onboarding.step3.firstNameLabel')}
                 />
             </View>
 
             <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>{t('onboarding.step3.ageLabel')}</Text>
+                <Text style={[styles.inputLabel, rtlText]}>{t('onboarding.step3.ageLabel')}</Text>
                 <View style={styles.ageRangeContainer}>
                     {['18-24', '25-29', '30-34', '35-39', '40+'].map((range) => (
                         <TouchableOpacity
@@ -482,7 +649,7 @@ export const OnboardingScreen = () => {
                             onPress={() => setAgeRange(range)}
                             accessibilityRole="button"
                             accessibilityLabel={range}
-                            accessibilityState={{ selected: ageRange === range }}
+                            {...choiceA11y(ageRange === range)}
                         >
                             <Text style={[styles.ageRangeText, ageRange === range && styles.ageRangeTextSelected]}>
                                 {range}
@@ -493,23 +660,21 @@ export const OnboardingScreen = () => {
             </View>
 
             <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>{t('onboarding.step3.countryLabel')}</Text>
+                <Text style={[styles.inputLabel, rtlText]}>{t('onboarding.step3.countryLabel')}</Text>
+                {/* The country picks the emergency number every call button dials, so it
+                    is the one required answer on this step, and the hint says why. It used
+                    to be an unexplained optional list: a phone with no mapped region saved
+                    no country and got an unexplained 112. "Other" is an explicit 112. */}
+                <Text style={[styles.inputHint, rtlText]} testID="onboarding_country_hint">{t('onboarding.step3.countryHint')}</Text>
                 <View style={styles.radioGroup}>
-                    {[
-                        { value: 'tunisia', key: 'common.countries.tunisia' },
-                        { value: 'france', key: 'common.countries.france' },
-                        { value: 'belgium', key: 'common.countries.belgium' },
-                        { value: 'morocco', key: 'common.countries.morocco' },
-                        { value: 'algeria', key: 'common.countries.algeria' },
-                        { value: 'other', key: 'common.countries.other' },
-                    ].map((item) => (
+                    {COUNTRY_OPTIONS.map((value) => ({ value, key: `common.countries.${value}` })).map((item) => (
                         <TouchableOpacity
                             key={item.value}
                             style={[styles.radioOption, country === item.value && styles.radioOptionSelected]}
                             onPress={() => setCountry(item.value)}
                             accessibilityRole="button"
                             accessibilityLabel={t(item.key)}
-                            accessibilityState={{ selected: country === item.value }}
+                            {...choiceA11y(country === item.value)}
                         >
                             <Text style={styles.radioText}>{t(item.key)}</Text>
                         </TouchableOpacity>
@@ -518,40 +683,114 @@ export const OnboardingScreen = () => {
             </View>
 
             <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>{t('onboarding.step3.firstPregnancyLabel')}</Text>
+                <Text style={[styles.inputLabel, rtlText]}>{t('onboarding.step3.firstPregnancyLabel')}</Text>
                 <View style={styles.radioGroup}>
                     <TouchableOpacity
                         style={[styles.radioOption, isFirstPregnancy === true && styles.radioOptionSelected]}
                         onPress={() => setIsFirstPregnancy(true)}
                         accessibilityRole="button"
-                        accessibilityLabel={t('onboarding.step3.firstPregnancyYes')}
-                        accessibilityState={{ selected: isFirstPregnancy === true }}
+                        accessibilityLabel={plainLabel(t('onboarding.step3.firstPregnancyYes'))}
+                        {...choiceA11y(isFirstPregnancy === true)}
                     >
-                        <Text style={styles.radioText}>{t('onboarding.step3.firstPregnancyYes')}</Text>
+                        <Text style={[styles.radioText, rtlText]}>{t('onboarding.step3.firstPregnancyYes')}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                         style={[styles.radioOption, isFirstPregnancy === false && styles.radioOptionSelected]}
                         onPress={() => setIsFirstPregnancy(false)}
                         accessibilityRole="button"
-                        accessibilityLabel={t('onboarding.step3.firstPregnancyNo')}
-                        accessibilityState={{ selected: isFirstPregnancy === false }}
+                        accessibilityLabel={plainLabel(t('onboarding.step3.firstPregnancyNo'))}
+                        {...choiceA11y(isFirstPregnancy === false)}
                     >
-                        <Text style={styles.radioText}>{t('onboarding.step3.firstPregnancyNo')}</Text>
+                        <Text style={[styles.radioText, rtlText]}>{t('onboarding.step3.firstPregnancyNo')}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                         style={[styles.radioOption, isFirstPregnancy === null && styles.radioOptionSelected]}
                         onPress={() => setIsFirstPregnancy(null)}
+                        accessibilityRole="button"
+                        accessibilityLabel={plainLabel(t('onboarding.step3.firstPregnancySkip'))}
+                        {...choiceA11y(isFirstPregnancy === null)}
                     >
-                        <Text style={styles.radioText}>{t('onboarding.step3.firstPregnancySkip')}</Text>
+                        <Text style={[styles.radioText, rtlText]}>{t('onboarding.step3.firstPregnancySkip')}</Text>
                     </TouchableOpacity>
                 </View>
             </View>
 
+            <View style={styles.inputGroup}>
+                <TouchableOpacity
+                    style={[styles.disclosureHeader, medicalOpen && styles.disclosureHeaderOpen]}
+                    onPress={() => setMedicalOpen(!medicalOpen)}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('common.medicalProfile.title')}
+                    accessibilityState={{ expanded: medicalOpen }}
+                    {...(Platform.OS === 'web' ? { 'aria-expanded': medicalOpen } : {})}
+                >
+                    <Text style={[styles.disclosureTitle, rtlText]}>
+                        {t('common.medicalProfile.title')}
+                    </Text>
+                    <RtlAwareChevron
+                        direction={medicalOpen ? 'up' : 'down'}
+                        color={theme.colors.textSecondary}
+                    />
+                </TouchableOpacity>
+
+                {medicalOpen && (
+                <View style={styles.disclosureBody}>
+                <Text style={[styles.inputHint, rtlText]}>{t('common.medicalProfile.intro')}</Text>
+                <View style={styles.radioGroup}>
+                    {([
+                        ['gestationalDiabetes', hasGestationalDiabetes, setHasGestationalDiabetes],
+                        ['hypertension', hasHypertension, setHasHypertension],
+                        ['twins', isTwinPregnancy, setIsTwinPregnancy],
+                    ] as const).map(([key, value, setValue]) => (
+                        <TouchableOpacity
+                            key={key}
+                            style={[styles.checkOption, value && styles.checkOptionSelected]}
+                            onPress={() => setValue(!value)}
+                            accessibilityRole="checkbox"
+                            accessibilityLabel={t(`common.medicalProfile.${key}`)}
+                            accessibilityState={{ checked: value }}
+                            {...(Platform.OS === 'web' ? { 'aria-checked': value } : {})}
+                        >
+                            {/* A drawn box, like every other checkbox in the app. The
+                                first cut reused the single-select radio style above and
+                                signalled "on" with a tick prefix — multi-select
+                                semantics wearing single-select clothes, and an
+                                unchecked row with no affordance at all. */}
+                            <View style={[styles.checkBox, value && styles.checkBoxSelected]}>
+                                {value && <Text style={styles.checkMark}>{'\u2713'}</Text>}
+                            </View>
+                            <Text style={[styles.radioText, rtlText]}>
+                                {t(`common.medicalProfile.${key}`)}
+                            </Text>
+                        </TouchableOpacity>
+                    ))}
+                </View>
+                <Text style={[styles.inputHint, rtlText]}>{t('common.medicalProfile.none')}</Text>
+                {/* Only an account's profile is written to our servers (loginAsGuest); a guest's
+                    stays on the phone — saying "saved to your account" to her was false. */}
+                <Text style={[styles.privacyNote, rtlText]}>
+                    {t(user && !user.isGuest ? 'common.medicalProfile.privacyNote' : 'common.medicalProfile.privacyNoteGuest')}
+                </Text>
+                </View>
+                )}
+            </View>
+
             <View style={styles.navButtons}>
-                <TouchableOpacity onPress={prevStep} style={styles.backButton}>
+                <TouchableOpacity
+                    onPress={prevStep}
+                    style={styles.backButton}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('a11y.onboardingBack')}
+                >
                     <Text style={styles.backButtonText}>{t('common.back')}</Text>
                 </TouchableOpacity>
-                <Button title={t('common.continue')} onPress={nextStep} style={styles.continueButton} />
+                <Button
+                    title={t('common.continue')}
+                    onPress={nextStep}
+                    style={styles.continueButton}
+                    disabled={!country}
+                    testID="onboarding_step3_continue"
+                />
             </View>
         </ScrollView>
     );
@@ -579,15 +818,18 @@ export const OnboardingScreen = () => {
                     <View style={styles.finalContent}>
                         <Text style={styles.finalEmoji}>{weekComparison.emoji}</Text>
 
-                        <Text style={styles.finalGreeting}>
-                            {firstName ? `${firstName},` : t('onboarding.step4.defaultName') + ','}
+                        <Text style={styles.finalGreeting} accessibilityRole="header" {...STEP_TITLE_LEVEL}>
+                            {t('onboarding.step4.greeting', { name: firstName || t('onboarding.step4.defaultName') })}
                         </Text>
 
                         <Text style={styles.finalWeekLabel}>{t('onboarding.step4.youAreAt')}</Text>
 
                         <View style={styles.weekBadge}>
-                            <Text style={styles.weekNumber}>{t('onboarding.step4.weekCaps')} {pregnancyInfo.week}</Text>
-                            <Text style={styles.dayNumber}>{t('onboarding.step4.dayCaps')} {pregnancyInfo.day}</Text>
+                            {/* The same two figures, in the same words, as the Home she lands on
+                                next: "JOUR 1" (day of the week) beside week 32 read as an error
+                                one tap before Home's "Jour 218". */}
+                            <Text style={styles.weekNumber}>{t('common.week')} {displayWeek}</Text>
+                            <Text style={styles.dayNumber}>{t('home.day')} {dayOfPregnancy}</Text>
                         </View>
 
                         <Text style={styles.comparisonText}>
@@ -613,6 +855,11 @@ export const OnboardingScreen = () => {
                                     keyboardType="email-address"
                                     autoCapitalize="none"
                                     autoCorrect={false}
+                                    accessibilityLabel={t('email')}
+                                    textContentType="emailAddress"
+                                    autoComplete="email"
+                                    inputMode="email"
+                                    testID="onboarding_step4_email"
                                 />
                                 <TextInput
                                     style={styles.accountInput}
@@ -621,9 +868,28 @@ export const OnboardingScreen = () => {
                                     value={password}
                                     onChangeText={setPassword}
                                     secureTextEntry
+                                    accessibilityLabel={t('password')}
+                                    textContentType="newPassword"
+                                    autoComplete="new-password"
+                                    autoCapitalize="none"
+                                    testID="onboarding_step4_password"
                                 />
+                                {/* The rule as a static line under the field (as on Register): in
+                                    the placeholder it was cut at 390pt ("…1 majuscule, 1 ch") and
+                                    gone as soon as she typed. */}
+                                <Text style={styles.accountHint} testID="onboarding_step4_password_rule">
+                                    {t('passwordMin')}
+                                </Text>
                             </View>
                         )}
+
+                        {/* Asked here, on the step that saves the profile, whichever way she
+                            saves it (account, signed-in, guest). */}
+                        <HealthDataConsentCheck
+                            checked={healthConsent}
+                            onToggle={() => setHealthConsent(!healthConsent)}
+                            disabled={loading}
+                        />
 
                         {error ? <ErrorMessage message={error} /> : null}
 
@@ -631,20 +897,32 @@ export const OnboardingScreen = () => {
                         {/* U-FIX-10: align button gating with the actual policy
                             (8 chars + 1 digit) to match RegisterScreen and validatePassword.
                             Was 6 chars only — created accounts that the prod policy rejects. */}
+                        {/* P0-6 FIX (E2E audit 2026-05-08): explicit accessibilityRole
+                            so the button is announced/focused by AT and matched as
+                            role=button by web a11y tree (TouchableOpacity does not
+                            propagate the role automatically on RNWeb). */}
                         <TouchableOpacity
-                            style={styles.startButton}
+                            style={[styles.startButton, (loading || !healthConsent || (!user && !canCreateAccount)) && styles.startButtonOff]}
                             onPress={() => handleFinish(!!(!user && canCreateAccount))}
-                            disabled={loading || (!user && !canCreateAccount)}
+                            disabled={loading || !healthConsent || (!user && !canCreateAccount)}
+                            accessibilityRole="button"
+                            accessibilityLabel={
+                                loading
+                                    ? t('onboarding.step4.creatingAccount')
+                                    : user
+                                        ? t('onboarding.step4.finalizeProfile')
+                                        : t('onboarding.step4.start')
+                            }
+                            accessibilityState={{ disabled: loading || !healthConsent || (!user && !canCreateAccount), busy: loading }}
+                            testID="onboarding_step4_submit"
                         >
                             <LinearGradient
-                                colors={loading || (!user && !canCreateAccount)
-                                    ? [theme.colors.neutral300, theme.colors.gray500]
-                                    : [theme.colors.primary, theme.colors.accent]}
+                                colors={loading || !healthConsent || (!user && !canCreateAccount) ? START_OFF_COLORS : START_ON_COLORS}
                                 start={{ x: 0, y: 0 }}
                                 end={{ x: 1, y: 0 }}
                                 style={styles.startButtonGradient}
                             >
-                                <Text style={styles.startButtonText}>
+                                <Text style={[styles.startButtonText, (loading || !healthConsent || (!user && !canCreateAccount)) && { color: OFF.textColor }]}>
                                     {loading
                                         ? t('onboarding.step4.creatingAccount')
                                         : user
@@ -654,14 +932,32 @@ export const OnboardingScreen = () => {
                             </LinearGradient>
                         </TouchableOpacity>
 
-                        <TouchableOpacity
-                            style={styles.skipAccountButton}
-                            onPress={() => handleFinish(false)}
-                        >
-                            <Text style={styles.skipAccountText}>{t('onboarding.step4.skipAccount')}</Text>
-                        </TouchableOpacity>
+                        {/* "Continue without an account" is false for a signed-in user
+                            finishing her profile (needsProfileSetup) — the button above
+                            already finishes it under her account. */}
+                        {!user && (
+                            <TouchableOpacity
+                                style={styles.skipAccountButton}
+                                onPress={() => handleFinish(false)}
+                                disabled={loading || !healthConsent}
+                                accessibilityRole="button"
+                                accessibilityLabel={t('onboarding.step4.skipAccount')}
+                                accessibilityState={{ disabled: loading || !healthConsent }}
+                                testID="onboarding_step4_skip"
+                            >
+                                <Text style={[styles.skipAccountText, (loading || !healthConsent) && styles.skipAccountTextDisabled]}>{t('onboarding.step4.skipAccount')}</Text>
+                            </TouchableOpacity>
+                        )}
 
-                        <TouchableOpacity onPress={prevStep} style={styles.backButtonFinal}>
+                        <TouchableOpacity
+                            onPress={prevStep}
+                            style={[styles.backButtonFinal, loading && styles.startButtonDisabled]}
+                            disabled={loading}
+                            accessibilityRole="button"
+                            accessibilityLabel={t('onboarding.step4.editInfos')}
+                            accessibilityState={{ disabled: loading }}
+                            testID="onboarding_step4_back"
+                        >
                             <Text style={styles.backButtonText}>{t('onboarding.step4.editInfos')}</Text>
                         </TouchableOpacity>
                     </View>
@@ -678,7 +974,7 @@ export const OnboardingScreen = () => {
     const renderStep2TTC = () => (
         <View style={styles.stepContent}>
             <Text style={styles.stepEmoji}>💕</Text>
-            <Text style={styles.stepTitle}>{t('onboarding.step2Ttc.title')}</Text>
+            <Text style={styles.stepTitle} accessibilityRole="header" {...STEP_TITLE_LEVEL}>{t('onboarding.step2Ttc.title')}</Text>
             <Text style={styles.stepSubtitle}>{t('onboarding.step2Ttc.subtitle')}</Text>
 
             <View style={styles.dateSection}>
@@ -692,9 +988,13 @@ export const OnboardingScreen = () => {
                             const newDate = new Date(e.target.value);
                             if (!isNaN(newDate.getTime())) setLastPeriodDate(newDate);
                         }}
-                        max={new Date().toISOString().split('T')[0]}
+                        max={format(new Date(), 'yyyy-MM-dd')}
+                        aria-label={t('onboarding.step2Ttc.lastPeriodLabel')}
                         style={{
                             width: '100%',
+                            // Padding and the 2px border sit inside the 100%, not on top of it
+                            // (the field ran past the column on web).
+                            boxSizing: 'border-box',
                             padding: 16,
                             fontSize: 18,
                             borderRadius: 12,
@@ -705,7 +1005,12 @@ export const OnboardingScreen = () => {
                     />
                 ) : (
                     <>
-                        <TouchableOpacity onPress={() => setShowCycleDatePicker(true)} style={styles.dateInput}>
+                        <TouchableOpacity
+                            onPress={() => setShowCycleDatePicker(true)}
+                            style={styles.dateInput}
+                            accessibilityRole="button"
+                            accessibilityLabel={`${t('onboarding.step2Ttc.lastPeriodLabel')}: ${format(lastPeriodDate, 'd MMMM yyyy', { locale: dateLocale })}`}
+                        >
                             <Text style={styles.dateText}>
                                 {format(lastPeriodDate, 'd MMMM yyyy', { locale: dateLocale })}
                             </Text>
@@ -734,6 +1039,8 @@ export const OnboardingScreen = () => {
                     <TouchableOpacity
                         style={styles.cycleButton}
                         onPress={() => setCycleLength(Math.max(21, cycleLength - 1))}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${t('a11y.decrease')} — ${t('onboarding.step2Ttc.cycleLengthLabel')}`}
                     >
                         <Text style={styles.cycleButtonText}>−</Text>
                     </TouchableOpacity>
@@ -744,6 +1051,8 @@ export const OnboardingScreen = () => {
                     <TouchableOpacity
                         style={styles.cycleButton}
                         onPress={() => setCycleLength(Math.min(35, cycleLength + 1))}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${t('a11y.increase')} — ${t('onboarding.step2Ttc.cycleLengthLabel')}`}
                     >
                         <Text style={styles.cycleButtonText}>+</Text>
                     </TouchableOpacity>
@@ -751,7 +1060,12 @@ export const OnboardingScreen = () => {
             </View>
 
             <View style={styles.navButtons}>
-                <TouchableOpacity onPress={prevStep} style={styles.backButton}>
+                <TouchableOpacity
+                    onPress={prevStep}
+                    style={styles.backButton}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('a11y.onboardingBack')}
+                >
                     <Text style={styles.backButtonText}>{t('common.back')}</Text>
                 </TouchableOpacity>
                 <Button title={t('common.continue')} onPress={nextStep} style={styles.continueButton} />
@@ -778,8 +1092,8 @@ export const OnboardingScreen = () => {
                     <View style={styles.finalContent}>
                         <Text style={styles.finalEmoji}>💕</Text>
 
-                        <Text style={styles.finalGreeting}>
-                            {firstName ? `${firstName},` : t('onboarding.step4.defaultName') + ','}
+                        <Text style={styles.finalGreeting} accessibilityRole="header" {...STEP_TITLE_LEVEL}>
+                            {t('onboarding.step4.greeting', { name: firstName || t('onboarding.step4.defaultName') })}
                         </Text>
 
                         <Text style={styles.finalWeekLabel}>{t('onboarding.step3Ttc.welcome')}</Text>
@@ -800,31 +1114,43 @@ export const OnboardingScreen = () => {
 
                         <View style={styles.divider} />
 
-                        <View style={styles.accountSection}>
-                            <Text style={styles.accountTitle}>{t('onboarding.step3Ttc.createAccountTitle')}</Text>
-                            <Text style={styles.accountSubtitle}>
-                                {t('onboarding.step3Ttc.createAccountSubtitle')}
-                            </Text>
+                        {/* Signed-in account finishing its profile (needsProfileSetup): no
+                            account to create — same rule as the pregnancy flow's step 4. */}
+                        {!user && (
+                            <View style={styles.accountSection}>
+                                <Text style={styles.accountTitle}>{t('onboarding.step3Ttc.createAccountTitle')}</Text>
+                                <Text style={styles.accountSubtitle}>
+                                    {t('onboarding.step3Ttc.createAccountSubtitle')}
+                                </Text>
 
-                            <TextInput
-                                style={styles.accountInput}
-                                placeholder={t('onboarding.step4.emailPlaceholder')}
-                                placeholderTextColor={theme.colors.neutral400}
-                                value={email}
-                                onChangeText={setEmail}
-                                keyboardType="email-address"
-                                autoCapitalize="none"
-                                autoCorrect={false}
-                            />
-                            <TextInput
-                                style={styles.accountInput}
-                                placeholder={t('onboarding.step4.passwordPlaceholder')}
-                                placeholderTextColor={theme.colors.neutral400}
-                                value={password}
-                                onChangeText={setPassword}
-                                secureTextEntry
-                            />
-                        </View>
+                                <TextInput
+                                    style={styles.accountInput}
+                                    placeholder={t('onboarding.step4.emailPlaceholder')}
+                                    placeholderTextColor={theme.colors.neutral400}
+                                    value={email}
+                                    onChangeText={setEmail}
+                                    keyboardType="email-address"
+                                    autoCapitalize="none"
+                                    autoCorrect={false}
+                                />
+                                <TextInput
+                                    style={styles.accountInput}
+                                    placeholder={t('onboarding.step4.passwordPlaceholder')}
+                                    placeholderTextColor={theme.colors.neutral400}
+                                    value={password}
+                                    onChangeText={setPassword}
+                                    secureTextEntry
+                                />
+                            </View>
+                        )}
+
+                        {/* Asked here, on the step that saves the profile, whichever way she
+                            saves it (account, signed-in, guest). */}
+                        <HealthDataConsentCheck
+                            checked={healthConsent}
+                            onToggle={() => setHealthConsent(!healthConsent)}
+                            disabled={loading}
+                        />
 
                         {error ? <ErrorMessage message={error} /> : null}
 
@@ -833,32 +1159,43 @@ export const OnboardingScreen = () => {
                             (a) used `selectedDate` (today) instead of the user's lastPeriodDate, and
                             (b) created a real pregnancy profile. Now wired to handleFinishTTC. */}
                         <TouchableOpacity
-                            style={styles.startButton}
-                            onPress={() => handleFinishTTC(true)}
-                            disabled={loading || !(email.trim().length > 0 && password.length >= 10 && /\d/.test(password) && /[A-Z]/.test(password))}
+                            style={[styles.startButton, (loading || !healthConsent || (!user && !(email.trim().length > 0 && password.length >= 10 && /\d/.test(password) && /[A-Z]/.test(password)))) && styles.startButtonOff]}
+                            onPress={() => handleFinishTTC(!user)}
+                            disabled={loading || !healthConsent || (!user && !(email.trim().length > 0 && password.length >= 10 && /\d/.test(password) && /[A-Z]/.test(password)))}
+                            accessibilityRole="button"
+                            accessibilityLabel={loading ? t('onboarding.step4.creatingAccount') : t('onboarding.step3Ttc.start')}
                         >
                             <LinearGradient
-                                colors={loading || !(email.trim().length > 0 && password.length >= 10 && /\d/.test(password) && /[A-Z]/.test(password))
-                                    ? [theme.colors.neutral300, theme.colors.gray500]
-                                    : [theme.colors.primary, theme.colors.accent]}
+                                colors={loading || !healthConsent || (!user && !(email.trim().length > 0 && password.length >= 10 && /\d/.test(password) && /[A-Z]/.test(password))) ? START_OFF_COLORS : START_ON_COLORS}
                                 start={{ x: 0, y: 0 }}
                                 end={{ x: 1, y: 0 }}
                                 style={styles.startButtonGradient}
                             >
-                                <Text style={styles.startButtonText}>
+                                <Text style={[styles.startButtonText, (loading || !healthConsent || (!user && !(email.trim().length > 0 && password.length >= 10 && /\d/.test(password) && /[A-Z]/.test(password)))) && { color: OFF.textColor }]}>
                                     {loading ? t('onboarding.step4.creatingAccount') : t('onboarding.step3Ttc.start')}
                                 </Text>
                             </LinearGradient>
                         </TouchableOpacity>
 
-                        <TouchableOpacity
-                            style={styles.skipAccountButton}
-                            onPress={() => handleFinishTTC(false)}
-                        >
-                            <Text style={styles.skipAccountText}>{t('onboarding.step4.skipAccount')}</Text>
-                        </TouchableOpacity>
+                        {!user && (
+                            <TouchableOpacity
+                                style={styles.skipAccountButton}
+                                onPress={() => handleFinishTTC(false)}
+                                disabled={loading || !healthConsent}
+                                accessibilityRole="button"
+                                accessibilityLabel={t('onboarding.step4.skipAccount')}
+                                accessibilityState={{ disabled: loading || !healthConsent }}
+                            >
+                                <Text style={[styles.skipAccountText, (loading || !healthConsent) && styles.skipAccountTextDisabled]}>{t('onboarding.step4.skipAccount')}</Text>
+                            </TouchableOpacity>
+                        )}
 
-                        <TouchableOpacity onPress={prevStep} style={styles.backButtonFinal}>
+                        <TouchableOpacity
+                            onPress={prevStep}
+                            style={styles.backButtonFinal}
+                            accessibilityRole="button"
+                            accessibilityLabel={t('onboarding.step4.editInfos')}
+                        >
                             <Text style={styles.backButtonText}>{t('onboarding.step4.editInfos')}</Text>
                         </TouchableOpacity>
                     </View>
@@ -875,7 +1212,7 @@ export const OnboardingScreen = () => {
     const renderStep2Curious = () => (
         <View style={styles.stepContent}>
             <Text style={styles.stepEmoji}>👀</Text>
-            <Text style={styles.stepTitle}>{t('onboarding.step2Curious.title')}</Text>
+            <Text style={styles.stepTitle} accessibilityRole="header" {...STEP_TITLE_LEVEL}>{t('onboarding.step2Curious.title')}</Text>
             <Text style={styles.stepSubtitle}>{t('onboarding.step2Curious.subtitle')}</Text>
 
             <View style={styles.exploreSection}>
@@ -891,6 +1228,8 @@ export const OnboardingScreen = () => {
                     <TouchableOpacity
                         style={styles.sliderButton}
                         onPress={() => setExploreWeek(Math.max(1, exploreWeek - 1))}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${t('a11y.decrease')} — ${t('onboarding.step2.week')} ${exploreWeek}`}
                     >
                         <Text style={styles.sliderButtonText}>−</Text>
                     </TouchableOpacity>
@@ -902,6 +1241,8 @@ export const OnboardingScreen = () => {
                     <TouchableOpacity
                         style={styles.sliderButton}
                         onPress={() => setExploreWeek(Math.min(40, exploreWeek + 1))}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${t('a11y.increase')} — ${t('onboarding.step2.week')} ${exploreWeek}`}
                     >
                         <Text style={styles.sliderButtonText}>+</Text>
                     </TouchableOpacity>
@@ -915,7 +1256,12 @@ export const OnboardingScreen = () => {
             </View>
 
             <View style={styles.navButtons}>
-                <TouchableOpacity onPress={prevStep} style={styles.backButton}>
+                <TouchableOpacity
+                    onPress={prevStep}
+                    style={styles.backButton}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('a11y.onboardingBack')}
+                >
                     <Text style={styles.backButtonText}>{t('common.back')}</Text>
                 </TouchableOpacity>
                 <Button title={t('onboarding.discover')} onPress={nextStep} style={styles.continueButton} />
@@ -937,14 +1283,14 @@ export const OnboardingScreen = () => {
                 <View style={styles.finalContent}>
                     <Text style={styles.finalEmoji}>👀</Text>
 
-                    <Text style={styles.finalGreeting}>
+                    <Text style={styles.finalGreeting} accessibilityRole="header" {...STEP_TITLE_LEVEL}>
                         {t('onboarding.discoverWelcome')}
                     </Text>
 
                     <Text style={styles.finalWeekLabel}>{t('onboarding.youExplore')}</Text>
 
                     <View style={styles.weekBadge}>
-                        <Text style={styles.weekNumber}>{t('onboarding.step4.weekCaps')} {exploreWeek}</Text>
+                        <Text style={styles.weekNumber}>{t('common.week')} {exploreWeek}</Text>
                     </View>
 
                     <Text style={styles.comparisonText}>
@@ -962,26 +1308,40 @@ export const OnboardingScreen = () => {
 
                     <View style={styles.divider} />
 
+                    <HealthDataConsentCheck
+                        checked={healthConsent}
+                        onToggle={() => setHealthConsent(!healthConsent)}
+                        disabled={loading}
+                    />
+
                     {error ? <ErrorMessage message={error} /> : null}
 
                     <TouchableOpacity
-                        style={styles.startButton}
+                        style={[styles.startButton, (loading || !healthConsent) && styles.startButtonOff]}
                         onPress={() => handleFinishCurious()}
-                        disabled={loading}
+                        disabled={loading || !healthConsent}
+                        accessibilityRole="button"
+                        accessibilityLabel={loading ? t('home.loadingData') : t('onboarding.discover')}
+                        accessibilityState={{ disabled: loading || !healthConsent, busy: loading }}
                     >
                         <LinearGradient
-                            colors={loading ? [theme.colors.neutral300, theme.colors.gray500] : [theme.colors.primary, theme.colors.accent]}
+                            colors={loading || !healthConsent ? START_OFF_COLORS : START_ON_COLORS}
                             start={{ x: 0, y: 0 }}
                             end={{ x: 1, y: 0 }}
                             style={styles.startButtonGradient}
                         >
-                            <Text style={styles.startButtonText}>
+                            <Text style={[styles.startButtonText, (loading || !healthConsent) && { color: OFF.textColor }]}>
                                 {loading ? t('home.loadingData') : t('onboarding.discover')}
                             </Text>
                         </LinearGradient>
                     </TouchableOpacity>
 
-                    <TouchableOpacity onPress={prevStep} style={styles.backButtonFinal}>
+                    <TouchableOpacity
+                        onPress={prevStep}
+                        style={styles.backButtonFinal}
+                        accessibilityRole="button"
+                        accessibilityLabel={t('onboarding.changeWeek')}
+                    >
                         <Text style={styles.backButtonText}>{t('onboarding.changeWeek')}</Text>
                     </TouchableOpacity>
                 </View>
@@ -1010,17 +1370,18 @@ export const OnboardingScreen = () => {
     // path "I'm pregnant!" that promotes the TTC profile to a full pregnancy profile
     // by reusing the stored lastPeriodDate as the LMP.
     const handleFinishTTC = async (createAccount: boolean = false) => {
+        if (!healthConsent) return;
         setError('');
 
         // C14-FIX: same validateProfile gate as handleFinish (was missing, F18 partial gap).
         // For TTC the LMP is the user's lastPeriodDate (used to compute the fertility window).
         const ttcValidation = validateProfile({
-            firstName: firstName || t('onboarding.step4.defaultName'),
+            firstName: firstName.trim() || t('onboarding.step4.defaultName'),
             lmp: lastPeriodDate,
         });
         if (!ttcValidation.valid) {
             const message = ttcValidation.error ? t(ttcValidation.error) : t('common.unknownError');
-            Alert.alert(t('common.error'), message);
+            showAlert(t('common.error'), message);
             return;
         }
 
@@ -1029,18 +1390,22 @@ export const OnboardingScreen = () => {
         await withLoading(async () => {
             try {
                 let authenticatedUser = null;
+                let replaceExisting = false;
 
                 if (createAccount && email && password) {
                     try {
                         authenticatedUser = await retryOperation(
-                            () => register(email.trim(), password),
+                            () => register(email.trim(), password, { profileFollows: true }),
                             { maxRetries: 1, initialDelay: 500 }
                         );
                     } catch (regError: any) {
                         if (regError.code === 'auth/email-already-in-use') {
                             log.warn('[Onboarding] ⚠️ TTC Email already in use, recovering...');
-                            await login(email.trim(), password);
+                            await login(email.trim(), password, { profileFollows: true });
                             authenticatedUser = auth.currentUser;
+                            if (authenticatedUser) {
+                                replaceExisting = await confirmReplaceExistingProfile(authenticatedUser.uid);
+                            }
                         } else {
                             throw regError;
                         }
@@ -1052,7 +1417,7 @@ export const OnboardingScreen = () => {
                 // dedicated TTC home (Strategy B) can hydrate without re-prompting.
                 const fertility = calculateFertileWindow(lastPeriodDate, cycleLength);
                 const ttcProfile = {
-                    firstName: firstName || t('onboarding.step4.defaultName'),
+                    firstName: firstName.trim() || t('onboarding.step4.defaultName'),
                     country,
                     ageRange: ageRange || null,
                     lastPeriodDate: lastPeriodDate.toISOString(),
@@ -1079,7 +1444,7 @@ export const OnboardingScreen = () => {
                 // TTC mode so AuthContext stores currentWeek=0, isTTC=true, cycleLength,
                 // and the precomputed fertility window — instead of a ghost pregnancy.
                 await retryOperation(() => loginAsGuest(
-                    firstName || t('onboarding.step4.defaultName'),
+                    firstName.trim() || t('onboarding.step4.defaultName'),
                     lastPeriodDate,
                     country,
                     undefined,
@@ -1088,6 +1453,9 @@ export const OnboardingScreen = () => {
                     undefined,
                     authenticatedUser ?? undefined,
                     { isTTC: true, cycleLength },
+                    undefined, // curiousOptions
+                    undefined, // medicalFlags
+                    { replaceExisting, healthDataConsent: recordHealthDataConsent() },
                 ));
 
                 analytics.then(a => a && logEvent(a, 'onboarding_ttc_complete', {
@@ -1104,6 +1472,7 @@ export const OnboardingScreen = () => {
     };
 
     const handleFinishCurious = async () => {
+        if (!healthConsent) return;
         setError('');
 
         // C14-FIX: validate the explore-week derived LMP before going further (F18 partial gap).
@@ -1117,7 +1486,7 @@ export const OnboardingScreen = () => {
         });
         if (!curiousValidation.valid) {
             const message = curiousValidation.error ? t(curiousValidation.error) : t('common.unknownError');
-            Alert.alert(t('common.error'), message);
+            showAlert(t('common.error'), message);
             return;
         }
 
@@ -1138,7 +1507,13 @@ export const OnboardingScreen = () => {
                     undefined,
                     undefined,
                     undefined,
-                    undefined
+                    undefined,
+                    undefined,
+                    // Cycle 3 F201 : passe le marker isCurious + exploreWeek pour
+                    // que les screens puissent garder ce mode (cf. F212 banner Wave C).
+                    { isCurious: true, exploreWeek },
+                    undefined, // medicalFlags
+                    { healthDataConsent: recordHealthDataConsent() },
                 ));
 
                 analytics.then(a => a && logEvent(a, 'onboarding_curious_complete', {
@@ -1205,8 +1580,8 @@ export const OnboardingScreen = () => {
                                     ? t('onboarding.step2.labelDdr')
                                     : t('onboarding.step2.labelConception')}
                             </Text>
-                            <TouchableOpacity onPress={() => setShowDatePicker(false)}>
-                                <Text style={styles.iosPickerDoneText}>{t('common.save')}</Text>
+                            <TouchableOpacity onPress={() => setShowDatePicker(false)} accessibilityRole="button" accessibilityLabel={t('common.done')}>
+                                <Text style={styles.iosPickerDoneText}>{t('common.done')}</Text>
                             </TouchableOpacity>
                         </View>
                         <DateTimePicker
@@ -1227,8 +1602,8 @@ export const OnboardingScreen = () => {
                     <View style={styles.iosPickerContent}>
                         <View style={styles.iosPickerHeader}>
                             <Text style={styles.iosPickerTitle}>{t('onboarding.step2Ttc.lastPeriodLabel')}</Text>
-                            <TouchableOpacity onPress={() => setShowCycleDatePicker(false)}>
-                                <Text style={styles.iosPickerDoneText}>{t('common.save')}</Text>
+                            <TouchableOpacity onPress={() => setShowCycleDatePicker(false)} accessibilityRole="button" accessibilityLabel={t('common.done')}>
+                                <Text style={styles.iosPickerDoneText}>{t('common.done')}</Text>
                             </TouchableOpacity>
                         </View>
                         <DateTimePicker

@@ -5,30 +5,34 @@
  * et comparaisons fruits/légumes
  */
 
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import {
     View,
     Text,
     StyleSheet,
-    ScrollView,
     Image,
-    Dimensions,
     TouchableOpacity,
-    Animated,
-    ActivityIndicator,
+    Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
-import { useIsFocused } from '@react-navigation/native';
 import { getAllBabyGrowthData, getBabyGrowthForWeek, BabyGrowthMonth } from '../config/babyGrowthData';
 import { usePregnancy } from '../context/PregnancyContext';
 import { theme } from '../theme';
 import { RtlAwareChevron } from '../components/common/RtlAwareChevron';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
+import { getContentWidth } from '../utils/layout';
+import {
+    fetalLengthLabelKey,
+    formatFetalLength,
+    getFetalComparisonName,
+    getFetalGrowth,
+    monthComparisonWeek,
+} from '../utils/fetalGrowth';
 
-const { width } = Dimensions.get('window');
+const width = getContentWidth();
 const CARD_WIDTH = width - 48;
 
 export const BabyEvolutionScreen = () => {
@@ -47,29 +51,22 @@ export const BabyEvolutionScreen = () => {
     const currentMonth = getBabyGrowthForWeek(currentWeek).month;
 
     const allMonths = getAllBabyGrowthData();
-    const scrollViewRef = useRef<ScrollView>(null);
     const [activeMonth, setActiveMonth] = useState(currentMonth);
 
-    // Sync active month and scroll when current month changes — with cleanup
     React.useEffect(() => {
         setActiveMonth(currentMonth);
-        const timer = setTimeout(() => {
-            scrollViewRef.current?.scrollTo({
-                x: (currentMonth - 1) * (CARD_WIDTH + 16),
-                animated: true,
-            });
-        }, 300);
-        return () => clearTimeout(timer); // cleanup: prevents setState after unmount
     }, [currentMonth]);
 
-    const handleScroll = (event: any) => {
-        const offsetX = event.nativeEvent.contentOffset.x;
-        const index = Math.round(offsetX / (CARD_WIDTH + 16));
-        setActiveMonth(index + 1);
+    const goToMonth = (month: number) => {
+        setActiveMonth(Math.min(allMonths.length, Math.max(1, month)));
     };
 
     const renderMonthCard = (monthData: BabyGrowthMonth, index: number) => {
         const isCurrentMonth = monthData.month === currentMonth;
+        // The card quotes one week of the weekly table (the user's own week on the
+        // current month), so its fruit and size are exactly what Home shows for it.
+        const comparisonWeek = monthComparisonWeek(monthData.weekStart, monthData.weekEnd, currentWeek);
+        const growth = getFetalGrowth(comparisonWeek);
 
         return (
             <View key={monthData.month} style={styles.cardWrapper}>
@@ -106,10 +103,13 @@ export const BabyEvolutionScreen = () => {
 
                     {/* Size Comparison */}
                     <View style={styles.comparisonContainer}>
-                        <Text style={styles.comparisonEmoji}>{monthData.comparison.emoji}</Text>
+                        <Text style={styles.comparisonEmoji}>{growth.emoji}</Text>
                         <View style={styles.comparisonInfo}>
-                            <Text style={styles.comparisonItem}>{t(monthData.comparison.item)}</Text>
-                            <Text style={styles.comparisonSize}>{monthData.comparison.size}</Text>
+                            <Text style={styles.comparisonItem}>{getFetalComparisonName(comparisonWeek, i18n.language)}</Text>
+                            <Text style={styles.comparisonSize}>{formatFetalLength(growth, i18n.language, t)}</Text>
+                            <Text style={styles.comparisonCaption}>
+                                {t('common.weekLabel', { number: comparisonWeek })} · {t(fetalLengthLabelKey(growth))}
+                            </Text>
                         </View>
                     </View>
 
@@ -119,7 +119,7 @@ export const BabyEvolutionScreen = () => {
                         {monthData.facts.slice(0, 2).map((fact, i) => (
                             <View key={i} style={styles.factRow}>
                                 <Text style={styles.factBullet}>•</Text>
-                                <Text style={styles.factText}>{t(fact)}</Text>
+                                <Text style={[styles.factText, isRTL && styles.factTextRtl]}>{t(fact)}</Text>
                             </View>
                         ))}
                     </View>
@@ -152,49 +152,61 @@ export const BabyEvolutionScreen = () => {
                         <Text style={styles.backText}>{t('common.back')}</Text>
                     </View>
                 </TouchableOpacity>
-                <Text style={styles.title}>{t('home.babyEvolution')}</Text>
+                <Text style={styles.title} numberOfLines={1} adjustsFontSizeToFit accessibilityRole="header">{t('home.babyEvolutionTitle')}</Text>
                 <View style={styles.placeholder} />
             </View>
 
-            {/* Progress Indicator */}
+            {/* Progress Indicator.
+                DIRECTION-CONSISTENCY FIX: the card scroller is deliberately forced to
+                LTR geometry on web (see the effect above — RTL gave Chromium a negative
+                scrollLeft that clamped scrollTo to 0 and stranded ar/tn on Month 9), so
+                Month 1 sits leftmost. These dots, being a plain row, mirrored with the
+                document and put Month 1's dot on the RIGHT — the active dot travelled
+                the opposite way to the cards. Pin the row to the same LTR order as the
+                cards it indexes. With the cards now reversed for RTL, the dots' own
+                natural mirroring (index 0 rightmost under dir=rtl) already lines up
+                with Month 1 on the right — no override needed. */}
             <View style={styles.progressContainer}>
                 {allMonths.map((_, index) => (
-                    <View
+                    <TouchableOpacity
                         key={index}
-                        style={[
-                            styles.progressDot,
-                            activeMonth === index + 1 && styles.progressDotActive,
-                            index + 1 <= currentMonth && styles.progressDotPassed,
-                        ]}
-                    />
+                        onPress={() => goToMonth(index + 1)}
+                        accessibilityRole="button"
+                        accessibilityLabel={t('common.monthLabel', { number: index + 1 })}
+                        accessibilityState={{ selected: activeMonth === index + 1 }}
+                        // react-native-web drops accessibilityState; without this every dot
+                        // is the same "Month n" button and none is announced as the open one.
+                        {...(Platform.OS === 'web' ? { 'aria-pressed': activeMonth === index + 1 } : {})}
+                        style={styles.progressDotTouch}
+                        hitSlop={{ left: 2, right: 2 }}
+                    >
+                        <View
+                            style={[
+                                styles.progressDot,
+                                activeMonth === index + 1 && styles.progressDotActive,
+                                index + 1 <= currentMonth && styles.progressDotPassed,
+                            ]}
+                        />
+                    </TouchableOpacity>
                 ))}
             </View>
 
-            {/* Month Label */}
-            <Text style={styles.monthLabel}>
-                {allMonths[activeMonth - 1]?.comparison.emoji} {t('common.monthLabel', { number: activeMonth })} / 9
+            {/* Hint sits above the card: under it, the tab bar hid it on the screen the user lands on. */}
+            <Text style={styles.bottomText}>
+                {t('home.tapDotToSee')}
             </Text>
 
-            {/* Horizontal Scroll Cards — RTL: scroll start auto-adjusts on iOS */}
-            <ScrollView
-                ref={scrollViewRef}
-                horizontal
-                pagingEnabled
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={[styles.scrollContent, isRTL && { flexDirection: 'row-reverse' }]}
-                onScroll={handleScroll}
-                scrollEventThrottle={16}
-                decelerationRate="fast"
-                snapToInterval={CARD_WIDTH + 16}
-            >
-                {allMonths.map((month, index) => renderMonthCard(month, index))}
-            </ScrollView>
+            {/* Month Label */}
+            <Text style={styles.monthLabel}>
+                {allMonths[activeMonth - 1]
+                    ? getFetalGrowth(monthComparisonWeek(allMonths[activeMonth - 1].weekStart, allMonths[activeMonth - 1].weekEnd, currentWeek)).emoji
+                    : ''} {t('common.monthLabel', { number: activeMonth })} / 9
+            </Text>
 
-            {/* Bottom Info */}
-            <View style={styles.bottomInfo}>
-                <Text style={styles.bottomText}>
-                    {t('home.swipeToSee')}
-                </Text>
+            <View style={styles.singleCardWrap} accessibilityLabel={t('common.monthLabel', { number: activeMonth })}>
+                {allMonths[activeMonth - 1]
+                    ? renderMonthCard(allMonths[activeMonth - 1], activeMonth - 1)
+                    : null}
             </View>
         </SafeAreaView>
     );
@@ -214,6 +226,8 @@ const styles = StyleSheet.create({
     },
     backButton: {
         padding: 8,
+        minHeight: 44,
+        justifyContent: 'center',
     },
     backRow: {
         flexDirection: 'row',
@@ -236,8 +250,21 @@ const styles = StyleSheet.create({
     progressContainer: {
         flexDirection: 'row',
         justifyContent: 'center',
-        gap: 8,
-        paddingVertical: 12,
+        paddingVertical: 4,
+        // No flexWrap: the nine dots stay on ONE row at 375/390pt (a wrap orphaned Month 9).
+    },
+    // The dot stays 10pt; its pressable box is 44pt tall and shares the row's width: nine boxes
+    // of up to 44pt do not fit a phone (~41-43pt each at 375/390pt, the full 44pt on a tablet),
+    // so the missing 1-3pt of width comes back through hitSlop (ignored on web, where the
+    // box itself is the target). E-006, decided: the one-row layout stays (a wrap orphaned
+    // Month 9), so on web the box is ~41.7pt wide at 375pt; it is a documented exception
+    // to the 44pt width, the 44pt height and the full target on native are unchanged.
+    progressDotTouch: {
+        flex: 1,
+        maxWidth: 44,
+        height: 44,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     progressDot: {
         width: 10,
@@ -259,13 +286,12 @@ const styles = StyleSheet.create({
         color: theme.colors.textSecondary,
         marginBottom: 12,
     },
-    scrollContent: {
-        paddingHorizontal: 24,
+    singleCardWrap: {
+        alignItems: 'center',
         paddingBottom: 20,
     },
     cardWrapper: {
         width: CARD_WIDTH,
-        marginEnd: 16,
     },
     card: {
         borderRadius: 24,
@@ -340,6 +366,11 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: theme.colors.textLight,
     },
+    comparisonCaption: {
+        fontSize: 12,
+        color: theme.colors.textMuted,
+        marginTop: 2,
+    },
     factsContainer: {
         marginBottom: 12,
     },
@@ -349,19 +380,26 @@ const styles = StyleSheet.create({
         color: theme.colors.neutral900,
         marginBottom: 8,
     },
+    // The card is a single plain view now (the LTR-forced scroller is gone), so a bare row
+    // mirrors with the document under dir=rtl. The old reversed row flipped it a second time
+    // and parked the bullet ~300px from its line. `gap` is direction-neutral, unlike
+    // marginEnd, which resolves to the physical right edge on web where forceRTL is skipped.
     factRow: {
         flexDirection: 'row',
+        gap: 8,
         marginBottom: 4,
     },
     factBullet: {
         fontSize: 14,
         color: theme.colors.accent,
-        marginEnd: 8,
     },
     factText: {
         fontSize: 13,
         color: theme.colors.textSecondary,
         flex: 1,
+    },
+    factTextRtl: {
+        textAlign: 'right',
     },
     highlightsContainer: {
         flexDirection: 'row',
@@ -378,13 +416,12 @@ const styles = StyleSheet.create({
         fontSize: 12,
         color: theme.colors.purple700,
     },
-    bottomInfo: {
-        padding: 16,
-        alignItems: 'center',
-    },
     bottomText: {
+        textAlign: 'center',
+        paddingHorizontal: 16,
+        marginBottom: 4,
         fontSize: 13,
-        color: theme.colors.neutral400,
+        color: theme.colors.textMuted,
         fontStyle: 'italic',
     },
 });

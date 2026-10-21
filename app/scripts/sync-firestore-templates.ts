@@ -53,7 +53,11 @@ async function syncTemplates() {
     let errors = 0;
 
     for (const t of templates) {
-        const docRef = doc(db, 'calendar_templates', t.template_id);
+        // Cycle 3 F101 : aligné sur la collection lue par l'app (`calendarTemplates`,
+        // camelCase, cf. `src/services/calendarService.ts:164`, `reminderService.ts:33`,
+        // `firestore.rules:221`). Avant : snake_case `calendar_templates` → seeder
+        // peuplait une collection orpheline jamais lue → screens vides en prod.
+        const docRef = doc(db, 'calendarTemplates', t.template_id);
 
         try {
             await setDoc(docRef, {

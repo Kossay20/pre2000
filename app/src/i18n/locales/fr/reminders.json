@@ -1,19 +1,19 @@
 {
     "card": {
         "days": "Jours",
-        "daysLabel": "Jours :",
+        "daysLabel": "Jours :",
         "advancedOptions": "🔧 Options avancées",
         "undefined": "Non défini",
         "customize": "Personnaliser",
-        "intensity": "Intensité :",
+        "intensity": "Intensité :",
         "timesPerDay": "{{count}}×/jour",
-        "scheduledHours": "📅 Horaires programmés :",
+        "scheduledHours": "📅 Horaires programmés :",
         "weekTitle": "Rappels de la semaine",
         "viewAll": "Voir tout →",
         "priorityHigh": "Haute",
         "priorityMedium": "Moyenne",
         "priorityLow": "Basse",
-        "priorityLabel": "Priorité : {{level}}",
+        "priorityLabel": "Priorité : {{level}}",
         "notifBody": "Maman, {{description}} 💕"
     },
     "hydration": {
@@ -26,7 +26,9 @@
         "remindersTimeRange": "Entre 8h et 22h",
         "enableReminders": "Activer les rappels",
         "concept": "Sur la date de conception",
-        "save": "Sauvegarder"
+        "save": "Sauvegarder",
+        "outOf": "sur {{goalL}} L",
+        "unitLitre": "L"
     },
     "frequenciesShort": {
         "per_day": "jour",
@@ -37,10 +39,12 @@
         "title": "MA JOURNÉE",
         "loading": "Chargement...",
         "emptyTitle": "Aucune action pour aujourd'hui.",
-        "emptyMsg": "Active des rappels dans l'onglet Rappels ! 💡",
-        "allDone": "Tout est fait ! Repose-toi bien 💖",
+        "emptyMsg": "Active des rappels dans l'onglet Rappels ! 💡",
+        "allDone": "Tout est fait ! Reposez-vous bien 💖",
         "remainingTasks": "{{count}} tâches restantes",
-        "hideTodayTitle": "Masquer pour aujourd'hui ?",
+        "remainingTasks_one": "{{count}} tâche restante",
+        "remainingTasks_other": "{{count}} tâches restantes",
+        "hideTodayTitle": "Masquer pour aujourd'hui ?",
         "hideTodayMsg": "Ce rappel ne s'affichera plus aujourd'hui, mais reviendra demain.",
         "hide": "Masquer",
         "cancel": "Annuler"
@@ -67,11 +71,13 @@
     "myDay": {
         "title": "Ma Journée",
         "loading": "Chargement...",
-        "emptyTitle": "Tout est fait !",
+        "emptyTitle": "Tout est fait !",
         "emptyMsg": "Pas de tâches pour aujourd'hui",
-        "allDone": "Toutes les tâches terminées !",
+        "allDone": "Toutes les tâches terminées !",
         "remainingTasks": "{{count}} tâches restantes",
-        "hideTodayTitle": "Masquer pour aujourd'hui ?",
+        "remainingTasks_one": "{{count}} tâche restante",
+        "remainingTasks_other": "{{count}} tâches restantes",
+        "hideTodayTitle": "Masquer pour aujourd'hui ?",
         "hideTodayMsg": "Cette tâche réapparaîtra demain",
         "hide": "Masquer",
         "cancel": "Annuler"

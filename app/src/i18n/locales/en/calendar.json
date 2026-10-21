@@ -32,5 +32,19 @@
     },
     "noAppointments": "No appointments this week",
     "appointmentsThisWeek": "{{count}} appts this week",
-    "myAppointment": "My Appt"
+    "myAppointment": "My Appt",
+    "noSuggestionsWeek": "No suggestions to show for this week.",
+    "noSuggestionsMonth": "No suggestions to show for this month.",
+    "category": {
+        "administrative": "Paperwork",
+        "exam": "Exam",
+        "preparation": "Preparation",
+        "prevention": "Prevention",
+        "selfCare": "Self-care"
+    },
+    "importance": {
+        "essential": "Essential",
+        "recommended": "Recommended",
+        "optional": "Optional"
+    }
 }

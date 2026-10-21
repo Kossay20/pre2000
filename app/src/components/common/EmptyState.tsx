@@ -68,7 +68,15 @@ const styles = StyleSheet.create({
         padding: theme.spacing.xl,
     },
     containerCompact: {
-        flex: 0,
+        // Content-sized, not `flex: 0`: react-native-web expands that to
+        // `flex: 0 1 0%` — a zero flex-basis — so the box collapsed to its padding
+        // and its children spilled over whatever came next (the contraction timer's
+        // emergency call row sat on top of the subtitle). Yoga reads `flex: 0` as
+        // content-sized, so native looked fine. flexBasis is explicit because the
+        // base `container` style's `flex: 1` carries a 0% basis on web too.
+        flexGrow: 0,
+        flexShrink: 0,
+        flexBasis: 'auto',
         paddingVertical: theme.spacing.l,
         paddingHorizontal: theme.spacing.m,
     },
@@ -91,7 +99,10 @@ const styles = StyleSheet.create({
         color: theme.colors.textLight,
         textAlign: 'center',
         lineHeight: 20,
-        maxWidth: 320,
+        // Cycle 4 F704 : maxWidth 320→400 — textes AR/TN ~30% plus longs que EN.
+        // Avant: tronquage en 4-5 lignes saccadées en arabe. Après: 2-3 lignes lisibles.
+        maxWidth: 400,
+        paddingHorizontal: theme.spacing.m,
     },
     actionWrapper: {
         marginTop: theme.spacing.l,

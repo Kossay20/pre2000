@@ -21,12 +21,22 @@
   "baby": "Baby",
   "size": "Size",
   "weight": "Weight",
+  "sizeCrownRump": "Length (crown to rump)",
+  "sizeCrownHeel": "Length (crown to heel)",
+  "fetalLengthMicroscopic": "< 1 mm",
+  "fetalWeightUnderOneGram": "< 1 g",
   "yourBody": "Your Body",
   "toMonitor": "To Monitor",
   "articles": "Articles",
   "supplements": "Supplements",
   "search": "Search",
-  "save": "Saving...",
+  "save": "Save",
+  "saved": "Saved",
+  "favorites": "Saved",
+  "favoritesEmpty": {
+    "title": "Nothing saved yet",
+    "hint": "Tap the bookmark on an article or supplement page to keep it here."
+  },
   "cancel": "Cancel",
   "continue": "Continue",
   "back": "Back",
@@ -46,6 +56,13 @@
   "precautions": "Precautions",
   "typicalDose": "Typical Dose",
   "source": "Source",
+  "sourceLine": "Source: {{sources}}",
+  "sourceAuthorities": {
+    "who": "WHO",
+    "cochrane": "Cochrane Review"
+  },
+  "sourcesTitle": "Sources and references",
+  "sourcesOpenHint": "Opens the official page in your browser",
   "heroTitle": "Baby This Week",
   "trimester_1": "1st Trimester",
   "trimester_2": "2nd Trimester",
@@ -72,7 +89,8 @@
   "completedTasksAppearHere": "Tasks you mark as completed\nwill appear here.",
   "completedTasks": "Completed Tasks",
   "taskCount": "{{count}} task",
-  "taskCount_plural": "{{count}} tasks",
+  "taskCount_one": "{{count}} task",
+  "taskCount_other": "{{count}} tasks",
   "taskRestored": "Task restored!",
   "taskRestoreError": "Could not restore task",
   "deleteForever": "Delete permanently",
@@ -82,14 +100,18 @@
   "noNotification": "No notifications will be sent",
   "languageUpdated": "Language updated ",
   "languageUpdatedMsg": "The new language has been applied successfully.",
+  "accountCreated": "Account created",
+  "done": "Done",
   "chooseLanguage": "Choose Language",
   "chooseLanguageSubtitle": "Choose your language • choisissez votre langue • اختر لغتك",
   "selectLanguageHint": "Select your preferred language for the app",
+  "langDescFr": "French",
+  "langDescAr": "Arabic",
+  "langDescTn": "Arabic + Darija",
+  "langDescEn": "English",
   "languageChangeError": "Could not change language",
   "infoTitle": "ℹ Information",
   "infoLanguageApplied": "The language will be applied to all app content",
-  "infoTranslationsWIP": "Some translations are still under development",
-  "infoFrenchComplete": "French is currently the most complete language",
   "settings": "Settings",
   "notifications": "Notifications",
   "babyMessage": "Baby Message",
@@ -109,26 +131,26 @@
   "testNotificationsFailed": "Sending failed. Check permissions.",
   "reminderInfo": "Health reminders can be configured in the \"Reminders\" tab",
   "legal": "Legal & Support",
-  "dangerZone": "Security Zone",
+  "dangerZone": "Danger zone",
   "dashboard": "Dashboards",
   "preferences": "Preferences",
   "privacyPolicy": "Privacy Policy",
   "enableNotifications": "Enable notifications to receive your reminders",
   "myReminders": "My Reminders",
-  "trimesterLabel": "Trimester {{trimester}}",
   "dailyHabits": "Daily Habits",
   "byCategory": "By Category",
   "recommendedThisWeek": "Recommended this week",
   "medicalFollowUp": "Medical Follow-Up",
   "wellbeingFamily": "Wellbeing & Family",
   "activeCount": "{{count}} active",
-  "activeCount_plural": "{{count}} active",
+  "activeCount_one": "{{count}} active",
+  "activeCount_other": "{{count}} active",
   "optionsCount": "{{count}} options",
   "vitaminAdjust": "If your doctor prescribed multiple doses, adjust here ",
   "notifCapMsg": "We help you keep pace without overwhelming you",
   "notifCapSubMsg": "We group nearby reminders during the day",
   "chatDisclaimer": "This assistant does not replace medical advice. In an emergency, call your local emergency number or go to the nearest ER.",
-  "chatWelcome": "Hello! I'm your pregnancy assistant.\n\nI can help you with:\n•  Nutrition\n•  Symptoms\n• 🩺 Medical exams\n•  Sleep\n• ‍ Exercise\n\nAsk me your questions! ",
+  "chatWelcome": "Hello! I'm your pregnancy assistant.\n\nI can help you with:\n• 🍎 Nutrition\n• 🤰 Symptoms\n• 🩺 Medical exams\n• 😴 Sleep\n• 🏃‍♀️ Exercise\n\nAsk me your questions! ",
   "chatRateLimit": "⏳ Slow down! You're sending too many messages. Wait a few seconds before trying again ",
   "chatError": "Sorry, an error occurred.",
   "chatEmergency": "EMERGENCY",
@@ -138,15 +160,15 @@
   "chatSeeTipHome": "See the tip on the home screen",
   "chatSuggestedTask": "Suggested task:",
   "chatSeeReminders": "See in my reminders",
+  "chatSeeForbiddenFoods": "See the full list of foods to avoid or limit",
   "chatAskQuestion": "Ask your question...",
   "send": "Send",
-  "safetyOk": "OK",
-  "safetyMonitor": "Monitor",
-  "safetyNotRecommended": "Not recommended",
   "searchSupplement": "Search for a supplement...",
   "supplementNotFound": "Supplement not found.",
   "noSupplementFound": "No supplement found for \"{{query}}\"",
   "noRecommendation": "No recommendation for this week.",
+  "noRecommendationSubtitle": "Check back next week, or explore our resources in the meantime.",
+  "exploreResources": "Explore resources",
   "noDataAvailable": "No data available",
   "noWeightRecord": "No weight records",
   "useAppForStats": "Use the app for a few days to see your statistics appear!",
@@ -155,6 +177,8 @@
   "thirtyDays": "30 Days",
   "globalSuccess": "Overall success rate ",
   "hydrationLiters": "Hydration (Liters) ",
+  "chartNeedMoreDays": "Log at least 2 days to see this chart.",
+  "todayCompletion": "Today: {{percent}}% done",
   "vitaminIntake": "Vitamin intake ",
   "foods": "Foods",
   "toAvoid": "To Avoid",
@@ -167,7 +191,11 @@
     "belgium": "Belgium",
     "morocco": "Morocco",
     "algeria": "Algeria",
-    "other": "Other"
+    "switzerland": "Switzerland",
+    "canada": "Canada",
+    "usa": "United States",
+    "uk": "United Kingdom",
+    "other": "Other country (112, international)"
   },
   "babyEvolution": {
     "development": "Development",
@@ -276,65 +304,88 @@
         "2": "Meconium in intestines"
       },
       "highlights": {
-        "0": "Average weight: 3-4kg",
+        "0": "Average weight: 3-4 kg",
         "1": "Sucking/swallowing coordination perfect"
       }
     }
   },
   "privacy": {
     "title": "Privacy Policy",
-    "lastUpdated": "Last update: December 2024",
+    "lastUpdated": "Last updated: October 16, 2026",
     "intro": {
       "title": "1. Introduction",
-      "text": "Welcome to Mama & Bébé. We respect your privacy and are committed to protecting your personal data. This policy explains how we collect, use, and protect your information."
+      "text": "Mama & Bébé is developed by Sawssen Jemaiel. This policy explains what data the app collects, where it is kept, who processes it for us, how long it is kept and how to erase it. The app is intended for people aged 18 or over. The publisher and data controller is identified at https://www.mama-et-bebe.com/privacy-en.html; contact: contact@mama-et-bebe.com."
     },
     "collection": {
-      "title": "2. Data Collected",
-      "text": "We collect the following information:",
-      "account": "Account Information:",
-      "accountDesc": "Email, first name (optional)",
-      "pregnancy": "Pregnancy Data:",
-      "pregnancyDesc": "Last period date, due date",
-      "health": "Health Data:",
-      "healthDesc": "Weight, blood pressure (if entered)",
-      "appointments": "Appointments:",
-      "appointmentsDesc": "Personalized medical calendar",
-      "preferences": "Preferences:",
-      "preferencesDesc": "Notification settings"
+      "title": "2. Data collected",
+      "text": "Depending on what you use, the app processes:",
+      "account": "Account:",
+      "accountDesc": "your email address and password, handled by Firebase Authentication to sign you in.",
+      "profile": "Pregnancy profile:",
+      "profileDesc": "first name, last name (optional), country, age range, whether this is your first pregnancy, last period date, due date, height and pre-pregnancy weight, cycle length if you track fertility, and your chosen language.",
+      "health": "Health data you record:",
+      "healthDesc": "weight, blood pressure, blood glucose, symptoms, baby movements, contractions, medical appointments, reminders and tasks, your hospital bag, with any notes you add. The app draws no diagnosis from them.",
+      "medical": "Declared medical follow-up (optional):",
+      "medicalDesc": "if you choose to tell us, whether a healthcare professional has flagged gestational diabetes, pregnancy hypertension or a twin pregnancy. It is used only to adjust the reminders offered to you.",
+      "emergency": "Emergency contacts:",
+      "emergencyDesc": "the names and numbers of the people you add yourself.",
+      "device": "Kept only on your phone:",
+      "deviceDesc": "hydration, daily checklist and saved articles. They are not sent to our servers.",
+      "assistant": "Assistant:",
+      "assistantDesc": "it runs entirely on your phone. Your messages are neither sent to a server nor saved."
     },
     "usage": {
-      "title": "3. Data Usage",
-      "text": "Your data is used to:",
-      "item1": "Personalize your pregnancy tracking",
-      "item2": "Send you reminders and notifications",
-      "item3": "Improve the application",
-      "disclaimer": "We NEVER sell your data to third parties."
+      "title": "3. Use of data",
+      "text": "Your data is used only to:",
+      "item1": "provide pregnancy tracking and schedule your reminders on your phone;",
+      "item2": "sync your data across your devices when you are signed in;",
+      "disclaimer": "We do not sell or rent your data, and we do not use it for advertising or commercial profiling.",
+      "consent": "We process your pregnancy and health data with your explicit agreement: before saving your profile, the app asks you to tick a box allowing it to use this data to provide its features. Without that agreement, your profile is not saved. The date of your agreement and the version of this policy are kept with your profile. This rests on your explicit consent (GDPR art. 9(2)(a)) for pregnancy and health data, and on performance of the service you request (art. 6(1)(b)) for the account and sync. No automated decision has a legal effect on you."
+    },
+    "processors": {
+      "title": "4. Service providers",
+      "text": "These services process data on our behalf, only to run the app:",
+      "firebase": "Google Firebase (Google Cloud):",
+      "firebaseDesc": "sign-in, database, and checking that requests come from the genuine app (App Check, using Apple App Attest).",
+      "expo": "Expo:",
+      "expoDesc": "delivers app updates; it receives technical device information (IP address, app version) when the app checks for an update.",
+      "fonts": "Google Fonts:",
+      "fontsDesc": "loads fonts when you generate your PDF journal; Google then receives your device's IP address."
     },
     "storage": {
-      "title": "4. Storage and Security",
-      "text": "Your data is securely stored on Firebase (Google Cloud) with encryption. Only you can access your personal data via your account."
+      "title": "5. Storage, security and transfers",
+      "text": "Your account data is stored on Google Firebase servers. Traffic with those servers is encrypted (HTTPS/TLS), and access rules limit the app's access to your own account's data. The publisher is based in France, and Google and our providers may process your data outside your country, including in the United States. These transfers rely on GDPR safeguards (European Commission standard contractual clauses and/or the EU–US Data Privacy Framework)."
+    },
+    "retention": {
+      "title": "6. Retention",
+      "text": "Your account data is kept as long as your account exists and erased as soon as you delete it; we keep no copy ourselves, and Google's technical backups are purged on its own schedule. Data kept on your phone stays there until you erase it, delete your account or uninstall the app."
     },
     "rights": {
-      "title": "5. Your Rights (GDPR)",
-      "text": "In accordance with GDPR, you have the right to:",
-      "access": "Access:",
-      "accessDesc": "Request a copy of your data",
+      "title": "7. Your rights (GDPR)",
+      "text": "You exercise your rights directly in the app:",
+      "access": "Access and portability:",
+      "accessDesc": "“{{settings}}” → “{{dataSection}}” → “{{export}}” gives you a copy of your profile and health data, including your declared medical follow-up.",
       "rectification": "Rectification:",
-      "rectificationDesc": "Modify your information",
-      "deletion": "Deletion:",
-      "deletionDesc": "Request deletion of your account",
-      "portability": "Portability:",
-      "portabilityDesc": "Export your data"
+      "rectificationDesc": "anything you entered can be edited in the app.",
+      "deletion": "Erasure:",
+      "deletionDesc": "“{{profile}}” → “{{dangerZone}}” → “{{deleteFromProfile}}”, or “{{settings}}” → “{{dataSection}}” → “{{deleteFromSettings}}”. Deletion is immediate and permanent: your account, the data stored on our servers and the local copy on your phone.",
+      "consent": "Withdrawing consent:",
+      "consentDesc": "you can withdraw the agreement given when you created your profile at any time by erasing your data: “{{settings}}” → “{{dataSection}}” → “{{deleteFromSettings}}” with an account, or “{{eraseGuest}}” without one. The declared medical follow-up can be turned off separately in “{{settings}}” → “{{medical}}”, without deleting the rest of your account.",
+      "opposition": "Objection and restriction (art. 18 and 21):",
+      "oppositionDesc": "you can ask us to restrict the processing or object to it by writing to contact@mama-et-bebe.com.",
+      "complaint": "Complaint:",
+      "complaintDesc": "if you believe your rights are not respected, you can lodge a complaint with the CNIL (cnil.fr) or with the data protection authority of your country."
     },
     "contact": {
-      "title": "6. Contact",
-      "text": "For any questions regarding your data or to exercise your rights:"
+      "title": "8. Contact",
+      "text": "For any question about your data or your rights:",
+      "publisher": "Developed by:"
     },
     "guestMode": {
-      "title": "7. Guest Mode",
-      "text": "If you use the app in guest mode, your data is stored only on your device and is not sent to our servers."
+      "title": "9. Guest mode",
+      "text": "Without an account, you give no email address. What you record is kept on your phone. Some of it (for example health entries, appointments and reminders) may also be saved on our servers under an anonymous identifier, with no email address, so that the app works; no assistant conversation data is sent to a server. Baby movements, contractions and your hospital bag stay only on your phone until you create an account; they are then saved to it. To erase everything, on your phone and on our servers: “{{settings}}” → “{{dataSection}}” → “{{eraseGuest}}”. Uninstalling the app erases only what is on your phone."
     },
-    "footer": "Mama & Bébé © 2024 - All rights reserved"
+    "footer": "Mama & Bébé — developed by Sawssen Jemaiel"
   },
   "legalTerms": {
     "title": "Legal & Terms",
@@ -345,23 +396,28 @@
       "title": "Terms of Service",
       "intro": "Using this application implies full acceptance of these Terms of Service.",
       "medical": "MEDICAL DISCLAIMER: This app provides information for educational purposes only and does NOT replace professional medical advice.",
+      "emergency": "In an emergency or if you notice a warning sign (bleeding, pain, no baby movement), call your local emergency services or go to the ER immediately.",
       "liability": "The publisher cannot be held responsible for the use of the information provided.",
       "liabilityTitle": "Liability",
       "content": "All content (text, images) is protected by copyright.",
-      "ipTitle": "Intellectual Property"
+      "ipTitle": "Intellectual Property",
+      "publisher": "Developed by:",
+      "law": "Governing law: these terms are governed by French law."
     },
     "cookies": {
       "title": "Cookies & Trackers",
       "intro": "We do not use advertising cookies.",
-      "tech": "We use technical identifiers (AsyncStorage) for app functionality (local save).",
+      "tech": "We use technical identifiers (the app's local storage) for app functionality (local save).",
       "techTitle": "Technical Identifiers",
       "analytics_title": "Error Analysis",
-      "analytics_desc": "We use Sentry to detect crashes and improve stability.",
+      "analytics_desc": "No error-analysis service is enabled in this version of the app.",
       "firebase_title": "Firebase",
       "firebase_desc": "Used for secure authentication and database."
     }
   },
   "a11y": {
+    "increase": "Increase",
+    "decrease": "Decrease",
     "passwordMin": "Password (6 chars min)",
     "retypePassword": "Retype password",
     "createMyAccount": "Create my account",
@@ -382,6 +438,7 @@
     "addNew": "Add",
     "delete": "Delete",
     "edit": "Edit",
+    "removeTimeSlot": "Remove time slot",
     "save": "Save",
     "confirm": "Confirm",
     "cancel": "Cancel",
@@ -431,9 +488,13 @@
     "removeSymptom": "Remove symptom",
     "addSymptom": "Add symptom {{name}}",
     "addHealthEntry": "Add a health entry",
-    "statusPill": "Status: {{status}}"
+    "statusPill": "Status: {{status}}",
+    "deleteItem": "Delete: {{name}}",
+    "editItem": "Edit: {{name}}",
+    "hideItemToday": "Hide for today: {{name}}"
   },
   "relatedSupplements": "Related Supplements",
+  "relatedArticles": "Related articles",
   "searchFoodPlaceholder": "Search for food...",
   "searchArticlePlaceholder": "Search for an article...",
   "recommendedArticles": "Recommended Articles",
@@ -472,7 +533,9 @@
   "errorBoundary": {
     "title": "Oops!",
     "message": "A small error occurred. Don't worry, your data is safe.",
-    "retry": "Retry"
+    "retry": "Retry",
+    "errorId": "Error code",
+    "returnHome": "Back to home"
   },
   "nav": {
     "home": "Home",
@@ -494,7 +557,7 @@
     "privacy": "Privacy",
     "myHealth": "My Health",
     "weightTracking": "Weight Tracking",
-    "forbiddenFoods": "Foods to Avoid",
+    "forbiddenFoods": "Foods to avoid",
     "dataDiagnostic": "Data Diagnostic",
     "language": "Language",
     "addAppointment": "Add Appointment",
@@ -502,21 +565,22 @@
     "articles": "Articles",
     "supplements": "Supplements",
     "remindersTasks": "Tasks",
-    "remindersAlerts": "Reminders"
+    "remindersAlerts": "Reminders",
+    "onboarding": "Welcome"
   },
   "chatResponse": {
     "unknownMessage": "I didn't quite understand your message. No worries! Try rephrasing, for example:\n\n• 'I have a headache'\n• 'What can I eat?'\n• 'I'm tired'\n• 'When should I get an ultrasound?'\n\nI'm here to help ",
-    "fallbackMessage": "‍ Hmm, I couldn't find information on this topic.\n\nBut I can help you with:\n•  Diet & nutrition\n•  Pregnancy symptoms\n• 🩺 Medical exams\n•  Sleep & fatigue\n• ‍ Sports & physical activity\n•  Birth preparation\n\nTry rephrasing your question with these topics! ",
+    "fallbackMessage": "Hmm, I couldn't find information on this topic.\n\nBut I can help you with:\n• 🍎 Diet & nutrition\n• 🤰 Pregnancy symptoms\n• 🩺 Medical exams\n• 😴 Sleep & fatigue\n• 🏃‍♀️ Sports & physical activity\n• 👶 Birth preparation\n\nTry rephrasing your question with these topics! ",
     "semanticMatch": "I found something that might interest you!\n\nThis article is about \"{{title}}\". I think it answers your question ",
-    "redFlagCritical": "Don't hesitate to contact your doctor or emergency services.",
-    "redFlagHigh": "I recommend discussing this with your midwife or doctor.",
+    "foodsToAvoidIntro": "The main foods to avoid during pregnancy:",
+    "foodAnswerIntro": "Here is what the app says about this:",
     "redFlagModerate": "Monitor the situation and consult if it persists.",
     "redFlagDefault": "This symptom deserves special attention.",
     "redFlagWithArticle": "This symptom deserves attention. Consult if it persists.",
     "topicAlimentation": "Great question about diet! Here's some useful info:",
     "topicNutrition": "Nutrition is very important during pregnancy! Here's what I know:",
     "topicSymptomes": "I understand this can be worrying. Here's some reassuring information:",
-    "topicSport": "‍ Staying active during pregnancy is great! Here are some tips:",
+    "topicSport": "Staying active during pregnancy is great! Here are some tips:",
     "topicSommeil": "Sleep is precious! Here's what might help:",
     "topicExamens": "🩺 Medical exams are important! Here's the information:",
     "topicAccouchement": "Interested in birth preparation? Here you go:",
@@ -627,10 +691,35 @@
     "preparation": "Preparation",
     "lifestyle": "Lifestyle",
     "administratif": "Administrative",
-    "medical": "Medical"
+    "medical": "Medical",
+    "post_partum": "Postpartum",
+    "accouchement": "Childbirth",
+    "symptomes": "Symptoms",
+    "bien_etre": "Wellbeing",
+    "sport": "Sport",
+    "sommeil": "Sleep",
+    "emotions": "Emotions",
+    "autres": "Other",
+    "allaitement": "Breastfeeding",
+    "travail": "Labor",
+    "droits": "Rights",
+    "sexualite": "Sexuality",
+    "multiples": "Multiples",
+    "mouvements_bebe": "Baby movements",
+    "exercice": "Exercise",
+    "famille": "Family"
+  },
+  "supplementCategories": {
+    "vitamine": "Vitamin",
+    "minéral": "Mineral",
+    "acide gras": "Fatty acid",
+    "micro-organismes": "Probiotics",
+    "nutriment essentiel": "Essential nutrient"
   },
   "article": {
     "notFound": "Article not found",
+    "notFoundHint": "This article is no longer available. You can find the other articles in Resources.",
+    "browseArticles": "Browse articles",
     "errorSpecified": "Error: Article not specified",
     "contentComingSoon": "Content coming soon...",
     "preview": "Preview",
@@ -651,9 +740,12 @@
     "createMyAccount": "Create my account",
     "termsDisclaimer": "By continuing, you agree to the terms",
     "guestDisclaimer": "Your data won't be saved without an account",
-    "export": "Export",
+    "export": "Export my data",
     "exportDesc": "Export your data as JSON",
-    "deleteAccount": "Delete my account"
+    "deleteAccount": "Delete my account",
+    "deleteAccountDesc": "Permanently deletes your account and all your data",
+    "eraseGuestData": "Erase my data",
+    "eraseGuestDataDesc": "Permanently erases your data from this device and from our servers"
   },
   "emergency": {
     "title": "Emergency Contacts",
@@ -672,7 +764,8 @@
     "invalidNumber": "Invalid number. Expected format: digits, +, spaces, dashes (4-20 chars).",
     "validationError": "Please fill all fields",
     "addError": "Could not add contact",
-    "deleteError": "Could not delete contact"
+    "deleteError": "Could not delete contact",
+    "tooManyContacts": "You cannot save more than {{max}} emergency contacts."
   },
   "gamification": {
     "currentStreak": "Current Streak",
@@ -692,10 +785,18 @@
   "enterFirstName": "Enter your first name",
   "enterLastName": "Enter your last name",
   "home": {
-    "reminders": {}
+    "reminders": {},
+    "postpartumTitle": "Welcomed your baby?",
+    "postpartumDesc": "It looks like your due date has passed! Update your profile to switch to postpartum mode.",
+    "postpartumCta": "Update status",
+    "updateStatus": "Update status",
+    "ttcTitle": "Trying to conceive 💕",
+    "ttcDay": "Day {{day}} of your cycle (~{{total}} days)",
+    "curiousTitle": "Discovery mode 👀",
+    "curiousDesc": "You are exploring week {{week}} of pregnancy. Data shown is illustrative.",
+    "curiousCta": "I am pregnant"
   },
   "errorLoadingData": "Failed to load data. Please check your internet connection.",
-  "passwordMin": "Password (8 chars min + 1 digit)",
   "profile": {
     "title": "My Profile",
     "personalInfo": "Personal Information",
@@ -708,7 +809,7 @@
     "save": "Save",
     "successUpdate": "Profile updated successfully!",
     "errorFirstName": "Please enter your first name.",
-    "errorInvalidDate": "The pregnancy date is invalid (more than 40 weeks or in the future).",
+    "errorInvalidDate": "The pregnancy date is invalid (more than 42 weeks or in the future).",
     "errorUpdate": "Unable to update profile.",
     "errorReset": "Unable to reset profile.",
     "health": "Health Dashboard",
@@ -727,7 +828,7 @@
     "deleteAccountMsg": "This action is irreversible. All your data will be permanently deleted.",
     "deleteAccountError": "Could not delete account. Please sign in again and retry.",
     "guestMode": "👤 Guest mode",
-    "guestData": "Your data is saved locally only.",
+    "guestData": "Your data isn't linked to any account. Create one so you don't lose it.",
     "guestUser": "Guest",
     "secureAccount": "✅ Secure account",
     "cloudData": "Your data is saved in the cloud."
@@ -738,7 +839,43 @@
   "noResults": "No results found.",
   "export": {
     "errorMessage": "An error occurred during export. Please try again.",
+    "incompleteTitle": "Export incomplete",
+    "incompleteMessage": "Some data could not be read: {{sections}}. The file would be incomplete. Check your connection and try again, or export anyway.",
+    "exportAnyway": "Export anyway",
     "warningTitle": "Sensitive data",
     "warningMessage": "The exported file contains ALL your medical data (weight, blood pressure, glucose, symptoms, appointments) in plain text. Share it only with someone you trust over a secure channel. Continue?"
+  },
+  "goToTasks": "Go to Tasks",
+  "chatbotTitle": "Pregnancy Assistant",
+  "chatbotSubtitle": "Pregnancy guidance",
+  "addToFavorites": "Add to favorites",
+  "supplementsDisclaimer": "⚠️ This information is for guidance only and does not replace medical advice.\nNever start or stop a supplement without talking to your doctor or midwife.",
+  "medicalProfile": {
+    "title": "Has your doctor flagged anything?",
+    "intro": "If your doctor or midwife has mentioned one of these, tick it — some reminders adapt to it. Otherwise leave everything unticked and continue; nothing here is required.",
+    "settingsIntro": "If your doctor or midwife has mentioned one of these, tick it — some reminders adapt to it. Otherwise leave everything unticked; nothing here is required.",
+    "gestationalDiabetes": "Gestational diabetes",
+    "hypertension": "Pregnancy hypertension",
+    "twins": "Twin pregnancy",
+    "none": "None of these apply, or I'd rather not answer: leave everything unticked.",
+    "privacyNote": "This is saved to your account on our servers (Google Firebase). It is not sold, is not used for advertising or commercial profiling, is used only to adjust your reminders, and replaces no medical advice.",
+    "settingsTitle": "Medical follow-up",
+    "settingsSubtitle": "Editable at any time",
+    "notAnswered": "Not provided",
+    "syncWarning": "Saved on this device, but not yet synced to your account. It will sync on the next connection.",
+    "privacyNoteGuest": "Without an account, this stays on your phone. It is never shared or sold, is used only to adjust your reminders, and replaces no medical advice."
+  },
+  "gestationalAge": {
+    "format": "{{weeks}} + {{days}}",
+    "weeks_one": "{{count}} week",
+    "weeks_other": "{{count}} weeks",
+    "days_one": "{{count}} day",
+    "days_other": "{{count}} days"
+  },
+  "emergencyNumber": {
+    "international": "{{number}}, international",
+    "fallbackNote": "112 is the international emergency number.",
+    "regionNote": "Number chosen from your phone's settings.",
+    "chooseCountry": "Set my country"
   }
 }

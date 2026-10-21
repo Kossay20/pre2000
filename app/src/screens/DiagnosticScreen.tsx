@@ -182,7 +182,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     button: {
-        backgroundColor: theme.colors.primary,
+        backgroundColor: theme.colors.accent,
         padding: theme.spacing.s,
         borderRadius: theme.borderRadius.s,
     },

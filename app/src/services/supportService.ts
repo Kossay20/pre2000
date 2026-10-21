@@ -3,14 +3,15 @@ import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import * as Clipboard from 'expo-clipboard';
 import { createLogger } from '../utils/logger';
+// The address the website and the privacy policy publish (see config/contact.ts for why
+// support@mamabebe.app, which bounced, is no longer used).
+import { SUPPORT_EMAIL } from '../config/contact';
 
 const log = createLogger('SupportService');
 
-const SUPPORT_EMAIL = 'support@mama-bebe.app'; // Replace with actual support email
-
 export const openSupportEmail = async (t: (key: string, options?: any) => string) => {
     try {
-        const subject = `[${t('common.appName')}] ${t('support.reportProblemSubject')}`;
+        const subject = `[${t('common.common.appName')}] ${t('support.reportProblemSubject')}`;
         const body = `
 ${t('support.emailBodyIntro')}
 

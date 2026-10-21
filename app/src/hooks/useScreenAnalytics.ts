@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useRef } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { analyticsService } from '../services/analyticsService';
 
@@ -20,14 +20,19 @@ export const useScreenAnalytics = (
 ): void => {
     const hasFiredRef = useRef(false);
 
-    useFocusEffect(() => {
-        // Always log on focus (captures tab switches + back navigation)
+    // PERF FIX (W2-003): useFocusEffect re-runs whenever its callback IDENTITY changes.
+    // A bare inline callback is recreated every render, so on screens that re-render in a
+    // loop (e.g. ArticleDetail's per-paragraph onLayout cascade) screen_view fired 300-600×
+    // in 3s. Memoizing on [screenName] gives a stable callback → it fires once per focus.
+    // `params` is intentionally excluded from deps (logged once, guarded by hasFiredRef).
+    const onFocus = useCallback(() => {
         analyticsService.logScreenView(screenName, screenName);
 
         if (!hasFiredRef.current && params) {
-            // Log extra params once on initial mount
             analyticsService.logEvent('screen_params', { screen: screenName, ...params });
             hasFiredRef.current = true;
         }
-    });
+    }, [screenName]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    useFocusEffect(onFocus);
 };

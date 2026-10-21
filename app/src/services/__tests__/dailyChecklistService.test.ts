@@ -4,9 +4,10 @@
  * Tests the daily checklist generation and progress tracking
  */
 
-import { generateDailyChecklist } from '../dailyChecklistService';
-import { UserEvent } from '../../types';
+import { generateDailyChecklist, getHistoricalData, buildMyDayItems, myDayProgress } from '../dailyChecklistService';
+import { DailyChecklistItem, UserEvent, UserTask } from '../../types';
 import { format } from 'date-fns';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Mock the remindersV2Service
 // Mock the remindersV2Service
@@ -60,6 +61,14 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
     getAllKeys: jest.fn(() => Promise.resolve([])),
     multiRemove: jest.fn(() => Promise.resolve())
 }));
+
+// F-HS-02-REGR: getHistoricalData now reads today's REAL water from hydrationService
+// (loadHydrationData → currentIntake in ml). Mock it so tests control the value and
+// to avoid pulling the real service (notifications/i18n) into the suite.
+jest.mock('../hydrationService', () => ({
+    loadHydrationData: jest.fn(async () => ({ currentIntake: 0, dailyGoal: 3000 })),
+}));
+import { loadHydrationData } from '../hydrationService';
 
 // Helper to create test events
 const createTestEvent = (overrides: Partial<UserEvent> = {}): UserEvent => ({
@@ -162,6 +171,255 @@ describe('checklist item structure', () => {
 
         reminderItems.forEach(item => {
             expect(item.reminderId).toBeDefined();
+        });
+    });
+});
+
+// ============================================
+// TEST: getHistoricalData hydration tracking (F-HS-02-REGR)
+// The "Hydration (L)" series must reflect the REAL water tracker
+// (hydrationService.loadHydrationData → currentIntake ml) for TODAY,
+// NOT the herbal-tea checklist item (rem_hyd_herbal_tea, category 'hyd').
+// ============================================
+
+describe('getHistoricalData hydration (real water source)', () => {
+    const KEY_PREFIX = '@daily_checklist_v2_';
+
+    afterEach(() => {
+        jest.clearAllMocks();
+    });
+
+    test("today's hydration reads real water from hydrationService (ml → L)", async () => {
+        const todayStr = format(new Date(), 'yyyy-MM-dd');
+        const key = `${KEY_PREFIX}${todayStr}`;
+
+        // Real water tracker: 1800ml consumed today → 1.8L expected on the chart.
+        jest.mocked(loadHydrationData).mockResolvedValueOnce({ currentIntake: 1800, dailyGoal: 3000 } as any);
+
+        // Checklist blob deliberately carries a herbal-tea 'hyd' item with a bogus
+        // `current` — it must NOT leak into the water series.
+        const savedBlob = [
+            { id: 'reminder-rem_hyd_herbal_tea', completed: false, current: 9.9 },
+            { id: 'reminder-test-essential-slot-0', completed: true },
+        ];
+
+        jest.mocked(AsyncStorage.getAllKeys).mockResolvedValueOnce([key]);
+        jest.mocked(AsyncStorage.getItem).mockImplementation(async (k: string) =>
+            k === key ? JSON.stringify(savedBlob) : null
+        );
+
+        const stats = await getHistoricalData(30);
+
+        expect(stats.dates).toContain(todayStr);
+        const idx = stats.dates.indexOf(todayStr);
+        // Real water (1.8L), NOT the herbal-tea current (9.9).
+        expect(stats.hydration[idx]).toBeCloseTo(1.8, 5);
+        expect(stats.hydration[idx]).not.toBe(9.9);
+    });
+
+    test('herbal-tea checklist current does NOT feed the water series when no real water logged', async () => {
+        const todayStr = format(new Date(), 'yyyy-MM-dd');
+        const key = `${KEY_PREFIX}${todayStr}`;
+
+        // No real water consumed today.
+        jest.mocked(loadHydrationData).mockResolvedValueOnce({ currentIntake: 0, dailyGoal: 3000 } as any);
+
+        const savedBlob = [
+            { id: 'reminder-rem_hyd_herbal_tea', completed: false, current: 2.0 },
+        ];
+
+        jest.mocked(AsyncStorage.getAllKeys).mockResolvedValueOnce([key]);
+        jest.mocked(AsyncStorage.getItem).mockImplementation(async (k: string) =>
+            k === key ? JSON.stringify(savedBlob) : null
+        );
+
+        const stats = await getHistoricalData(30);
+        const idx = stats.dates.indexOf(todayStr);
+        // Tea is not water → 0, not 2.0.
+        expect(stats.hydration[idx]).toBe(0);
+    });
+
+    test('past days report 0 water (no per-day real history)', async () => {
+        const todayStr = format(new Date(), 'yyyy-MM-dd');
+        const yesterdayStr = format(new Date(Date.now() - 86400000), 'yyyy-MM-dd');
+        const todayKey = `${KEY_PREFIX}${todayStr}`;
+        const yKey = `${KEY_PREFIX}${yesterdayStr}`;
+
+        jest.mocked(loadHydrationData).mockResolvedValueOnce({ currentIntake: 1000, dailyGoal: 3000 } as any);
+
+        const blob = [{ id: 'reminder-rem_hyd_herbal_tea', completed: false, current: 1.25 }];
+
+        jest.mocked(AsyncStorage.getAllKeys).mockResolvedValueOnce([yKey, todayKey]);
+        jest.mocked(AsyncStorage.getItem).mockImplementation(async (k: string) =>
+            (k === todayKey || k === yKey) ? JSON.stringify(blob) : null
+        );
+
+        const stats = await getHistoricalData(30);
+        const todayIdx = stats.dates.indexOf(todayStr);
+        const yIdx = stats.dates.indexOf(yesterdayStr);
+        expect(stats.hydration[todayIdx]).toBeCloseTo(1.0, 5); // real water today
+        expect(stats.hydration[yIdx]).toBe(0); // no real history for past days
+    });
+});
+
+// ============================================
+// TEST: getHistoricalData completion rate (F-HS-03)
+// Skipped tasks must be excluded from BOTH numerator and denominator,
+// matching the Tasks UI which hides skipped items.
+// ============================================
+
+describe('getHistoricalData completion rate (skipped excluded)', () => {
+    const KEY_PREFIX = '@daily_checklist_v2_';
+
+    afterEach(() => {
+        jest.clearAllMocks();
+    });
+
+    const runWithBlob = async (blob: any[]) => {
+        const todayStr = format(new Date(), 'yyyy-MM-dd');
+        const key = `${KEY_PREFIX}${todayStr}`;
+        jest.mocked(AsyncStorage.getAllKeys).mockResolvedValueOnce([key]);
+        jest.mocked(AsyncStorage.getItem).mockImplementation(async (k: string) =>
+            k === key ? JSON.stringify(blob) : null
+        );
+        const stats = await getHistoricalData(30);
+        const idx = stats.dates.indexOf(todayStr);
+        return stats.completionRates[idx];
+    };
+
+    test('excludes skipped tasks from the denominator (2/2 active = 100%, not 2/4)', async () => {
+        // 2 completed, 2 skipped → UI shows only the 2 active, both done → 100%.
+        const rate = await runWithBlob([
+            { id: 'a', completed: true },
+            { id: 'b', completed: true },
+            { id: 'c', completed: false, skipped: true },
+            { id: 'd', completed: false, skipped: true },
+        ]);
+        expect(rate).toBe(100);
+    });
+
+    test('skipped tasks are not counted as completed (1 done /2 active = 50%)', async () => {
+        // A skipped item with completed:true must NOT inflate the numerator.
+        const rate = await runWithBlob([
+            { id: 'a', completed: true },
+            { id: 'b', completed: false },
+            { id: 'c', completed: true, skipped: true },
+        ]);
+        expect(rate).toBe(50);
+    });
+
+    test('all tasks skipped → 0% (guarded division, no NaN)', async () => {
+        const rate = await runWithBlob([
+            { id: 'a', completed: false, skipped: true },
+            { id: 'b', completed: true, skipped: true },
+        ]);
+        expect(rate).toBe(0);
+    });
+
+    test('no skipped tasks → behaves as before (1/2 = 50%)', async () => {
+        const rate = await runWithBlob([
+            { id: 'a', completed: true },
+            { id: 'b', completed: false },
+        ]);
+        expect(rate).toBe(50);
+    });
+});
+
+// ============================================
+// TEST: "Ma Journée" — Home pill and Tasks tab count the same list
+// ============================================
+
+describe('buildMyDayItems / myDayProgress (B-008)', () => {
+    const now = new Date(2026, 9, 1, 15, 0, 0);
+    const checklist: DailyChecklistItem[] = [
+        { id: 'apt-e2e', type: 'appointment', title: 'RDV du jour E2E', subtitle: '09:00', completed: false, icon: '📅', priority: 1 },
+        { id: 'walk', type: 'reminder', title: 'Marche douce', slotTime: '10:00', completed: true, icon: '🚶', priority: 10 },
+    ];
+    const task = (overrides: Partial<UserTask>): UserTask => ({
+        task_id: 't1', user_id: 'u', title: 'Vitamines E2E', completed: false, priority: 'medium',
+        created_at: now, ...overrides,
+    } as UserTask);
+
+    test("today's appointment is counted: 1 done of 3 (the pill used to say 1/2)", () => {
+        const items = buildMyDayItems(checklist, [task({})], now);
+        expect(items.map(i => i.id).sort()).toEqual(['apt-e2e', 't1', 'walk']);
+        expect(myDayProgress(items)).toEqual({ done: 1, total: 3 });
+    });
+
+    test('skipped items leave both the list and the count', () => {
+        const items = buildMyDayItems([...checklist, { ...checklist[1], id: 'skip', skipped: true }], [], now);
+        expect(myDayProgress(items)).toEqual({ done: 1, total: 2 });
+    });
+
+    test('a recurring task counts only on its days, done from completed_dates', () => {
+        const wed = now.getDay();
+        const onDay = task({ task_id: 'r1', recurrence: { type: 'specific_days', days: [wed] } as any, completed_dates: ['2026-10-01'] });
+        const offDay = task({ task_id: 'r2', recurrence: { type: 'specific_days', days: [(wed + 1) % 7] } as any });
+        expect(myDayProgress(buildMyDayItems([], [onDay, offDay], now))).toEqual({ done: 1, total: 1 });
+    });
+
+    test('a filled hydration goal counts as done', () => {
+        const hyd: DailyChecklistItem = { id: 'h', type: 'hydration', title: 'Eau', completed: false, icon: '💧', priority: 5, current: 2, target: 2 };
+        expect(myDayProgress(buildMyDayItems([hyd], [], now))).toEqual({ done: 1, total: 1 });
+    });
+
+    test('Home and Tasks both go through the shared builder (no appointment filter on Home)', () => {
+        const fs = require('fs');
+        const path = require('path');
+        const read = (f: string) => fs.readFileSync(path.join(__dirname, '../../..', f), 'utf8');
+        const home = read('src/components/home/DailyRoutinesTracker.tsx');
+        const tasks = read('src/components/tasks/MyDaySection.tsx');
+        expect(home).toMatch(/myDayProgress\(buildMyDayItems\(checklist, userTasks\)\)/);
+        expect(home).not.toMatch(/type !== 'appointment'/);
+        expect(tasks).toMatch(/buildMyDayItems\(mergedReminders, userTasks/);
+        expect(tasks).toMatch(/myDayProgress\(items\)/);
+    });
+
+    // Statistics said "Aujourd'hui : 100 % réalisé" beside the Tasks tab's 33 % (1 of 3):
+    // its rate came from the progress saved on the device, which has no entry for a
+    // reminder or an appointment nobody has ticked yet.
+    describe('Statistics counts today on the same list', () => {
+        const todayStr = format(new Date(), 'yyyy-MM-dd');
+        const doneTask = task({ completed: true, completed_at: new Date() } as Partial<UserTask>);
+        const untouched: DailyChecklistItem[] = [
+            { id: 'apt-e2e', type: 'appointment', title: 'RDV du jour E2E', completed: false, icon: '📅', priority: 1 },
+            { id: 'walk', type: 'reminder', title: 'Marche douce', completed: false, icon: '🚶', priority: 10 },
+        ];
+        const rateToday = (stats: { dates: string[]; completionRates: number[] }) =>
+            stats.completionRates[stats.dates.indexOf(todayStr)];
+
+        beforeEach(() => {
+            // Nothing ticked in the checklist today: no progress saved on the device.
+            jest.mocked(AsyncStorage.getAllKeys).mockResolvedValue([]);
+            jest.mocked(AsyncStorage.getItem).mockResolvedValue(null);
+        });
+
+        test('one task done, a reminder and an appointment untouched: 33 %, as Home (1/3) and Tasks', async () => {
+            const myDay = myDayProgress(buildMyDayItems(untouched, [doneTask], new Date()));
+            expect(myDay).toEqual({ done: 1, total: 3 });
+            const stats = await getHistoricalData(7, [doneTask], myDay);
+            expect(rateToday(stats)).toBe(Math.round((myDay.done / myDay.total) * 100));
+            expect(rateToday(stats)).toBe(33);
+        });
+
+        test('nothing done yet still shows today, at 0 %', async () => {
+            const myDay = myDayProgress(buildMyDayItems(untouched, [], new Date()));
+            const stats = await getHistoricalData(7, [], myDay);
+            expect(stats.dates).toEqual([todayStr]);
+            expect(rateToday(stats)).toBe(0);
+        });
+
+        test('an empty list adds no day', async () => {
+            expect((await getHistoricalData(7, [], { done: 0, total: 0 })).dates).toEqual([]);
+        });
+
+        test('the screen passes the shared builder\'s count, from the same checklist as Home', () => {
+            const fs = require('fs');
+            const path = require('path');
+            const stats = fs.readFileSync(path.join(__dirname, '../../screens/reminders/StatisticsScreen.tsx'), 'utf8');
+            expect(stats).toMatch(/loadDailyProgress\(\s*await generateDailyChecklist\(events, pregnancyInfo\?\.week \?\? 1, user\?\.uid, undefined, user\)/);
+            expect(stats).toMatch(/const today = myDayProgress\(buildMyDayItems\(checklist, tasks\)\)/);
+            expect(stats).toMatch(/getHistoricalData\(days, tasks, today\)/);
         });
     });
 });

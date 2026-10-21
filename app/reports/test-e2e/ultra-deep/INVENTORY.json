@@ -1,0 +1,4992 @@
+{
+ "generated": "2026-06-20",
+ "total_elements": 336,
+ "state_matrix": [
+  "default",
+  "pressed/active",
+  "disabled",
+  "loading",
+  "empty",
+  "error",
+  "filled",
+  "focused",
+  "RTL-mirrored",
+  "long-text/overflow",
+  "offline/guest-fallback",
+  "success-feedback"
+ ],
+ "locales": [
+  "fr",
+  "en",
+  "ar",
+  "tn"
+ ],
+ "groups": [
+  {
+   "group": "G1-auth",
+   "count": 66
+  },
+  {
+   "group": "G2-home",
+   "count": 44
+  },
+  {
+   "group": "G3-calendar",
+   "count": 41
+  },
+  {
+   "group": "G4-reminders",
+   "count": 31
+  },
+  {
+   "group": "G5-content",
+   "count": 23
+  },
+  {
+   "group": "G6-health-chatbot",
+   "count": 62
+  },
+  {
+   "group": "G7-profile",
+   "count": 42
+  }
+ ],
+ "elements": [
+  {
+   "screen": "OnboardingScreen",
+   "anchor": "src/screens/OnboardingScreen.tsx:315",
+   "type": "touchable",
+   "label": "onboarding.step1.pregnant",
+   "action": "select status='pregnant' + advance to step 2",
+   "states": [
+    "default",
+    "pressed",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "a11y: accessibilityState.selected toggles styling (optionCardSelected); auto-advances on tap"
+  },
+  {
+   "screen": "OnboardingScreen",
+   "anchor": "src/screens/OnboardingScreen.tsx:326",
+   "type": "touchable",
+   "label": "onboarding.step1.trying",
+   "action": "select status='trying' + advance to step 2 (TTC flow)",
+   "states": [
+    "default",
+    "pressed",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "branches into TTC sub-flow"
+  },
+  {
+   "screen": "OnboardingScreen",
+   "anchor": "src/screens/OnboardingScreen.tsx:337",
+   "type": "touchable",
+   "label": "onboarding.step1.curious",
+   "action": "select status='curious' + advance to step 2 (Curious flow)",
+   "states": [
+    "default",
+    "pressed",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "branches into Curious sub-flow"
+  },
+  {
+   "screen": "OnboardingScreen",
+   "anchor": "src/screens/OnboardingScreen.tsx:360",
+   "type": "touchable",
+   "label": "onboarding.step2.methodDdr",
+   "action": "set dateMethod='ddr' (segmented toggle)",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored"
+   ],
+   "risk": "active style methodButtonActive; recomputes pregnancyInfo memo"
+  },
+  {
+   "screen": "OnboardingScreen",
+   "anchor": "src/screens/OnboardingScreen.tsx:371",
+   "type": "touchable",
+   "label": "onboarding.step2.methodConception",
+   "action": "set dateMethod='conception' (segmented toggle, LMP=date-14d)",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored"
+   ],
+   "risk": "recompute LMP via subDays(14); affects live preview"
+  },
+  {
+   "screen": "OnboardingScreen",
+   "anchor": "src/screens/OnboardingScreen.tsx:393",
+   "type": "other",
+   "label": "native <input type=date> (web LMP picker)",
+   "action": "onChange set selectedDate (web only)",
+   "states": [
+    "default",
+    "filled",
+    "error",
+    "RTL-mirrored"
+   ],
+   "risk": "web-only raw DOM input; inline style not theme-aware; max=today; NaN guard present"
+  },
+  {
+   "screen": "OnboardingScreen",
+   "anchor": "src/screens/OnboardingScreen.tsx:413",
+   "type": "touchable",
+   "label": "format(selectedDate,'d MMMM yyyy') date field",
+   "action": "open native DateTimePicker (iOS/Android)",
+   "states": [
+    "default",
+    "pressed",
+    "filled",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "native-only branch; a11y label+hint set; locale-formatted date can overflow in AR/TN"
+  },
+  {
+   "screen": "OnboardingScreen",
+   "anchor": "src/screens/OnboardingScreen.tsx:426",
+   "type": "other",
+   "label": "DateTimePicker (Android inline, step2)",
+   "action": "onChange handleDateChange -> setSelectedDate",
+   "states": [
+    "default",
+    "filled",
+    "RTL-mirrored"
+   ],
+   "risk": "Android-only; maximumDate=today; locale via getPickerLocale"
+  },
+  {
+   "screen": "OnboardingScreen",
+   "anchor": "src/screens/OnboardingScreen.tsx:457",
+   "type": "touchable",
+   "label": "common.back (step2)",
+   "action": "prevStep() — animated back transition",
+   "states": [
+    "default",
+    "pressed",
+    "RTL-mirrored"
+   ],
+   "risk": "no accessibilityRole on this one"
+  },
+  {
+   "screen": "OnboardingScreen",
+   "anchor": "src/screens/OnboardingScreen.tsx:465",
+   "type": "button",
+   "label": "common.continue (step2, <Button>)",
+   "action": "nextStep()",
+   "states": [
+    "default",
+    "pressed/active",
+    "disabled",
+    "RTL-mirrored"
+   ],
+   "risk": "disabled when pregnancyInfo.isInvalid (>40wk); verify disabled visual + a11y"
+  },
+  {
+   "screen": "OnboardingScreen",
+   "anchor": "src/screens/OnboardingScreen.tsx:487",
+   "type": "textinput",
+   "label": "onboarding.step3.firstNamePlaceholder (firstName)",
+   "action": "onChangeText setFirstName",
+   "states": [
+    "default",
+    "empty",
+    "filled",
+    "focused",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "autoCapitalize=words; no a11yLabel; validated downstream by validateProfile"
+  },
+  {
+   "screen": "OnboardingScreen",
+   "anchor": "src/screens/OnboardingScreen.tsx:501",
+   "type": "touchable",
+   "label": "age range chip (18-24/25-29/30-34/35-39/40+) .map",
+   "action": "setAgeRange(range)",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored"
+   ],
+   "risk": "5 rendered instances; accessibilityState.selected; single-select group"
+  },
+  {
+   "screen": "OnboardingScreen",
+   "anchor": "src/screens/OnboardingScreen.tsx:528",
+   "type": "touchable",
+   "label": "country radio (tunisia/france/belgium/morocco/algeria/other) .map",
+   "action": "setCountry(item.value)",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "6 rendered instances; selected style radioOptionSelected; localized labels can overflow"
+  },
+  {
+   "screen": "OnboardingScreen",
+   "anchor": "src/screens/OnboardingScreen.tsx:545",
+   "type": "touchable",
+   "label": "onboarding.step3.firstPregnancyYes",
+   "action": "setIsFirstPregnancy(true)",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored"
+   ],
+   "risk": "tri-state group with No/Skip"
+  },
+  {
+   "screen": "OnboardingScreen",
+   "anchor": "src/screens/OnboardingScreen.tsx:554",
+   "type": "touchable",
+   "label": "onboarding.step3.firstPregnancyNo",
+   "action": "setIsFirstPregnancy(false)",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored"
+   ],
+   "risk": "accessibilityState.selected on === false"
+  },
+  {
+   "screen": "OnboardingScreen",
+   "anchor": "src/screens/OnboardingScreen.tsx:563",
+   "type": "touchable",
+   "label": "onboarding.step3.firstPregnancySkip",
+   "action": "setIsFirstPregnancy(null)",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored"
+   ],
+   "risk": "no accessibilityRole/Label/State on skip option"
+  },
+  {
+   "screen": "OnboardingScreen",
+   "anchor": "src/screens/OnboardingScreen.tsx:573",
+   "type": "touchable",
+   "label": "common.back (step3)",
+   "action": "prevStep()",
+   "states": [
+    "default",
+    "pressed",
+    "RTL-mirrored"
+   ],
+   "risk": "no accessibilityRole"
+  },
+  {
+   "screen": "OnboardingScreen",
+   "anchor": "src/screens/OnboardingScreen.tsx:576",
+   "type": "button",
+   "label": "common.continue (step3, <Button>)",
+   "action": "nextStep()",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored"
+   ],
+   "risk": "always enabled (country/firstName optional)"
+  },
+  {
+   "screen": "OnboardingScreen",
+   "anchor": "src/screens/OnboardingScreen.tsx:629",
+   "type": "textinput",
+   "label": "onboarding.step4.emailPlaceholder (email)",
+   "action": "onChangeText setEmail",
+   "states": [
+    "default",
+    "empty",
+    "filled",
+    "focused",
+    "RTL-mirrored",
+    "offline/guest-fallback"
+   ],
+   "risk": "testID onboarding_step4_email; gates startButton enable; only shown when !user"
+  },
+  {
+   "screen": "OnboardingScreen",
+   "anchor": "src/screens/OnboardingScreen.tsx:644",
+   "type": "textinput",
+   "label": "onboarding.step4.passwordPlaceholder (password)",
+   "action": "onChangeText setPassword",
+   "states": [
+    "default",
+    "empty",
+    "filled",
+    "focused",
+    "RTL-mirrored"
+   ],
+   "risk": "secureTextEntry; testID onboarding_step4_password; policy 10ch+digit+upper gates submit"
+  },
+  {
+   "screen": "OnboardingScreen",
+   "anchor": "src/screens/OnboardingScreen.tsx:670",
+   "type": "touchable",
+   "label": "start / finalizeProfile / creatingAccount (step4 submit)",
+   "action": "handleFinish(createAccount) — register+loginAsGuest",
+   "states": [
+    "default",
+    "pressed/active",
+    "disabled",
+    "loading",
+    "error",
+    "RTL-mirrored",
+    "offline/guest-fallback",
+    "success-feedback"
+   ],
+   "risk": "disabled=loading||(!user&&!canCreateAccount); gradient swaps to gray; label changes by loading/user; testID onboarding_step4_submit; primary funnel conversion"
+  },
+  {
+   "screen": "OnboardingScreen",
+   "anchor": "src/screens/OnboardingScreen.tsx:703",
+   "type": "touchable",
+   "label": "onboarding.step4.skipAccount",
+   "action": "handleFinish(false) — guest profile, no account",
+   "states": [
+    "default",
+    "pressed",
+    "loading",
+    "RTL-mirrored",
+    "offline/guest-fallback"
+   ],
+   "risk": "testID onboarding_step4_skip; not disabled during loading (double-tap risk)"
+  },
+  {
+   "screen": "OnboardingScreen",
+   "anchor": "src/screens/OnboardingScreen.tsx:713",
+   "type": "touchable",
+   "label": "onboarding.step4.editInfos (back)",
+   "action": "prevStep()",
+   "states": [
+    "default",
+    "pressed",
+    "RTL-mirrored"
+   ],
+   "risk": "testID onboarding_step4_back"
+  },
+  {
+   "screen": "OnboardingScreen",
+   "anchor": "src/screens/OnboardingScreen.tsx:743",
+   "type": "other",
+   "label": "native <input type=date> (web TTC lastPeriod)",
+   "action": "onChange set lastPeriodDate (web only)",
+   "states": [
+    "default",
+    "filled",
+    "error",
+    "RTL-mirrored"
+   ],
+   "risk": "web-only DOM input; max=today; NaN guard"
+  },
+  {
+   "screen": "OnboardingScreen",
+   "anchor": "src/screens/OnboardingScreen.tsx:763",
+   "type": "touchable",
+   "label": "lastPeriodDate field (TTC, native)",
+   "action": "open showCycleDatePicker",
+   "states": [
+    "default",
+    "pressed",
+    "filled",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "no a11yRole/label on TTC date field"
+  },
+  {
+   "screen": "OnboardingScreen",
+   "anchor": "src/screens/OnboardingScreen.tsx:770",
+   "type": "other",
+   "label": "DateTimePicker (Android inline, TTC)",
+   "action": "onChange setLastPeriodDate + close",
+   "states": [
+    "default",
+    "filled",
+    "RTL-mirrored"
+   ],
+   "risk": "Android-only; maximumDate=today"
+  },
+  {
+   "screen": "OnboardingScreen",
+   "anchor": "src/screens/OnboardingScreen.tsx:789",
+   "type": "touchable",
+   "label": "cycle length − (minus)",
+   "action": "setCycleLength(max(21,len-1))",
+   "states": [
+    "default",
+    "pressed",
+    "disabled",
+    "RTL-mirrored"
+   ],
+   "risk": "clamps at 21; no a11yLabel; no visual disabled state at floor"
+  },
+  {
+   "screen": "OnboardingScreen",
+   "anchor": "src/screens/OnboardingScreen.tsx:799",
+   "type": "touchable",
+   "label": "cycle length + (plus)",
+   "action": "setCycleLength(min(35,len+1))",
+   "states": [
+    "default",
+    "pressed",
+    "disabled",
+    "RTL-mirrored"
+   ],
+   "risk": "clamps at 35; no a11yLabel; stepper value not announced"
+  },
+  {
+   "screen": "OnboardingScreen",
+   "anchor": "src/screens/OnboardingScreen.tsx:809",
+   "type": "touchable",
+   "label": "common.back (step2TTC)",
+   "action": "prevStep()",
+   "states": [
+    "default",
+    "pressed",
+    "RTL-mirrored"
+   ],
+   "risk": "no a11yRole"
+  },
+  {
+   "screen": "OnboardingScreen",
+   "anchor": "src/screens/OnboardingScreen.tsx:812",
+   "type": "button",
+   "label": "common.continue (step2TTC, <Button>)",
+   "action": "nextStep()",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored"
+   ],
+   "risk": "always enabled"
+  },
+  {
+   "screen": "OnboardingScreen",
+   "anchor": "src/screens/OnboardingScreen.tsx:864",
+   "type": "textinput",
+   "label": "email (TTC step3 final)",
+   "action": "onChangeText setEmail",
+   "states": [
+    "default",
+    "empty",
+    "filled",
+    "focused",
+    "RTL-mirrored"
+   ],
+   "risk": "no testID/a11yLabel (unlike pregnant flow); duplicate email field"
+  },
+  {
+   "screen": "OnboardingScreen",
+   "anchor": "src/screens/OnboardingScreen.tsx:874",
+   "type": "textinput",
+   "label": "password (TTC step3 final)",
+   "action": "onChangeText setPassword",
+   "states": [
+    "default",
+    "empty",
+    "filled",
+    "focused",
+    "RTL-mirrored"
+   ],
+   "risk": "secureTextEntry; no testID/a11yLabel; gates TTC submit"
+  },
+  {
+   "screen": "OnboardingScreen",
+   "anchor": "src/screens/OnboardingScreen.tsx:890",
+   "type": "touchable",
+   "label": "step3Ttc.start (TTC submit)",
+   "action": "handleFinishTTC(true) — register+loginAsGuest(isTTC)",
+   "states": [
+    "default",
+    "pressed/active",
+    "disabled",
+    "loading",
+    "error",
+    "RTL-mirrored",
+    "offline/guest-fallback",
+    "success-feedback"
+   ],
+   "risk": "disabled gate 10ch+digit+upper inline; gradient gray when disabled; no testID/a11yRole; creates isTTC profile"
+  },
+  {
+   "screen": "OnboardingScreen",
+   "anchor": "src/screens/OnboardingScreen.tsx:909",
+   "type": "touchable",
+   "label": "step4.skipAccount (TTC)",
+   "action": "handleFinishTTC(false) — guest TTC profile",
+   "states": [
+    "default",
+    "pressed",
+    "loading",
+    "RTL-mirrored",
+    "offline/guest-fallback"
+   ],
+   "risk": "not disabled during loading"
+  },
+  {
+   "screen": "OnboardingScreen",
+   "anchor": "src/screens/OnboardingScreen.tsx:916",
+   "type": "touchable",
+   "label": "step4.editInfos (TTC back)",
+   "action": "prevStep()",
+   "states": [
+    "default",
+    "pressed",
+    "RTL-mirrored"
+   ],
+   "risk": "no a11yRole"
+  },
+  {
+   "screen": "OnboardingScreen",
+   "anchor": "src/screens/OnboardingScreen.tsx:946",
+   "type": "touchable",
+   "label": "explore week − (Curious minus)",
+   "action": "setExploreWeek(max(1,week-1))",
+   "states": [
+    "default",
+    "pressed",
+    "disabled",
+    "RTL-mirrored"
+   ],
+   "risk": "clamps at 1; no a11yLabel; updates WEEK_COMPARISONS preview"
+  },
+  {
+   "screen": "OnboardingScreen",
+   "anchor": "src/screens/OnboardingScreen.tsx:957",
+   "type": "touchable",
+   "label": "explore week + (Curious plus)",
+   "action": "setExploreWeek(min(40,week+1))",
+   "states": [
+    "default",
+    "pressed",
+    "disabled",
+    "RTL-mirrored"
+   ],
+   "risk": "clamps at 40; slider fill width % may not mirror in RTL"
+  },
+  {
+   "screen": "OnboardingScreen",
+   "anchor": "src/screens/OnboardingScreen.tsx:973",
+   "type": "touchable",
+   "label": "common.back (step2Curious)",
+   "action": "prevStep()",
+   "states": [
+    "default",
+    "pressed",
+    "RTL-mirrored"
+   ],
+   "risk": "no a11yRole"
+  },
+  {
+   "screen": "OnboardingScreen",
+   "anchor": "src/screens/OnboardingScreen.tsx:976",
+   "type": "button",
+   "label": "onboarding.discover (step2Curious, <Button>)",
+   "action": "nextStep()",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored"
+   ],
+   "risk": "always enabled"
+  },
+  {
+   "screen": "OnboardingScreen",
+   "anchor": "src/screens/OnboardingScreen.tsx:1022",
+   "type": "touchable",
+   "label": "onboarding.discover (Curious final submit)",
+   "action": "handleFinishCurious() — guest profile isCurious",
+   "states": [
+    "default",
+    "pressed/active",
+    "disabled",
+    "loading",
+    "error",
+    "RTL-mirrored",
+    "offline/guest-fallback",
+    "success-feedback"
+   ],
+   "risk": "disabled=loading only; gradient gray on loading; no testID/a11yRole; no account creation path"
+  },
+  {
+   "screen": "OnboardingScreen",
+   "anchor": "src/screens/OnboardingScreen.tsx:1039",
+   "type": "touchable",
+   "label": "onboarding.changeWeek (Curious back)",
+   "action": "prevStep()",
+   "states": [
+    "default",
+    "pressed",
+    "RTL-mirrored"
+   ],
+   "risk": "no a11yRole"
+  },
+  {
+   "screen": "OnboardingScreen",
+   "anchor": "src/screens/OnboardingScreen.tsx:1267",
+   "type": "touchable",
+   "label": "common.save (iOS picker Done, step2)",
+   "action": "setShowDatePicker(false)",
+   "states": [
+    "default",
+    "pressed",
+    "RTL-mirrored"
+   ],
+   "risk": "iOS-only overlay; no a11yRole"
+  },
+  {
+   "screen": "OnboardingScreen",
+   "anchor": "src/screens/OnboardingScreen.tsx:1271",
+   "type": "other",
+   "label": "DateTimePicker (iOS spinner overlay, step2)",
+   "action": "onChange handleDateChange",
+   "states": [
+    "default",
+    "filled",
+    "RTL-mirrored"
+   ],
+   "risk": "iOS-only; spinner display; maximumDate=today"
+  },
+  {
+   "screen": "OnboardingScreen",
+   "anchor": "src/screens/OnboardingScreen.tsx:1289",
+   "type": "touchable",
+   "label": "common.save (iOS picker Done, TTC cycle)",
+   "action": "setShowCycleDatePicker(false)",
+   "states": [
+    "default",
+    "pressed",
+    "RTL-mirrored"
+   ],
+   "risk": "iOS-only overlay; no a11yRole"
+  },
+  {
+   "screen": "OnboardingScreen",
+   "anchor": "src/screens/OnboardingScreen.tsx:1293",
+   "type": "other",
+   "label": "DateTimePicker (iOS spinner overlay, TTC)",
+   "action": "onChange setLastPeriodDate",
+   "states": [
+    "default",
+    "filled",
+    "RTL-mirrored"
+   ],
+   "risk": "iOS-only; does NOT auto-close on change (stays open)"
+  },
+  {
+   "screen": "RegisterScreen",
+   "anchor": "src/screens/RegisterScreen.tsx:133",
+   "type": "touchable",
+   "label": "back arrow (RtlAwareChevron)",
+   "action": "goBack/HomeMain (upgradeMode) else navigate AuthChoice",
+   "states": [
+    "default",
+    "pressed",
+    "RTL-mirrored",
+    "offline/guest-fallback"
+   ],
+   "risk": "absolute-positioned, side flips via [isRTL?'right':'left']; hitSlop 12; behavior branches on upgradeMode"
+  },
+  {
+   "screen": "RegisterScreen",
+   "anchor": "src/screens/RegisterScreen.tsx:152",
+   "type": "textinput",
+   "label": "emailPlaceholder (email)",
+   "action": "onChangeText setEmail + clear error",
+   "states": [
+    "default",
+    "empty",
+    "filled",
+    "focused",
+    "error",
+    "RTL-mirrored"
+   ],
+   "risk": "testID register_email_input; returnKeyType=next -> focuses passwordRef; inputRTL style in ar/tn"
+  },
+  {
+   "screen": "RegisterScreen",
+   "anchor": "src/screens/RegisterScreen.tsx:175",
+   "type": "textinput",
+   "label": "passwordPlaceholder (password)",
+   "action": "onChangeText setPassword + clear error; onFocus/onBlur set passwordFocused",
+   "states": [
+    "default",
+    "empty",
+    "filled",
+    "focused",
+    "error",
+    "RTL-mirrored"
+   ],
+   "risk": "ref passwordRef; secureTextEntry toggled by showPassword; focus drives strength bar visibility; testID register_password_input"
+  },
+  {
+   "screen": "RegisterScreen",
+   "anchor": "src/screens/RegisterScreen.tsx:193",
+   "type": "touchable",
+   "label": "eye toggle (password) 👁/🙈",
+   "action": "setShowPassword(v=>!v)",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored"
+   ],
+   "risk": "no a11yLabel/Role; toggles secureTextEntry; hitSlop 10"
+  },
+  {
+   "screen": "RegisterScreen",
+   "anchor": "src/screens/RegisterScreen.tsx:237",
+   "type": "textinput",
+   "label": "retypePassword (confirmPassword)",
+   "action": "onChangeText setConfirmPassword + clear error",
+   "states": [
+    "default",
+    "empty",
+    "filled",
+    "focused",
+    "error",
+    "RTL-mirrored"
+   ],
+   "risk": "ref confirmRef; returnKeyType=done -> onSubmitEditing handleRegister; testID register_confirm_input"
+  },
+  {
+   "screen": "RegisterScreen",
+   "anchor": "src/screens/RegisterScreen.tsx:252",
+   "type": "touchable",
+   "label": "eye toggle (confirm) 👁/🙈",
+   "action": "setShowConfirm(v=>!v)",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored"
+   ],
+   "risk": "no a11yLabel/Role; toggles confirm secureTextEntry"
+  },
+  {
+   "screen": "RegisterScreen",
+   "anchor": "src/screens/RegisterScreen.tsx:263",
+   "type": "button",
+   "label": "createMyAccount (<Button> submit)",
+   "action": "handleRegister() — validate+register/upgradeGuest",
+   "states": [
+    "default",
+    "pressed/active",
+    "disabled",
+    "loading",
+    "error",
+    "RTL-mirrored",
+    "success-feedback",
+    "offline/guest-fallback"
+   ],
+   "risk": "loading prop drives spinner; testID register_submit_button; upgradeMode shows toast + goBack vs navigate Onboarding"
+  },
+  {
+   "screen": "RegisterScreen",
+   "anchor": "src/screens/RegisterScreen.tsx:272",
+   "type": "touchable",
+   "label": "termsDisclaimer (terms link)",
+   "action": "navigate PrivacyPolicy",
+   "states": [
+    "default",
+    "pressed",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "no a11yRole; underlined small text; long localized terms may wrap/overflow"
+  },
+  {
+   "screen": "RegisterScreen",
+   "anchor": "src/screens/RegisterScreen.tsx:291",
+   "type": "touchable",
+   "label": "alreadyHaveAccount (cross-nav to Login)",
+   "action": "navigate Login",
+   "states": [
+    "default",
+    "pressed",
+    "RTL-mirrored",
+    "offline/guest-fallback"
+   ],
+   "risk": "hidden when upgradeMode (conditional render); a11yRole=button"
+  },
+  {
+   "screen": "RegisterScreen",
+   "anchor": "src/screens/RegisterScreen.tsx:127",
+   "type": "pressable",
+   "label": "Pressable keyboard-dismiss wrapper",
+   "action": "Keyboard.dismiss on press",
+   "states": [
+    "default"
+   ],
+   "risk": "full-screen tap target wrapping ScrollView; replaced deprecated TouchableWithoutFeedback"
+  },
+  {
+   "screen": "LoginScreen",
+   "anchor": "src/screens/LoginScreen.tsx:137",
+   "type": "touchable",
+   "label": "back arrow (RtlAwareChevron)",
+   "action": "navigate AuthChoice",
+   "states": [
+    "default",
+    "pressed",
+    "RTL-mirrored"
+   ],
+   "risk": "absolute, side flips via [isRTL?'right':'left']; hitSlop 12; a11yRole=button"
+  },
+  {
+   "screen": "LoginScreen",
+   "anchor": "src/screens/LoginScreen.tsx:154",
+   "type": "textinput",
+   "label": "emailPlaceholder (email)",
+   "action": "onChangeText setEmail + clear error+success",
+   "states": [
+    "default",
+    "empty",
+    "filled",
+    "focused",
+    "error",
+    "RTL-mirrored"
+   ],
+   "risk": "testID login_email_input; returnKeyType=next -> passwordRef; clears both error & success"
+  },
+  {
+   "screen": "LoginScreen",
+   "anchor": "src/screens/LoginScreen.tsx:176",
+   "type": "textinput",
+   "label": "passwordPlaceholder (password)",
+   "action": "onChangeText setPassword + clear error+success",
+   "states": [
+    "default",
+    "empty",
+    "filled",
+    "focused",
+    "error",
+    "RTL-mirrored"
+   ],
+   "risk": "ref passwordRef; secureTextEntry toggled; returnKeyType=done -> handleLogin; testID login_password_input"
+  },
+  {
+   "screen": "LoginScreen",
+   "anchor": "src/screens/LoginScreen.tsx:191",
+   "type": "touchable",
+   "label": "eye toggle 👁/🙈",
+   "action": "setShowPassword(v=>!v)",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored"
+   ],
+   "risk": "no a11yLabel/Role; hitSlop 10"
+  },
+  {
+   "screen": "LoginScreen",
+   "anchor": "src/screens/LoginScreen.tsx:203",
+   "type": "button",
+   "label": "login (<Button> submit)",
+   "action": "handleLogin() — rate-limit + validate + login",
+   "states": [
+    "default",
+    "pressed/active",
+    "disabled",
+    "loading",
+    "error",
+    "RTL-mirrored",
+    "success-feedback"
+   ],
+   "risk": "authLimiter 5/5min -> tooManyAttempts error; loading prop; testID login_submit_button"
+  },
+  {
+   "screen": "LoginScreen",
+   "anchor": "src/screens/LoginScreen.tsx:212",
+   "type": "touchable",
+   "label": "forgotPassword link",
+   "action": "handleForgotPassword() — sendPasswordResetEmail",
+   "states": [
+    "default",
+    "pressed",
+    "error",
+    "RTL-mirrored",
+    "success-feedback"
+   ],
+   "risk": "testID forgot_password_button; sets success (resetEmailSent) or error; needs valid email first; a11yRole+Label set"
+  },
+  {
+   "screen": "LoginScreen",
+   "anchor": "src/screens/LoginScreen.tsx:230",
+   "type": "touchable",
+   "label": "noAccount (cross-nav to Register)",
+   "action": "navigate Register",
+   "states": [
+    "default",
+    "pressed",
+    "RTL-mirrored"
+   ],
+   "risk": "a11yRole=button; defaultValue fallback text"
+  },
+  {
+   "screen": "LoginScreen",
+   "anchor": "src/screens/LoginScreen.tsx:129",
+   "type": "pressable",
+   "label": "Pressable keyboard-dismiss wrapper",
+   "action": "Keyboard.dismiss on press",
+   "states": [
+    "default"
+   ],
+   "risk": "full-screen tap wrapper around ScrollView"
+  },
+  {
+   "screen": "AuthChoiceScreen",
+   "anchor": "src/screens/AuthChoiceScreen.tsx:29",
+   "type": "other",
+   "label": "<LanguageSelector/> (embedded component)",
+   "action": "opens language modal (see LanguageSelector rows)",
+   "states": [
+    "default",
+    "RTL-mirrored"
+   ],
+   "risk": "container alignSelf flips flex-end/flex-start via isRTL"
+  },
+  {
+   "screen": "AuthChoiceScreen",
+   "anchor": "src/screens/AuthChoiceScreen.tsx:46",
+   "type": "touchable",
+   "label": "createAccount (primary, gradient)",
+   "action": "navigate Register",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "testID auth_signup_button; activeOpacity 0.85; a11yRole+Label; subtext startQuestionnaire"
+  },
+  {
+   "screen": "AuthChoiceScreen",
+   "anchor": "src/screens/AuthChoiceScreen.tsx:66",
+   "type": "touchable",
+   "label": "login (secondary)",
+   "action": "navigate Login",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "testID auth_login_button; accent text for WCAG AA contrast (A11Y-CONTRAST-01)"
+  },
+  {
+   "screen": "AuthChoiceScreen",
+   "anchor": "src/screens/AuthChoiceScreen.tsx:78",
+   "type": "touchable",
+   "label": "continueAsGuest (guest)",
+   "action": "navigate Onboarding",
+   "states": [
+    "default",
+    "pressed",
+    "RTL-mirrored",
+    "offline/guest-fallback",
+    "long-text/overflow"
+   ],
+   "risk": "testID auth_guest_button; activeOpacity 0.7; primary guest entry path"
+  },
+  {
+   "screen": "AuthChoiceScreen",
+   "anchor": "src/screens/AuthChoiceScreen.tsx:90",
+   "type": "touchable",
+   "label": "guestDisclaimer — privacyPolicy link",
+   "action": "navigate PrivacyPolicy",
+   "states": [
+    "default",
+    "pressed",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "no a11yRole; small underlined text; concatenated string may overflow in AR/TN"
+  },
+  {
+   "screen": "LanguageSelectScreen",
+   "anchor": "src/screens/LanguageSelectScreen.tsx:105",
+   "type": "touchable",
+   "label": "language card (fr/ar/tn/en) .map",
+   "action": "handleLanguageSelect(code) — changeLanguage + persist + toast",
+   "states": [
+    "default",
+    "pressed/active",
+    "disabled",
+    "loading",
+    "RTL-mirrored",
+    "long-text/overflow",
+    "success-feedback"
+   ],
+   "risk": "4 rendered instances; disabled=loading (all cards block during change); selected shows checkmark; tn label long ('العربية + الدارجة (Beta)'); triggers RTL flip ar/tn; activeOpacity 0.7"
+  },
+  {
+   "screen": "LanguageSelectScreen",
+   "anchor": "src/screens/LanguageSelectScreen.tsx:155",
+   "type": "touchable",
+   "label": "common.continue (with RtlAwareChevron)",
+   "action": "navigation.reset -> AuthChoice",
+   "states": [
+    "default",
+    "pressed",
+    "RTL-mirrored"
+   ],
+   "risk": "no a11yRole; CommonActions.reset wipes stack; chevron direction=forward mirrors in RTL"
+  },
+  {
+   "screen": "PrivacyPolicyScreen",
+   "anchor": "src/screens/PrivacyPolicyScreen.tsx:36",
+   "type": "touchable",
+   "label": "tab (privacy/terms/cookies) .map",
+   "action": "setActiveTab(tab) — switch content",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "3 rendered instances; active style tabButtonActive; no a11yRole/state; flex:1 tabs, localized labels may truncate"
+  },
+  {
+   "screen": "PrivacyPolicyScreen",
+   "anchor": "src/screens/PrivacyPolicyScreen.tsx:111",
+   "type": "touchable",
+   "label": "contact email button (📧 contact@mamabebe.app)",
+   "action": "handleContactPress — Linking.openURL mailto:",
+   "states": [
+    "default",
+    "pressed",
+    "RTL-mirrored",
+    "error"
+   ],
+   "risk": "only rendered on privacy tab; no a11yRole; openURL can reject if no mail client (unhandled)"
+  },
+  {
+   "screen": "LanguageSelector",
+   "anchor": "src/components/common/LanguageSelector.tsx:30",
+   "type": "touchable",
+   "label": "selector button (flag + CODE)",
+   "action": "setModalVisible(true) — open language modal",
+   "states": [
+    "default",
+    "pressed",
+    "RTL-mirrored"
+   ],
+   "risk": "no a11yRole/Label; shows currentLang flag+code; reused on AuthChoice + settings"
+  },
+  {
+   "screen": "LanguageSelector",
+   "anchor": "src/components/common/LanguageSelector.tsx:44",
+   "type": "touchable",
+   "label": "modal overlay (backdrop)",
+   "action": "setModalVisible(false) — dismiss modal",
+   "states": [
+    "default",
+    "pressed",
+    "RTL-mirrored"
+   ],
+   "risk": "activeOpacity 1; full-screen backdrop dismiss; inner content tap bubbles? content is child so taps inside still close (no stopPropagation)"
+  },
+  {
+   "screen": "LanguageSelector",
+   "anchor": "src/components/common/LanguageSelector.tsx:52",
+   "type": "touchable",
+   "label": "language option (fr/ar/tn/en) .map",
+   "action": "changeLanguage(code) — i18n change + close modal",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "4 rendered instances; selectedOption style on current; no disabled/loading guard (rapid taps); triggers RTL flip; no a11yRole/state"
+  },
+  {
+   "screen": "LanguageSelector",
+   "anchor": "src/components/common/LanguageSelector.tsx:38",
+   "type": "other",
+   "label": "<Modal> (language picker)",
+   "action": "onRequestClose setModalVisible(false)",
+   "states": [
+    "default",
+    "RTL-mirrored"
+   ],
+   "risk": "transparent fade modal; Android hardware-back via onRequestClose"
+  },
+  {
+   "screen": "HomeScreen",
+   "anchor": "src/screens/HomeScreen.tsx:309",
+   "type": "button",
+   "label": "errorBoundary.retry",
+   "action": "refetch() — reload current-week data after a fetch error (error-state EmptyState action)",
+   "states": [
+    "default",
+    "pressed/active",
+    "loading",
+    "error",
+    "RTL-mirrored",
+    "long-text/overflow",
+    "success-feedback"
+   ],
+   "risk": "only rendered in error branch (error || !weekData); verify retry actually re-triggers useCurrentWeek and clears error"
+  },
+  {
+   "screen": "HomeScreen",
+   "anchor": "src/screens/HomeScreen.tsx:343",
+   "type": "touchable",
+   "label": "recommendation card (article/supplement) — `${title}, ${subtitle}`",
+   "action": "navigate('ArticleDetail',{articleId}) or navigate('SupplementDetail',{supplementId}) depending on item type",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow",
+    "filled",
+    "offline/guest-fallback"
+   ],
+   "risk": "rendered inside horizontal ScrollView (recommendations) — RTL horizontal scroll start position + numberOfLines=2 title truncation"
+  },
+  {
+   "screen": "HomeScreen",
+   "anchor": "src/screens/HomeScreen.tsx:381",
+   "type": "touchable",
+   "label": "home.welcomeDismiss",
+   "action": "dismissWelcome() — hide first-run welcome card + persist @home_welcome_seen_v1 in AsyncStorage",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow",
+    "offline/guest-fallback",
+    "success-feedback"
+   ],
+   "risk": "only visible on first run (showWelcome); guest-safe persistence — verify dismiss persists and doesn't reappear, AsyncStorage write failure swallowed"
+  },
+  {
+   "screen": "HomeScreen",
+   "anchor": "src/screens/HomeScreen.tsx:404",
+   "type": "touchable",
+   "label": "home.curiousCta",
+   "action": "navigate('Profile') — exit Curious/discovery mode banner CTA",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "only rendered when user?.isCurious; banner uses fixed flexDirection (no row-reverse) — check RTL layout of emoji+text+CTA"
+  },
+  {
+   "screen": "HomeScreen",
+   "anchor": "src/screens/HomeScreen.tsx:424",
+   "type": "touchable",
+   "label": "a11y.profile (avatar initial)",
+   "action": "navigate('Profile') — profile button top-right, wrapped in pulse Animated.View",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored"
+   ],
+   "risk": "absolutely-positioned end:20 (RTL flips to left); pulse loop suppressed under reduced-motion — verify position mirrors in ar/tn"
+  },
+  {
+   "screen": "HomeScreen",
+   "anchor": "src/screens/HomeScreen.tsx:454",
+   "type": "touchable",
+   "label": "a11y.previousWeek (chevron back)",
+   "action": "handlePrevWeek() — overrideWeek = currentWeekNumber-1 (time-travel back one week)",
+   "states": [
+    "default",
+    "pressed/active",
+    "disabled",
+    "RTL-mirrored"
+   ],
+   "risk": "disabled when currentWeekNumber<=1; RtlAwareChevron must mirror direction in RTL; hidden for TTC users"
+  },
+  {
+   "screen": "HomeScreen",
+   "anchor": "src/screens/HomeScreen.tsx:473",
+   "type": "touchable",
+   "label": "a11y.nextWeek (chevron forward)",
+   "action": "handleNextWeek() — overrideWeek = currentWeekNumber+1, resets overrideDay (time-travel forward)",
+   "states": [
+    "default",
+    "pressed/active",
+    "disabled",
+    "RTL-mirrored"
+   ],
+   "risk": "disabled when currentWeekNumber>=40; RtlAwareChevron mirror; hidden for TTC users"
+  },
+  {
+   "screen": "HomeScreen",
+   "anchor": "src/screens/HomeScreen.tsx:494",
+   "type": "touchable",
+   "label": "home.currentWeek (return-to-today pill, testID home_return_to_today)",
+   "action": "handleReturnToToday() — clears overrideWeek/overrideDay, returns to real current week",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "only rendered when isPreviewingWeek (time-machine active) and not TTC; explicit flexDirection row/row-reverse on isRTL"
+  },
+  {
+   "screen": "HomeScreen",
+   "anchor": "src/screens/HomeScreen.tsx:519",
+   "type": "touchable",
+   "label": "home.myAppointments (quick action pill, testID home_quick_appointments)",
+   "action": "navigate('Calendrier')",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "icon+label flip via flexDirection isRTL; numberOfLines=1 label may truncate in long-text locales (ar/tn)"
+  },
+  {
+   "screen": "HomeScreen",
+   "anchor": "src/screens/HomeScreen.tsx:530",
+   "type": "touchable",
+   "label": "home.addTask (quick action pill, testID home_quick_add_task)",
+   "action": "navigate('Rappels',{screen:'RemindersMain',params:{screen:'TasksTab',params:{action:'add'}}}) — deep-link to add-task",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "deep nested navigation params — verify the add-task action actually fires on the TasksTab on arrival"
+  },
+  {
+   "screen": "HomeScreen",
+   "anchor": "src/screens/HomeScreen.tsx:541",
+   "type": "touchable",
+   "label": "home.addAppointment (quick action pill, testID home_quick_add_appointment)",
+   "action": "compute targetDate from lmp+week/day offset, navigate('Calendrier',{screen:'AddAppointment',params:{selectedDate}})",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "targetDate math uses addDays(lmp, weekOffset+dayOffset) — verify correct prefilled date; fallback to new Date() when no lmp"
+  },
+  {
+   "screen": "HomeScreen",
+   "anchor": "src/screens/HomeScreen.tsx:563",
+   "type": "touchable",
+   "label": "common.search (quick action pill, testID home_quick_search)",
+   "action": "navigate('Ressources',{screen:'ResourcesMain',params:{openSearch:true}}) — open Resources with search auto-opened",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "openSearch param must auto-focus the search field on arrival"
+  },
+  {
+   "screen": "HomeScreen",
+   "anchor": "src/screens/HomeScreen.tsx:593",
+   "type": "touchable",
+   "label": "home.postpartumCta",
+   "action": "navigate('Profile') — postpartum/eternal-pregnancy banner CTA to update status",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "only rendered when isInvalid (overdue/postpartum week); verify banner shows for week>40 / past-due"
+  },
+  {
+   "screen": "HomeScreen",
+   "anchor": "src/screens/HomeScreen.tsx:710",
+   "type": "touchable",
+   "label": "common.yourBody (expand/collapse mom-body card header)",
+   "action": "setShowFullBodyText(!showFullBodyText) — toggle numberOfLines 3↔undefined on body text; seeMore/seeLess label",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow",
+    "filled"
+   ],
+   "risk": "accessibilityState expanded + web aria-expanded; marginStart:'auto' on label must flip in RTL; verify collapse/expand re-truncates"
+  },
+  {
+   "screen": "HomeScreen",
+   "anchor": "src/screens/HomeScreen.tsx:785",
+   "type": "touchable",
+   "label": "common.reminders (tool grid card)",
+   "action": "navigate('Rappels')",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "2-col grid wrap — title/subtitle overflow in long-text locales; RTL grid order"
+  },
+  {
+   "screen": "HomeScreen",
+   "anchor": "src/screens/HomeScreen.tsx:802",
+   "type": "touchable",
+   "label": "home.calendar (tool grid card)",
+   "action": "navigate('Calendrier')",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "grid wrapping/overflow"
+  },
+  {
+   "screen": "HomeScreen",
+   "anchor": "src/screens/HomeScreen.tsx:819",
+   "type": "touchable",
+   "label": "home.myWeight (tool grid card)",
+   "action": "navigate('WeightTracker')",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "grid wrapping/overflow"
+  },
+  {
+   "screen": "HomeScreen",
+   "anchor": "src/screens/HomeScreen.tsx:836",
+   "type": "touchable",
+   "label": "home.foods (tool grid card)",
+   "action": "navigate('ForbiddenFoods')",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "grid wrapping/overflow"
+  },
+  {
+   "screen": "HomeScreen",
+   "anchor": "src/screens/HomeScreen.tsx:855",
+   "type": "touchable",
+   "label": "cycle8.kickCounter.title (tool grid card, conditional week>=16)",
+   "action": "navigate('KickCounter')",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "conditionally rendered only when currentWeekNumber>=16 (trimester-aware) — absent before week 16"
+  },
+  {
+   "screen": "HomeScreen",
+   "anchor": "src/screens/HomeScreen.tsx:875",
+   "type": "touchable",
+   "label": "cycle8.contractionTimer.title (tool grid card, conditional week>=28)",
+   "action": "navigate('ContractionTimer')",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "conditionally rendered only when currentWeekNumber>=28 — absent before week 28"
+  },
+  {
+   "screen": "HomeScreen",
+   "anchor": "src/screens/HomeScreen.tsx:892",
+   "type": "touchable",
+   "label": "cycle8.hospitalBag.title (tool grid card, conditional week>=28)",
+   "action": "navigate('HospitalBag')",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "conditionally rendered only when currentWeekNumber>=28 — absent before week 28; odd-count grid alignment with kick counter"
+  },
+  {
+   "screen": "HomeScreen",
+   "anchor": "src/screens/HomeScreen.tsx:911",
+   "type": "touchable",
+   "label": "cycle8.ramadan.title (tool grid card)",
+   "action": "navigate('RamadanPregnancy')",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "always rendered (all locales); grid parity — total grid item count varies by week (4/5/7), check last-row alignment"
+  },
+  {
+   "screen": "HomeScreen",
+   "anchor": "src/screens/HomeScreen.tsx:932",
+   "type": "touchable",
+   "label": "common.seeAll (SectionHeader action — upcoming appointments)",
+   "action": "onAction → navigate('Calendrier') (TouchableOpacity rendered inside SectionHeader at SectionHeader.tsx:16)",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "only rendered when appointments.length>0; element lives in common/SectionHeader but action wired here"
+  },
+  {
+   "screen": "HomeScreen",
+   "anchor": "src/screens/HomeScreen.tsx:938",
+   "type": "touchable",
+   "label": "appointment row — `${app.title}, ${formatted date}`",
+   "action": "navigate('Calendrier') — tapping an upcoming-appointment row (slice 0..3)",
+   "states": [
+    "default",
+    "pressed/active",
+    "empty",
+    "RTL-mirrored",
+    "long-text/overflow",
+    "filled"
+   ],
+   "risk": "mapped list (max 3); date formatted with dateLocale; left accent bar marginEnd flips in RTL; empty when no appts (section hidden)"
+  },
+  {
+   "screen": "HomeScreen",
+   "anchor": "src/screens/HomeScreen.tsx:965",
+   "type": "touchable",
+   "label": "common.seeAll (SectionHeader action — recommendations)",
+   "action": "onAction → navigate('Ressources') (TouchableOpacity rendered inside SectionHeader at SectionHeader.tsx:16)",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "only rendered when [...articles,...supplements].length>0; element lives in common/SectionHeader"
+  },
+  {
+   "screen": "BabyGrowthCard",
+   "anchor": "src/components/home/BabyGrowthCard.tsx:149",
+   "type": "touchable",
+   "label": "home.babyEvolution (CTA button)",
+   "action": "navigate('BabyEvolution') — open full baby-evolution screen",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow",
+    "success-feedback"
+   ],
+   "risk": "RtlAwareChevron arrow variant must mirror in RTL; card animates in (fade+scale) — verify CTA reachable after animation; rendered only when !isTTC"
+  },
+  {
+   "screen": "DailyRoutinesTracker",
+   "anchor": "src/components/home/DailyRoutinesTracker.tsx:165",
+   "type": "touchable",
+   "label": "appointment summary row (home.reminders.appointmentsToday/Tomorrow/Week)",
+   "action": "navigate('Calendrier') — appointment line inside Home header unified tracker pill",
+   "states": [
+    "default",
+    "pressed/active",
+    "empty",
+    "loading",
+    "RTL-mirrored",
+    "long-text/overflow",
+    "filled"
+   ],
+   "risk": "returns null while loading and when no appts/tasks; pluralized count message; chevron must mirror; shared-context layout (divider) when both rows present"
+  },
+  {
+   "screen": "DailyRoutinesTracker",
+   "anchor": "src/components/home/DailyRoutinesTracker.tsx:186",
+   "type": "touchable",
+   "label": "tasks summary row (reminders.myDay.title completedItems/totalItems)",
+   "action": "navigate('Rappels',{screen:'RemindersMain',params:{screen:'TasksTab'}}) — opens My Day tasks; shows micro progress bar",
+   "states": [
+    "default",
+    "pressed/active",
+    "empty",
+    "loading",
+    "RTL-mirrored",
+    "long-text/overflow",
+    "filled",
+    "success-feedback"
+   ],
+   "risk": "progress bar width %; turns green at 100%; hidden when totalItems==0; guest (no uid) → tasks not loaded; RTL chevron + progress fill direction"
+  },
+  {
+   "screen": "WeekRemindersCard",
+   "anchor": "src/components/home/WeekRemindersCard.tsx:100",
+   "type": "touchable",
+   "label": "reminders.card.viewAll",
+   "action": "onViewAll() — optional prop callback to open full reminders screen",
+   "states": [
+    "default",
+    "pressed/active",
+    "loading",
+    "empty",
+    "RTL-mirrored",
+    "long-text/overflow",
+    "filled"
+   ],
+   "risk": "DEAD/UNUSED — component not imported by HomeScreen.tsx (Home inlines its own grid + tracker); only renders when onViewAll prop passed; null when no reminders/tasks; loading shows spinner"
+  },
+  {
+   "screen": "HomeHeader",
+   "anchor": "src/components/home/HomeHeader.tsx:57",
+   "type": "touchable",
+   "label": "prev-day chevron (RtlAwareChevron back)",
+   "action": "onPrevDay() — go to previous day in week progress bar",
+   "states": [
+    "default",
+    "pressed/active",
+    "disabled",
+    "RTL-mirrored"
+   ],
+   "risk": "DEAD/UNUSED — HomeHeader component not imported by HomeScreen (Home inlines its own header); disabled when week==1 && day==1"
+  },
+  {
+   "screen": "HomeHeader",
+   "anchor": "src/components/home/HomeHeader.tsx:73",
+   "type": "touchable",
+   "label": "day progress segment (1..7)",
+   "action": "onDaySelect(day) — jump to specific day-of-week via tappable progress segment",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored"
+   ],
+   "risk": "DEAD/UNUSED — HomeHeader not rendered; 7 segments mapped; active vs inactive styling; RTL segment order (roundedLeft/Right)"
+  },
+  {
+   "screen": "HomeHeader",
+   "anchor": "src/components/home/HomeHeader.tsx:92",
+   "type": "touchable",
+   "label": "next-day chevron (RtlAwareChevron forward)",
+   "action": "onNextDay() — go to next day in week progress bar",
+   "states": [
+    "default",
+    "pressed/active",
+    "disabled",
+    "RTL-mirrored"
+   ],
+   "risk": "DEAD/UNUSED — HomeHeader not rendered; disabled when week==40 && day==7"
+  },
+  {
+   "screen": "HomeHeader",
+   "anchor": "src/components/home/HomeHeader.tsx:118",
+   "type": "touchable",
+   "label": "profile button (avatar initial)",
+   "action": "onProfilePress() — open profile (pulse Animated.View wrapper)",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored"
+   ],
+   "risk": "DEAD/UNUSED — HomeHeader not rendered; absolute end:20 RTL flip"
+  },
+  {
+   "screen": "HomeHeader",
+   "anchor": "src/components/home/HomeHeader.tsx:147",
+   "type": "touchable",
+   "label": "prev-week chevron (RtlAwareChevron back)",
+   "action": "onPrevWeek() — previous week navigation",
+   "states": [
+    "default",
+    "pressed/active",
+    "disabled",
+    "RTL-mirrored"
+   ],
+   "risk": "DEAD/UNUSED — HomeHeader not rendered; disabled when currentWeekNumber<=1"
+  },
+  {
+   "screen": "HomeHeader",
+   "anchor": "src/components/home/HomeHeader.tsx:164",
+   "type": "touchable",
+   "label": "next-week chevron (RtlAwareChevron forward)",
+   "action": "onNextWeek() — next week navigation",
+   "states": [
+    "default",
+    "pressed/active",
+    "disabled",
+    "RTL-mirrored"
+   ],
+   "risk": "DEAD/UNUSED — HomeHeader not rendered; disabled when currentWeekNumber>=40"
+  },
+  {
+   "screen": "OrganizationGrid",
+   "anchor": "src/components/home/OrganizationGrid.tsx:18",
+   "type": "touchable",
+   "label": "common.reminders (tool card)",
+   "action": "navigate('Rappels')",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "DEAD/UNUSED — OrganizationGrid not imported by HomeScreen (Home inlines its own tool grid); no accessibilityRole/label on the touchable"
+  },
+  {
+   "screen": "OrganizationGrid",
+   "anchor": "src/components/home/OrganizationGrid.tsx:33",
+   "type": "touchable",
+   "label": "home.calendar (tool card)",
+   "action": "navigate('Calendrier')",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "DEAD/UNUSED — OrganizationGrid not rendered; no accessibilityRole/label"
+  },
+  {
+   "screen": "SmartRemindersBanner",
+   "anchor": "src/components/home/SmartRemindersBanner.tsx:79",
+   "type": "touchable",
+   "label": "appointment line (renderAppointmentLine — today/tomorrow/week message)",
+   "action": "onPressAppointments() — prop callback, navigate to appointments",
+   "states": [
+    "default",
+    "pressed/active",
+    "empty",
+    "RTL-mirrored",
+    "long-text/overflow",
+    "filled"
+   ],
+   "risk": "DEAD/UNUSED — SmartRemindersBanner not imported by HomeScreen (superseded by DailyRoutinesTracker); returns null when no appt+task message; chevron mirror"
+  },
+  {
+   "screen": "SmartRemindersBanner",
+   "anchor": "src/components/home/SmartRemindersBanner.tsx:92",
+   "type": "touchable",
+   "label": "task line (renderTaskLine — today/important message)",
+   "action": "onPressTasks() — prop callback, navigate to tasks",
+   "states": [
+    "default",
+    "pressed/active",
+    "empty",
+    "RTL-mirrored",
+    "long-text/overflow",
+    "filled"
+   ],
+   "risk": "DEAD/UNUSED — SmartRemindersBanner not rendered; high-priority uses warning icon + pink color; chevron mirror"
+  },
+  {
+   "screen": "MyDaySection",
+   "anchor": "src/components/tasks/MyDaySection.tsx:378",
+   "type": "touchable",
+   "label": "checklist item card content (item.title + icon + time/subtitle)",
+   "action": "handleToggleItem(item.id) — toggle complete/incomplete; optimistic; persists task status or reminder progress + deep-sync; triggers all-done success alert",
+   "states": [
+    "default",
+    "pressed/active",
+    "loading",
+    "empty",
+    "filled",
+    "success-feedback",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "complex: optimistic update + remote updateTaskStatus/markReminderAsCompleted; checkCompletion fires showAlert at 100%; checkbox checked state; line-through on completed; highlight state when reminderId matches"
+  },
+  {
+   "screen": "MyDaySection",
+   "anchor": "src/components/tasks/MyDaySection.tsx:412",
+   "type": "touchable",
+   "label": "edit task action (✏️) — custom tasks only",
+   "action": "onEditTask(item.id) — invoke edit callback",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored"
+   ],
+   "risk": "only rendered for item.type==='custom'; onEditTask optional (guarded &&); small 8px hit area + marginStart flips RTL"
+  },
+  {
+   "screen": "MyDaySection",
+   "anchor": "src/components/tasks/MyDaySection.tsx:420",
+   "type": "touchable",
+   "label": "delete/skip action (🗑️)",
+   "action": "custom task → onDeleteTask(id); reminder/appointment → confirmAction(...) → handleSkipItem(id) (hide for today)",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "success-feedback"
+   ],
+   "risk": "branches by item.type; reminders go through confirmAction dialog (cancel/hide) before skip; onDeleteTask optional; verify dialog i18n + RTL"
+  },
+  {
+   "screen": "MyDaySection",
+   "anchor": "src/components/tasks/MyDaySection.tsx:444",
+   "type": "touchable",
+   "label": "+ 250ml (hydration add-water button)",
+   "action": "handleAddWater(id) — +0.25L to hydration item, recompute completed, persist progress; updates L/L subtitle",
+   "states": [
+    "default",
+    "pressed/active",
+    "filled",
+    "success-feedback",
+    "RTL-mirrored"
+   ],
+   "risk": "only rendered for item.type==='hydration' && !completed; disappears once target reached; subtitle uses fixed 'L' unit (not localized); marginStart flips RTL"
+  },
+  {
+   "screen": "CalendarScreen",
+   "anchor": "src/screens/CalendarScreen.tsx:451",
+   "type": "touchable",
+   "label": "common.retry (\"Réessayer\")",
+   "action": "Re-trigger loadData() to reload calendar templates + user events after a load error",
+   "states": [
+    "default",
+    "pressed/active",
+    "error",
+    "loading",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "error: only reachable in error branch; pressing re-enters loading skeleton — ensure retry actually re-fires (P3.3 fix made loadData a useCallback)"
+  },
+  {
+   "screen": "CalendarScreen",
+   "anchor": "src/screens/CalendarScreen.tsx:547",
+   "type": "touchable",
+   "label": "✕ close suggestions (a11y.close)",
+   "action": "setShowSuggestions(false) — collapse the suggestions section",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored"
+   ],
+   "risk": "only rendered when showSuggestions && suggestions.length>0; glyph ✕ not localized"
+  },
+  {
+   "screen": "CalendarScreen",
+   "anchor": "src/screens/CalendarScreen.tsx:590",
+   "type": "touchable",
+   "label": "FAB + (a11y.addAppointment)",
+   "action": "navigate('AddAppointment', { selectedDate: selectedDate.toISOString() }) — open create-appointment screen",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "offline/guest-fallback"
+   ],
+   "risk": "guest: navigates to AddAppointment which then blocks save with GuestUpgrade prompt; RTL: FAB position should mirror (bottom-end)"
+  },
+  {
+   "screen": "CalendarScreen",
+   "anchor": "src/screens/CalendarScreen.tsx:517",
+   "type": "touchable",
+   "label": "month-day cell (delegated onPress={setSelectedDate})",
+   "action": "Sets selectedDate to the tapped day (CalendarMonthDay child); filters event list to that date",
+   "states": [
+    "default",
+    "pressed/active",
+    "empty",
+    "filled",
+    "RTL-mirrored"
+   ],
+   "risk": "month view only; handler passes Date directly; see CalendarMonthDay.tsx:33 for the actual element"
+  },
+  {
+   "screen": "CalendarScreen",
+   "anchor": "src/screens/CalendarScreen.tsx:531",
+   "type": "touchable",
+   "label": "weekly-strip day (delegated onDateSelect={setSelectedDate})",
+   "action": "Sets selectedDate to tapped weekday (WeeklyStrip child); filters list",
+   "states": [
+    "default",
+    "pressed/active",
+    "empty",
+    "filled",
+    "RTL-mirrored"
+   ],
+   "risk": "week view only; see WeeklyStrip.tsx:50 for the actual element"
+  },
+  {
+   "screen": "CalendarScreen",
+   "anchor": "src/screens/CalendarScreen.tsx:572",
+   "type": "other",
+   "label": "FlatList renderItem -> EventCard (onEdit/onDelete wired only for source==='user')",
+   "action": "Renders each day's user events; onEdit=>handleEditEvent(navigate edit), onDelete=>handleDeleteEvent(confirm+delete)",
+   "states": [
+    "default",
+    "empty",
+    "filled",
+    "loading",
+    "offline/guest-fallback",
+    "RTL-mirrored",
+    "long-text/overflow",
+    "success-feedback"
+   ],
+   "risk": "empty: ListEmptyComponent shows 'noEventsForDay'; guest delete => GuestUpgrade prompt; delete success reloads events; see EventCard.tsx:26/108/120"
+  },
+  {
+   "screen": "CalendarScreen(handler)",
+   "anchor": "src/screens/CalendarScreen.tsx:370",
+   "type": "other",
+   "label": "handleDeleteEvent (confirmAction destructive)",
+   "action": "Guest=>GuestUpgrade prompt; else confirmAction delete dialog -> deleteUserEvent -> reload; error => showAlert(cannotDeleteEvent)",
+   "states": [
+    "default",
+    "loading",
+    "error",
+    "offline/guest-fallback",
+    "success-feedback",
+    "RTL-mirrored"
+   ],
+   "risk": "web: confirmAction must bridge window.confirm (Alert.alert is no-op on web); guest gets create-account CTA"
+  },
+  {
+   "screen": "CalendarHeader",
+   "anchor": "src/components/calendar/CalendarHeader.tsx:61",
+   "type": "touchable",
+   "label": "prev-week chevron (a11y.previousWeek)",
+   "action": "onPrevWeek -> currentWeek-1 (guarded >1) + setSelectedDate to week start",
+   "states": [
+    "default",
+    "pressed/active",
+    "disabled",
+    "RTL-mirrored"
+   ],
+   "risk": "disabled-like: no-op at week 1 (no visual disabled state — silent); RTL: glyph swapped on web only (swapChevrons), native auto-mirrors — double-mirror risk"
+  },
+  {
+   "screen": "CalendarHeader",
+   "anchor": "src/components/calendar/CalendarHeader.tsx:77",
+   "type": "touchable",
+   "label": "next-week chevron (a11y.nextWeek)",
+   "action": "onNextWeek -> currentWeek+1 (guarded <40) + setSelectedDate to week start",
+   "states": [
+    "default",
+    "pressed/active",
+    "disabled",
+    "RTL-mirrored"
+   ],
+   "risk": "no-op at week 40 with no disabled styling; web RTL glyph swap vs native auto-mirror"
+  },
+  {
+   "screen": "CalendarHeader",
+   "anchor": "src/components/calendar/CalendarHeader.tsx:89",
+   "type": "touchable",
+   "label": "Week view toggle (calendar.week)",
+   "action": "onSelectWeekView -> setCalendarView('week')",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "selected state via accessibilityState.selected + aria-selected (CAL-R2-03 web fix); active style selectorButtonActive"
+  },
+  {
+   "screen": "CalendarHeader",
+   "anchor": "src/components/calendar/CalendarHeader.tsx:102",
+   "type": "touchable",
+   "label": "Month view toggle (calendar.month)",
+   "action": "onSelectMonthView -> setCalendarView('month')",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "aria-selected exposed on web; switching view recomputes monthDays/stats"
+  },
+  {
+   "screen": "CalendarHeader",
+   "anchor": "src/components/calendar/CalendarHeader.tsx:117",
+   "type": "touchable",
+   "label": "Suggestions badge (calendar.suggestions / suggestionsCount{count})",
+   "action": "onToggleSuggestions -> toggle showSuggestions; label shows count for week or month",
+   "states": [
+    "default",
+    "pressed/active",
+    "empty",
+    "filled",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "empty: count 0 shows generic 'suggestions'; aria-expanded on web; bulb icon marginEnd should flip RTL"
+  },
+  {
+   "screen": "CalendarHeader",
+   "anchor": "src/components/calendar/CalendarHeader.tsx:136",
+   "type": "touchable",
+   "label": "Today button (calendar.today)",
+   "action": "onPressToday -> setSelectedDate(now) + setCurrentWeek(user.currentWeek)",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "no-op if user.currentWeek undefined (only setSelectedDate runs in handlePressToday)"
+  },
+  {
+   "screen": "CalendarMonthDay",
+   "anchor": "src/components/calendar/CalendarMonthDay.tsx:33",
+   "type": "touchable",
+   "label": "Month day cell (format EEEE d MMMM yyyy)",
+   "action": "onPress(day) -> selects the date; renders day number + event dot if userEventCount>0",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "empty",
+    "filled"
+   ],
+   "risk": "null day => non-interactive padding cell (monthDayEmpty, returns before TouchableOpacity); selected/today/otherMonth styling; aria-selected on web; activeOpacity 0.7"
+  },
+  {
+   "screen": "WeeklyStrip",
+   "anchor": "src/components/calendar/WeeklyStrip.tsx:50",
+   "type": "touchable",
+   "label": "Weekday cell x7 (format EEEE dd MMMM)",
+   "action": "onDateSelect(date) for each of 7 days (rendered via [0..6].map(renderDay))",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "empty",
+    "filled"
+   ],
+   "risk": "7 instances; selected/today styling + dot when hasRDV (userEventCounts); aria-selected on web; row should mirror in RTL"
+  },
+  {
+   "screen": "EventCard",
+   "anchor": "src/components/calendar/EventCard.tsx:26",
+   "type": "touchable",
+   "label": "Card content body (event.title + date a11y label)",
+   "action": "onPress (open) — DISABLED in CalendarScreen usage (onPress prop not passed; disabled={!onPress})",
+   "states": [
+    "default",
+    "disabled",
+    "RTL-mirrored",
+    "long-text/overflow",
+    "filled"
+   ],
+   "risk": "in calendar list onPress is undefined => disabled=true, accessibilityHint suppressed; title/location numberOfLines=1, notes/desc numberOfLines=2 (overflow truncation)"
+  },
+  {
+   "screen": "EventCard",
+   "anchor": "src/components/calendar/EventCard.tsx:108",
+   "type": "touchable",
+   "label": "Edit button (common.edit / a11y.editAppointment)",
+   "action": "onEdit() -> CalendarScreen.handleEditEvent -> navigate('AddAppointment', { event }) in edit mode",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "only rendered for user events when onEdit provided; borderEnd should flip RTL; emoji label + text"
+  },
+  {
+   "screen": "EventCard",
+   "anchor": "src/components/calendar/EventCard.tsx:120",
+   "type": "touchable",
+   "label": "Delete button (common.delete / a11y.deleteAppointment)",
+   "action": "onDelete() -> CalendarScreen.handleDeleteEvent -> confirm + deleteUserEvent (or GuestUpgrade if guest)",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow",
+    "offline/guest-fallback",
+    "success-feedback"
+   ],
+   "risk": "destructive; guest path diverts to create-account; only when onDelete provided (user events)"
+  },
+  {
+   "screen": "AddAppointmentScreen",
+   "anchor": "src/screens/AddAppointmentScreen.tsx:452",
+   "type": "textinput",
+   "label": "Title input (addAppointment.titlePlaceholder)",
+   "action": "onChangeText={setTitle}; maxLength=100; drives isTitleValid + hasUnsavedChanges",
+   "states": [
+    "default",
+    "focused",
+    "empty",
+    "filled",
+    "error",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "error: red borderColor when !isTitleValid && length>0 (whitespace-only); required for Save; maxLength 100 overflow"
+  },
+  {
+   "screen": "AddAppointmentScreen",
+   "anchor": "src/screens/AddAppointmentScreen.tsx:466",
+   "type": "touchable",
+   "label": "Type: Medical (addAppointment.typeMedical)",
+   "action": "onPress -> setType('medical'); persisted as category on save",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "selected via accessibilityState.selected + aria-selected (CAL-R2-03); typeButtonActive style; pre-selected when editing medical event"
+  },
+  {
+   "screen": "AddAppointmentScreen",
+   "anchor": "src/screens/AddAppointmentScreen.tsx:477",
+   "type": "touchable",
+   "label": "Type: Other/Personal (addAppointment.typeOther)",
+   "action": "onPress -> setType('other'); persisted as category on save",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "aria-selected on web; mutually exclusive with Medical; restored from category on edit (CAL-04)"
+  },
+  {
+   "screen": "AddAppointmentScreen",
+   "anchor": "src/screens/AddAppointmentScreen.tsx:497",
+   "type": "textinput",
+   "label": "Date input (WEB only, value yyyy-MM-dd, placeholder YYYY-MM-DD)",
+   "action": "onChangeText -> handleWebDateChange -> setDate (year/month/day); inputMode=none",
+   "states": [
+    "default",
+    "focused",
+    "filled",
+    "error",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "web-only branch (Platform.OS==='web'); partial/invalid string => Date may be invalid; localized read-out (dateReadout) shown when isValid (CAL-07)"
+  },
+  {
+   "screen": "AddAppointmentScreen",
+   "anchor": "src/screens/AddAppointmentScreen.tsx:514",
+   "type": "touchable",
+   "label": "Date picker button (NATIVE only, format dd MMMM yyyy)",
+   "action": "onPress -> setTempDate(date) + setShowDatePicker(true) + close time picker; opens DateTimePicker",
+   "states": [
+    "default",
+    "pressed/active",
+    "focused",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "native-only (iOS/Android); expanded state via accessibilityState.expanded; active border when open; long localized month names (ar/tn) may overflow flex:1"
+  },
+  {
+   "screen": "AddAppointmentScreen",
+   "anchor": "src/screens/AddAppointmentScreen.tsx:538",
+   "type": "textinput",
+   "label": "Time input (WEB only, value HH:mm, placeholder HH:MM)",
+   "action": "onChangeText -> handleWebTimeChange -> setDate(hours,minutes); inputMode=none",
+   "states": [
+    "default",
+    "focused",
+    "filled",
+    "error",
+    "RTL-mirrored"
+   ],
+   "risk": "web-only; malformed time leaves NaN hours; no explicit error styling"
+  },
+  {
+   "screen": "AddAppointmentScreen",
+   "anchor": "src/screens/AddAppointmentScreen.tsx:547",
+   "type": "touchable",
+   "label": "Time picker button (NATIVE only, format HH:mm)",
+   "action": "onPress -> setTempDate(date) + setShowTimePicker(true) + close date picker; opens DateTimePicker",
+   "states": [
+    "default",
+    "pressed/active",
+    "focused",
+    "RTL-mirrored"
+   ],
+   "risk": "native-only; expanded a11y state; active border when open"
+  },
+  {
+   "screen": "AddAppointmentScreen",
+   "anchor": "src/screens/AddAppointmentScreen.tsx:573",
+   "type": "other",
+   "label": "DateTimePicker mode=date (ANDROID inline)",
+   "action": "onChange={handleDateChange} (Android: set => commit date, dismiss); minimumDate=now; locale from i18n",
+   "states": [
+    "default",
+    "RTL-mirrored"
+   ],
+   "risk": "Android-only render; dismiss vs set event types; minimumDate blocks past dates"
+  },
+  {
+   "screen": "AddAppointmentScreen",
+   "anchor": "src/screens/AddAppointmentScreen.tsx:583",
+   "type": "other",
+   "label": "DateTimePicker mode=time (ANDROID inline)",
+   "action": "onChange={handleTimeChange} (Android: set => commit time, dismiss); locale from i18n",
+   "states": [
+    "default",
+    "RTL-mirrored"
+   ],
+   "risk": "Android-only render"
+  },
+  {
+   "screen": "AddAppointmentScreen",
+   "anchor": "src/screens/AddAppointmentScreen.tsx:597",
+   "type": "textinput",
+   "label": "Location input (addAppointment.locationPlaceholder)",
+   "action": "onChangeText={setLocation}; maxLength=200; optional, trimmed on save",
+   "states": [
+    "default",
+    "focused",
+    "empty",
+    "filled",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "optional field; maxLength 200; shown on EventCard locationRow when set"
+  },
+  {
+   "screen": "AddAppointmentScreen",
+   "anchor": "src/screens/AddAppointmentScreen.tsx:610",
+   "type": "textinput",
+   "label": "Notes input (multiline, addAppointment.notesPlaceholder)",
+   "action": "onChangeText={setNotes}; multiline, numberOfLines=4, maxLength=500",
+   "states": [
+    "default",
+    "focused",
+    "empty",
+    "filled",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "multiline growth; maxLength 500; initialized from notes||description on edit"
+  },
+  {
+   "screen": "AddAppointmentScreen",
+   "anchor": "src/screens/AddAppointmentScreen.tsx:632",
+   "type": "switch",
+   "label": "Reminder J-1 (addAppointment.reminderJ1 — veille 8h)",
+   "action": "onValueChange={setReminderJ1}; schedules J-1 reminder on save; default true (new) / loaded pref (edit)",
+   "states": [
+    "default",
+    "pressed/active",
+    "filled",
+    "RTL-mirrored",
+    "loading"
+   ],
+   "risk": "loading: loadingReminders gates baseline while getRDVPreference resolves (edit mode); checked via accessibilityState.checked + aria-checked; affects hasUnsavedChanges"
+  },
+  {
+   "screen": "AddAppointmentScreen",
+   "anchor": "src/screens/AddAppointmentScreen.tsx:650",
+   "type": "switch",
+   "label": "Reminder J (addAppointment.reminderJ — jour J 8h)",
+   "action": "onValueChange={setReminderJ}; schedules day-of reminder; default true (new)",
+   "states": [
+    "default",
+    "pressed/active",
+    "filled",
+    "RTL-mirrored",
+    "loading"
+   ],
+   "risk": "aria-checked on web; baseline reconciled post-load for edit; track/thumb colors reflect state"
+  },
+  {
+   "screen": "AddAppointmentScreen",
+   "anchor": "src/screens/AddAppointmentScreen.tsx:668",
+   "type": "switch",
+   "label": "Reminder H-2 (addAppointment.reminderH2 — 2h avant)",
+   "action": "onValueChange={setReminderH2}; schedules 2h-before reminder; default false",
+   "states": [
+    "default",
+    "pressed/active",
+    "filled",
+    "RTL-mirrored",
+    "loading"
+   ],
+   "risk": "default off; aria-checked on web; contributes to hasAnyReminder gating scheduleRDVReminders"
+  },
+  {
+   "screen": "AddAppointmentScreen",
+   "anchor": "src/screens/AddAppointmentScreen.tsx:683",
+   "type": "touchable",
+   "label": "Cancel button (addAppointment.cancel / a11y.cancel)",
+   "action": "onPress -> navigation.goBack(); disabled while saving",
+   "states": [
+    "default",
+    "pressed/active",
+    "disabled",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "disabled={saving}; if hasUnsavedChanges, beforeRemove listener intercepts with discard confirm (web window.confirm vs native confirmAction)"
+  },
+  {
+   "screen": "AddAppointmentScreen",
+   "anchor": "src/screens/AddAppointmentScreen.tsx:694",
+   "type": "touchable",
+   "label": "Save button (addAppointment.save / saving)",
+   "action": "onPress={handleSave} -> validate title -> guest gate -> create/update event -> schedule reminders -> toast -> goBack",
+   "states": [
+    "default",
+    "pressed/active",
+    "disabled",
+    "loading",
+    "error",
+    "offline/guest-fallback",
+    "success-feedback",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "disabled when !isTitleValid || saving (saveButtonDisabled); label flips to 'saving'; guest => GuestUpgrade (web window.confirm); error => showAlert; success => showToast + trackPositiveAction + analytics"
+  },
+  {
+   "screen": "AddAppointmentScreen",
+   "anchor": "src/screens/AddAppointmentScreen.tsx:724",
+   "type": "touchable",
+   "label": "iOS picker 'Valider ✓' (addAppointment.validate)",
+   "action": "onPress -> setDate(tempDate) commit buffered date/time + close both pickers",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored"
+   ],
+   "risk": "iOS-only overlay; commits tempDate buffer (iOS picker is buffered, not live); only rendered when a picker is open"
+  },
+  {
+   "screen": "AddAppointmentScreen",
+   "anchor": "src/screens/AddAppointmentScreen.tsx:736",
+   "type": "other",
+   "label": "DateTimePicker mode=date display=spinner (iOS overlay)",
+   "action": "value=tempDate; onChange={handleDateChange} (iOS buffers to tempDate); minimumDate=now; locale from i18n",
+   "states": [
+    "default",
+    "RTL-mirrored"
+   ],
+   "risk": "iOS-only; buffered (commit via Valider); minimumDate blocks past"
+  },
+  {
+   "screen": "AddAppointmentScreen",
+   "anchor": "src/screens/AddAppointmentScreen.tsx:749",
+   "type": "other",
+   "label": "DateTimePicker mode=time display=spinner (iOS overlay)",
+   "action": "value=tempDate; onChange={handleTimeChange} (iOS buffers to tempDate); locale from i18n",
+   "states": [
+    "default",
+    "RTL-mirrored"
+   ],
+   "risk": "iOS-only; buffered until Valider"
+  },
+  {
+   "screen": "AddAppointmentScreen(handler)",
+   "anchor": "src/screens/AddAppointmentScreen.tsx:208",
+   "type": "other",
+   "label": "beforeRemove unsaved-changes guard (discard dialog)",
+   "action": "Intercepts back/nav when hasUnsavedChanges && !saving; web=window.confirm, native=confirmAction; confirm => dispatch blocked action",
+   "states": [
+    "default",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "CAL-02: Alert.alert no-op on web trapped user — now window.confirm; not triggered while saving; snapshot covers title/date/location/type/notes + reminders (PERFECT-FIX-3)"
+  },
+  {
+   "screen": "WeekHeader(component in calendar/ — NOT wired into CalendarScreen/AddAppointmentScreen)",
+   "anchor": "src/components/calendar/WeekHeader.tsx:27",
+   "type": "touchable",
+   "label": "Previous week nav (RtlAwareChevron back)",
+   "action": "onPrevious(); disabled when !canGoPrevious (navButtonDisabled opacity 0.3)",
+   "states": [
+    "default",
+    "pressed/active",
+    "disabled",
+    "RTL-mirrored"
+   ],
+   "risk": "Component lives in components/calendar/* but is NOT imported by either G3 screen (verified via grep) — likely used elsewhere (week tracker). Uses RtlAwareChevron so mirroring is handled. No accessibilityLabel/Role on the TouchableOpacity (a11y gap)."
+  },
+  {
+   "screen": "WeekHeader(component in calendar/ — NOT wired into CalendarScreen/AddAppointmentScreen)",
+   "anchor": "src/components/calendar/WeekHeader.tsx:44",
+   "type": "touchable",
+   "label": "Next week nav (RtlAwareChevron forward)",
+   "action": "onNext(); disabled when !canGoNext (navButtonDisabled opacity 0.3)",
+   "states": [
+    "default",
+    "pressed/active",
+    "disabled",
+    "RTL-mirrored"
+   ],
+   "risk": "Not imported by G3 screens (grep-confirmed); missing accessibilityLabel/accessibilityRole (a11y gap); RtlAwareChevron handles glyph mirroring"
+  },
+  {
+   "screen": "RemindersScreen",
+   "anchor": "src/screens/RemindersScreen.tsx:40",
+   "type": "pressable",
+   "label": "common.screen.remindersAlerts (tab)",
+   "action": "navigate to RemindersTab (material-top-tab press)",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "rtl — I18nManager.isRTL=false on web breaks material-top-tab pager (blank 2nd tab); swipe/animation disabled on web per F47/F703"
+  },
+  {
+   "screen": "RemindersScreen",
+   "anchor": "src/screens/RemindersScreen.tsx:45",
+   "type": "pressable",
+   "label": "common.screen.remindersTasks (tab)",
+   "action": "navigate to TasksTab (material-top-tab press)",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "rtl — second tab can render blank on web RTL (ar/tn) per RN-Web RTL gotcha"
+  },
+  {
+   "screen": "RemindersTab",
+   "anchor": "src/screens/reminders/RemindersTab.tsx:97",
+   "type": "touchable",
+   "label": "common.enableNotifications (PermissionBanner)",
+   "action": "request OS notification permissions; on denial show alert with Open Settings (Linking.openSettings)",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow",
+    "offline/guest-fallback",
+    "success-feedback"
+   ],
+   "risk": "banner only renders when permissions denied; conditional visibility — empty/hidden state when granted"
+  },
+  {
+   "screen": "RemindersTab",
+   "anchor": "src/screens/reminders/RemindersTab.tsx:213",
+   "type": "switch",
+   "label": "reminder.title (EssentialsList toggle, trilang)",
+   "action": "onToggle(reminder, value) → enable/disableReminder + syncRemindersToNotifications",
+   "states": [
+    "default",
+    "pressed/active",
+    "filled",
+    "RTL-mirrored",
+    "offline/guest-fallback",
+    "success-feedback",
+    "error"
+   ],
+   "risk": "persist — toggle writes settings + re-syncs notifications; guest path (no uid) must still persist locally; a11y accessibilityState.checked"
+  },
+  {
+   "screen": "RemindersTab",
+   "anchor": "src/screens/reminders/RemindersTab.tsx:231",
+   "type": "touchable",
+   "label": "a11y.edit ⚙️ (EssentialsList edit, only when enabled)",
+   "action": "onEdit(reminder) → openEditModal",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored"
+   ],
+   "risk": "conditional — only rendered in essentialSummaryRow when isEnabled"
+  },
+  {
+   "screen": "RemindersTab",
+   "anchor": "src/screens/reminders/RemindersTab.tsx:245",
+   "type": "touchable",
+   "label": "common.vitaminAdjust (reassuring text, EssentialsList — rem_med_prenatal_vitamins only)",
+   "action": "onEdit(reminder) → openEditModal for prenatal vitamins",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "conditional render gated on reminder.id === rem_med_prenatal_vitamins; note EssentialsList component appears unused in render (see vitamins dup at line 517)"
+  },
+  {
+   "screen": "RemindersTab",
+   "anchor": "src/screens/reminders/RemindersTab.tsx:370",
+   "type": "touchable",
+   "label": "common.retry (error state)",
+   "action": "loadData() — reload reminders after error",
+   "states": [
+    "default",
+    "pressed/active",
+    "error",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "error — only shown in error branch; verify retry actually clears error and re-fetches"
+  },
+  {
+   "screen": "RemindersTab",
+   "anchor": "src/screens/reminders/RemindersTab.tsx:429",
+   "type": "touchable",
+   "label": "ReminderSection accordion header (recommended/medical/wellbeing)",
+   "action": "toggleExpanded() → expand/collapse section",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "rtl/a11y — RtlAwareChevron rotation + accessibilityState.expanded; CAL-R2-03 sets aria-expanded explicitly on web because RN-web 0.21.2 drops it; renders null when reminders.length===0"
+  },
+  {
+   "screen": "RemindersTab",
+   "anchor": "src/screens/reminders/RemindersTab.tsx:517",
+   "type": "touchable",
+   "label": "common.vitaminAdjust (Daily Habits reassuring text — rem_med_prenatal_vitamins only)",
+   "action": "openEditModal(reminder) for prenatal vitamins",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "conditional render gated on reminder.id === rem_med_prenatal_vitamins"
+  },
+  {
+   "screen": "RemindersTab > ReminderCardV2",
+   "anchor": "src/components/reminders/ReminderCardV2.tsx:112",
+   "type": "switch",
+   "label": "reminder.title (card toggle, trilang)",
+   "action": "onValueChange={onToggle} → handleToggle in RemindersTab (enable/disable + sync notifications)",
+   "states": [
+    "default",
+    "pressed/active",
+    "filled",
+    "RTL-mirrored",
+    "offline/guest-fallback",
+    "success-feedback",
+    "error"
+   ],
+   "risk": "persist/a11y — primary reminder enable toggle; web sets aria-checked explicitly (line 121); card switches between compact/expanded layout on toggle"
+  },
+  {
+   "screen": "RemindersTab > ReminderCardV2",
+   "anchor": "src/components/reminders/ReminderCardV2.tsx:143",
+   "type": "touchable",
+   "label": "a11y.edit ⚙️ (editLink, only when enabled)",
+   "action": "onPress={onEdit} → openEditModal in RemindersTab",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored"
+   ],
+   "risk": "conditional — only rendered when isEnabled && onEdit provided"
+  },
+  {
+   "screen": "RemindersTab > ReminderEditModal",
+   "anchor": "src/components/reminders/ReminderEditModal.tsx:290",
+   "type": "touchable",
+   "label": "a11y.closeModal ✕ (header close)",
+   "action": "onPress={onClose} → close modal",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored"
+   ],
+   "risk": "modal — close button position must mirror in RTL; Modal onRequestClose also wired"
+  },
+  {
+   "screen": "RemindersTab > ReminderEditModal",
+   "anchor": "src/components/reminders/ReminderEditModal.tsx:318",
+   "type": "touchable",
+   "label": "time button (HH:MM, per time slot, dynamic list)",
+   "action": "openPickerForIndex(index) → toggle DateTimePicker for that slot",
+   "states": [
+    "default",
+    "pressed/active",
+    "focused",
+    "error",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "error — error border applied via validationError; focused border when picker open for this index; mapped over customTimes (1..10 slots)"
+  },
+  {
+   "screen": "RemindersTab > ReminderEditModal",
+   "anchor": "src/components/reminders/ReminderEditModal.tsx:331",
+   "type": "touchable",
+   "label": "a11y.removeTimeSlot 🗑️ (per slot, only when count > MIN)",
+   "action": "removeTimeSlot(index) → remove time + cleanup label",
+   "states": [
+    "default",
+    "pressed/active",
+    "disabled",
+    "RTL-mirrored"
+   ],
+   "risk": "disabled/conditional — hidden when customTimes.length <= MIN_TIME_SLOTS(1); guard prevents removing last slot"
+  },
+  {
+   "screen": "RemindersTab > ReminderEditModal",
+   "anchor": "src/components/reminders/ReminderEditModal.tsx:347",
+   "type": "touchable",
+   "label": "reminders.reminderEdit.addTime (add time slot)",
+   "action": "addTimeSlot() → append new time (+2h from last, max 10)",
+   "states": [
+    "default",
+    "pressed/active",
+    "disabled",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "disabled/conditional — hidden when customTimes.length >= MAX_TIME_SLOTS(10)"
+  },
+  {
+   "screen": "RemindersTab > ReminderEditModal",
+   "anchor": "src/components/reminders/ReminderEditModal.tsx:369",
+   "type": "touchable",
+   "label": "reminders.reminderEdit.recommendedPace (reset)",
+   "action": "resetToDefaults() → restore default times/labels, clear errors",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "long-text — label translates differently per lang; resets several states at once"
+  },
+  {
+   "screen": "RemindersTab > ReminderEditModal",
+   "anchor": "src/components/reminders/ReminderEditModal.tsx:375",
+   "type": "touchable",
+   "label": "common.save (save button)",
+   "action": "handleSave() → validateTimes + updateReminderSettings + onSave + onClose",
+   "states": [
+    "default",
+    "pressed/active",
+    "disabled",
+    "loading",
+    "error",
+    "RTL-mirrored",
+    "success-feedback",
+    "long-text/overflow"
+   ],
+   "risk": "loading/disabled — disabled={saving}; saveButtonDisabled style; validation errors block save; label hack replaces '...' with ' 💕'"
+  },
+  {
+   "screen": "RemindersTab > ReminderEditModal",
+   "anchor": "src/components/reminders/ReminderEditModal.tsx:404",
+   "type": "touchable",
+   "label": "addAppointment.validate 'Valider ✓' (iOS picker done)",
+   "action": "handleIosValidate() → apply tempPickerDate to slot, close picker",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored"
+   ],
+   "risk": "platform — iOS-only (Platform.OS === 'ios' && showPickerForIndex !== null)"
+  },
+  {
+   "screen": "RemindersTab > ReminderEditModal",
+   "anchor": "src/components/reminders/ReminderEditModal.tsx:388",
+   "type": "other",
+   "label": "DateTimePicker (Android native time, mode=time)",
+   "action": "onChange={handlePickerChange} → applyTimeUpdate on 'set'",
+   "states": [
+    "default",
+    "RTL-mirrored",
+    "success-feedback"
+   ],
+   "risk": "platform — Android-only native dialog; onChange type 'set' vs dismiss handling"
+  },
+  {
+   "screen": "RemindersTab > ReminderEditModal",
+   "anchor": "src/components/reminders/ReminderEditModal.tsx:408",
+   "type": "other",
+   "label": "DateTimePicker (iOS spinner, mode=time)",
+   "action": "onChange={handlePickerChange} → setTempPickerDate (committed via Valider)",
+   "states": [
+    "default",
+    "RTL-mirrored"
+   ],
+   "risk": "platform — iOS-only spinner inside full-screen overlay; value falls back to parseTimeStr"
+  },
+  {
+   "screen": "TasksTab",
+   "anchor": "src/screens/reminders/TasksTab.tsx:210",
+   "type": "touchable",
+   "label": "tasks.newTask (add task button)",
+   "action": "setEditingTask(undefined) + setShowAddModal(true) → open AddTaskModal in create mode",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "header button; guest gating happens on submit inside AddTaskModal onCreate, not here"
+  },
+  {
+   "screen": "TasksTab",
+   "anchor": "src/screens/reminders/TasksTab.tsx:235",
+   "type": "touchable",
+   "label": "tasks.viewStats 📊 (Statistics link)",
+   "action": "navigation.navigate('Statistics')",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "rtl — RtlAwareChevron direction='forward' must mirror; marginEnd on icon"
+  },
+  {
+   "screen": "TasksTab",
+   "anchor": "src/screens/reminders/TasksTab.tsx:203",
+   "type": "other",
+   "label": "RefreshControl (pull-to-refresh on ScrollView)",
+   "action": "onRefresh → loadTasks()",
+   "states": [
+    "default",
+    "loading",
+    "offline/guest-fallback",
+    "RTL-mirrored"
+   ],
+   "risk": "loading — refreshing flag; guest path skips user-task fetch (only weekly tasks loaded)"
+  },
+  {
+   "screen": "TasksTab > AddTaskModal onCreate (guest gate)",
+   "anchor": "src/screens/reminders/TasksTab.tsx:268",
+   "type": "other",
+   "label": "onCreate handler (create/update task submit)",
+   "action": "creates/updates task; if guest → confirmAction → navigate AuthChoice; if no uid → loginRequired toast",
+   "states": [
+    "default",
+    "loading",
+    "error",
+    "offline/guest-fallback",
+    "success-feedback"
+   ],
+   "risk": "guest-fallback — WEB-ALERT note: confirmAction fires onConfirm on web (Alert.alert no-op); re-throws on error so modal handles it"
+  },
+  {
+   "screen": "StatisticsScreen",
+   "anchor": "src/screens/reminders/StatisticsScreen.tsx:120",
+   "type": "button",
+   "label": "goToTasks (EmptyState CTA, common/Button)",
+   "action": "navigation.goBack() — return to tasks",
+   "states": [
+    "default",
+    "pressed/active",
+    "empty",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "empty — only rendered when !data || data.dates.length===0 (no-data empty state)"
+  },
+  {
+   "screen": "StatisticsScreen",
+   "anchor": "src/screens/reminders/StatisticsScreen.tsx:134",
+   "type": "touchable",
+   "label": "back (header back button)",
+   "action": "navigation.goBack()",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "rtl — RtlAwareChevron direction='back' variant='arrow' must mirror in ar/tn"
+  },
+  {
+   "screen": "StatisticsScreen",
+   "anchor": "src/screens/reminders/StatisticsScreen.tsx:182",
+   "type": "touchable",
+   "label": "sevenDays (range toggle: week)",
+   "action": "setTimeRange('week') → reload stats for 7 days",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "active state — rangeButtonActive/rangeTextActive when timeRange==='week'; triggers loadStats refetch"
+  },
+  {
+   "screen": "StatisticsScreen",
+   "anchor": "src/screens/reminders/StatisticsScreen.tsx:188",
+   "type": "touchable",
+   "label": "thirtyDays (range toggle: month)",
+   "action": "setTimeRange('month') → reload stats for 30 days",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "active state — rangeButtonActive/rangeTextActive when timeRange==='month'; charts need >=2 points else placeholder (F-HS-NEW-01)"
+  },
+  {
+   "screen": "HydrationCard",
+   "anchor": "src/components/reminders/HydrationCard.tsx:93",
+   "type": "touchable",
+   "label": "a11y.openSettings (settings gear)",
+   "action": "setShowSettings(true) → open hydration settings Modal",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored"
+   ],
+   "risk": "Ionicons settings-outline; opens transparent fade Modal"
+  },
+  {
+   "screen": "HydrationCard",
+   "anchor": "src/components/reminders/HydrationCard.tsx:140",
+   "type": "touchable",
+   "label": "reminders.hydration.addWater (add water button, gradient)",
+   "action": "handleAddWater() → addIntake(250) and update progress bar (animated fill)",
+   "states": [
+    "default",
+    "pressed/active",
+    "filled",
+    "RTL-mirrored",
+    "long-text/overflow",
+    "success-feedback"
+   ],
+   "risk": "success-feedback — animated progress bar fills toward goal; returns null while data loading (no disabled state, whole card hidden)"
+  },
+  {
+   "screen": "HydrationCard",
+   "anchor": "src/components/reminders/HydrationCard.tsx:169",
+   "type": "touchable",
+   "label": "a11y.closeModal (settings modal close ✕)",
+   "action": "setShowSettings(false) → close without saving",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored"
+   ],
+   "risk": "Ionicons close; discards tempGoal/tempFreq edits (no persist)"
+  },
+  {
+   "screen": "ResourcesScreen",
+   "anchor": "/Users/1millnonstop/Downloads/pregnancy-app/pre2000/app/src/screens/ResourcesScreen.tsx:62",
+   "type": "touchable",
+   "label": "common.screen.articles / common.screen.supplements (segmented tab, web only)",
+   "action": "toggle active tab between Articles and Supplements (setActive(key)); conditional-renders ArticlesListScreen or SupplementsListScreen",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow",
+    "filled"
+   ],
+   "risk": "WEB-ONLY control (Platform.OS==='web'); replaces material-top-tabs pager that rendered a BLANK 2nd tab in ar/tn (I18nManager.isRTL false on web). aria-selected set manually (RN-Web drops accessibilityState->aria). Test active-tint contrast + that supplements panel actually mounts in RTL."
+  },
+  {
+   "screen": "ResourcesScreen",
+   "anchor": "/Users/1millnonstop/Downloads/pregnancy-app/pre2000/app/src/screens/ResourcesScreen.tsx:32",
+   "type": "other",
+   "label": "Tab.Screen 'Articles' (native material-top-tab, tabBarLabel common.screen.articles)",
+   "action": "navigate to ArticlesListScreen tab (react-navigation material-top-tabs; lazy-mounted, swipeEnabled)",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "NATIVE-ONLY (Platform.OS!=='web'). Pager handles RTL via I18nManager natively. Not a TouchableOpacity in source but is a tappable/swipeable tab — enumerated for completeness."
+  },
+  {
+   "screen": "ResourcesScreen",
+   "anchor": "/Users/1millnonstop/Downloads/pregnancy-app/pre2000/app/src/screens/ResourcesScreen.tsx:33",
+   "type": "other",
+   "label": "Tab.Screen 'Compléments' (native material-top-tab, tabBarLabel common.screen.supplements)",
+   "action": "navigate to SupplementsListScreen tab (react-navigation material-top-tabs; lazy-mounted, swipeEnabled)",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "NATIVE-ONLY. Lazy tab — Firestore queries deferred until visited. Swipe direction must flip in ar/tn RTL."
+  },
+  {
+   "screen": "ArticlesListScreen",
+   "anchor": "/Users/1millnonstop/Downloads/pregnancy-app/pre2000/app/src/screens/ArticlesListScreen.tsx:252",
+   "type": "textinput",
+   "label": "common.searchArticlePlaceholder (search field)",
+   "action": "onChangeText=setSearchQuery — filters articles by title/summary/category label (debounced via useMemo filteredArticles); returnKeyType='search'; auto-focus when route.params.openSearch",
+   "states": [
+    "default",
+    "focused",
+    "filled",
+    "empty",
+    "RTL-mirrored",
+    "long-text/overflow",
+    "offline/guest-fallback"
+   ],
+   "risk": "Auto-focus via setTimeout 500ms on route.params.openSearch (searchInputRef). RTL: text alignment + placeholder. Filters bundled fallback set when offline/guest. Diacritics-insensitive? query is plain toLowerCase — Arabic search edge."
+  },
+  {
+   "screen": "ArticlesListScreen",
+   "anchor": "/Users/1millnonstop/Downloads/pregnancy-app/pre2000/app/src/screens/ArticlesListScreen.tsx:262",
+   "type": "touchable",
+   "label": "✕ clear-search (a11y.close)",
+   "action": "onPress=setSearchQuery('') — clears the search field; only rendered when searchQuery.length>0",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored"
+   ],
+   "risk": "Conditionally rendered (filled state only). Position must mirror to the start side in RTL search bar."
+  },
+  {
+   "screen": "ArticlesListScreen",
+   "anchor": "/Users/1millnonstop/Downloads/pregnancy-app/pre2000/app/src/screens/ArticlesListScreen.tsx:279",
+   "type": "touchable",
+   "label": "★ common.favorites (Favoris filter chip)",
+   "action": "onPress=setFavoritesActive(v=>!v) — toggles filter to bookmarked-only items; accessibilityState selected",
+   "states": [
+    "default",
+    "pressed/active",
+    "filled",
+    "empty",
+    "RTL-mirrored",
+    "long-text/overflow",
+    "offline/guest-fallback",
+    "success-feedback"
+   ],
+   "risk": "Leading chip in horizontal ScrollView. When active + no bookmarks → empty list state. bookmarkedIds from getBookmarks/subscribeBookmarks (guest AsyncStorage). Active=accent bg, inactive=surface. Star glyph + long ar label overflow."
+  },
+  {
+   "screen": "ArticlesListScreen",
+   "anchor": "/Users/1millnonstop/Downloads/pregnancy-app/pre2000/app/src/screens/ArticlesListScreen.tsx:298",
+   "type": "touchable",
+   "label": "category chip — categories.<slug> / categories.all ('Tout') (mapped over [null,...categoryChips])",
+   "action": "onPress=setSelectedCategory(slug) — filters article list by category (null=All); accessibilityState selected; up to 11 chips",
+   "states": [
+    "default",
+    "pressed/active",
+    "filled",
+    "empty",
+    "RTL-mirrored",
+    "long-text/overflow",
+    "offline/guest-fallback"
+   ],
+   "risk": "Dynamic count (top-10 by frequency, +All). Horizontal scroll must start at right edge in ar/tn. Active category auto-reset to All if it disappears after refresh (effect L138). Selected→accent bg."
+  },
+  {
+   "screen": "ArticlesListScreen",
+   "anchor": "/Users/1millnonstop/Downloads/pregnancy-app/pre2000/app/src/screens/ArticlesListScreen.tsx:189",
+   "type": "touchable",
+   "label": "article card (renderItem) — title=localized article title, a11y readArticle",
+   "action": "onPress=handleArticlePress(item.article_id) → navigation.navigate('ArticleDetail',{articleId}); activeOpacity 0.7",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow",
+    "offline/guest-fallback"
+   ],
+   "risk": "FlatList row (variable count, includes bundled fallback items offline). Card row has fixed 70px icon column — RTL must flip icon to right; long ar titles wrap. summary numberOfLines=2 with stripMarkdown."
+  },
+  {
+   "screen": "ArticlesListScreen",
+   "anchor": "/Users/1millnonstop/Downloads/pregnancy-app/pre2000/app/src/screens/ArticlesListScreen.tsx:235",
+   "type": "touchable",
+   "label": "common.errorBoundary.retry (error-state retry button)",
+   "action": "onPress=retryLoad → setRefreshKey(k=>k+1) re-runs the Firestore load effect",
+   "states": [
+    "default",
+    "pressed/active",
+    "error",
+    "RTL-mirrored",
+    "loading",
+    "long-text/overflow"
+   ],
+   "risk": "Only in error branch (rarely reached now — local fallback usually prevents error=true). Accent bg + white text contrast. Tapping shows skeleton (loading) then list or error again."
+  },
+  {
+   "screen": "SupplementsListScreen",
+   "anchor": "/Users/1millnonstop/Downloads/pregnancy-app/pre2000/app/src/screens/SupplementsListScreen.tsx:194",
+   "type": "textinput",
+   "label": "common.searchSupplement (search field)",
+   "action": "onChangeText=setSearchQuery — filters supplements by name/short_description/category (useMemo); returnKeyType='search'",
+   "states": [
+    "default",
+    "focused",
+    "filled",
+    "empty",
+    "RTL-mirrored",
+    "long-text/overflow",
+    "offline/guest-fallback"
+   ],
+   "risk": "No auto-focus ref here (unlike Articles). RTL text + placeholder alignment. Filters bundled fallback set when offline/guest."
+  },
+  {
+   "screen": "SupplementsListScreen",
+   "anchor": "/Users/1millnonstop/Downloads/pregnancy-app/pre2000/app/src/screens/SupplementsListScreen.tsx:203",
+   "type": "touchable",
+   "label": "✕ clear-search (a11y.close)",
+   "action": "onPress=setSearchQuery('') — clears search; rendered only when searchQuery.length>0",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored"
+   ],
+   "risk": "Conditionally rendered (filled only). Mirror to start side in RTL."
+  },
+  {
+   "screen": "SupplementsListScreen",
+   "anchor": "/Users/1millnonstop/Downloads/pregnancy-app/pre2000/app/src/screens/SupplementsListScreen.tsx:220",
+   "type": "touchable",
+   "label": "★ common.favorites (Favoris filter chip)",
+   "action": "onPress=setFavoritesActive(v=>!v) — toggles to bookmarked supplements only; accessibilityState selected",
+   "states": [
+    "default",
+    "pressed/active",
+    "filled",
+    "empty",
+    "RTL-mirrored",
+    "long-text/overflow",
+    "offline/guest-fallback",
+    "success-feedback"
+   ],
+   "risk": "Leading chip. Active=accent inline style (no chipActive style obj, unlike Articles). When active+no bookmarks→empty. Guest bookmarks via AsyncStorage."
+  },
+  {
+   "screen": "SupplementsListScreen",
+   "anchor": "/Users/1millnonstop/Downloads/pregnancy-app/pre2000/app/src/screens/SupplementsListScreen.tsx:240",
+   "type": "touchable",
+   "label": "categories.all ('Tout') chip",
+   "action": "onPress=setSelectedSafety(null) — clears safety filter (show all); accessibilityState selected when selectedSafety===null",
+   "states": [
+    "default",
+    "pressed/active",
+    "filled",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "IIFE-rendered. Default-selected on mount. Active=accent inline bg."
+  },
+  {
+   "screen": "SupplementsListScreen",
+   "anchor": "/Users/1millnonstop/Downloads/pregnancy-app/pre2000/app/src/screens/SupplementsListScreen.tsx:262",
+   "type": "touchable",
+   "label": "safety filter chip — supplementSafety.safe/caution/avoid (3 chips, mapped over SAFETY_FILTERS)",
+   "action": "onPress=setSelectedSafety(selected?null:filter.value) — toggle filter by pregnancy_safety; selected chip uses filter.color (green/orange/red) bg",
+   "states": [
+    "default",
+    "pressed/active",
+    "filled",
+    "empty",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "Color-coded selected state (success/warning/error) — a11y: color-only differentiation when selected (label text present though). Toggle-off re-clicking same chip. RTL chip order."
+  },
+  {
+   "screen": "SupplementsListScreen",
+   "anchor": "/Users/1millnonstop/Downloads/pregnancy-app/pre2000/app/src/screens/SupplementsListScreen.tsx:125",
+   "type": "touchable",
+   "label": "supplement card (renderItem) — name=localized, a11y openSupplement",
+   "action": "onPress=navigation.navigate('SupplementDetail',{supplementId:item.supplement_id}); activeOpacity 0.7",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow",
+    "offline/guest-fallback"
+   ],
+   "risk": "FlatList row. Fixed 70px safety-indicator column (icon ✓/⚠/✗ + label) — RTL must flip to right edge. safetyConfig color+icon. Long ar names wrap; numberOfLines=2 description."
+  },
+  {
+   "screen": "SupplementsListScreen",
+   "anchor": "/Users/1millnonstop/Downloads/pregnancy-app/pre2000/app/src/screens/SupplementsListScreen.tsx:177",
+   "type": "touchable",
+   "label": "common.retry (error-state retry button)",
+   "action": "onPress=setRefreshKey(k=>k+1) re-runs the supplements fetch effect",
+   "states": [
+    "default",
+    "pressed/active",
+    "error",
+    "loading",
+    "RTL-mirrored"
+   ],
+   "risk": "Error branch only (local fallback usually prevents). Loading shows ActivityIndicator spinner (not skeleton, unlike Articles). Accent bg/white text."
+  },
+  {
+   "screen": "ArticleDetailScreen",
+   "anchor": "/Users/1millnonstop/Downloads/pregnancy-app/pre2000/app/src/screens/ArticleDetailScreen.tsx:364",
+   "type": "touchable",
+   "label": "back arrow (a11y.back) — arrow-back / arrow-forward (RTL-flipped icon)",
+   "action": "onPress=navigation.goBack(); hitSlop 10; Ionicons name flips with isRTL (['ar','tn'])",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored"
+   ],
+   "risk": "Icon glyph itself flips (arrow-forward in ar/tn) AND container flips via headerBarRTL row-reverse. Verify arrow points the correct way + sits at the correct edge in RTL."
+  },
+  {
+   "screen": "ArticleDetailScreen",
+   "anchor": "/Users/1millnonstop/Downloads/pregnancy-app/pre2000/app/src/screens/ArticleDetailScreen.tsx:377",
+   "type": "touchable",
+   "label": "bookmark toggle — bookmark / bookmark-outline (a11y common.saved / common.addToFavorites)",
+   "action": "onPress=handleToggleBookmark → toggleBookmark('article',articleId).then(setSaved); optimistic flip, subscribeBookmarks reconciles; accessibilityState selected=saved",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "success-feedback",
+    "offline/guest-fallback"
+   ],
+   "risk": "Optimistic UI flip then reconcile (race if persist fails). Filled icon=accent. RTL row-reverse moves it to opposite side of back arrow. Guest persistence (AsyncStorage). a11y label changes saved↔not."
+  },
+  {
+   "screen": "ArticleDetailScreen",
+   "anchor": "/Users/1millnonstop/Downloads/pregnancy-app/pre2000/app/src/screens/ArticleDetailScreen.tsx:406",
+   "type": "other",
+   "label": "Markdown onLinkPress (in-content links, rendered by react-native-markdown-display)",
+   "action": "onLinkPress(url) — isSafeUrl() whitelist check then Linking.openURL(url); returns false (blocks) for non-whitelisted scheme",
+   "states": [
+    "default",
+    "pressed/active",
+    "error",
+    "RTL-mirrored"
+   ],
+   "risk": "SECURITY: scheme whitelist (isSafeUrl) is the guard against javascript:/file: injection from CMS content. Only present when hasContent. openURL may reject (error path logged). Link styling underline accent."
+  },
+  {
+   "screen": "ArticleDetailScreen",
+   "anchor": "/Users/1millnonstop/Downloads/pregnancy-app/pre2000/app/src/screens/ArticleDetailScreen.tsx:443",
+   "type": "touchable",
+   "label": "related-supplement card (relatedSupplements.map) — a11y supplement name + openSupplement",
+   "action": "onPress=navigation.navigate('SupplementDetail',{supplementId}); activeOpacity 0.7",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "Section only when relatedSupplements.length>0 (old-article path; fetched from Firestore related_supplements_ids). Distinct from the task-10a chip list below."
+  },
+  {
+   "screen": "ArticleDetailScreen",
+   "anchor": "/Users/1millnonstop/Downloads/pregnancy-app/pre2000/app/src/screens/ArticleDetailScreen.tsx:472",
+   "type": "touchable",
+   "label": "related-article chip (linkedArticles.map) — document-text-outline icon + localized title",
+   "action": "onPress=(navigation as any).push('ArticleDetail',{articleId:linked.article_id}); activeOpacity 0.7; horizontal ScrollView",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "Uses navigation.push (stacks new detail, not navigate) — deep recursive nav stack possible. chipRTL row-reverse + chipTextRTL right-align; maxWidth 220 + numberOfLines 2. Section only when linkedArticles>0 (bundled fallback resolution; never self-links)."
+  },
+  {
+   "screen": "ArticleDetailScreen",
+   "anchor": "/Users/1millnonstop/Downloads/pregnancy-app/pre2000/app/src/screens/ArticleDetailScreen.tsx:502",
+   "type": "touchable",
+   "label": "related-supplement chip (linkedSupplements.map) — medkit-outline icon + localized name",
+   "action": "onPress=navigation.navigate('SupplementDetail',{supplementId:linked.supplement_id}); activeOpacity 0.7; horizontal ScrollView",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "Section only when linkedSupplements>0 (task-10a, resolved from bundled data). chipRTL row-reverse. Distinct from the Firestore relatedSupplements card list (L443)."
+  },
+  {
+   "screen": "ArticleDetailScreen",
+   "anchor": "/Users/1millnonstop/Downloads/pregnancy-app/pre2000/app/src/screens/ArticleDetailScreen.tsx:197",
+   "type": "touchable",
+   "label": "common.back (no-articleId guard screen)",
+   "action": "onPress=navigation.goBack() — shown when route has no articleId (article.errorSpecified)",
+   "states": [
+    "default",
+    "pressed/active",
+    "error",
+    "RTL-mirrored"
+   ],
+   "risk": "Edge guard: reached only if navigated without articleId param. No accessibilityRole on this one (plain text link). Minimal styling."
+  },
+  {
+   "screen": "ArticleDetailScreen",
+   "anchor": "/Users/1millnonstop/Downloads/pregnancy-app/pre2000/app/src/screens/ArticleDetailScreen.tsx:217",
+   "type": "touchable",
+   "label": "common.retry (error-state retry)",
+   "action": "onPress sets setError(null)+setLoading(true) — but does NOT re-trigger fetch (no refreshKey dep); effect only keyed on articleId",
+   "states": [
+    "default",
+    "pressed/active",
+    "error",
+    "loading",
+    "RTL-mirrored"
+   ],
+   "risk": "BUG-SUSPECT: retry sets loading=true & error=null but the fetch effect deps are [articleId] only — pressing retry may leave a permanent spinner (no re-fetch). Worth a test. Accent bg/white text."
+  },
+  {
+   "screen": "ArticleDetailScreen",
+   "anchor": "/Users/1millnonstop/Downloads/pregnancy-app/pre2000/app/src/screens/ArticleDetailScreen.tsx:228",
+   "type": "touchable",
+   "label": "common.back (error-state secondary back link)",
+   "action": "onPress=navigation.goBack() — below the retry button in the error branch",
+   "states": [
+    "default",
+    "pressed/active",
+    "error",
+    "RTL-mirrored"
+   ],
+   "risk": "Plain text link (accent), no accessibilityRole. Second of two actions in error state."
+  },
+  {
+   "screen": "ArticleDetailScreen",
+   "anchor": "/Users/1millnonstop/Downloads/pregnancy-app/pre2000/app/src/screens/ArticleDetailScreen.tsx:239",
+   "type": "touchable",
+   "label": "common.back (article-not-found state)",
+   "action": "onPress=navigation.goBack() — shown when !article (loaded but null, e.g. id not in any collection)",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored"
+   ],
+   "risk": "Distinct from error state — article.notFound copy. Bold accent text link, no accessibilityRole."
+  },
+  {
+   "screen": "SupplementDetailScreen",
+   "anchor": "/Users/1millnonstop/Downloads/pregnancy-app/pre2000/app/src/screens/SupplementDetailScreen.tsx:191",
+   "type": "touchable",
+   "label": "back arrow (a11y.back) — arrow-back / arrow-forward (RTL-flipped icon)",
+   "action": "onPress=navigation.goBack(); hitSlop 10; Ionicons name flips with isRTL (lang ar||tn)",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored"
+   ],
+   "risk": "Icon glyph flips + headerBarRTL row-reverse container flip. Verify arrow direction and edge placement in ar/tn."
+  },
+  {
+   "screen": "SupplementDetailScreen",
+   "anchor": "/Users/1millnonstop/Downloads/pregnancy-app/pre2000/app/src/screens/SupplementDetailScreen.tsx:204",
+   "type": "touchable",
+   "label": "bookmark toggle — bookmark / bookmark-outline (a11y common.saved / common.addToFavorites)",
+   "action": "onPress=handleToggleBookmark → toggleBookmark('supplement',supplementId).then(setSaved); optimistic, subscribeBookmarks reconciles; accessibilityState selected=saved",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "success-feedback",
+    "offline/guest-fallback"
+   ],
+   "risk": "Optimistic flip + reconcile. Filled=accent. RTL row-reverse opposite of back arrow. Guest AsyncStorage persistence. Same pattern as ArticleDetail bookmark."
+  },
+  {
+   "screen": "SupplementDetailScreen",
+   "anchor": "/Users/1millnonstop/Downloads/pregnancy-app/pre2000/app/src/screens/SupplementDetailScreen.tsx:275",
+   "type": "touchable",
+   "label": "related-article chip (linkedArticles.map) — document-text-outline icon + localized title",
+   "action": "onPress=navigation.navigate('ArticleDetail',{articleId:linked.article_id}); activeOpacity 0.7; horizontal ScrollView",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "Section only when linkedArticles>0 (task-10a, resolved from bundled related_article_ids; related_symptoms_ids intentionally skipped — no symptom screen). chipRTL row-reverse + numberOfLines 2 + maxWidth 220."
+  },
+  {
+   "screen": "SupplementDetailScreen",
+   "anchor": "/Users/1millnonstop/Downloads/pregnancy-app/pre2000/app/src/screens/SupplementDetailScreen.tsx:147",
+   "type": "touchable",
+   "label": "common.retry (error-state retry)",
+   "action": "onPress=setRefreshKey(k=>k+1) — re-runs fetch (refreshKey IS in effect deps, so retry works here)",
+   "states": [
+    "default",
+    "pressed/active",
+    "error",
+    "loading",
+    "RTL-mirrored"
+   ],
+   "risk": "Shared error||!supplement branch. Unlike ArticleDetail retry, this one correctly re-triggers via refreshKey dep. Accent bg/white."
+  },
+  {
+   "screen": "SupplementDetailScreen",
+   "anchor": "/Users/1millnonstop/Downloads/pregnancy-app/pre2000/app/src/screens/SupplementDetailScreen.tsx:155",
+   "type": "touchable",
+   "label": "common.back (error-state secondary back link)",
+   "action": "onPress=navigation.goBack() — below retry in the error/not-found branch",
+   "states": [
+    "default",
+    "pressed/active",
+    "error",
+    "RTL-mirrored"
+   ],
+   "risk": "Plain accent text link, no accessibilityRole. Second action in error state."
+  },
+  {
+   "screen": "WeekRecommendationsScreen",
+   "anchor": "/Users/1millnonstop/Downloads/pregnancy-app/pre2000/app/src/screens/WeekRecommendationsScreen.tsx:129",
+   "type": "button",
+   "label": "common.exploreResources (EmptyState CTA, common/Button variant=primary)",
+   "action": "onPress=navigation.navigate('Ressources') — sends user to Resources tab; only in zero-recommendations empty state",
+   "states": [
+    "default",
+    "pressed/active",
+    "disabled",
+    "loading",
+    "empty",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "common/Button supports loading(ActivityIndicator)/disabled(isDisabled, accessibilityState busy) — not exercised here but applicable to the component. Empty-state-only. numberOfLines=1 title → long ar/tn label truncation. Tab name 'Ressources' (FR route id)."
+  },
+  {
+   "screen": "WeekRecommendationsScreen",
+   "anchor": "/Users/1millnonstop/Downloads/pregnancy-app/pre2000/app/src/screens/WeekRecommendationsScreen.tsx:146",
+   "type": "touchable",
+   "label": "recommended-article card (articles.map) — localized title + summary",
+   "action": "onPress=navigation.navigate('ArticleDetail',{articleId:article.article_id}); activeOpacity 0.7",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow",
+    "loading",
+    "empty"
+   ],
+   "risk": "No accessibilityRole/Label on this card (the supplement card below HAS one — inconsistency). Section only when articles.length>0. Fixed 60px icon column → RTL flip. summary numberOfLines 2. Loading=spinner, empty=EmptyState CTA."
+  },
+  {
+   "screen": "WeekRecommendationsScreen",
+   "anchor": "/Users/1millnonstop/Downloads/pregnancy-app/pre2000/app/src/screens/WeekRecommendationsScreen.tsx:171",
+   "type": "touchable",
+   "label": "recommended-supplement card (supplements.map) — a11y name + safety label",
+   "action": "onPress=navigation.navigate('SupplementDetail',{supplementId:supplement.supplement_id}); activeOpacity 0.7",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow",
+    "loading",
+    "empty"
+   ],
+   "risk": "Has accessibilityLabel (name — safetyLabel) unlike the article card. Icon column bg = safety color (D6-07 also shows icon+label text so not color-only). Fixed 60px icon → RTL flip. Section only when supplements>0."
+  },
+  {
+   "screen": "ChatbotScreen",
+   "anchor": "src/screens/ChatbotScreen.tsx:128",
+   "type": "touchable",
+   "label": "common.retry",
+   "action": "retry sending the failed message (handleSend(originalText, true))",
+   "states": [
+    "default",
+    "pressed/active",
+    "error",
+    "RTL-mirrored",
+    "long-text/overflow",
+    "offline/guest-fallback",
+    "success-feedback"
+   ],
+   "risk": "only renders on error bubble; retry must clear prior error msg + handle repeated offline failure"
+  },
+  {
+   "screen": "ChatbotScreen",
+   "anchor": "src/screens/ChatbotScreen.tsx:158",
+   "type": "touchable",
+   "label": "📞 common.chatEmergencyAction (emergencyNumber)",
+   "action": "open tel: dialer to resolved emergency number (Linking.openURL)",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow",
+    "offline/guest-fallback",
+    "error"
+   ],
+   "risk": "SAFETY-CRITICAL: button hidden when emergencyNumber null (must NOT dial wrong country); openURL catch path shows alert; only on emergency/urgent_consult red_flag"
+  },
+  {
+   "screen": "ChatbotScreen",
+   "anchor": "src/screens/ChatbotScreen.tsx:183",
+   "type": "touchable",
+   "label": "📄 article title (getLocalizedContent title)",
+   "action": "navigate to Ressources > ArticleDetail with articleId + anchor",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "per-article in .map; long localized titles may overflow link row; ar/tn title direction"
+  },
+  {
+   "screen": "ChatbotScreen",
+   "anchor": "src/screens/ChatbotScreen.tsx:207",
+   "type": "touchable",
+   "label": "common.chatSeeTipHome",
+   "action": "navigate to Home > HomeMain (see daily tip)",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "only renders when suggestions[0].linked_tip_ids present"
+  },
+  {
+   "screen": "ChatbotScreen",
+   "anchor": "src/screens/ChatbotScreen.tsx:224",
+   "type": "touchable",
+   "label": "common.chatSeeReminders",
+   "action": "navigate to Rappels (suggested task)",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "only renders when suggestions[0].linked_task_ids present"
+  },
+  {
+   "screen": "ChatbotScreen",
+   "anchor": "src/screens/ChatbotScreen.tsx:279",
+   "type": "touchable",
+   "label": "suggestion chip label (getSuggestionLabel)",
+   "action": "send the suggestion text as a chat message (handleSend)",
+   "states": [
+    "default",
+    "pressed/active",
+    "empty",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "horizontal FlatList — RN-Web RTL carousel mirroring gotcha (ar/tn); empty when fetchSuggestions returns none"
+  },
+  {
+   "screen": "ChatbotScreen",
+   "anchor": "src/screens/ChatbotScreen.tsx:298",
+   "type": "textinput",
+   "label": "common.chatAskQuestion (placeholder)",
+   "action": "controlled chat input (onChangeText=setInputText), maxLength 500",
+   "states": [
+    "default",
+    "focused",
+    "filled",
+    "empty",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "textAlign right under ar/tn; maxLength 500 silently caps; oversized input >500 silently ignored on send"
+  },
+  {
+   "screen": "ChatbotScreen",
+   "anchor": "src/screens/ChatbotScreen.tsx:307",
+   "type": "touchable",
+   "label": "a11y.sendMessage (chevron / ⏳)",
+   "action": "send current input (handleSend); disabled when empty or loading",
+   "states": [
+    "default",
+    "pressed/active",
+    "disabled",
+    "loading",
+    "empty",
+    "filled",
+    "RTL-mirrored",
+    "offline/guest-fallback",
+    "success-feedback",
+    "error"
+   ],
+   "risk": "disabled state when !inputText.trim()||loading; loading shows ⏳; chevron must mirror direction in RTL; rate-limit path returns bot msg"
+  },
+  {
+   "screen": "HealthDashboardScreen",
+   "anchor": "src/screens/HealthDashboardScreen.tsx:382",
+   "type": "button",
+   "label": "common.screen.createAccount (Créer un compte)",
+   "action": "guest fallback: navigate Home > GuestUpgrade (register link mode)",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow",
+    "offline/guest-fallback"
+   ],
+   "risk": "renders ONLY for isGuest; EmptyState action Button; the entire screen is locked for guests"
+  },
+  {
+   "screen": "HealthDashboardScreen",
+   "anchor": "src/screens/HealthDashboardScreen.tsx:417",
+   "type": "touchable",
+   "label": "common.retry",
+   "action": "reload dashboard data (loadData) after error",
+   "states": [
+    "default",
+    "pressed/active",
+    "error",
+    "loading",
+    "RTL-mirrored",
+    "offline/guest-fallback"
+   ],
+   "risk": "renders ONLY in error branch; tapping triggers loading skeleton; offline reload may re-error"
+  },
+  {
+   "screen": "HealthDashboardScreen",
+   "anchor": "src/screens/HealthDashboardScreen.tsx:444",
+   "type": "touchable",
+   "label": "dashboard.add (Poids/weight)",
+   "action": "open Add-Weight modal (setShowWeightModal(true))",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "a11y.addWeight label; section visible after loading"
+  },
+  {
+   "screen": "HealthDashboardScreen",
+   "anchor": "src/screens/HealthDashboardScreen.tsx:512",
+   "type": "touchable",
+   "label": "dashboard.add (Tension/BP)",
+   "action": "open Add-BP modal (setShowBPModal(true))",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "a11y composite label bloodPressure+addNew"
+  },
+  {
+   "screen": "HealthDashboardScreen",
+   "anchor": "src/screens/HealthDashboardScreen.tsx:559",
+   "type": "touchable",
+   "label": "dashboard.add (Glycémie/glucose)",
+   "action": "open Add-Glucose modal (setShowGlucoseModal(true))",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "a11y composite label glucose+addNew"
+  },
+  {
+   "screen": "HealthDashboardScreen",
+   "anchor": "src/screens/HealthDashboardScreen.tsx:608",
+   "type": "touchable",
+   "label": "symptom chip (chip.label, e.g. Nausée/Fatigue)",
+   "action": "toggle daily symptom + optimistic save (handleToggleSymptom) with rollback",
+   "states": [
+    "default",
+    "pressed/active",
+    "active",
+    "filled",
+    "empty",
+    "RTL-mirrored",
+    "long-text/overflow",
+    "error",
+    "success-feedback",
+    "offline/guest-fallback"
+   ],
+   "risk": "6 chips in .map; selected state via symptomChipActive; optimistic update rolls back + alerts on save fail; emoji+label wrap in long-text langs"
+  },
+  {
+   "screen": "HealthDashboardScreen",
+   "anchor": "src/screens/HealthDashboardScreen.tsx:637",
+   "type": "touchable",
+   "label": "dashboard.seeAll (Rendez-vous)",
+   "action": "show 'soon available' alert (showAlert)",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "placeholder action — opens info alert, no navigation yet"
+  },
+  {
+   "screen": "HealthDashboardScreen",
+   "anchor": "src/screens/HealthDashboardScreen.tsx:662",
+   "type": "touchable",
+   "label": "dashboard.seeAll (Rappels)",
+   "action": "navigate to Rappels",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "link-style text button"
+  },
+  {
+   "screen": "HealthDashboardScreen",
+   "anchor": "src/screens/HealthDashboardScreen.tsx:697",
+   "type": "textinput",
+   "label": "dashboard.weightPlaceholder (HealthWeightModal input)",
+   "action": "controlled weight input (onChangeWeight=setNewWeight), decimal-pad",
+   "states": [
+    "default",
+    "focused",
+    "filled",
+    "empty",
+    "RTL-mirrored"
+   ],
+   "risk": "modal child at HealthWeightModal.tsx:28; no maxLength; comma/decimal normalized in handleAddWeight"
+  },
+  {
+   "screen": "HealthDashboardScreen",
+   "anchor": "src/screens/HealthDashboardScreen.tsx:697",
+   "type": "touchable",
+   "label": "dashboard.cancel (Weight modal)",
+   "action": "close weight modal + clear newWeight (onClose)",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored"
+   ],
+   "risk": "modal child at HealthWeightModal.tsx:36"
+  },
+  {
+   "screen": "HealthDashboardScreen",
+   "anchor": "src/screens/HealthDashboardScreen.tsx:705",
+   "type": "touchable",
+   "label": "dashboard.save (Weight modal)",
+   "action": "validate + persist weight (handleAddWeight); may trigger clinical alert",
+   "states": [
+    "default",
+    "pressed/active",
+    "disabled",
+    "error",
+    "filled",
+    "empty",
+    "RTL-mirrored",
+    "success-feedback",
+    "offline/guest-fallback"
+   ],
+   "risk": "modal child at HealthWeightModal.tsx:44; SAFETY: checkWeightChange→showClinicalAlert(save anyway/cancel); validation bounds 0<v<=300; early-return if !newWeight (no disabled style)"
+  },
+  {
+   "screen": "HealthDashboardScreen",
+   "anchor": "src/screens/HealthDashboardScreen.tsx:710",
+   "type": "textinput",
+   "label": "dashboard.systolic (HealthBPModal input)",
+   "action": "controlled systolic input (onChangeSystolic=setNewBPSystolic), number-pad",
+   "states": [
+    "default",
+    "focused",
+    "filled",
+    "empty",
+    "RTL-mirrored"
+   ],
+   "risk": "modal child at HealthBPModal.tsx:32"
+  },
+  {
+   "screen": "HealthDashboardScreen",
+   "anchor": "src/screens/HealthDashboardScreen.tsx:710",
+   "type": "textinput",
+   "label": "dashboard.diastolic (HealthBPModal input)",
+   "action": "controlled diastolic input (onChangeDiastolic=setNewBPDiastolic), number-pad",
+   "states": [
+    "default",
+    "focused",
+    "filled",
+    "empty",
+    "RTL-mirrored"
+   ],
+   "risk": "modal child at HealthBPModal.tsx:39; validation requires sys>=dia"
+  },
+  {
+   "screen": "HealthDashboardScreen",
+   "anchor": "src/screens/HealthDashboardScreen.tsx:710",
+   "type": "touchable",
+   "label": "dashboard.cancel (BP modal)",
+   "action": "close BP modal + clear sys/dia (onClose)",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored"
+   ],
+   "risk": "modal child at HealthBPModal.tsx:47"
+  },
+  {
+   "screen": "HealthDashboardScreen",
+   "anchor": "src/screens/HealthDashboardScreen.tsx:721",
+   "type": "touchable",
+   "label": "dashboard.save (BP modal)",
+   "action": "validate + persist BP (handleAddBP); SAFETY: severe HTN pre-eclampsia alert",
+   "states": [
+    "default",
+    "pressed/active",
+    "error",
+    "filled",
+    "empty",
+    "RTL-mirrored",
+    "success-feedback",
+    "offline/guest-fallback"
+   ],
+   "risk": "modal child at HealthBPModal.tsx:55; checkBloodPressure→showClinicalAlert; early-return if !sys||!dia"
+  },
+  {
+   "screen": "HealthDashboardScreen",
+   "anchor": "src/screens/HealthDashboardScreen.tsx:726",
+   "type": "textinput",
+   "label": "dashboard.glucoseTarget (HealthGlucoseModal input)",
+   "action": "controlled glucose input (onChangeGlucose=setNewGlucose), decimal-pad",
+   "states": [
+    "default",
+    "focused",
+    "filled",
+    "empty",
+    "RTL-mirrored"
+   ],
+   "risk": "modal child at HealthGlucoseModal.tsx:28"
+  },
+  {
+   "screen": "HealthDashboardScreen",
+   "anchor": "src/screens/HealthDashboardScreen.tsx:726",
+   "type": "touchable",
+   "label": "dashboard.cancel (Glucose modal)",
+   "action": "close glucose modal + clear newGlucose (onClose)",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored"
+   ],
+   "risk": "modal child at HealthGlucoseModal.tsx:36"
+  },
+  {
+   "screen": "HealthDashboardScreen",
+   "anchor": "src/screens/HealthDashboardScreen.tsx:731",
+   "type": "touchable",
+   "label": "dashboard.save (Glucose modal)",
+   "action": "validate + persist glucose (handleAddGlucose); SAFETY: hypo/hyperglycemia alert",
+   "states": [
+    "default",
+    "pressed/active",
+    "error",
+    "filled",
+    "empty",
+    "RTL-mirrored",
+    "success-feedback",
+    "offline/guest-fallback"
+   ],
+   "risk": "modal child at HealthGlucoseModal.tsx:44; range 0<v<=30; checkGlucose→showClinicalAlert; early-return if !newGlucose"
+  },
+  {
+   "screen": "WeightTrackerScreen",
+   "anchor": "src/screens/WeightTrackerScreen.tsx:424",
+   "type": "touchable",
+   "label": "weight.title + weekLabel (header)",
+   "action": "triple-tap to toggle hidden debug mode (handleTitlePress, __DEV__ only)",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "no-op in prod (__DEV__ guard); 3 taps within 1500ms toggles debug; not a visible affordance"
+  },
+  {
+   "screen": "WeightTrackerScreen",
+   "anchor": "src/screens/WeightTrackerScreen.tsx:432",
+   "type": "touchable",
+   "label": "weight.edit (debug)",
+   "action": "re-open setup form prefilled (handleEditProfile)",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored"
+   ],
+   "risk": "renders only in showDebugMode (DEV); hidden in prod"
+  },
+  {
+   "screen": "WeightTrackerScreen",
+   "anchor": "src/screens/WeightTrackerScreen.tsx:438",
+   "type": "touchable",
+   "label": "weight.reset (debug)",
+   "action": "confirm + delete ALL weight entries (handleResetData)",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "success-feedback"
+   ],
+   "risk": "renders only in showDebugMode (DEV); destructive bulk delete behind confirmAction"
+  },
+  {
+   "screen": "WeightTrackerScreen",
+   "anchor": "src/screens/WeightTrackerScreen.tsx:458",
+   "type": "textinput",
+   "label": "common.weightPlaceholder (setup pre-pregnancy weight)",
+   "action": "controlled setup weight (onChangeText=setSetupWeight), decimal-pad",
+   "states": [
+    "default",
+    "focused",
+    "filled",
+    "empty",
+    "RTL-mirrored"
+   ],
+   "risk": "renders only when showSetup; prefilled from profile; validation 30-200kg"
+  },
+  {
+   "screen": "WeightTrackerScreen",
+   "anchor": "src/screens/WeightTrackerScreen.tsx:470",
+   "type": "textinput",
+   "label": "common.heightPlaceholder (setup height)",
+   "action": "controlled setup height (onChangeText=setSetupHeight), decimal-pad",
+   "states": [
+    "default",
+    "focused",
+    "filled",
+    "empty",
+    "RTL-mirrored"
+   ],
+   "risk": "renders only when showSetup; validation 100-250cm"
+  },
+  {
+   "screen": "WeightTrackerScreen",
+   "anchor": "src/screens/WeightTrackerScreen.tsx:480",
+   "type": "touchable",
+   "label": "weight.save (✓) / common.saving (setup)",
+   "action": "validate + persist pre-pregnancy weight+height to profile (handleSaveSetup)",
+   "states": [
+    "default",
+    "pressed/active",
+    "disabled",
+    "loading",
+    "error",
+    "filled",
+    "empty",
+    "RTL-mirrored",
+    "success-feedback",
+    "offline/guest-fallback"
+   ],
+   "risk": "disabled+saveButtonDisabled while savingSetup; shows common.saving; validation alerts on invalid weight/height; success alert configSaved"
+  },
+  {
+   "screen": "WeightTrackerScreen",
+   "anchor": "src/screens/WeightTrackerScreen.tsx:554",
+   "type": "touchable",
+   "label": "ℹ️ weight.howItWorks (info button)",
+   "action": "show how-it-works info alert (showAlert)",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored"
+   ],
+   "risk": "renders only when !needsSetup; icon-only button, a11y label provided"
+  },
+  {
+   "screen": "WeightTrackerScreen",
+   "anchor": "src/screens/WeightTrackerScreen.tsx:613",
+   "type": "textinput",
+   "label": "common.decimalWeightPlaceholder (add daily weight)",
+   "action": "controlled new weight input (onChangeText=setNewWeight), decimal-pad, autoFocus",
+   "states": [
+    "default",
+    "focused",
+    "filled",
+    "empty",
+    "RTL-mirrored"
+   ],
+   "risk": "renders only when showAddForm; autoFocus; lb/kg ambiguity detection 120-200 in handleAddWeight"
+  },
+  {
+   "screen": "WeightTrackerScreen",
+   "anchor": "src/screens/WeightTrackerScreen.tsx:625",
+   "type": "touchable",
+   "label": "common.cancel (add form)",
+   "action": "close add form + clear newWeight (setShowAddForm(false))",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored"
+   ],
+   "risk": "renders only when showAddForm"
+  },
+  {
+   "screen": "WeightTrackerScreen",
+   "anchor": "src/screens/WeightTrackerScreen.tsx:633",
+   "type": "touchable",
+   "label": "weight.save / common.saving (add form)",
+   "action": "validate + persist new weight (handleAddWeight); multi-path confirm dialogs",
+   "states": [
+    "default",
+    "pressed/active",
+    "disabled",
+    "loading",
+    "error",
+    "filled",
+    "empty",
+    "RTL-mirrored",
+    "success-feedback",
+    "offline/guest-fallback"
+   ],
+   "risk": "disabled while saving; SAFETY: confirmAction for lb/kg ambiguity, >3kg loss, >2kg variation, same-day duplicate; success alert savedMsg"
+  },
+  {
+   "screen": "WeightTrackerScreen",
+   "anchor": "src/screens/WeightTrackerScreen.tsx:648",
+   "type": "touchable",
+   "label": "weight.addDailyWeight (add button)",
+   "action": "open add-weight inline form (setShowAddForm(true))",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "renders only when !showAddForm (toggles with form)"
+  },
+  {
+   "screen": "WeightTrackerScreen",
+   "anchor": "src/screens/WeightTrackerScreen.tsx:688",
+   "type": "touchable",
+   "label": "🗑️ a11y.deleteWeight (history row delete)",
+   "action": "confirm + delete a single weight entry (handleDeleteEntry)",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "success-feedback"
+   ],
+   "risk": "per-entry in history.slice(0,10).map; destructive behind confirmAction; a11y hint includes weight+date; only when history non-empty"
+  },
+  {
+   "screen": "WeightTrackerScreen",
+   "anchor": "src/screens/WeightTrackerScreen.tsx:715",
+   "type": "touchable",
+   "label": "weight.whyTrack (education accordion header)",
+   "action": "toggle educational section expand/collapse (setShowEducation)",
+   "states": [
+    "default",
+    "pressed/active",
+    "active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "accessibilityState expanded; ▲/▼ toggle indicator; renders only when !needsSetup"
+  },
+  {
+   "screen": "WeightTrackerScreen",
+   "anchor": "src/screens/WeightTrackerScreen.tsx:417",
+   "type": "other",
+   "label": "ScrollView RefreshControl (pull-to-refresh)",
+   "action": "reload weight history on pull (onRefresh→loadData)",
+   "states": [
+    "default",
+    "loading",
+    "RTL-mirrored",
+    "offline/guest-fallback"
+   ],
+   "risk": "refreshing spinner state; web has no native pull-to-refresh"
+  },
+  {
+   "screen": "KickCounterScreen",
+   "anchor": "src/screens/KickCounterScreen.tsx:118",
+   "type": "button",
+   "label": "cycle8.kickCounter.startSession",
+   "action": "start session + record first kick (onTap)",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow",
+    "empty"
+   ],
+   "risk": "renders only when no activeSession (EmptyState action); first tap both starts session and records kick"
+  },
+  {
+   "screen": "KickCounterScreen",
+   "anchor": "src/screens/KickCounterScreen.tsx:141",
+   "type": "touchable",
+   "label": "cycle8.kickCounter.tapToCount (👶)",
+   "action": "record a kick into active session (onTap)",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow",
+    "success-feedback"
+   ],
+   "risk": "renders only when activeSession; large primary tap target; live region updates count"
+  },
+  {
+   "screen": "KickCounterScreen",
+   "anchor": "src/screens/KickCounterScreen.tsx:151",
+   "type": "button",
+   "label": "cycle8.kickCounter.endSession",
+   "action": "end active session, persist to history (onEnd)",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "renders only when activeSession; primary variant"
+  },
+  {
+   "screen": "KickCounterScreen",
+   "anchor": "src/screens/KickCounterScreen.tsx:157",
+   "type": "button",
+   "label": "cycle8.kickCounter.cancelSession",
+   "action": "confirm + cancel/discard active session (onCancel→confirmAction)",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "renders only when activeSession; destructive (discards counts) behind confirmAction; secondary variant"
+  },
+  {
+   "screen": "ContractionTimerScreen",
+   "anchor": "src/screens/ContractionTimerScreen.tsx:125",
+   "type": "button",
+   "label": "cycle8.contractionTimer.startContraction",
+   "action": "start a contraction timer (onStart)",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "renders only when no activeStartedAt; primary variant"
+  },
+  {
+   "screen": "ContractionTimerScreen",
+   "anchor": "src/screens/ContractionTimerScreen.tsx:140",
+   "type": "button",
+   "label": "cycle8.contractionTimer.stopContraction",
+   "action": "stop the active contraction (onStop)",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "renders only when activeStartedAt; live timer counting above it"
+  },
+  {
+   "screen": "ContractionTimerScreen",
+   "anchor": "src/screens/ContractionTimerScreen.tsx:187",
+   "type": "button",
+   "label": "cycle8.contractionTimer.share",
+   "action": "share contraction summary via Share.share (onShare)",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow",
+    "empty"
+   ],
+   "risk": "renders only when history non-empty; no-op if history empty; user-cancel swallowed; secondary variant"
+  },
+  {
+   "screen": "ContractionTimerScreen",
+   "anchor": "src/screens/ContractionTimerScreen.tsx:193",
+   "type": "button",
+   "label": "cycle8.contractionTimer.clear",
+   "action": "confirm + clear all contraction history (onClear→confirmAction)",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "renders only when history non-empty; destructive behind confirmAction; secondary variant"
+  },
+  {
+   "screen": "ContractionTimerScreen",
+   "anchor": "src/screens/ContractionTimerScreen.tsx:203",
+   "type": "touchable",
+   "label": "📞 cycle8.contractionTimer.callMaternity (emergencyNumber)",
+   "action": "open tel: dialer to maternity/emergency number (onCallMaternity)",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow",
+    "offline/guest-fallback"
+   ],
+   "risk": "SAFETY: renders ONLY when emergencyNumber resolved (else hidden — never dial wrong number); openURL catch swallowed"
+  },
+  {
+   "screen": "HospitalBagChecklistScreen",
+   "anchor": "src/screens/HospitalBagChecklistScreen.tsx:134",
+   "type": "touchable",
+   "label": "item label (labelFor by lang) — checkbox",
+   "action": "toggle checklist item checked/unchecked (onToggle)",
+   "states": [
+    "default",
+    "pressed/active",
+    "active",
+    "filled",
+    "RTL-mirrored",
+    "long-text/overflow",
+    "success-feedback"
+   ],
+   "risk": "per-item in grouped[sec].map; accessibilityRole=checkbox + aria-checked(web); RTL gap side flips marginStart/End explicitly; line-through when checked; label numberOfLines=2"
+  },
+  {
+   "screen": "HospitalBagChecklistScreen",
+   "anchor": "src/screens/HospitalBagChecklistScreen.tsx:168",
+   "type": "touchable",
+   "label": "✕ cycle8.hospitalBag.removeCustom",
+   "action": "remove a custom item (onRemove)",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored"
+   ],
+   "risk": "renders only for item.custom; hitSlop expanded; split from toggle to avoid Android event-bubble double-fire"
+  },
+  {
+   "screen": "HospitalBagChecklistScreen",
+   "anchor": "src/screens/HospitalBagChecklistScreen.tsx:181",
+   "type": "touchable",
+   "label": "+ cycle8.hospitalBag.addCustom",
+   "action": "open add-custom-item modal for this section (setAddingFor(sec))",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "one per section (4x); no explicit a11y label text beyond children"
+  },
+  {
+   "screen": "HospitalBagChecklistScreen",
+   "anchor": "src/screens/HospitalBagChecklistScreen.tsx:201",
+   "type": "pressable",
+   "label": "cycle8.hospitalBag.cancel (modal backdrop)",
+   "action": "dismiss add modal on tap-outside + clear draft (onPress)",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "offline/guest-fallback"
+   ],
+   "risk": "backdrop Pressable; inner card stops propagation; only when addingFor!=null"
+  },
+  {
+   "screen": "HospitalBagChecklistScreen",
+   "anchor": "src/screens/HospitalBagChecklistScreen.tsx:209",
+   "type": "pressable",
+   "label": "modal card (stopPropagation)",
+   "action": "swallow taps inside modal card so they don't dismiss backdrop (e.stopPropagation)",
+   "states": [
+    "default",
+    "RTL-mirrored"
+   ],
+   "risk": "non-action interactive wrapper — exists purely to block backdrop dismiss; easy to miss"
+  },
+  {
+   "screen": "HospitalBagChecklistScreen",
+   "anchor": "src/screens/HospitalBagChecklistScreen.tsx:211",
+   "type": "textinput",
+   "label": "cycle8.hospitalBag.addCustomPlaceholder",
+   "action": "controlled custom-item draft (onChangeText=setDraft), maxLength 80, autoFocus",
+   "states": [
+    "default",
+    "focused",
+    "filled",
+    "empty",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "maxLength 80; autoFocus; trim drives Add disabled state; placeholderTextColor set"
+  },
+  {
+   "screen": "HospitalBagChecklistScreen",
+   "anchor": "src/screens/HospitalBagChecklistScreen.tsx:222",
+   "type": "button",
+   "label": "cycle8.hospitalBag.cancel (modal)",
+   "action": "close modal + clear draft (onPress)",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "secondary variant"
+  },
+  {
+   "screen": "HospitalBagChecklistScreen",
+   "anchor": "src/screens/HospitalBagChecklistScreen.tsx:231",
+   "type": "button",
+   "label": "cycle8.hospitalBag.add (modal)",
+   "action": "add custom item to section (onAddSubmit); disabled when draft empty/whitespace",
+   "states": [
+    "default",
+    "pressed/active",
+    "disabled",
+    "filled",
+    "empty",
+    "RTL-mirrored",
+    "long-text/overflow",
+    "success-feedback"
+   ],
+   "risk": "disabled=!draft.trim(); primary variant; appends to section list on submit"
+  },
+  {
+   "screen": "ForbiddenFoodsScreen",
+   "anchor": "src/screens/ForbiddenFoodsScreen.tsx:137",
+   "type": "textinput",
+   "label": "common.searchFoodPlaceholder",
+   "action": "controlled search query (onChangeText=setSearchQuery) filtering food list",
+   "states": [
+    "default",
+    "focused",
+    "filled",
+    "empty",
+    "RTL-mirrored",
+    "long-text/overflow",
+    "success-feedback"
+   ],
+   "risk": "filters on localized name/risk/alternative; empty-results state at :190; no RTL textAlign override on input"
+  },
+  {
+   "screen": "ForbiddenFoodsScreen",
+   "anchor": "src/screens/ForbiddenFoodsScreen.tsx:153",
+   "type": "touchable",
+   "label": "forbiddenFoods.all (category chip)",
+   "action": "clear category filter (setSelectedCategory(null))",
+   "states": [
+    "default",
+    "pressed/active",
+    "active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "active state via categoryChipActive when selectedCategory===null; in horizontal scroll (RTL carousel gotcha)"
+  },
+  {
+   "screen": "ForbiddenFoodsScreen",
+   "anchor": "src/screens/ForbiddenFoodsScreen.tsx:166",
+   "type": "touchable",
+   "label": "category chip (cat.icon + forbiddenFoods.categories.{id})",
+   "action": "toggle category filter (setSelectedCategory toggle)",
+   "states": [
+    "default",
+    "pressed/active",
+    "active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "7 chips in categories.map; toggles selection; active highlight; horizontal scroll RTL mirroring (ar/tn)"
+  },
+  {
+   "screen": "ForbiddenFoodsScreen",
+   "anchor": "src/screens/ForbiddenFoodsScreen.tsx:200",
+   "type": "touchable",
+   "label": "food card (localized name + severity badge)",
+   "action": "expand/collapse food detail (toggleExpand)",
+   "states": [
+    "default",
+    "pressed/active",
+    "active",
+    "RTL-mirrored",
+    "long-text/overflow",
+    "empty"
+   ],
+   "risk": "per-food in filteredFoods.map; expanded reveals risk/details/alternative; ▲/▼ indicator; activeOpacity 0.7; RTL textAlign on name; severity borderStartColor; empty-state replaces list when 0 results"
+  },
+  {
+   "screen": "BabyEvolutionScreen",
+   "anchor": "src/screens/BabyEvolutionScreen.tsx:169",
+   "type": "touchable",
+   "label": "common.back (RtlAwareChevron + text)",
+   "action": "navigate back (navigation.goBack)",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "chevron direction=back must mirror in ar/tn; a11y.back label"
+  },
+  {
+   "screen": "BabyEvolutionScreen",
+   "anchor": "src/screens/BabyEvolutionScreen.tsx:204",
+   "type": "other",
+   "label": "horizontal month carousel (ScrollView onScroll)",
+   "action": "paged horizontal scroll updates activeMonth (handleScroll) + progress dots",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow",
+    "offline/guest-fallback"
+   ],
+   "risk": "CRITICAL RTL gotcha: web forces dir=ltr on scrollable node + abs(offsetX) + clamp [1,9] to fix Chromium negative scrollLeft stranding ar/tn on Month 9; pagingEnabled + snapToInterval; auto-scrolls to currentMonth on mount"
+  },
+  {
+   "screen": "ProfileScreen",
+   "anchor": "src/screens/ProfileScreen.tsx:289",
+   "type": "button",
+   "label": "common.screen.createAccount ('Créer un compte')",
+   "action": "navigate to GuestUpgrade (guest-only CTA in header)",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow",
+    "offline/guest-fallback"
+   ],
+   "risk": "guest-fallback: only rendered when user?.isGuest; dir prop set on web for RTL"
+  },
+  {
+   "screen": "ProfileScreen",
+   "anchor": "src/screens/ProfileScreen.tsx:238",
+   "type": "touchable",
+   "label": "Country chip (COUNTRIES.map → c.label, 6 instances tunisia/morocco/algeria/france/belgium/other)",
+   "action": "setCountry(c.key) — single-select country picker",
+   "states": [
+    "default",
+    "pressed/active",
+    "filled",
+    "RTL-mirrored",
+    "long-text/overflow",
+    "success-feedback"
+   ],
+   "risk": "selected state via accessibilityState.selected + aria-selected; flex-wrap layout under RTL/long labels"
+  },
+  {
+   "screen": "ProfileScreen",
+   "anchor": "src/screens/ProfileScreen.tsx:308",
+   "type": "textinput",
+   "label": "firstName input (placeholder common.enterFirstName, required *)",
+   "action": "onChangeText=setFirstName",
+   "states": [
+    "default",
+    "empty",
+    "error",
+    "filled",
+    "focused",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "required field; empty-trim triggers showAlert profile.errorFirstName on save"
+  },
+  {
+   "screen": "ProfileScreen",
+   "anchor": "src/screens/ProfileScreen.tsx:316",
+   "type": "textinput",
+   "label": "lastName input (placeholder common.enterLastName)",
+   "action": "onChangeText=setLastName",
+   "states": [
+    "default",
+    "empty",
+    "filled",
+    "focused",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ]
+  },
+  {
+   "screen": "ProfileScreen",
+   "anchor": "src/screens/ProfileScreen.tsx:330",
+   "type": "textinput",
+   "label": "height input (keyboardType numeric, maxLength 3, placeholder profile.heightPlaceholder)",
+   "action": "onChangeText=setHeight (cm, parsed to BMI payload)",
+   "states": [
+    "default",
+    "empty",
+    "filled",
+    "focused",
+    "RTL-mirrored"
+   ],
+   "risk": "numeric keyboard; non-positive/NaN values silently dropped from payload (isFinite>0 guard)"
+  },
+  {
+   "screen": "ProfileScreen",
+   "anchor": "src/screens/ProfileScreen.tsx:342",
+   "type": "textinput",
+   "label": "prePregnancyWeight input (keyboardType numeric, maxLength 5, placeholder profile.weightPlaceholderShort)",
+   "action": "onChangeText=setPrePregnancyWeight (kg, parsed to BMI payload)",
+   "states": [
+    "default",
+    "empty",
+    "filled",
+    "focused",
+    "RTL-mirrored"
+   ],
+   "risk": "numeric keyboard; marginStart/marginEnd row pairing must mirror under RTL"
+  },
+  {
+   "screen": "ProfileScreen",
+   "anchor": "src/screens/ProfileScreen.tsx:359",
+   "type": "touchable",
+   "label": "LMP date button (formatted dd MMM yyyy via dateLocale)",
+   "action": "setShowDatePicker(true) — opens DateTimePicker",
+   "states": [
+    "default",
+    "pressed/active",
+    "filled",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "locale-formatted date label; ar/tn month names + RTL date string ordering"
+  },
+  {
+   "screen": "ProfileScreen",
+   "anchor": "src/screens/ProfileScreen.tsx:373",
+   "type": "other",
+   "label": "DateTimePicker (mode=date, display=spinner, max=today, locale=getPickerLocale)",
+   "action": "onChange → setShowDatePicker(false) + setLmp(selectedDate)",
+   "states": [
+    "default",
+    "RTL-mirrored",
+    "offline/guest-fallback"
+   ],
+   "risk": "conditionally mounted (showDatePicker); native spinner; per-language picker locale; maximumDate guard"
+  },
+  {
+   "screen": "ProfileScreen",
+   "anchor": "src/screens/ProfileScreen.tsx:398",
+   "type": "touchable",
+   "label": "Save profile button (profile.save / ActivityIndicator when loading)",
+   "action": "handleSave — validates + setProfile + updateProfile (Firestore)",
+   "states": [
+    "default",
+    "pressed/active",
+    "disabled",
+    "loading",
+    "error",
+    "RTL-mirrored",
+    "offline/guest-fallback",
+    "success-feedback"
+   ],
+   "risk": "disabled+busy a11y when loading; loading swaps text→spinner; offline/guest writes to AsyncStorage; success/error via showAlert"
+  },
+  {
+   "screen": "ProfileScreen",
+   "anchor": "src/screens/ProfileScreen.tsx:419",
+   "type": "touchable",
+   "label": "Health dashboard menu row (profile.health)",
+   "action": "navigate('HealthDashboard')",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "RtlAwareChevron direction='forward' must flip in RTL"
+  },
+  {
+   "screen": "ProfileScreen",
+   "anchor": "src/screens/ProfileScreen.tsx:442",
+   "type": "other",
+   "label": "LanguageSelector (isCompact) embedded in Preferences row",
+   "action": "renders inline language selector trigger (see LanguageSelector anchors)",
+   "states": [
+    "default",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "child component instance; modal-driven language change triggers RTL layout reflow"
+  },
+  {
+   "screen": "ProfileScreen",
+   "anchor": "src/screens/ProfileScreen.tsx:444",
+   "type": "touchable",
+   "label": "Notifications menu row (profile.notifications)",
+   "action": "navigate('Settings')",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "RtlAwareChevron forward must flip in RTL"
+  },
+  {
+   "screen": "ProfileScreen",
+   "anchor": "src/screens/ProfileScreen.tsx:462",
+   "type": "touchable",
+   "label": "Privacy policy menu row (common.privacyPolicy)",
+   "action": "navigate('PrivacyPolicy')",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ]
+  },
+  {
+   "screen": "ProfileScreen",
+   "anchor": "src/screens/ProfileScreen.tsx:476",
+   "type": "touchable",
+   "label": "Report problem / support menu row (support.reportProblem)",
+   "action": "openSupportEmail(t) — opens mailto support",
+   "states": [
+    "default",
+    "pressed/active",
+    "error",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "mailto deep-link may fail silently on web/no-mail-client"
+  },
+  {
+   "screen": "ProfileScreen",
+   "anchor": "src/screens/ProfileScreen.tsx:493",
+   "type": "touchable",
+   "label": "Logout menu row (profile.logout, danger zone)",
+   "action": "handleLogout — confirmAction then logout()",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "destructive confirm dialog; error logged only (no user-facing error)"
+  },
+  {
+   "screen": "ProfileScreen",
+   "anchor": "src/screens/ProfileScreen.tsx:506",
+   "type": "touchable",
+   "label": "Reset profile menu row (profile.reset, danger zone)",
+   "action": "handleResetProfile — confirmAction → resetProfile → reset nav to AuthChoice",
+   "states": [
+    "default",
+    "pressed/active",
+    "loading",
+    "error",
+    "RTL-mirrored",
+    "long-text/overflow",
+    "success-feedback"
+   ],
+   "risk": "destructive; sets loading; success/error via showAlert; navigation.reset to AuthChoice"
+  },
+  {
+   "screen": "ProfileScreen",
+   "anchor": "src/screens/ProfileScreen.tsx:519",
+   "type": "touchable",
+   "label": "Delete account menu row (profile.deleteAccount, danger zone, non-guest only)",
+   "action": "inline onPress: confirmAction → deleteAccount → REAUTH_REQUIRED branch (iOS Alert.prompt / Android+web modal)",
+   "states": [
+    "default",
+    "pressed/active",
+    "loading",
+    "error",
+    "RTL-mirrored",
+    "long-text/overflow",
+    "offline/guest-fallback"
+   ],
+   "risk": "rendered only when !user?.isGuest; complex reauth fork by Platform.OS; sets loading; REAUTH_REQUIRED opens modal"
+  },
+  {
+   "screen": "ProfileScreen",
+   "anchor": "src/screens/ProfileScreen.tsx:617",
+   "type": "textinput",
+   "label": "Reauth password input (secureTextEntry, autoFocus, Android/web modal)",
+   "action": "onChangeText=setReauthPassword",
+   "states": [
+    "default",
+    "empty",
+    "disabled",
+    "loading",
+    "filled",
+    "focused",
+    "RTL-mirrored"
+   ],
+   "risk": "editable=!reauthLoading (disabled during loading); secure masked; only in Modal"
+  },
+  {
+   "screen": "ProfileScreen",
+   "anchor": "src/screens/ProfileScreen.tsx:628",
+   "type": "touchable",
+   "label": "Reauth modal Cancel button (common.cancel)",
+   "action": "closes reauth modal + clears password (guarded by reauthLoading)",
+   "states": [
+    "default",
+    "pressed/active",
+    "disabled",
+    "loading",
+    "RTL-mirrored"
+   ],
+   "risk": "disabled while reauthLoading; early-return guard"
+  },
+  {
+   "screen": "ProfileScreen",
+   "anchor": "src/screens/ProfileScreen.tsx:641",
+   "type": "touchable",
+   "label": "Reauth modal Confirm button (common.confirm / ActivityIndicator)",
+   "action": "runReauthAndDelete(reauthPassword) — reauthenticate + finalize delete + reset nav",
+   "states": [
+    "default",
+    "pressed/active",
+    "disabled",
+    "loading",
+    "error",
+    "RTL-mirrored",
+    "success-feedback"
+   ],
+   "risk": "disabled+spinner when reauthLoading; missing-password guard; error via showAlert deleteAccountError"
+  },
+  {
+   "screen": "ProfileScreen",
+   "anchor": "src/screens/ProfileScreen.tsx:602",
+   "type": "other",
+   "label": "Reauth Modal (transparent fade, Android/web fallback)",
+   "action": "onRequestClose → close + clear password (guarded by reauthLoading)",
+   "states": [
+    "default",
+    "loading",
+    "RTL-mirrored"
+   ],
+   "risk": "hardware back / dismiss guarded while loading"
+  },
+  {
+   "screen": "SettingsScreen",
+   "anchor": "src/screens/SettingsScreen.tsx:172",
+   "type": "switch",
+   "label": "Daily baby message toggle (common.dailyMessage)",
+   "action": "onValueChange=handleBabyMessageToggle → save + updateBabyMessageSchedule",
+   "states": [
+    "default",
+    "pressed/active",
+    "loading",
+    "error",
+    "RTL-mirrored",
+    "offline/guest-fallback",
+    "success-feedback"
+   ],
+   "risk": "optimistic setState before async persist; aria-checked on web; error only logged; reveals hour selector when on"
+  },
+  {
+   "screen": "SettingsScreen",
+   "anchor": "src/screens/SettingsScreen.tsx:189",
+   "type": "touchable",
+   "label": "Notification hour chip ([8,9,10,11,12].map → {hour}:00)",
+   "action": "handleHourChange(hour) → save + reschedule baby message",
+   "states": [
+    "default",
+    "pressed/active",
+    "filled",
+    "RTL-mirrored",
+    "success-feedback"
+   ],
+   "risk": "only rendered when babyMessageEnabled; selected via accessibilityState.selected + aria-selected; row layout flip in RTL"
+  },
+  {
+   "screen": "SettingsScreen",
+   "anchor": "src/screens/SettingsScreen.tsx:220",
+   "type": "touchable",
+   "label": "Request notification permissions row (common.requestPermissions)",
+   "action": "requestNotificationPermissions(); on deny → showAlert with Open Settings (Linking.openSettings)",
+   "states": [
+    "default",
+    "pressed/active",
+    "error",
+    "RTL-mirrored",
+    "long-text/overflow",
+    "success-feedback"
+   ],
+   "risk": "granted→alert(); denied→Linking.openSettings; uses native alert() not showAlert for success"
+  },
+  {
+   "screen": "SettingsScreen",
+   "anchor": "src/screens/SettingsScreen.tsx:260",
+   "type": "touchable",
+   "label": "Test notification row (common.testNotifications)",
+   "action": "sendTestNotification() + getScheduledNotifications(); alert success/fail",
+   "states": [
+    "default",
+    "pressed/active",
+    "error",
+    "RTL-mirrored",
+    "long-text/overflow",
+    "success-feedback"
+   ],
+   "risk": "uses raw alert() for both success and failure paths"
+  },
+  {
+   "screen": "SettingsScreen",
+   "anchor": "src/screens/SettingsScreen.tsx:305",
+   "type": "touchable",
+   "label": "Export PDF journal row (common.privacyData.exportPDF)",
+   "action": "onPress async: fetch weight+appointments, generateAndSharePDF; sets loading",
+   "states": [
+    "default",
+    "pressed/active",
+    "disabled",
+    "loading",
+    "error",
+    "RTL-mirrored",
+    "long-text/overflow",
+    "offline/guest-fallback"
+   ],
+   "risk": "sets loading (whole screen swaps to Skeleton); requires auth.currentUser?.uid + profile (else showAlert); a11y disabled/busy bound to loading"
+  },
+  {
+   "screen": "SettingsScreen",
+   "anchor": "src/screens/SettingsScreen.tsx:354",
+   "type": "touchable",
+   "label": "Export all data row (common.privacyData.export)",
+   "action": "confirmAction (destructive plaintext warning) → exportUserData(user, profile, t)",
+   "states": [
+    "default",
+    "pressed/active",
+    "error",
+    "RTL-mirrored",
+    "long-text/overflow",
+    "offline/guest-fallback"
+   ],
+   "risk": "confirmAction warns plaintext medical data; web fires onConfirm directly (Alert no-op)"
+  },
+  {
+   "screen": "SettingsScreen",
+   "anchor": "src/screens/SettingsScreen.tsx:392",
+   "type": "touchable",
+   "label": "Privacy policy legal row (common.privacyPolicy)",
+   "action": "navigate('PrivacyPolicy')",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "RtlAwareChevron forward flip in RTL"
+  },
+  {
+   "screen": "SettingsScreen",
+   "anchor": "src/screens/SettingsScreen.tsx:414",
+   "type": "touchable",
+   "label": "Run Diagnostics dev row (hardcoded 'Run Diagnostics', __DEV__ only)",
+   "action": "navigate('Diagnostic')",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored"
+   ],
+   "risk": "rendered only when __DEV__; label NOT i18n'd (hardcoded English); won't appear in prod build"
+  },
+  {
+   "screen": "DiagnosticScreen",
+   "anchor": "src/screens/DiagnosticScreen.tsx:115",
+   "type": "touchable",
+   "label": "Re-run diagnostic button (diagnostic.rerun / diagnostic.checking when loading)",
+   "action": "runDiagnostic — counts Firestore collections + deep-checks articles",
+   "states": [
+    "default",
+    "pressed/active",
+    "disabled",
+    "loading",
+    "error",
+    "RTL-mirrored",
+    "offline/guest-fallback",
+    "success-feedback"
+   ],
+   "risk": "disabled+busy a11y when loading; text swaps to checking; Firestore getCountFromServer fails offline → per-collection error rows; dev-only screen"
+  },
+  {
+   "screen": "RamadanPregnancyScreen",
+   "anchor": "src/screens/RamadanPregnancyScreen.tsx:197",
+   "type": "touchable",
+   "label": "Consulted doctor checkbox row (cycle8.ramadan.consultDoctor)",
+   "action": "onConsulted → setConsultedDoctor(!state.consultedDoctor) persisted",
+   "states": [
+    "default",
+    "pressed/active",
+    "filled",
+    "RTL-mirrored",
+    "long-text/overflow",
+    "offline/guest-fallback",
+    "success-feedback"
+   ],
+   "risk": "role=checkbox + aria-checked; checked toggles bg + ✓ mark; checkbox marginEnd must mirror in RTL; persisted via ramadanService"
+  },
+  {
+   "screen": "RamadanPregnancyScreen",
+   "anchor": "src/screens/RamadanPregnancyScreen.tsx:264",
+   "type": "button",
+   "label": "Log broken fast button (cycle8.ramadan.logBroken, variant secondary)",
+   "action": "onLog('broken') → logDay(broken, today) → updates missed count",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow",
+    "offline/guest-fallback",
+    "success-feedback"
+   ],
+   "risk": "shared Button primitive; logs today's date; appends to daysToMakeUp list (success-feedback via list/stat update)"
+  },
+  {
+   "screen": "RamadanPregnancyScreen",
+   "anchor": "src/screens/RamadanPregnancyScreen.tsx:270",
+   "type": "button",
+   "label": "Log skipped fast button (cycle8.ramadan.logSkipped, variant secondary)",
+   "action": "onLog('skipped') → logDay(skipped, today)",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow",
+    "offline/guest-fallback",
+    "success-feedback"
+   ],
+   "risk": "shared Button; row pairing with logBroken must mirror in RTL"
+  },
+  {
+   "screen": "RamadanPregnancyScreen",
+   "anchor": "src/screens/RamadanPregnancyScreen.tsx:293",
+   "type": "button",
+   "label": "Fidya plus button (cycle8.ramadan.fidyaPlus, variant primary)",
+   "action": "onFidyaPlus → incrementFidyaPaid()",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow",
+    "offline/guest-fallback",
+    "success-feedback"
+   ],
+   "risk": "updates fidyaPaidCount + fidyaRemaining stat boxes"
+  },
+  {
+   "screen": "RamadanPregnancyScreen",
+   "anchor": "src/screens/RamadanPregnancyScreen.tsx:295",
+   "type": "button",
+   "label": "Fidya minus button (cycle8.ramadan.fidyaMinus, variant ghost)",
+   "action": "onFidyaMinus → decrementFidyaPaid()",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "long-text/overflow",
+    "offline/guest-fallback",
+    "success-feedback"
+   ],
+   "risk": "decrement guarded in service (no negative); row mirror in RTL"
+  },
+  {
+   "screen": "RamadanPregnancyScreen",
+   "anchor": "src/screens/RamadanPregnancyScreen.tsx:309",
+   "type": "touchable",
+   "label": "Remove logged day button (✕, a11y cycle8.ramadan.remove)",
+   "action": "onRemove(d.id) → removeDay(id) from daysToMakeUp",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored",
+    "offline/guest-fallback",
+    "success-feedback"
+   ],
+   "risk": "only rendered per row when daysToMakeUp non-empty; ✕ glyph; dayRow marginEnd flip in RTL"
+  },
+  {
+   "screen": "RamadanPregnancyScreen",
+   "anchor": "src/screens/RamadanPregnancyScreen.tsx:316",
+   "type": "touchable",
+   "label": "Call doctor row (📞 cycle8.ramadan.callDoctor)",
+   "action": "onCallDoctor — finds profile doctor contact, tel: dial or navigate('Profile') fallback",
+   "states": [
+    "default",
+    "pressed/active",
+    "empty",
+    "RTL-mirrored",
+    "long-text/overflow",
+    "offline/guest-fallback"
+   ],
+   "risk": "no saved doctor → navigates to Profile; web/tablet (canOpenURL false) → Profile fallback; emoji prefix ordering in RTL"
+  },
+  {
+   "screen": "ProfileScreen / EmergencyContactsSection",
+   "anchor": "src/components/profile/EmergencyContactsSection.tsx:125",
+   "type": "touchable",
+   "label": "Add contact (+) button (a11y emergency.add)",
+   "action": "setIsAdding(true) — reveals add form",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored"
+   ],
+   "risk": "hidden while isAdding; header justify-between flip in RTL"
+  },
+  {
+   "screen": "ProfileScreen / EmergencyContactsSection",
+   "anchor": "src/components/profile/EmergencyContactsSection.tsx:153",
+   "type": "touchable",
+   "label": "Call contact button (📞, a11y a11y.callContact{name})",
+   "action": "handleCall(contact.number) — sanitize + tel: dial with canOpenURL guard",
+   "states": [
+    "default",
+    "pressed/active",
+    "error",
+    "RTL-mirrored",
+    "offline/guest-fallback"
+   ],
+   "risk": "invalid/unsupported → showAlert; per-contact (list); web dial unsupported"
+  },
+  {
+   "screen": "ProfileScreen / EmergencyContactsSection",
+   "anchor": "src/components/profile/EmergencyContactsSection.tsx:162",
+   "type": "touchable",
+   "label": "Delete contact button (🗑️, a11y a11y.deleteContact{name})",
+   "action": "handleDelete(contact.id) — confirmAction → filter + setProfile",
+   "states": [
+    "default",
+    "pressed/active",
+    "error",
+    "RTL-mirrored",
+    "offline/guest-fallback",
+    "success-feedback"
+   ],
+   "risk": "destructive confirm; per-contact; error only logged; guest writes AsyncStorage"
+  },
+  {
+   "screen": "ProfileScreen / EmergencyContactsSection",
+   "anchor": "src/components/profile/EmergencyContactsSection.tsx:182",
+   "type": "touchable",
+   "label": "Contact type chip (partner/doctor/sos/other map → getTypeLabel)",
+   "action": "setNewType(type) — single-select type in add form",
+   "states": [
+    "default",
+    "pressed/active",
+    "filled",
+    "RTL-mirrored",
+    "long-text/overflow",
+    "success-feedback"
+   ],
+   "risk": "only in add form; selected via accessibilityState.selected + aria-selected; flex-wrap chips reflow in RTL"
+  },
+  {
+   "screen": "ProfileScreen / EmergencyContactsSection",
+   "anchor": "src/components/profile/EmergencyContactsSection.tsx:204",
+   "type": "textinput",
+   "label": "Contact name input (placeholder emergency.name)",
+   "action": "onChangeText=setNewName",
+   "states": [
+    "default",
+    "empty",
+    "error",
+    "filled",
+    "focused",
+    "RTL-mirrored",
+    "long-text/overflow"
+   ],
+   "risk": "required (validationError if blank on add); only in add form"
+  },
+  {
+   "screen": "ProfileScreen / EmergencyContactsSection",
+   "anchor": "src/components/profile/EmergencyContactsSection.tsx:210",
+   "type": "textinput",
+   "label": "Contact phone input (placeholder emergency.phone, keyboardType phone-pad)",
+   "action": "onChangeText=setNewNumber",
+   "states": [
+    "default",
+    "empty",
+    "error",
+    "filled",
+    "focused",
+    "RTL-mirrored"
+   ],
+   "risk": "required + TEL_VALIDATION_REGEX check → invalidNumber alert; phone-pad keyboard; LTR digits in RTL"
+  },
+  {
+   "screen": "ProfileScreen / EmergencyContactsSection",
+   "anchor": "src/components/profile/EmergencyContactsSection.tsx:219",
+   "type": "touchable",
+   "label": "Add form Cancel button (common.cancel, a11y a11y.cancel)",
+   "action": "setIsAdding(false) — closes add form (no field reset)",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored"
+   ],
+   "risk": "does NOT clear newName/newNumber/newType on cancel (stale state on reopen); row mirror in RTL"
+  },
+  {
+   "screen": "ProfileScreen / EmergencyContactsSection",
+   "anchor": "src/components/profile/EmergencyContactsSection.tsx:227",
+   "type": "touchable",
+   "label": "Add form Save button (common.save, a11y a11y.save)",
+   "action": "handleAdd — validate name+number+regex → setProfile(updatedContacts)",
+   "states": [
+    "default",
+    "pressed/active",
+    "error",
+    "RTL-mirrored",
+    "offline/guest-fallback",
+    "success-feedback"
+   ],
+   "risk": "validation errors via showAlert; success closes form + resets fields; guest persists to AsyncStorage; no explicit loading state"
+  },
+  {
+   "screen": "ProfileScreen / LanguageSelector (embedded Preferences)",
+   "anchor": "src/components/common/LanguageSelector.tsx:30",
+   "type": "touchable",
+   "label": "Language selector trigger (currentLang flag + code uppercase)",
+   "action": "setModalVisible(true) — opens language modal",
+   "states": [
+    "default",
+    "pressed/active",
+    "filled",
+    "RTL-mirrored"
+   ],
+   "risk": "shows current i18n.language; flag+code marginEnd flip in RTL"
+  },
+  {
+   "screen": "ProfileScreen / LanguageSelector (embedded Preferences)",
+   "anchor": "src/components/common/LanguageSelector.tsx:44",
+   "type": "touchable",
+   "label": "Language modal overlay (activeOpacity=1, dismiss area)",
+   "action": "setModalVisible(false) — tap-outside to dismiss",
+   "states": [
+    "default",
+    "pressed/active",
+    "RTL-mirrored"
+   ],
+   "risk": "backdrop dismiss; centered modal"
+  },
+  {
+   "screen": "ProfileScreen / LanguageSelector (embedded Preferences)",
+   "anchor": "src/components/common/LanguageSelector.tsx:52",
+   "type": "touchable",
+   "label": "Language option (fr/ar/tn/en map → flag + native label)",
+   "action": "changeLanguage(lang.code) — i18n/rtl changeLanguage (may trigger RTL reload) + close modal",
+   "states": [
+    "default",
+    "pressed/active",
+    "filled",
+    "RTL-mirrored",
+    "long-text/overflow",
+    "success-feedback"
+   ],
+   "risk": "selecting ar/tn flips app to RTL (Updates.reloadAsync path in i18n/rtl); selected highlight via i18n.language match; native script labels"
+  },
+  {
+   "screen": "ProfileScreen / LanguageSelector (embedded Preferences)",
+   "anchor": "src/components/common/LanguageSelector.tsx:38",
+   "type": "other",
+   "label": "Language Modal (fade transparent)",
+   "action": "onRequestClose → setModalVisible(false)",
+   "states": [
+    "default",
+    "RTL-mirrored"
+   ],
+   "risk": "hardware back dismiss"
+  }
+ ]
+}

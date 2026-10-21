@@ -1,12 +1,14 @@
 import { createLogger } from '../../utils/logger';
 const log = createLogger('TasksTab');
 import React, { useState, useEffect } from 'react';
+import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../theme';
 import { RtlAwareChevron } from '../../components/common/RtlAwareChevron';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList, ActivityIndicator, RefreshControl, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList, ActivityIndicator, RefreshControl } from 'react-native';
 import { confirmAction } from '../../utils/uiUtils';
 import { getShadowStyle } from '../../utils/styleUtils';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
+import { navigationRef } from '../../navigation/navigationRef';
 import { useAuth } from '../../context/AuthContext';
 import { usePregnancy } from '../../context/PregnancyContext';
 import { useToast } from '../../context/ToastContext';
@@ -58,6 +60,19 @@ export const TasksTab = () => {
     // read that param here on focus, flash the row, then clear the param so re-focusing
     // the tab manually doesn't re-trigger the highlight.
     const highlightIdParam = (route.params as { highlightId?: string } | undefined)?.highlightId;
+    // Home's "+ Tâche" quick action lands here with action='add': open the new-task modal,
+    // then clear the param so coming back to the tab later does not reopen it.
+    const actionParam = (route.params as { action?: string } | undefined)?.action;
+
+    useFocusEffect(
+        React.useCallback(() => {
+            if (actionParam === 'add') {
+                setEditingTask(undefined);
+                setShowAddModal(true);
+                navigation.setParams({ action: undefined } as never);
+            }
+        }, [actionParam])
+    );
 
     useFocusEffect(
         React.useCallback(() => {
@@ -206,7 +221,7 @@ export const TasksTab = () => {
         >
             {/* Header with Add Button */}
             <View style={styles.header}>
-                <Text style={styles.headerTitle}>{t('tasks.title')}</Text>
+                <Text style={styles.headerTitle} accessibilityRole="header">{t('tasks.title')}</Text>
                 <TouchableOpacity
                     style={styles.addTaskButton}
                     onPress={() => {
@@ -217,6 +232,8 @@ export const TasksTab = () => {
                     accessibilityLabel={t('tasks.newTask')}
                     accessibilityHint={t('a11y.addNew')}
                 >
+                    {/* A vector icon: the "➕" emoji painted dark grey on the accent fill. */}
+                    <Ionicons name="add" size={18} color={theme.colors.white} />
                     <Text style={styles.addTaskButtonText}>{t('tasks.newTask')}</Text>
                 </TouchableOpacity>
             </View>
@@ -276,16 +293,19 @@ export const TasksTab = () => {
 
                     // Guest check
                     if (user?.isGuest) {
-                        Alert.alert(
+                        // WEB-ALERT: confirmAction fires onConfirm on web too (Alert.alert is a no-op there).
+                        confirmAction(
                             t('tasks.modeGuestTitle'),
                             t('tasks.modeGuestMsg'),
-                            [
-                                { text: t('common.cancel'), style: 'cancel' },
-                                {
-                                    text: t('tasks.createAccount'),
-                                    onPress: () => navigation.navigate('AuthChoice')
-                                }
-                            ]
+                            // W4 #P2: route to the in-place GuestUpgrade (links the anonymous account
+                            // via linkWithCredential → PRESERVES the guest's tasks), matching the
+                            // appointment gate (NAV-01). Was navigate('AuthChoice') = a fresh register
+                            // that orphaned the guest's data. navigationRef is depth-independent.
+                            // @ts-ignore - cross-navigator deep link (same pattern as App.tsx routing)
+                            () => navigationRef.navigate('Home', { screen: 'GuestUpgrade' }),
+                            undefined,
+                            t('common.cancel'),
+                            t('tasks.createAccount')
                         );
                         return;
                     }
@@ -343,6 +363,11 @@ const styles = StyleSheet.create({
     },
     addTaskButton: {
         backgroundColor: theme.colors.accent,
+        minHeight: 44,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 6,
         paddingVertical: 8,
         paddingHorizontal: 16,
         borderRadius: theme.borderRadius.m,
@@ -366,7 +391,7 @@ const styles = StyleSheet.create({
     },
     emptyText: {
         fontSize: 16,
-        color: theme.colors.neutral400,
+        color: theme.colors.textMuted,
         textAlign: 'center',
     },
     completedTasksLink: {
@@ -396,7 +421,7 @@ const styles = StyleSheet.create({
     sectionLabel: {
         fontSize: 12,
         fontWeight: '700',
-        color: theme.colors.neutral400,
+        color: theme.colors.textMuted,
         letterSpacing: 0.5,
         marginBottom: 12,
     },
@@ -448,7 +473,7 @@ const styles = StyleSheet.create({
     },
     taskTitleCompleted: {
         textDecorationLine: 'line-through',
-        color: theme.colors.gray500,
+        color: theme.colors.textMuted,
     },
     taskMeta: {
         fontSize: 13,

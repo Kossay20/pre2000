@@ -1,9 +1,10 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { theme } from '../../theme';
 import { getShadowStyle } from '../../utils/styleUtils';
 import { useTranslation } from 'react-i18next';
 import { getDateLocale } from '../../utils/i18nHelpers';
+import { CALENDAR_LIST_GUTTER, MIN_TAP_TARGET } from '../../screens/CalendarScreen.styles';
 
 interface WeeklyStripProps {
     weekStartDate: Date;
@@ -44,7 +45,8 @@ export const WeeklyStrip: React.FC<WeeklyStripProps> = React.memo(({
         const dayName = format(date, 'EEE', { locale: dateLocale }).replace('.', '');
         const formattedDayName = dayName.charAt(0).toUpperCase() + dayName.slice(1);
 
-        const a11yLabel = format(date, 'EEEE dd MMMM', { locale: dateLocale });
+        // No leading zero: a screen reader says "zéro huit" for "08", and the Home list writes "8 octobre" (B-023).
+        const a11yLabel = format(date, 'EEEE d MMMM', { locale: dateLocale });
 
         return (
             <TouchableOpacity
@@ -58,6 +60,8 @@ export const WeeklyStrip: React.FC<WeeklyStripProps> = React.memo(({
                 accessibilityRole="button"
                 accessibilityLabel={a11yLabel}
                 accessibilityState={{ selected: isSelected }}
+                // CAL-R2-03: RN-web 0.21.2 drops accessibilityState.selected → expose aria explicitly.
+                {...(Platform.OS === 'web' ? { 'aria-selected': isSelected } : {})}
                 accessibilityHint={hasRDV ? t('a11y.openAppointment') : undefined}
             >
                 <Text style={[styles.dayName, isSelected && styles.selectedText]}>
@@ -74,7 +78,7 @@ export const WeeklyStrip: React.FC<WeeklyStripProps> = React.memo(({
     };
 
     return (
-        <View>
+        <View style={styles.root}>
             {/* RDV Count Header */}
             <View style={styles.rdvHeader}>
                 <Text style={styles.rdvHeaderText}>
@@ -84,31 +88,50 @@ export const WeeklyStrip: React.FC<WeeklyStripProps> = React.memo(({
                 </Text>
             </View>
             <View style={styles.container}>
-                {[0, 1, 2, 3, 4, 5, 6].map(renderDay)}
+                <View style={styles.daysRow}>
+                    {[0, 1, 2, 3, 4, 5, 6].map(renderDay)}
+                </View>
             </View>
         </View>
     );
 });
 
 const styles = StyleSheet.create({
+    // Full-bleed: undo the list gutter so the 44pt chips fit a 320pt screen (see daysRow).
+    root: {
+        marginHorizontal: -CALENDAR_LIST_GUTTER,
+    },
     container: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
         paddingVertical: theme.spacing.m,
-        paddingHorizontal: theme.spacing.s,
+        paddingHorizontal: 6,
         backgroundColor: theme.colors.white,
         borderBottomWidth: 1,
         borderBottomColor: theme.colors.border,
     },
+    // The days share a row of at most 520pt, centred. In the 720pt iPad column, spread
+    // edge to edge, today's chip sat alone far left with 100pt gaps between days.
+    daysRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        width: '100%',
+        maxWidth: 520,
+        alignSelf: 'center',
+    },
+    // Seven fixed 45pt cells (315pt + gutters) ran off a 320pt screen (iPad Slide
+    // Over, iPhone SE 1st gen): share the row instead, between the 44pt tap minimum
+    // (7 x 44 = 308 = 320 minus the 6pt paddings) and the old 45pt cap.
     dayContainer: {
         alignItems: 'center',
         justifyContent: 'center',
-        width: 45,
+        flexGrow: 1,
+        flexBasis: 0,
+        minWidth: MIN_TAP_TARGET,
+        maxWidth: 45,
         height: 60,
         borderRadius: 12,
     },
     selectedDayContainer: {
-        backgroundColor: theme.colors.primary,
+        backgroundColor: theme.colors.accent,
         ...getShadowStyle(4, theme.colors.primary, 0.3, 4, { width: 0, height: 2 }),
     },
     todayContainer: {

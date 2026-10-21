@@ -11,11 +11,21 @@
  *   their healthcare professional ("mention to" / "contact" your provider).
  * - The user remains AUTONOMOUS — the screen layer is responsible for offering
  *   a "save anyway" path. These functions only describe risk.
- * - Threshold rationale (gestational guidance, indicative — see references in
- *   clinical literature: WHO/HAS/ACOG):
- *     • Fasting plasma glucose normal range: 3.5 – 5.5 mmol/L.
+ * - Threshold rationale (pregnancy-specific; every value below is listed for
+ *   clinical sign-off in docs/clinical-review/HEALTH_THRESHOLDS_DOSSIER.md):
+ *     • Fasting glucose ≥ 5.1 mmol/L (0.92 g/L, 92 mg/dL) is the gestational
+ *       diabetes criterion of IADPSG 2010, adopted by WHO 2013 and in France by
+ *       the CNGOF/SFD 2010 recommendations. The general-population 5.5 / 5.6
+ *       cut-off does not apply in pregnancy. ≥ 7.0 mmol/L is WHO 2013's
+ *       "diabetes in pregnancy" value.
+ *     • BP ≥ 140/90 is hypertension in pregnancy (after 20 weeks: gestational
+ *       hypertension, possible pre-eclampsia) and calls for a medical
+ *       assessment within 24 h — not at the next routine visit (NICE NG133,
+ *       ACOG Practice Bulletin 222).
  *     • Severe hypertension (pre-eclampsia red flag): sys ≥ 160 OR dia ≥ 110.
  *     • Sudden weight loss > 3 kg between two close entries warrants follow-up.
+ * - Units: the app takes and shows glucose in mmol/L only (the Health input,
+ *   the stored value and every label).
  *
  * If thresholds need to change for medical or regulatory reasons, update them
  * here AND update the test suite — both must move together.
@@ -41,14 +51,34 @@ export interface ClinicalAlert {
 // Glucose (fasting, mmol/L)
 // ────────────────────────────────────────────────────────────────────────────
 
+/** IADPSG 2010 / WHO 2013 fasting criterion for gestational diabetes, mmol/L (= 0.92 g/L). */
+export const GDM_FASTING_THRESHOLD_MMOL = 5.1;
+
+/** 1 g/L of glucose in mmol/L: 1000 mg/L ÷ 180.16 g/mol. */
+const GLUCOSE_MMOL_PER_G_PER_L = 5.551;
+
+/**
+ * French and Tunisian labs print fasting glucose in g/L (0,92 g/L is the 5,1 mmol/L
+ * gestational-diabetes criterion), and the tracker stores mmol/L. Below 2, a fasting
+ * reading is a plausible g/L value and an implausible mmol/L one, so the screen asks
+ * which unit she meant before any alert — read as mmol/L, 0,92 raised the
+ * hypoglycaemia alert ("prenez du sucre rapide") on a reading at the diabetes threshold.
+ */
+export const glucoseLooksLikeGramsPerLitre = (value: number): boolean =>
+    Number.isFinite(value) && value > 0 && value < 2;
+
+/** g/L → mmol/L, to the tenth the tracker displays. */
+export const gramsPerLitreToMmol = (gramsPerLitre: number): number =>
+    Math.round(gramsPerLitre * GLUCOSE_MMOL_PER_G_PER_L * 10) / 10;
+
 /**
  * Evaluate a fasting blood glucose reading (mmol/L).
- * Returns null when the value is in the normal range (3.5 – 5.5 inclusive).
+ * Returns null when the value is in the pregnancy target (3.5 to below 5.1).
  *
  * Thresholds:
  *   < 3.5            → critical (hypoglycemia)
- *   3.5 – 5.5        → null (normal)
- *   5.6 – 6.9        → warning (surveillance)
+ *   3.5 – < 5.1      → null (normal in pregnancy)
+ *   5.1 – 6.9        → warning (at/above the gestational-diabetes fasting criterion)
  *   7.0 – 10.0       → severe (elevated)
  *   > 10.0           → critical (very elevated)
  */
@@ -66,7 +96,7 @@ export const checkGlucose = (mmolL: number): ClinicalAlert | null => {
         };
     }
 
-    if (mmolL <= 5.5) {
+    if (mmolL < GDM_FASTING_THRESHOLD_MMOL) {
         return null;
     }
 
@@ -94,6 +124,28 @@ export const checkGlucose = (mmolL: number): ClinicalAlert | null => {
     };
 };
 
+/**
+ * What the Glycémie card may say about the current month. It used to print
+ * "Glycémie normale ce mois-ci" whatever the readings were — with none at all,
+ * and next to a 5.2 shown in the alert colour.
+ *   'empty'      → no reading this month
+ *   'outOfRange' → at least one reading this month raises a checkGlucose alert
+ *   'inRange'    → every reading this month is in the pregnancy target
+ */
+export type GlucoseMonthStatus = 'empty' | 'inRange' | 'outOfRange';
+
+export const summarizeGlucoseMonth = (
+    readings: ReadonlyArray<{ value: number; date: string | Date }>,
+    now: Date = new Date(),
+): GlucoseMonthStatus => {
+    const thisMonth = readings.filter(r => {
+        const d = new Date(r.date);
+        return !isNaN(d.getTime()) && d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+    });
+    if (thisMonth.length === 0) return 'empty';
+    return thisMonth.some(r => checkGlucose(Number(r.value)) !== null) ? 'outOfRange' : 'inRange';
+};
+
 // ────────────────────────────────────────────────────────────────────────────
 // Blood pressure (mmHg) — pre-eclampsia is the red flag.
 // ────────────────────────────────────────────────────────────────────────────
@@ -106,7 +158,8 @@ export const checkGlucose = (mmolL: number): ClinicalAlert | null => {
  *
  * Order of checks (highest severity first):
  *   sys ≥ 160 OR dia ≥ 110 → critical (severe hypertension)
- *   sys 140–159 OR dia 90–109 → severe (hypertension)
+ *   sys 140–159 OR dia 90–109 → severe (hypertension — assessment within 24 h,
+ *                               NICE NG133 / ACOG PB 222; the copy says so)
  *   sys 130–139 OR dia 80–89  → warning (pre-hypertension)
  *   sys < 90 OR dia < 60      → warning (hypotension)
  *   otherwise                 → null
@@ -227,10 +280,18 @@ export const checkWeightChange = (
  *   medical decision authority — preferred for our medical-emergency context
  *   (consistent with FR=15 SAMU, TN=190 SAMU, MA=141 SAMU pattern).
  *
+ * RE-CHECKED 2026-10-09 against government sources (no number changed):
+ * - MA 141 (SAMU) and 15 (Protection civile: pompiers, ambulance): French embassy in
+ *   Morocco, ma.diplomatie.gouv.fr/fr/urgence. One directory says 141 covers the big
+ *   cities only; 15 is the national fallback. UK FCDO lists 150 for an ambulance.
+ * - DZ 16: UK FCDO travel advice ("Call 16 or 1021 and ask for an ambulance"); 14 is
+ *   Protection civile.
+ * - TN 190: French MFA contacts page (SAMU 190, police 197, protection civile 198).
+ *
  * Intentionally conservative: only countries we know with a high-confidence
- * dispatch number for medical emergencies are included. For unknown countries
- * the UI omits the call button and shows the message only — never guess a
- * wrong number.
+ * dispatch number for medical emergencies are included. For any other country
+ * resolveEmergencyNumber falls back to 112 — never to another country's
+ * national number.
  */
 export const EMERGENCY_NUMBERS: Readonly<Record<string, string>> = Object.freeze({
     FR: '15',
@@ -275,38 +336,92 @@ export const getEmergencyNumber = (country?: string | null): string | null => {
 };
 
 /**
- * CB4-FIX (SAFETY): Locale-based fallback when no country is set on the profile.
- * Conservative default: only locales whose dominant population maps to a single,
- * well-known number are mapped. For 'en' we deliberately do NOT pick FR/UK/US —
- * EN is global; without a country we return null and the UI hides the call button
- * rather than dial a wrong number.
- *
- * Mapping:
- *   ar | tn → 190 (Tunisia SAMU — current default for the AR/TN UI;
- *                   note: app's AR locale is Tunisian Arabic, not pan-Arabic)
- *   fr      → 15  (France SAMU)
- *   en      → null (caller should disclose unknown country)
+ * The countries a user can pick for her profile (onboarding + profile edit),
+ * stored as these lowercase values. Every one except 'other' resolves through
+ * EMERGENCY_NUMBERS, so whatever she picks, the call button dials that
+ * country's number. Keep this list and EMERGENCY_NUMBERS in step: a country
+ * that has a number but cannot be picked is a user who gets the wrong one.
  */
-const LOCALE_FALLBACK: Readonly<Record<string, string>> = Object.freeze({
-    ar: '190',
-    tn: '190',
-    fr: '15',
+export const COUNTRY_OPTIONS = [
+    'tunisia',
+    'france',
+    'belgium',
+    'switzerland',
+    'morocco',
+    'algeria',
+    'canada',
+    'usa',
+    'uk',
+    'other',
+] as const;
+
+/** Device region (ISO 3166-1 alpha-2) → profile country value. */
+const REGION_TO_COUNTRY: Readonly<Record<string, string>> = Object.freeze({
+    TN: 'tunisia',
+    FR: 'france',
+    BE: 'belgium',
+    CH: 'switzerland',
+    MA: 'morocco',
+    DZ: 'algeria',
+    CA: 'canada',
+    US: 'usa',
+    GB: 'uk',
 });
 
 /**
- * Resolve an emergency number from country first, then locale fallback.
- * Returns null when neither yields a confident match — the UI must hide the
- * call button in that case (never guess).
+ * Map the device region to a profile country, or null when the region is not
+ * one we have a number for. Used to preselect the country in onboarding —
+ * an unmapped region leaves the choice empty rather than defaulting to a
+ * country the user is not in.
+ */
+export const countryFromRegion = (region?: string | null): string | null => {
+    if (!region || typeof region !== 'string') return null;
+    return REGION_TO_COUNTRY[region.trim().toUpperCase()] ?? null;
+};
+
+/**
+ * Used when we do not know the user's country. 112 is the emergency number
+ * every GSM/3G/4G handset must recognise (3GPP TS 22.101) — the handset places
+ * an emergency call and the network routes it to the local emergency service,
+ * whatever the national number is. A national number guessed from the UI
+ * language (the previous fallback: Arabic → Tunisia's 190, French → France's
+ * 15) reaches nobody in Egypt, Lebanon or Canada.
+ */
+export const INTERNATIONAL_EMERGENCY_NUMBER = '112';
+
+/**
+ * Resolve the emergency number to show and dial:
+ *   1. the profile country, when we have its number;
+ *   2. otherwise — profile country empty (accounts created via login, older
+ *      profiles) — the device region, when we have its number;
+ *   3. otherwise 112.
+ * An explicit 'other' skips step 2: the user told us she is not in any of the
+ * listed countries, and the device region is a settings choice, not a location.
  */
 export const resolveEmergencyNumber = (
     country?: string | null,
-    locale?: string | null,
-): string | null => {
+    deviceRegion?: string | null,
+): string => resolveEmergencyContact(country, deviceRegion).number;
+
+/**
+ * Where the number came from. Anything but 'profile' is a guess the screen must
+ * own up to: the call button used to show "(112)" with nothing saying it was a
+ * fallback, and the user never learned that the country question mattered — on a
+ * labour/emergency CTA, in a market (Tunisia, SAMU 190) where 112 is the fallback
+ * for every phone without a mapped region.
+ */
+export type EmergencyNumberSource = 'profile' | 'region' | 'fallback';
+
+export const resolveEmergencyContact = (
+    country?: string | null,
+    deviceRegion?: string | null,
+): { number: string; source: EmergencyNumberSource } => {
     const fromCountry = getEmergencyNumber(country);
-    if (fromCountry) return fromCountry;
-    if (locale && typeof locale === 'string') {
-        const key = locale.trim().toLowerCase();
-        return LOCALE_FALLBACK[key] ?? null;
+    if (fromCountry) return { number: fromCountry, source: 'profile' };
+    const saidOther = typeof country === 'string' && country.trim().toLowerCase() === 'other';
+    if (!saidOther) {
+        const fromRegion = getEmergencyNumber(countryFromRegion(deviceRegion));
+        if (fromRegion) return { number: fromRegion, source: 'region' };
     }
-    return null;
+    return { number: INTERNATIONAL_EMERGENCY_NUMBER, source: 'fallback' };
 };

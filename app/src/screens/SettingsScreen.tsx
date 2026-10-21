@@ -3,6 +3,7 @@ import { RtlAwareChevron } from '../components/common/RtlAwareChevron';
 const log = createLogger('SettingsScreen');
 import React, { useState, useEffect } from 'react';
 import { theme } from '../theme';
+import { switchThumbProps } from '../utils/styleUtils';
 import {
     View,
     Text,
@@ -10,15 +11,17 @@ import {
     TouchableOpacity,
     ScrollView,
     Switch,
-    Alert,
     Linking,
     ActivityIndicator,
     Platform,
 } from 'react-native';
+import { showAlert } from '../utils/alert';
+import { confirmAction } from '../utils/uiUtils';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { usePregnancy } from '../context/PregnancyContext';
 import { useAuth } from '../context/AuthContext';
+import { MEDICAL_FLAG_KEYS, MedicalFlagKey, hasAnsweredMedicalProfile } from '../utils/medicalFlags';
 import { auth } from '../config/firebase';
 import {
     loadBabyMessageEnabled,
@@ -33,12 +36,13 @@ import { exportUserData } from '../services/dataExportService';
 import { useDateLocale } from '../hooks/useDateLocale';
 // DEAD-CODE-FIX: DemoDataService import removed — was imported but never used.
 // DemoDataService should only ever be called in __DEV__ contexts.
-import { requestNotificationPermissions } from '../services/notificationService';
+import { requestNotificationsAndResync } from '../services/notificationPermissionFlow';
 import { sendTestNotification, getScheduledNotifications } from '../services/rdvNotificationService';
 import { generateAndSharePDF } from '../services/pdfExportService';
-import { getWeightHistory } from '../services/weightService';
+import { getAllWeightEntries, latestWeighingPerDay } from '../services/weightService';
 import { getAppointments } from '../services/appointmentService';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
+import { useAccountDeletion } from '../hooks/useAccountDeletion';
 
 /**
  * SettingsScreen - V1.2 Feature
@@ -52,11 +56,15 @@ export const SettingsScreen = () => {
     // P3.6 FIX: also pull `profile` (firstName, lmp, country) — was missing,
     // causing exports to receive `pregnancyInfo` (week+day) where a Profile was expected.
     const { pregnancyInfo, profile } = usePregnancy();
-    const { user } = useAuth();
+    const { user, updateProfile } = useAuth();
+    const { requestDeleteAccount, requestResetProfile, busy: deletionBusy, reauthModal } = useAccountDeletion();
     const navigation = useNavigation();
     const [babyMessageEnabled, setBabyMessageEnabled] = useState(true);
     const [babyMessageHour, setBabyMessageHour] = useState(10);
     const [loading, setLoading] = useState(true);
+    // The PDF export's own busy flag. It used to share `loading`, which swaps the whole
+    // screen for the skeleton — Settings vanished for the length of the export.
+    const [pdfExporting, setPdfExporting] = useState(false);
 
     log.debug('[SettingsScreen] Rendering...');
 
@@ -147,14 +155,17 @@ export const SettingsScreen = () => {
     return (
         <ScrollView style={styles.container}>
             <View style={styles.header}>
-                <Text style={styles.headerTitle}>⚙️ {t('common.settings')}</Text>
-                <Text style={styles.headerSubtitle}>{t('common.notifications')}</Text>
+                <View style={styles.headerTitleRow}>
+                    <Ionicons name="settings-outline" size={26} color={theme.colors.text} style={styles.headerIcon} />
+                    <Text style={styles.headerTitle} accessibilityRole="header">{t('common.settings')}</Text>
+                </View>
             </View>
 
             {/* Baby Message Section */}
             <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionTitle}>💕 {t('common.babyMessage')}</Text>
+                <View style={[styles.sectionHeader, styles.sectionHeaderRow]}>
+                    <Ionicons name="heart-outline" size={20} color={theme.colors.accent} style={styles.sectionIcon} />
+                    <Text style={styles.sectionTitle}>{t('common.babyMessage')}</Text>
                 </View>
 
                 <View style={styles.settingRow}>
@@ -164,14 +175,15 @@ export const SettingsScreen = () => {
                             {t('common.dailyMessageDesc')}
                         </Text>
                     </View>
-                    <Switch
-                        value={babyMessageEnabled}
-                        onValueChange={handleBabyMessageToggle}
-                        trackColor={{ false: theme.colors.neutral300, true: theme.colors.accent }}
-                        thumbColor={babyMessageEnabled ? theme.colors.white : theme.colors.iosGroupedBackground}
-                        accessibilityLabel={t('common.a11y.toggleBabyMessage')}
-                        accessibilityRole="switch"
-                    />
+                    <View style={styles.switchHit}>
+                        <Switch
+                            value={babyMessageEnabled}
+                            onValueChange={handleBabyMessageToggle}
+                            trackColor={{ false: theme.colors.neutral300, true: theme.colors.accent }}
+                            {...switchThumbProps(babyMessageEnabled ? theme.colors.white : theme.colors.iosGroupedBackground)}
+                            accessibilityLabel={t('common.a11y.toggleBabyMessage')}
+                        />
+                    </View>
                 </View>
 
                 {babyMessageEnabled && (
@@ -189,6 +201,8 @@ export const SettingsScreen = () => {
                                     accessibilityLabel={t('common.a11y.selectHour', { hour })}
                                     accessibilityRole="button"
                                     accessibilityState={{ selected: babyMessageHour === hour }}
+                                    // aria-pressed, not aria-selected: selected is not allowed on role=button (E-070).
+                                    {...(Platform.OS === 'web' ? { 'aria-pressed': babyMessageHour === hour } : {})}
                                 >
                                     <Text style={[
                                         styles.hourButtonText,
@@ -203,28 +217,103 @@ export const SettingsScreen = () => {
                 )}
             </View>
 
-            {/* Permissions Debug Section */}
+            {/* Declared conditions — the reminders catalogue keys context rules on
+                these, so an answer given once at onboarding has to stay editable:
+                a gestational-diabetes diagnosis usually arrives around week 24,
+                long after the question was asked. Pregnant users only — the
+                onboarding question is not asked in the TTC or exploring flows, and
+                offering a "twin pregnancy" switch to someone who is not pregnant is
+                not a neutral thing to do. */}
+            {!user?.isTTC && !user?.isCurious && (
             <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionTitle}>🔔 {t('common.permissions')}</Text>
+                <View style={[styles.sectionHeader, styles.sectionHeaderRow]}>
+                    <Ionicons name="medkit-outline" size={20} color={theme.colors.accent} style={styles.sectionIcon} />
+                    <Text style={styles.sectionTitle}>{t('common.medicalProfile.settingsTitle')}</Text>
+                </View>
+
+                {/* The clinician framing travels with the switches. Without it a user
+                    self-declares "Gestational diabetes" with no context, which is the
+                    one thing this question must never ask her to do. */}
+                <Text style={styles.sectionCopy}>{t('common.medicalProfile.settingsIntro')}</Text>
+                <Text style={styles.sectionCopy}>
+                    {hasAnsweredMedicalProfile(user ?? undefined)
+                        ? t('common.medicalProfile.settingsSubtitle')
+                        : t('common.medicalProfile.notAnswered')}
+                </Text>
+
+                {MEDICAL_FLAG_KEYS.map((key) => {
+                    const labelKey: Record<MedicalFlagKey, string> = {
+                        hasGestationalDiabetes: 'gestationalDiabetes',
+                        hasHypertension: 'hypertension',
+                        isTwinPregnancy: 'twins',
+                    };
+                    const value = user?.[key] === true;
+                    return (
+                        <View style={styles.settingRow} key={key}>
+                            <View style={styles.settingInfo}>
+                                <Text style={styles.settingLabel}>
+                                    {t(`common.medicalProfile.${labelKey[key]}`)}
+                                </Text>
+                            </View>
+                            <View style={styles.switchHit}>
+                                <Switch
+                                    value={value}
+                                    onValueChange={async (next) => {
+                                        // updateProfile reports cloud-sync failure on
+                                        // purpose. Discarding it left the switch snapping
+                                        // silently back to the old value, since `value`
+                                        // reads from the profile.
+                                        const res = await updateProfile({
+                                            [key]: next,
+                                            medicalProfileAnsweredAt: new Date().toISOString(),
+                                        });
+                                        if (!res.ok) showAlert(t('common.error'), t('common.medicalProfile.syncWarning'));
+                                    }}
+                                    trackColor={{ false: theme.colors.neutral300, true: theme.colors.accent }}
+                                    {...switchThumbProps(value ? theme.colors.white : theme.colors.iosGroupedBackground)}
+                                    accessibilityLabel={t(`common.medicalProfile.${labelKey[key]}`)}
+                                />
+                            </View>
+                        </View>
+                    );
+                })}
+
+                <Text style={styles.sectionCopy}>
+                    {t(user && !user.isGuest ? 'common.medicalProfile.privacyNote' : 'common.medicalProfile.privacyNoteGuest')}
+                </Text>
+            </View>
+            )}
+
+            {/* Notification permission */}
+            <View style={styles.section}>
+                <View style={[styles.sectionHeader, styles.sectionHeaderRow]}>
+                    <Ionicons name="notifications-outline" size={20} color={theme.colors.text} style={styles.sectionIcon} />
+                    <Text style={styles.sectionTitle}>{t('common.permissions')}</Text>
                 </View>
                 <TouchableOpacity
-                    style={styles.settingRow}
+                    style={[styles.settingRow, !__DEV__ && { borderBottomWidth: 0 }]}
                     accessibilityRole="button"
                     accessibilityLabel={t('common.requestPermissions')}
                     accessibilityHint={t('common.requestPermissionsDesc')}
                     onPress={async () => {
-                        const granted = await requestNotificationPermissions();
+                        // A grant here schedules the reminders at once instead of at the
+                        // next week change.
+                        const { granted } = await requestNotificationsAndResync({
+                            week: pregnancyInfo?.week,
+                            locale: i18n.language,
+                            userId: user?.uid,
+                        });
 
                         if (granted) {
                             alert(t('common.permissionsGranted'));
                         } else {
-                            // On iOS, if permission is already denied, we must open settings
-                            // Alert, Linking, Platform already imported at top
-                            Alert.alert(
+                            // On iOS, if permission is already denied, we must open settings.
+                            // A browser has no app settings page (react-native-web's Linking
+                            // has no openSettings, so the button threw): inform only there.
+                            showAlert(
                                 t('common.permissionsDenied'),
                                 t('common.permissionsDeniedMsg'),
-                                [
+                                Platform.OS === 'web' ? undefined : [
                                     { text: t('common.cancel'), style: "cancel" },
                                     {
                                         text: t('common.openSettings'),
@@ -236,7 +325,7 @@ export const SettingsScreen = () => {
                     }}
                 >
                     <View style={styles.settingRowLeft}>
-                        <Text style={styles.menuIcon}>👉</Text>
+                        <Ionicons name="hand-right-outline" size={24} color={theme.colors.accent} style={styles.menuIcon} />
                         <View style={styles.settingInfo}>
                             <Text style={styles.settingLabel}>{t('common.requestPermissions')}</Text>
                             <Text style={styles.settingDescription}>
@@ -247,7 +336,10 @@ export const SettingsScreen = () => {
                     <RtlAwareChevron direction="forward" size={20} color={theme.colors.neutral300} />
                 </TouchableOpacity>
 
-                {/* Test Notification Button */}
+                {/* Test notifications is a developer tool: it schedules three fake
+                    reminders (a made-up appointment among them) a few seconds out. It
+                    has no place in a release build. */}
+                {__DEV__ && (
                 <TouchableOpacity
                     style={[styles.settingRow, { borderBottomWidth: 0 }]}
                     accessibilityRole="button"
@@ -267,7 +359,7 @@ export const SettingsScreen = () => {
                     }}
                 >
                     <View style={styles.settingRowLeft}>
-                        <Text style={styles.menuIcon}>▶️</Text>
+                        <Ionicons name="play-circle-outline" size={24} color={theme.colors.accent} style={styles.menuIcon} />
                         <View style={styles.settingInfo}>
                             <Text style={styles.settingLabel}>{t('common.testNotifications')}</Text>
                             <Text style={styles.settingDescription}>
@@ -276,6 +368,7 @@ export const SettingsScreen = () => {
                         </View>
                     </View>
                 </TouchableOpacity>
+                )}
             </View>
 
             {/* Info Section */}
@@ -287,8 +380,9 @@ export const SettingsScreen = () => {
 
             {/* Data & Privacy Section */}
             <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionTitle}>🛡️ {t('common.privacyData.title')}</Text>
+                <View style={[styles.sectionHeader, styles.sectionHeaderRow]}>
+                    <Ionicons name="shield-checkmark-outline" size={20} color={theme.colors.green700} style={styles.sectionIcon} />
+                    <Text style={styles.sectionTitle}>{t('common.privacyData.title')}</Text>
                 </View>
 
                 {/* PDF Journal Export - ENABLED */}
@@ -297,23 +391,25 @@ export const SettingsScreen = () => {
                     accessibilityRole="button"
                     accessibilityLabel={t('common.privacyData.exportPDF')}
                     accessibilityHint={t('common.privacyData.exportPDFDesc')}
-                    accessibilityState={{ disabled: loading, busy: loading }}
+                    accessibilityState={{ disabled: pdfExporting, busy: pdfExporting }}
+                    disabled={pdfExporting}
                     onPress={async () => {
                         try {
-                            setLoading(true);
+                            setPdfExporting(true);
                             const userId = auth.currentUser?.uid;
                             if (!userId) {
-                                Alert.alert(t('common.error'), t('common.loginRequired'));
+                                showAlert(t('common.error'), t('common.loginRequired'));
                                 return;
                             }
 
-                            const weightHistoryData = await getWeightHistory(userId);
+                            // Health-dashboard weighings included, one per day, as on the tracker.
+                            const weightHistoryData = latestWeighingPerDay(await getAllWeightEntries(userId));
                             const appointmentsData = await getAppointments();
 
                             // P3.6 FIX: pass the real Profile (firstName, lmp, country) — was passing
                             // pregnancyInfo (just week/day) which produced a structurally invalid PDF profile block.
                             if (!profile) {
-                                Alert.alert(t('common.error'), t('common.profileRequired') || t('common.error'));
+                                showAlert(t('common.error'), t('common.common.profileRequired'));
                                 return;
                             }
                             await generateAndSharePDF({
@@ -324,14 +420,14 @@ export const SettingsScreen = () => {
                             }, t, dateLocale, 'Journal_Grossesse.pdf', i18n.language);
                         } catch (e) {
                             logger.error("SettingsScreen", "PDF Export Error", e);
-                            Alert.alert(t('common.error'), t('export.errorMessage') || t('common.error'));
+                            showAlert(t('common.error'), t('export.errorMessage') || t('common.error'));
                         } finally {
-                            setLoading(false);
+                            setPdfExporting(false);
                         }
                     }}
                 >
                     <View style={styles.settingRowLeft}>
-                        <Text style={styles.menuIcon}>📕</Text>
+                        <Ionicons name="document-text-outline" size={24} color={theme.colors.accent} style={styles.menuIcon} />
                         <View style={styles.settingInfo}>
                             <Text style={styles.settingLabel}>{t('common.privacyData.exportPDF')}</Text>
                             <Text style={styles.settingDescription}>
@@ -339,32 +435,31 @@ export const SettingsScreen = () => {
                             </Text>
                         </View>
                     </View>
+                    {pdfExporting && <ActivityIndicator color={theme.colors.accent} />}
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                    style={[styles.settingRow, { borderBottomWidth: 0 }]}
+                    style={styles.settingRow}
                     accessibilityRole="button"
                     accessibilityLabel={t('common.privacyData.export')}
                     accessibilityHint={t('common.privacyData.exportDesc')}
                     // P3.6 FIX: pass real Profile, not pregnancyInfo (week/day only).
                     // C3/F6: explicit confirmation — exported file contains ALL medical data in plain text.
                     onPress={() => {
-                        Alert.alert(
+                        // C3/F6: explicit destructive confirm — exported file is plaintext medical data.
+                        // confirmAction fires onConfirm on web too (Alert.alert is a no-op there).
+                        confirmAction(
                             t('export.warningTitle'),
                             t('export.warningMessage'),
-                            [
-                                { text: t('common.cancel'), style: 'cancel' },
-                                {
-                                    text: t('common.continue'),
-                                    style: 'destructive',
-                                    onPress: () => exportUserData(user, profile, t),
-                                },
-                            ],
+                            () => exportUserData(user, profile, t),
+                            undefined,
+                            t('common.cancel'),
+                            t('common.continue'),
                         );
                     }}
                 >
                     <View style={styles.settingRowLeft}>
-                        <Text style={styles.menuIcon}>📤</Text>
+                        <Ionicons name="share-outline" size={24} color={theme.colors.accent} style={styles.menuIcon} />
                         <View style={styles.settingInfo}>
                             <Text style={styles.settingLabel}>{t('common.privacyData.export')}</Text>
                             <Text style={styles.settingDescription}>
@@ -373,12 +468,38 @@ export const SettingsScreen = () => {
                         </View>
                     </View>
                 </TouchableOpacity>
+
+                {/* The privacy policy and the store listings send people here to delete their
+                    data, so this is the same flow as Profile → danger zone (useAccountDeletion).
+                    A guest has no account: her data lives on this device, and the reset erases it. */}
+                <TouchableOpacity
+                    style={[styles.settingRow, { borderBottomWidth: 0 }]}
+                    accessibilityRole="button"
+                    accessibilityLabel={user?.isGuest ? t('common.privacyData.eraseGuestData') : t('common.privacyData.deleteAccount')}
+                    accessibilityHint={user?.isGuest ? t('common.privacyData.eraseGuestDataDesc') : t('common.privacyData.deleteAccountDesc')}
+                    accessibilityState={{ disabled: deletionBusy, busy: deletionBusy }}
+                    disabled={deletionBusy}
+                    onPress={user?.isGuest ? requestResetProfile : requestDeleteAccount}
+                >
+                    <View style={styles.settingRowLeft}>
+                        <Ionicons name="trash-outline" size={24} color={theme.colors.materialRedDark} style={styles.menuIcon} />
+                        <View style={styles.settingInfo}>
+                            <Text style={[styles.settingLabel, { color: theme.colors.error }]}>
+                                {user?.isGuest ? t('common.privacyData.eraseGuestData') : t('common.privacyData.deleteAccount')}
+                            </Text>
+                            <Text style={styles.settingDescription}>
+                                {user?.isGuest ? t('common.privacyData.eraseGuestDataDesc') : t('common.privacyData.deleteAccountDesc')}
+                            </Text>
+                        </View>
+                    </View>
+                </TouchableOpacity>
             </View>
 
             {/* Legal Section */}
             <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionTitle}>📋 {t('common.legal')}</Text>
+                <View style={[styles.sectionHeader, styles.sectionHeaderRow]}>
+                    <Ionicons name="document-text-outline" size={20} color={theme.colors.text} style={styles.sectionIcon} />
+                    <Text style={styles.sectionTitle}>{t('common.legal')}</Text>
                 </View>
                 <TouchableOpacity
                     style={styles.legalRow}
@@ -387,7 +508,7 @@ export const SettingsScreen = () => {
                     accessibilityLabel={t('common.privacyPolicy')}
                 >
                     <View style={styles.settingRowLeft}>
-                        <Text style={styles.menuIcon}>🔒</Text>
+                        <Ionicons name="lock-closed-outline" size={24} color={theme.colors.text} style={styles.menuIcon} />
                         <Text style={styles.legalText}>{t('common.privacyPolicy')}</Text>
                     </View>
                     <RtlAwareChevron direction="forward" size={20} color={theme.colors.neutral300} />
@@ -397,8 +518,9 @@ export const SettingsScreen = () => {
             {/* Developer Section (Only in DEV) */}
             {__DEV__ && (
                 <View style={[styles.section, { borderColor: theme.colors.purple700, borderWidth: 1 }]}>
-                    <View style={[styles.sectionHeader, { backgroundColor: theme.colors.surfacePurpleTint }]}>
-                        <Text style={[styles.sectionTitle, { color: theme.colors.purple700 }]}>👨‍💻 Developer Tools</Text>
+                    <View style={[styles.sectionHeader, styles.sectionHeaderRow, { backgroundColor: theme.colors.surfacePurpleTint }]}>
+                        <Ionicons name="code-slash-outline" size={20} color={theme.colors.purple700} style={styles.sectionIcon} />
+                        <Text style={[styles.sectionTitle, { color: theme.colors.purple700 }]}>Developer Tools</Text>
                     </View>
 
                     <TouchableOpacity
@@ -406,7 +528,7 @@ export const SettingsScreen = () => {
                         onPress={() => navigation.navigate('Diagnostic')}
                     >
                         <View style={styles.settingRowLeft}>
-                            <Text style={styles.menuIcon}>🩺</Text>
+                            <Ionicons name="medkit-outline" size={24} color={theme.colors.purple700} style={styles.menuIcon} />
                             <View style={styles.settingInfo}>
                                 <Text style={styles.settingLabel}>Run Diagnostics</Text>
                                 <Text style={styles.settingDescription}>
@@ -418,6 +540,7 @@ export const SettingsScreen = () => {
                     </TouchableOpacity>
                 </View >
             )}
+            {reauthModal}
         </ScrollView >
     );
 };
@@ -437,6 +560,14 @@ const styles = StyleSheet.create({
         backgroundColor: theme.colors.white,
         borderBottomWidth: 1,
         borderBottomColor: theme.colors.disabled,
+    },
+    headerTitleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10, // direction-agnostic gap — marginEnd didn't flip under web RTL (⚙️الإعدادات)
+    },
+    headerIcon: {
+        marginEnd: 0,
     },
     headerTitle: {
         fontSize: 28,
@@ -460,6 +591,14 @@ const styles = StyleSheet.create({
         backgroundColor: theme.colors.surfaceGrayStripe,
         borderBottomWidth: 1,
         borderBottomColor: theme.colors.disabled,
+    },
+    sectionHeaderRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10, // direction-agnostic gap (RTL-safe, matches headerTitleRow)
+    },
+    sectionIcon: {
+        marginEnd: 0,
     },
     sectionTitle: {
         fontSize: 18,
@@ -494,6 +633,13 @@ const styles = StyleSheet.create({
         flex: 1,
         marginEnd: 16,
     },
+    // D-049: each Switch sits in a 44pt high box. The Switch keeps its own 52x26 size and is
+    // the only pressable: a Pressable around it would also receive the input's bubbling click
+    // on web (react-native-web's PressResponder) and flip the value twice.
+    switchHit: {
+        minHeight: 44,
+        justifyContent: 'center',
+    },
     settingLabel: {
         fontSize: 16,
         fontWeight: '600',
@@ -504,6 +650,16 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: theme.colors.textSecondary,
         lineHeight: 20,
+    },
+    // Section-level copy sits directly inside `section`, which has no padding of
+    // its own — every other description in this screen is nested in settingRow's
+    // inset and inherits it. Without this it renders flush against the card edge.
+    sectionCopy: {
+        fontSize: 14,
+        color: theme.colors.textSecondary,
+        lineHeight: 20,
+        paddingHorizontal: 16,
+        paddingBottom: 12,
     },
     hourSelector: {
         padding: 16,
@@ -519,6 +675,8 @@ const styles = StyleSheet.create({
     },
     hourButton: {
         flex: 1,
+        minHeight: 44,
+        justifyContent: 'center',
         paddingVertical: 10,
         borderRadius: theme.borderRadius.s,
         borderWidth: 1,
@@ -564,6 +722,6 @@ const styles = StyleSheet.create({
     },
     legalArrow: {
         fontSize: 20,
-        color: theme.colors.neutral400,
+        color: theme.colors.textMuted,
     },
 });

@@ -27,56 +27,109 @@
 
     <main class="content-container">
         <h2>Privacy Policy</h2>
-        <p><em>Last updated: February 16, 2026</em></p>
+        <p><em>Last updated: October 16, 2026</em></p>
 
         <h3>1. Introduction</h3>
-        <p>Your privacy is our priority. This policy describes how the "Mama & Bébé" app, published by KSA MEDIA LLC,
-            collects, uses and protects your personal data.</p>
+        <p>The "Mama & Bébé" app is published by Kossay El Benna and developed by Sawssen Jemaiel. This policy explains what data the app collects,
+            where it is kept, who processes it for us, how long it is kept and how to erase it. The app is intended for people aged 18 or over.</p>
 
         <h3>2. Data Collected</h3>
+        <p>Depending on what you use, the app processes:</p>
         <ul>
-            <li><strong>Account Information:</strong> Email address (only for authentication via Firebase Auth).</li>
-            <li><strong>Health Data:</strong> Pregnancy-related information (pregnancy week, weight, medical
-                appointments) that you enter manually. This data is stored securely on Google Firebase.</li>
-            <li><strong>Technical Data:</strong> Anonymous technical identifiers to ensure proper app functioning and
-                detect errors (via Sentry).</li>
+            <li><strong>Account:</strong> your email address and password, handled by Firebase Authentication to
+                sign you in.</li>
+            <li><strong>Pregnancy profile:</strong> first name, last name (optional), country, age range,
+                whether this is your first pregnancy, last period date, due date, height and pre-pregnancy weight,
+                cycle length if you track fertility, and your chosen language. You enter these yourself.</li>
+            <li><strong>Health data you record:</strong> weight, blood pressure, blood glucose, symptoms, baby
+                movements, contractions, medical appointments, reminders and tasks, your hospital bag, with any notes
+                you add. You decide what to record; the app infers
+                no diagnosis from it.</li>
+            <li><strong>Declared medical follow-up:</strong> if you choose to tell us, whether a healthcare
+                professional has flagged gestational diabetes, pregnancy hypertension or a twin pregnancy for you.
+                <strong>The question is optional</strong> and you can change or turn it off at any time in
+                Settings. It is used only to adjust which reminders are offered to you.</li>
+            <li><strong>Emergency contacts:</strong> the names and numbers of the people you add yourself.</li>
+            <li>If you have an account, this data is stored on Google Firebase, encrypted in transit, and access rules limit the app's access to your own account's data.</li>
+            <li><strong>Kept only on your phone:</strong> hydration, daily checklist and saved articles. They are not sent to our servers.</li>
+            <li><strong>Assistant:</strong> it runs entirely on your phone. Your messages are neither sent to a
+                server nor saved.</li>
         </ul>
 
         <h3>3. Use of Data</h3>
         <p>Your data is used <strong>exclusively</strong> to:</p>
         <ul>
-            <li>Provide you with pregnancy tracking features.</li>
-            <li>Sync your data across your devices (if you are logged in).</li>
-            <li>Improve app stability (anonymous crash detection via Sentry).</li>
+            <li>Provide pregnancy tracking and schedule your reminders on your phone.</li>
+            <li>Sync your data across your devices (if you are signed in).</li>
         </ul>
         <p><strong>We do not sell, rent or share any personal data with third parties for commercial or advertising
-                purposes.</strong></p>
+                purposes, and we do no commercial or advertising profiling.</strong></p>
+        <p><strong>Legal basis:</strong> we process your pregnancy and health data with your explicit agreement:
+            before saving your profile, the app asks you to tick a box allowing it to use this data to provide its
+            features. Without that agreement, your profile is not saved. The date of your agreement and the version
+            of this policy are kept with your profile. This rests on your explicit consent (GDPR art. 9(2)(a)) for pregnancy and health data, and on performance of the service you request (art. 6(1)(b)) for the account and sync. No automated decision has a legal effect on you.</p>
 
-        <h3>4. Third-Party Services</h3>
-        <p>We use the following secure services:</p>
+        <h3>4. Service Providers</h3>
+        <p>These services process data on our behalf, only to run the app:</p>
         <ul>
-            <li><strong>Google Firebase:</strong> Secure data hosting and authentication. <a
+            <li><strong>Google Firebase (Google Cloud):</strong> sign-in, database, and checking that requests come
+                from the genuine app (App Check, using Apple App Attest). <a
                     href="https://firebase.google.com/support/privacy" target="_blank">Firebase Policy</a>.</li>
-            <li><strong>Sentry:</strong> Anonymous technical error detection. No personal data is transmitted. <a
-                    href="https://sentry.io/privacy/" target="_blank">Sentry Policy</a>.</li>
+            <li><strong>Expo:</strong> delivers app updates; it receives technical device information (IP address,
+                app version) when the app checks for an update. <a href="https://expo.dev/privacy"
+                    target="_blank">Expo Policy</a>.</li>
+            <li><strong>Google Fonts:</strong> loads fonts when you generate your PDF journal; Google then receives
+                your device's IP address.</li>
         </ul>
 
-        <h3>5. Security</h3>
-        <p>All communications between the app and our servers are encrypted via HTTPS/TLS. Your data is stored on Google
-            Cloud Platform's secure infrastructure (Firebase).</p>
+        <h3>5. Storage, Security and Transfers</h3>
+        <p>All communications between the app and our servers are encrypted via HTTPS/TLS. Your account data is
+            stored on Google Cloud Platform's infrastructure (Firebase). The publisher is based in France,
+            and Google and our providers may process your data outside your country, including in the United States. These transfers rely on GDPR safeguards (European Commission standard contractual clauses and/or the EU–US Data Privacy Framework).</p>
 
-        <h3>6. Your Rights</h3>
-        <p>You have the right to access, rectify and delete your data at any time:</p>
+        <h3>6. Retention</h3>
+        <p>Your account data is kept as long as your account exists and erased as soon as you delete it; we keep no copy ourselves, and Google's technical backups are purged on its own schedule. Data kept on your phone stays there until you erase it, delete your account or uninstall the app.
+            No error-reporting service is enabled in the current production build.</p>
+        <p>Data you save on our servers as a guest, under an anonymous identifier (section 8), stays there until you
+            erase it with <em>Settings &rarr; My Data &rarr; Erase my data</em>; if you create an account, it becomes
+            your account's data. We do not delete it automatically today: if you uninstall the app without erasing it
+            first, it stays on our servers under that anonymous identifier, with no email address, and the app can no
+            longer reach it.</p>
+
+        <h3>7. Your Rights</h3>
+        <p>The GDPR grants you these rights, and the app implements them without going through us:</p>
         <ul>
-            <li><strong>Delete in-app:</strong> Go to <em>Profile → Settings → Delete my account</em>. All your data
-                will be immediately and permanently erased.</li>
-            <li>By email: Contact us at <a href="mailto:contact@mama-et-bebe.com">contact@mama-et-bebe.com</a> for any
-                data-related request.</li>
+            <li><strong>Access and portability (art. 15 and 20):</strong> export your data as JSON from
+                <em>Settings &rarr; My Data &rarr; Export my data</em>. The export contains your profile and health data,
+                including your declared medical follow-up.</li>
+            <li><strong>Erasure (art. 17):</strong> <em>My Profile &rarr; Danger zone &rarr; Delete my
+                account</em>, or <em>Settings &rarr; My Data &rarr; Delete my account</em>. Immediate and permanent:
+                account, profile, health data, appointments, reminders, emergency contacts, and the local copy on
+                your device. See <a href="delete-account-en.html">Delete my account</a>.</li>
+            <li><strong>Rectification (art. 16):</strong> anything you entered can be edited in the app.</li>
+            <li><strong>Withdrawing consent:</strong> you can withdraw the agreement given when you created your
+                profile at any time by erasing your data: <em>Settings &rarr; My Data &rarr; Delete my account</em>
+                with an account, or <em>Settings &rarr; My Data &rarr; Erase my data</em> without one. The declared
+                medical follow-up can be turned off separately in <em>Settings &rarr; Medical follow-up</em>, without
+                deleting the rest of your account.</li>
+            <li><strong>Objection and restriction (art. 18 and 21):</strong> you can ask us to restrict the processing or object to it by writing to <a href="mailto:contact@mama-et-bebe.com">contact@mama-et-bebe.com</a>.</li>
+            <li><strong>Complaint:</strong> if you believe your rights are not respected, you can lodge a complaint with the <a href="https://www.cnil.fr" target="_blank" rel="noopener">CNIL</a> or with the data protection authority of your country.</li>
+            <li>By email: <a href="mailto:contact@mama-et-bebe.com">contact@mama-et-bebe.com</a> for any request
+                regarding your data.</li>
         </ul>
+
+        <h3>8. Guest Mode</h3>
+        <p>Without an account, you give no email address. What you record is kept on your phone. Some of it (for
+            example health entries, appointments and reminders) may also be saved on our servers under an anonymous
+            identifier, with no email address, so that the app works; no assistant conversation data is sent to a
+            server. Baby movements, contractions and your hospital bag stay only on your phone
+            until you create an account; they are then saved to it. To erase everything, on your phone and on our servers: <em>Settings &rarr;
+                My Data &rarr; Erase my data</em>. Uninstalling the app erases only what is on your phone.</p>
 
         <div class="legal-info">
-            <strong>Publisher:</strong> KSA MEDIA LLC — Kossay El Benna, Sole Member<br>
-            8206 Louisiana Blvd NE, Ste B 10353, Albuquerque, NM 87113, USA<br>
+            <strong>Publisher:</strong> Kossay El Benna<br>
+            378 rue Elie Gruyelle, 62110 Hénin-Beaumont, France<br>
+            <strong>Developed by:</strong> Sawssen Jemaiel<br>
             <strong>Contact:</strong> <a href="mailto:contact@mama-et-bebe.com">contact@mama-et-bebe.com</a>
         </div>
 
@@ -85,7 +138,7 @@
         <h2 id="terms">Terms of Service</h2>
 
         <h3>Purpose</h3>
-        <p>These terms govern the use of the "Mama & Bébé" mobile app, published by KSA MEDIA LLC.</p>
+        <p>These terms govern the use of the "Mama & Bébé" mobile app, published by Kossay El Benna.</p>
 
         <h3>Medical Disclaimer</h3>
         <p>The "Mama & Bébé" app is a support and general information tool. <strong>It does not constitute medical
@@ -93,7 +146,7 @@
             professional for any diagnosis or medical decision.</p>
 
         <h3>Intellectual Property</h3>
-        <p>All app content (texts, illustrations, icons, source code) is the property of KSA MEDIA LLC and is protected
+        <p>All app content (texts, illustrations, icons, source code) is the property of Kossay El Benna and is protected
             by applicable intellectual property laws.</p>
 
         <h3>Limitation of Liability</h3>
@@ -104,11 +157,11 @@
         <p>The processing of personal data is described in the <a href="#top">Privacy Policy</a> above.</p>
 
         <h3>Applicable Law</h3>
-        <p>These terms are governed by the law of the State of New Mexico, United States.</p>
+        <p>These terms are governed by French law.</p>
 
         <div class="legal-info">
-            <strong>KSA MEDIA LLC</strong> — EIN: 98-1778891<br>
-            8206 Louisiana Blvd NE, Ste B 10353, Albuquerque, NM 87113, USA
+            <strong>Kossay El Benna</strong><br>
+            378 rue Elie Gruyelle, 62110 Hénin-Beaumont, France
         </div>
     </main>
 
@@ -117,7 +170,7 @@
             <a href="index-en.html">Home</a>
             <a href="support-en.html">Support & Contact</a>
         </div>
-        <p>&copy; 2026 KSA MEDIA LLC / Mama & Bébé. All rights reserved.</p>
+        <p>&copy; 2026 Kossay El Benna / Mama & Bébé. All rights reserved.</p>
     </footer>
 </body>
 

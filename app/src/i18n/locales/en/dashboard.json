@@ -14,8 +14,10 @@
     "upcoming": "Upcoming",
     "past": "Past",
     "seeAll": "See all →",
-    "remindersThisWeek": "🔔 Reminders This Week",
+    "remindersThisWeek": "✅ Weekly tasks",
     "completed": "completed",
+    "noRemindersThisWeek": "No tasks planned this week",
+    "setStartingWeight": "Set my starting weight",
     "addWeight": "Add Weight",
     "weightPlaceholder": "Weight (kg)",
     "cancel": "Cancel",
@@ -23,14 +25,26 @@
     "addBP": "Add Blood Pressure",
     "systolic": "Systolic (e.g. 120)",
     "diastolic": "Diastolic (e.g. 80)",
-    "soonAvailable": "Coming soon",
-    "soonAvailableDesc": "Detailed tracking is coming soon!",
+    "systolicLabel": "Systolic pressure (mmHg)",
+    "diastolicLabel": "Diastolic pressure (mmHg)",
     "errorLoading": "Error loading data",
     "errorSaving": "Error saving",
     "guestNotice": "Sign in to track your health",
+    "guestLockTitle": "Track your health",
+    "guestLockSubtitle": "Create an account to log your weight, blood pressure, blood sugar and much more.",
     "glucose": "Blood Sugar",
-    "glucoseNormal": "Blood sugar normal this month",
-    "glucoseTarget": "Target: 3.5 – 7.8 mmol/L (fasting)",
+    "glucoseMonth": {
+        "empty": "No reading this month",
+        "inRange": "This month's readings are on target",
+        "outOfRange": "A reading outside the target this month"
+    },
+    "glucoseTarget": "Fasting target: 3.5 to below 5.1 mmol/L",
+    "glucoseUnitCheckTitle": "🤔 Measurement unit",
+    "glucoseUnitCheckMsg": "You entered {{value}}. Is this in mmol/L?\n\nIf it's in g/L (the unit labs use in France and Tunisia), it equals {{converted}} mmol/L.",
+    "glucoseIsMmol": "Yes, mmol/L",
+    "glucoseIsGl": "It's in g/L",
+    "glucoseConvertedTitle": "Value converted",
+    "glucoseConvertedMsg": "{{original}} g/L = {{converted}} mmol/L. Check the value, then save it.",
     "symptomsToday": "Today's Symptoms",
     "symptomNausea": "Nausea",
     "symptomFatigue": "Fatigue",
@@ -53,7 +67,7 @@
         },
         "glucoseSurveillance": {
             "title": "Blood sugar to monitor",
-            "message": "This reading is slightly above normal. Record it and mention it at your next appointment."
+            "message": "In pregnancy, a fasting reading of 5.1 mmol/L (92 mg/dL) or more is above the threshold used. If this really was a fasting reading, tell your midwife or doctor in the next few days — don't wait for your next visit."
         },
         "glucoseHigh": {
             "title": "High blood sugar",
@@ -69,11 +83,11 @@
         },
         "bpHigh": {
             "title": "High blood pressure",
-            "message": "High blood pressure. Mention it to your healthcare provider at your next appointment."
+            "message": "Blood pressure of 140/90 or higher. Contact your midwife or doctor within 24 hours to have it checked — don't wait for your next visit. If you also have a severe headache, vision problems or pain in the upper belly, call emergency services."
         },
         "bpSevere": {
             "title": "Very high blood pressure",
-            "message": "Very high blood pressure. Contact your healthcare provider without delay — risk of pre-eclampsia."
+            "message": "Very high blood pressure. Call emergency services or go to the maternity unit right away — risk of pre-eclampsia."
         },
         "bpLow": {
             "title": "Low blood pressure",

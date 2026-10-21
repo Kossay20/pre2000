@@ -1,0 +1,4 @@
+updated 40/40, failed 0
+prod docs: 40 | local weeks: 40 | local weeks missing in prod: 0
+fields differing (count of weeks): { calendar_template_ids: 39 }
+

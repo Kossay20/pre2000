@@ -39,25 +39,35 @@ export function resolveButtonVariant(
                 borderColor: variant === 'outline' ? theme.colors.disabled : undefined,
             };
         }
-        return { backgroundColor: theme.colors.disabled, textColor: theme.colors.white };
+        // Cycle 2 F301 : white-on-disabled = ratio ~1.4:1 (WCAG AA fail).
+        // neutral700 sur disabled = ~7:1, lisible sans donner l'air actif.
+        return { backgroundColor: theme.colors.disabled, textColor: theme.colors.neutral700 };
     }
 
     switch (variant) {
         case 'primary':
-            return { backgroundColor: theme.colors.primary, textColor: theme.colors.white };
+            // A11Y-CONTRAST-01 : primary fill #FF6B9D on white = 2.68:1 (WCAG AA fail).
+            // Route actionable pink to accent #C2185B = 5.87:1 (passes AA with white text).
+            return { backgroundColor: theme.colors.accent, textColor: theme.colors.white };
         case 'secondary':
+            // A11Y-CONTRAST-01 : secondary fill #FF8FA3 on white = 2.16:1 (fail).
+            // accentDarkPink #D81B60 = 4.95:1 (passes AA) — distinct from primary accent.
             return {
-                backgroundColor: theme.colors.secondary,
+                backgroundColor: theme.colors.accentDarkPink,
                 textColor: theme.colors.white,
             };
         case 'outline':
+            // A11Y-CONTRAST-01: outline/ghost TEXT sits on transparent (= white bg).
+            // primary #FF6B9D = 2.68:1 (WCAG AA fail) → route text to accent #C2185B
+            // = 5.87:1 (pass). The border stays #FF6B9D (decorative, non-text).
             return {
                 backgroundColor: 'transparent',
-                textColor: theme.colors.primary,
+                textColor: theme.colors.accent,
                 borderColor: theme.colors.primary,
             };
         case 'ghost':
-            return { backgroundColor: 'transparent', textColor: theme.colors.primary };
+            // A11Y-CONTRAST-01: ghost text on transparent (white) — route to accent.
+            return { backgroundColor: 'transparent', textColor: theme.colors.accent };
         case 'destructive':
             return { backgroundColor: theme.colors.error, textColor: theme.colors.white };
         case 'success':
@@ -70,11 +80,13 @@ export function resolveButtonVariant(
 export function resolveButtonSize(size: ButtonSize): ButtonSizeStyle {
     switch (size) {
         case 'small':
+            // Cycle 2 F300 : Apple HIG min 44pt + Android Material min 48dp.
+            // 44 satisfait les deux et passe la review accessibility App Store.
             return {
                 paddingVertical: theme.spacing.s,
                 paddingHorizontal: theme.spacing.m,
                 fontSize: 14,
-                minHeight: 36,
+                minHeight: 44,
             };
         case 'large':
             return {

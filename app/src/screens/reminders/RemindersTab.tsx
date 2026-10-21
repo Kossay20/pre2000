@@ -19,12 +19,16 @@ import {
     TouchableOpacity,
     Switch,
     ActivityIndicator,
-    Animated
+    Animated,
+    Linking,
+    Platform
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { usePregnancy } from '../../context/PregnancyContext';
 import { useAuth } from '../../context/AuthContext';
-import { requestNotificationPermissions } from '../../services/notificationService';
+import { requestNotificationsAndResync, resyncReminders } from '../../services/notificationPermissionFlow';
+import { useNotificationPermissionState } from '../../hooks/useNotificationPermissionState';
+import { showAlert } from '../../utils/alert';
 import {
     getEssentialReminders,
     getCategories,
@@ -35,6 +39,7 @@ import {
     initializeDefaultReminders,
 } from '../../services/remindersV2Service';
 import { buildContextProfile } from '../../utils/contextMatcher';
+import { toContextUserFlags } from '../../utils/medicalFlags';
 import {
     ReminderDefinition,
     ReminderUserSetting,
@@ -46,38 +51,40 @@ import { ReminderEditModal } from '../../components/reminders/ReminderEditModal'
 import { HydrationCard } from '../../components/reminders/HydrationCard';
 import { useTranslation } from 'react-i18next';
 import { Trilang } from '../../types/remindersV2';
-import { getLocalizedTrilang } from '../../utils/i18nHelpers';
+import { getLocalizedTrilang, formatTime } from '../../utils/i18nHelpers';
 import { theme } from '../../theme';
+import { switchThumbProps } from '../../utils/styleUtils';
 import { RtlAwareChevron } from '../../components/common/RtlAwareChevron';
-import { syncRemindersToNotifications } from '../../services/remindersScheduler';
 import { useScreenAnalytics } from '../../hooks/useScreenAnalytics';
+import { useFocusEffect } from '@react-navigation/native';
 import { styles } from './RemindersTab.styles';
+import { displayedAgeOf } from '../../utils/pregnancyCalculator';
 
 // ============================================
 // PERMISSION BANNER
 // ============================================
 
-const PermissionBanner = () => {
+// Shown while notifications are not allowed. Its tap is where the OS permission
+// dialog appears — on this tab, next to the reminders it is for, never on mount:
+// asking before the user has done anything is what the HIG warns against, and a
+// refusal given out of context is hard to undo (iOS never asks twice).
+const PermissionBanner: React.FC<{ visible: boolean; onPress: () => void }> = ({ visible, onPress }) => {
     const { t } = useTranslation();
-    const [permissionsGranted, setPermissionsGranted] = useState(true);
 
-    useEffect(() => {
-        checkPermissions();
-    }, []);
-
-    const checkPermissions = async () => {
-        const granted = await requestNotificationPermissions();
-        setPermissionsGranted(granted);
-    };
-
-    if (permissionsGranted) return null;
+    if (!visible) return null;
 
     return (
-        <View style={styles.permissionBanner}>
+        <TouchableOpacity
+            style={styles.permissionBanner}
+            onPress={onPress}
+            accessibilityRole="button"
+            accessibilityLabel={t('common.enableNotifications')}
+            accessibilityHint={t('common.requestPermissions')}
+        >
             <Text style={styles.permissionText}>
                 {t('common.enableNotifications')}
             </Text>
-        </View>
+        </TouchableOpacity>
     );
 };
 
@@ -149,7 +156,7 @@ const EssentialsList: React.FC<EssentialsListProps> = ({
     // Format times for display (same as ReminderCardV2)
     const formatTimes = (times: string[]): string => {
         if (!times || times.length === 0) return '';
-        return times.map(t => t.replace(':', 'h')).join(' • ');
+        return times.map(time => formatTime(time, i18n.language)).join(' • ');
     };
 
     // Get frequency label (same as ReminderCardV2)
@@ -187,12 +194,10 @@ const EssentialsList: React.FC<EssentialsListProps> = ({
                                     value={isEnabled}
                                     onValueChange={(value) => onToggle(reminder, value)}
                                     trackColor={{ false: theme.colors.disabled, true: theme.colors.pinkAccentA100 }}
-                                    thumbColor={theme.colors.white}
+                                    {...switchThumbProps(theme.colors.white)}
                                     ios_backgroundColor={theme.colors.disabled}
-                                    accessibilityRole="switch"
                                     accessibilityLabel={getLocalizedContent(reminder.title)}
                                     accessibilityHint={t('a11y.toggleReminder')}
-                                    accessibilityState={{ checked: isEnabled }}
                                 />
                             </View>
                             {/* Summary row when enabled - same as ReminderCardV2 */}
@@ -215,7 +220,7 @@ const EssentialsList: React.FC<EssentialsListProps> = ({
                         </View>
                         {/* Reassuring text for vitamins */}
                         {reminder.id === 'rem_med_prenatal_vitamins' && (
-                            <TouchableOpacity onPress={() => onEdit(reminder)}>
+                            <TouchableOpacity onPress={() => onEdit(reminder)} accessibilityRole="button" style={{ minHeight: 44, justifyContent: 'center' }}>
                                 <Text style={styles.reassuringText}>
                                     {t('common.vitaminAdjust')}
                                 </Text>
@@ -248,6 +253,32 @@ export const RemindersTab = () => {
     const [editModalVisible, setEditModalVisible] = useState(false);
     const [selectedReminder, setSelectedReminder] = useState<ReminderDefinition | null>(null);
 
+    // Read-only (never shows the OS dialog), and read again on every focus and
+    // return to the foreground: a grant from Settings or a revocation in the OS
+    // settings has to show up here. Null until the first read, so the banner
+    // does not flash in.
+    const { state: permissionState, refresh: refreshPermission } = useNotificationPermissionState();
+    useFocusEffect(useCallback(() => { refreshPermission(); }, [refreshPermission]));
+    const notificationsAllowed = permissionState === null || permissionState === 'granted';
+
+    const syncContext = { week: pregnancyInfo?.week, locale: i18n.language, userId: user?.uid };
+
+    const handlePermissionBannerPress = async () => {
+        // The OS dialog, from a tap. A grant schedules what the background sync skipped.
+        const { granted } = await requestNotificationsAndResync(syncContext);
+        refreshPermission();
+        if (granted) return;
+        // Already refused: only the system settings can change it now.
+        showAlert(
+            t('common.permissionsDenied'),
+            t('common.permissionsDeniedMsg'),
+            [
+                { text: t('common.cancel'), style: 'cancel' },
+                { text: t('common.openSettings'), onPress: () => Linking.openSettings() },
+            ]
+        );
+    };
+
     const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
         recommended: true,
         medical: false,
@@ -256,9 +287,15 @@ export const RemindersTab = () => {
 
     useEffect(() => {
         const week = pregnancyInfo?.week ?? 1;
-        const ctx = buildContextProfile(week);
-        setProfile(ctx);
-    }, [pregnancyInfo?.week]);
+        // The declared-condition flags ride along: without them every context rule
+        // keyed on a diagnosis was evaluated against `undefined` and never matched.
+        setProfile(buildContextProfile(week, toContextUserFlags(user)));
+    }, [
+        pregnancyInfo?.week,
+        user?.hasGestationalDiabetes,
+        user?.hasHypertension,
+        user?.isTwinPregnancy,
+    ]);
 
     const loadData = useCallback(async () => {
         if (!profile) return;
@@ -296,16 +333,21 @@ export const RemindersTab = () => {
                 if (newSetting) {
                     setSettings(prev => ({ ...prev, [reminder.id]: newSetting }));
                 }
+                // Turning a reminder on is a request for notifications, so this tap is
+                // a legitimate place for the OS dialog. It comes after the save so a
+                // grant schedules this reminder too; a refusal still keeps the setting
+                // and the banner stays up to ask again later.
+                const { resynced } = await requestNotificationsAndResync(syncContext);
+                refreshPermission();
+                if (!resynced) await resyncReminders(syncContext);
             } else {
                 await disableReminder(reminder.id, user?.uid);
                 setSettings(prev => ({
                     ...prev,
                     [reminder.id]: { ...prev[reminder.id], enabled: false }
                 }));
+                await resyncReminders(syncContext);
             }
-            // ── FIX: Pass userId and locale so auth users and non-FR users sync correctly
-            const week = pregnancyInfo?.week ?? 1;
-            await syncRemindersToNotifications(week, i18n.language, user?.uid);
         } catch (error) {
             log.error('Error toggling reminder:', error);
         }
@@ -326,10 +368,7 @@ export const RemindersTab = () => {
                 }
             }));
             // NOTIF-08 FIX: Re-sync after time/intensity edit from modal
-            const week = pregnancyInfo?.week ?? 1;
-            syncRemindersToNotifications(week, i18n.language, user?.uid).catch(e =>
-                log.error('Sync after modal save failed:', e)
-            );
+            resyncReminders(syncContext);
         }
     };
 
@@ -342,7 +381,7 @@ export const RemindersTab = () => {
                 </Text>
                 <TouchableOpacity
                     onPress={loadData}
-                    style={{ backgroundColor: theme.colors.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 20 }}
+                    style={{ backgroundColor: theme.colors.accent, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 20 }}
                     accessibilityRole="button"
                     accessibilityLabel={t('common.retry')}
                 >
@@ -362,7 +401,16 @@ export const RemindersTab = () => {
     }
 
     const essentials = getEssentialReminders(profile);
-    const allReminders = getAvailableReminders(profile, ['reminders_only', 'both_but_single_entry']);
+    // Anything already switched on stays listed even if a context rule would now
+    // hide it — otherwise the notification keeps firing with no card to stop it.
+    const enabledIds = new Set(
+        Object.entries(settings).filter(([, v]) => v?.enabled).map(([id]) => id),
+    );
+    const allReminders = getAvailableReminders(
+        profile,
+        ['reminders_only', 'both_but_single_entry'],
+        enabledIds,
+    );
     const essentialIds = new Set(essentials.map(e => e.id));
     const nonEssentialReminders = allReminders.filter(r => !essentialIds.has(r.id));
 
@@ -407,6 +455,8 @@ export const RemindersTab = () => {
                     accessibilityLabel={title}
                     accessibilityHint={expanded ? t('a11y.collapseSection') : t('a11y.expandSection')}
                     accessibilityState={{ expanded }}
+                    // CAL-R2-03: RN-web 0.21.2 drops accessibilityState.expanded → expose aria explicitly.
+                    {...(Platform.OS === 'web' ? { 'aria-expanded': expanded } : {})}
                 >
                     <View style={styles.sectionHeaderLeft}>
                         <View style={styles.sectionIconContainer}>
@@ -447,7 +497,7 @@ export const RemindersTab = () => {
 
     return (
         <View style={styles.container}>
-            <PermissionBanner />
+            <PermissionBanner visible={!notificationsAllowed} onPress={handlePermissionBannerPress} />
             <ScrollView
                 style={styles.scrollContainer}
                 contentContainerStyle={styles.scrollContent}
@@ -455,9 +505,9 @@ export const RemindersTab = () => {
             >
                 {/* Header */}
                 <View style={styles.header}>
-                    <Text style={styles.headerTitle}>{t('common.myReminders')}</Text>
+                    <Text style={styles.headerTitle} accessibilityRole="header">{t('common.myReminders')}</Text>
                     <Text style={styles.headerSubtitle}>
-                        {t('common.week')} {pregnancyInfo?.week} • {t('common.trimesterLabel', { trimester: profile.trimester })}
+                        {t('common.week')} {displayedAgeOf(pregnancyInfo).week} • {t('common.trimester_' + profile.trimester)}
                     </Text>
                 </View>
 
@@ -485,7 +535,7 @@ export const RemindersTab = () => {
                                     />
                                     {/* Reassuring text for vitamins */}
                                     {reminder.id === 'rem_med_prenatal_vitamins' && (
-                                        <TouchableOpacity onPress={() => openEditModal(reminder)}>
+                                        <TouchableOpacity onPress={() => openEditModal(reminder)} accessibilityRole="button" style={{ minHeight: 44, justifyContent: 'center' }}>
                                             <Text style={styles.reassuringText}>
                                                 {t('common.vitaminAdjust')}
                                             </Text>

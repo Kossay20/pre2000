@@ -7,7 +7,7 @@
 
 import { createLogger } from '../utils/logger';
 import { loadUserSettings, getAllReminders } from './remindersV2Service';
-import { scheduleReminderNotification } from './notificationService';
+import { scheduleReminderNotification, hasNotificationPermission } from './notificationService';
 import { getReminderMessage } from '../utils/notificationMessages';
 import { scheduleTodaysBabyMessage } from './babyMessageService';
 import * as Notifications from 'expo-notifications';
@@ -72,6 +72,15 @@ export const syncRemindersToNotifications = async (
 
     if (Platform.OS === 'web') {
         log.info('[RemindersScheduler] Web — skip local notification sync (expo-notifications unavailable)');
+        return;
+    }
+
+    // This sync runs on its own (launch, week change, language change), so it never
+    // asks for permission: that dialog belongs to a tap the user understands — the
+    // Reminders tab banner or turning a reminder on. Until then there is nothing
+    // to schedule; the grant path runs this sync again.
+    if (!(await hasNotificationPermission())) {
+        log.info('[RemindersScheduler] Notification permission not granted — nothing scheduled');
         return;
     }
 

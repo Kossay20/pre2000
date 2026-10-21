@@ -5,25 +5,80 @@ import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity
 import { Ionicons } from '@expo/vector-icons';
 import { doc, getDoc } from 'firebase/firestore';
 import Markdown from 'react-native-markdown-display';
+import { MedicalDisclaimer } from '../components/common/MedicalDisclaimer';
+import { SourcesFooter } from '../components/common/SourcesFooter';
 import { db } from '../config/firebase';
 import { Article, Supplement, ArticleAntigravity } from '../types';
 import { getAntigravityArticle } from '../services/contentService'; // ANTIGRAVITY
+import {
+    getLocalArticle,
+    getLocalAntigravityArticle,
+    getLocalSupplement,
+    getAllLocalArticles,
+    getAllLocalSupplements,
+} from '../services/localContentFallback';
+import { isUnreviewedContent } from '../config/unreviewedContent';
+import { FIRESTORE_GUEST_TIMEOUT_MS, withTimeout } from '../utils/withTimeout';
 import { theme } from '../theme';
 import { Tag } from '../components/common/Tag';
 import { SectionHeader } from '../components/common/SectionHeader';
 import { Card } from '../components/common/Card';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { Button } from '../components/common/Button';
+import { EmptyState } from '../components/common/EmptyState';
+import { useNavigation, useNavigationState, useRoute } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { trackPositiveAction } from '../services/inAppReviewService';
 import { getLocalizedContent } from '../utils/i18nHelpers';
 import { isSafeUrl } from '../utils/safeOpenUrl';
+import { stripLeadingTitleHeading } from '../utils/articleHeading';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
+import { isBookmarked, toggleBookmark, subscribeBookmarks } from '../services/bookmarkService';
+
+/**
+ * task 10a content cross-linking — related-id helpers.
+ *
+ * The bundled content stores related ids as a COMMA-SEPARATED string (e.g.
+ * "a01,a02"), even though some app types declare the field as `string[]`. These
+ * helpers normalise either shape and resolve short ids (e.g. "a01") against the
+ * full bundled id (e.g. "a01_symptômes_de_grossesse") via a prefix match.
+ */
+const parseRelatedIds = (value: unknown): string[] => {
+    if (Array.isArray(value)) {
+        return value.map(v => String(v).trim()).filter(Boolean);
+    }
+    if (typeof value === 'string') {
+        return value.split(',').map(s => s.trim()).filter(Boolean);
+    }
+    return [];
+};
+
+const resolveRelatedArticle = (id: string): Article | undefined => {
+    const exact = getLocalArticle(id);
+    if (exact) return exact;
+    // Short id (e.g. "a01") → full bundled id (e.g. "a01_symptômes_de_grossesse").
+    return getAllLocalArticles().find(
+        a => a.article_id === id || a.article_id.startsWith(`${id}_`),
+    );
+};
+
+const resolveRelatedSupplement = (id: string): Supplement | undefined => {
+    const exact = getLocalSupplement(id);
+    if (exact) return exact;
+    return getAllLocalSupplements().find(
+        s => s.supplement_id === id || s.supplement_id.startsWith(`${id}_`),
+    );
+};
 
 export const ArticleDetailScreen = () => {
     useScreenAnalytics('ArticleDetailScreen');
     const route = useRoute<any>();
     const navigation = useNavigation();
     const { t, i18n } = useTranslation(); // Hoisted hook
+    // GJ-008: the stack header draws its own back button whenever this screen has a previous
+    // route in its stack, so the in-body arrow is only shown when the detail opened as the
+    // stack's first screen (deep link, chatbot jump) — there the header has none, and goBack()
+    // falls through to the previous tab.
+    const showInlineBack = useNavigationState(state => state.routes[0]?.key === route.key);
     const { articleId, anchor } = route.params || {};
 
     // State hooks
@@ -33,6 +88,9 @@ export const ArticleDetailScreen = () => {
     const [error, setError] = useState<string | null>(null);
     const [relatedSupplements, setRelatedSupplements] = useState<Supplement[]>([]);
     const [anchorPositions, setAnchorPositions] = useState<Record<string, number>>({});
+    // task 10b — bookmark/save state. Keyed off the route's articleId (the
+    // bundled & Antigravity shapes both navigate with article_id as articleId).
+    const [saved, setSaved] = useState(false);
 
     // RTL detection
     const isRTL = ['ar', 'tn'].includes(i18n.language);
@@ -63,9 +121,11 @@ export const ArticleDetailScreen = () => {
                 // Fallback to old articles collection
                 log.debug('[ArticleDetail] 🔍 Not in Antigravity, trying old articles...');
                 const docRef = doc(db, 'articles', articleId);
-                const docSnap = await getDoc(docRef);
+                const docSnap = await withTimeout(getDoc(docRef), FIRESTORE_GUEST_TIMEOUT_MS);
 
-                if (docSnap.exists()) {
+                // An article on an unreviewed topic (deep link, old bookmark) reads as not
+                // found; the bundled fallback below is filtered the same way.
+                if (docSnap.exists() && !isUnreviewedContent(docSnap.data())) {
                     const articleData = docSnap.data() as Article;
                     log.debug('[ArticleDetail] ✅ Found in old articles:', articleData.title_fr);
                     setArticle(articleData);
@@ -87,10 +147,18 @@ export const ArticleDetailScreen = () => {
                     }
                 } else {
                     log.warn('[ArticleDetail] ⚠️ Article not found in any collection:', articleId);
+                    const local = getLocalAntigravityArticle(articleId) || getLocalArticle(articleId);
+                    if (local) setArticle(local);
                 }
             } catch (err) {
                 log.error('[ArticleDetail] ❌ Error fetching article:', err);
-                setError(t('common.errorLoadingData'));
+                const local = getLocalAntigravityArticle(articleId) || getLocalArticle(articleId);
+                if (local) {
+                    setArticle(local);
+                    setError(null);
+                } else {
+                    setError(t('common.errorLoadingData'));
+                }
             } finally {
                 setLoading(false);
             }
@@ -119,6 +187,30 @@ export const ArticleDetailScreen = () => {
         }
     }, [anchor, anchorPositions, loading]);
 
+    // task 10b — reflect bookmark state on mount + stay live across toggles
+    // (fired from here or elsewhere, e.g. the Favoris chip on the list screen).
+    useEffect(() => {
+        if (!articleId) return;
+        let active = true;
+        const sync = () => {
+            isBookmarked('article', articleId).then(v => {
+                if (active) setSaved(v);
+            });
+        };
+        sync();
+        const unsubscribe = subscribeBookmarks(sync);
+        return () => {
+            active = false;
+            unsubscribe();
+        };
+    }, [articleId]);
+
+    const handleToggleBookmark = React.useCallback(() => {
+        if (!articleId) return;
+        // Optimistic flip; subscribeBookmarks reconciles with the persisted value.
+        toggleBookmark('article', articleId).then(setSaved);
+    }, [articleId]);
+
     // Early returns (AFTER all hooks)
     if (!articleId) {
         log.error('[ArticleDetail] ❌ No articleId provided');
@@ -126,7 +218,7 @@ export const ArticleDetailScreen = () => {
             <View style={styles.centerContainer}>
                 <Text style={theme.typography.body}>{t('article.errorSpecified')}</Text>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginTop: 20 }}>
-                    <Text style={{ color: theme.colors.primary }}>{t('common.back')}</Text>
+                    <Text style={{ color: theme.colors.accent }}>{t('common.back')}</Text>
                 </TouchableOpacity>
             </View>
         );
@@ -150,26 +242,54 @@ export const ArticleDetailScreen = () => {
                         setError(null);
                         setLoading(true);
                     }}
-                    style={{ marginTop: 16, padding: 14, backgroundColor: theme.colors.primary, borderRadius: theme.borderRadius.m }}
+                    style={{ marginTop: 16, padding: 14, backgroundColor: theme.colors.accent, borderRadius: theme.borderRadius.m }}
                     accessibilityRole="button"
                     accessibilityLabel={t('common.retry')}
                 >
                     <Text style={{ color: theme.colors.white, fontWeight: '600' }}>{t('common.retry')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginTop: 12 }}>
-                    <Text style={{ color: theme.colors.primary }}>{t('common.back')}</Text>
+                    <Text style={{ color: theme.colors.accent }}>{t('common.back')}</Text>
                 </TouchableOpacity>
             </View>
         );
     }
 
     if (!article) {
+        // A saved bookmark or an old link can point at an article that is hidden or gone.
+        // Opened that way this screen is the first of its stack: the header draws no back
+        // arrow and goBack() has nowhere to go, which left a bare grey page with a dead
+        // "Retour". So the state says what happened, keeps a back arrow, and always offers
+        // a way on — the articles list.
+        const openArticles = () => (navigation as any).navigate('Ressources', { screen: 'ResourcesMain' });
         return (
-            <View style={styles.centerContainer}>
-                <Text style={theme.typography.body}>{t('article.notFound')}</Text>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginTop: 20, padding: 10 }}>
-                    <Text style={{ color: theme.colors.primary, fontWeight: 'bold' }}>{t('common.back')}</Text>
-                </TouchableOpacity>
+            <View style={styles.notFoundContainer}>
+                {showInlineBack && (
+                    <TouchableOpacity
+                        onPress={() => (navigation.canGoBack() ? navigation.goBack() : openArticles())}
+                        style={styles.notFoundBack}
+                        accessibilityRole="button"
+                        accessibilityLabel={t('a11y.back')}
+                    >
+                        <Ionicons
+                            name={isRTL ? 'arrow-forward' : 'arrow-back'}
+                            size={24}
+                            color={theme.colors.text}
+                        />
+                    </TouchableOpacity>
+                )}
+                {/* The button sits beside the empty state, not in its `action` slot: the
+                    empty state is one accessible element, which on iOS hides its children
+                    from VoiceOver. */}
+                <View style={styles.notFoundBody}>
+                    <EmptyState
+                        compact
+                        icon="📄"
+                        title={t('article.notFound')}
+                        subtitle={t('article.notFoundHint')}
+                    />
+                    <Button title={t('article.browseArticles')} onPress={openArticles} />
+                </View>
             </View>
         );
     }
@@ -198,13 +318,26 @@ export const ArticleDetailScreen = () => {
     };
 
     const content = hasContent
-        ? sanitizeContent(rawContent)
+        ? stripLeadingTitleHeading(sanitizeContent(rawContent), title)
         : (summary || t('article.contentComingSoon'));
 
 
     const category = article.category;
     // Attempt to localize category if it matches a key
     const categoryLabel = t(`categories.${category.toLowerCase()}`, { defaultValue: category });
+
+    // task 10a — cross-linking. The related-id fields live on the bundled `Article`
+    // shape but NOT on `ArticleAntigravity`; read them defensively (sections
+    // simply don't render when the fields are absent or empty).
+    const articleRelations = article as Partial<Article>;
+    const linkedArticles = parseRelatedIds(articleRelations.related_articles_ids)
+        .map(resolveRelatedArticle)
+        .filter((a): a is Article => Boolean(a))
+        // Never link the article to itself.
+        .filter(a => a.article_id !== (article as Article).article_id);
+    const linkedSupplements = parseRelatedIds(articleRelations.related_supplements_ids)
+        .map(resolveRelatedSupplement)
+        .filter((s): s is Supplement => Boolean(s));
 
     // Helper to slugify header text (must match backend logic)
     const slugify = (text: string) => {
@@ -276,19 +409,44 @@ export const ArticleDetailScreen = () => {
             contentContainerStyle={styles.contentContainer}
         >
             <View style={styles.header}>
-                <TouchableOpacity
-                    onPress={() => navigation.goBack()}
-                    style={styles.backButton}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                    accessibilityRole="button"
-                    accessibilityLabel={t('a11y.back')}
-                >
-                    <Ionicons
-                        name={isRTL ? 'arrow-forward' : 'arrow-back'}
-                        size={24}
-                        color={theme.colors.text}
-                    />
-                </TouchableOpacity>
+                {/* Back button + bookmark toggle.
+                    DOUBLE-FLIP FIX: this used to add `row-reverse` for RTL. Under the
+                    document's dir=rtl, plain `flexDirection: 'row'` ALREADY lays children
+                    out right-to-left, so the extra reverse cancelled it and Arabic got the
+                    LTR arrangement — back arrow on the left, bookmark on the right. The
+                    same (correct) reasoning is already documented in ToastContext and
+                    OnboardingScreen; these two detail screens had drifted from it. */}
+                <View style={[styles.headerBar, !showInlineBack && styles.headerBarEndOnly]}>
+                    {showInlineBack && (
+                        <TouchableOpacity
+                            onPress={() => navigation.goBack()}
+                            style={styles.backButton}
+                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                            accessibilityRole="button"
+                            accessibilityLabel={t('a11y.back')}
+                        >
+                            <Ionicons
+                                name={isRTL ? 'arrow-forward' : 'arrow-back'}
+                                size={24}
+                                color={theme.colors.text}
+                            />
+                        </TouchableOpacity>
+                    )}
+                    <TouchableOpacity
+                        onPress={handleToggleBookmark}
+                        style={styles.bookmarkButton}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        accessibilityRole="button"
+                        accessibilityLabel={saved ? t('common.saved') : t('common.addToFavorites')}
+                        accessibilityState={{ selected: saved }}
+                    >
+                        <Ionicons
+                            name={saved ? 'bookmark' : 'bookmark-outline'}
+                            size={24}
+                            color={saved ? theme.colors.accent : theme.colors.text}
+                        />
+                    </TouchableOpacity>
+                </View>
                 <Tag label={categoryLabel} />
                 <Text style={[theme.typography.h1, styles.title] as any}>{title}</Text>
                 {!hasContent && (
@@ -322,7 +480,7 @@ export const ArticleDetailScreen = () => {
                        Now shows the proper "content coming soon" placeholder. */
                     <View style={styles.fallbackContainer}>
                         <Text style={styles.fallbackText}>
-                            {t('article.contentComingSoon')} 🚧
+                            {t('article.contentComingSoon')}
                         </Text>
                         <Text style={theme.typography.body}>
                             {getLocalizedContent(article, 'summary') || t('common.noDataAvailable')}
@@ -335,6 +493,12 @@ export const ArticleDetailScreen = () => {
                     </View>
                 )}
             </View>
+
+            <SourcesFooter sources={article.sources} />
+
+            {/* The article library is medical content: say under every article that it
+                does not replace a consultation (review notes promise a permanent disclaimer). */}
+            <MedicalDisclaimer />
 
             {relatedSupplements.length > 0 && (
                 <View style={styles.section}>
@@ -356,6 +520,66 @@ export const ArticleDetailScreen = () => {
                     ))}
                 </View>
             )}
+
+            {/* task 10a — related ARTICLES (from article.related_articles_ids) */}
+            {linkedArticles.length > 0 && (
+                <View style={styles.section}>
+                    <SectionHeader title={t('common.relatedArticles')} />
+                    <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={styles.chipRow}
+                    >
+                        {linkedArticles.map(linked => {
+                            const label = getLocalizedContent(linked, 'title', i18n.language);
+                            return (
+                                <TouchableOpacity
+                                    key={linked.article_id}
+                                    onPress={() => (navigation as any).push('ArticleDetail', { articleId: linked.article_id })}
+                                    activeOpacity={0.7}
+                                    style={styles.chip}
+                                    accessibilityRole="button"
+                                    accessibilityLabel={label}
+                                    accessibilityHint={t('a11y.readArticle')}
+                                >
+                                    <Ionicons name="document-text-outline" size={16} color={theme.colors.accent} />
+                                    <Text style={[styles.chipText, isRTL && styles.chipTextRTL]} numberOfLines={2}>{label}</Text>
+                                </TouchableOpacity>
+                            );
+                        })}
+                    </ScrollView>
+                </View>
+            )}
+
+            {/* task 10a — related SUPPLEMENTS (from article.related_supplements_ids) */}
+            {linkedSupplements.length > 0 && (
+                <View style={styles.section}>
+                    <SectionHeader title={t('common.relatedSupplements')} />
+                    <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={styles.chipRow}
+                    >
+                        {linkedSupplements.map(linked => {
+                            const label = getLocalizedContent(linked, 'name', i18n.language);
+                            return (
+                                <TouchableOpacity
+                                    key={linked.supplement_id}
+                                    onPress={() => navigation.navigate('SupplementDetail', { supplementId: linked.supplement_id })}
+                                    activeOpacity={0.7}
+                                    style={styles.chip}
+                                    accessibilityRole="button"
+                                    accessibilityLabel={label}
+                                    accessibilityHint={t('a11y.openSupplement')}
+                                >
+                                    <Ionicons name="medkit-outline" size={16} color={theme.colors.accent} />
+                                    <Text style={[styles.chipText, isRTL && styles.chipTextRTL]} numberOfLines={2}>{label}</Text>
+                                </TouchableOpacity>
+                            );
+                        })}
+                    </ScrollView>
+                </View>
+            )}
         </ScrollView>
     );
 };
@@ -374,12 +598,53 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
     },
+    notFoundContainer: {
+        flex: 1,
+        backgroundColor: theme.colors.background,
+    },
+    notFoundBody: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: theme.spacing.l,
+    },
+    notFoundBack: {
+        alignSelf: 'flex-start',
+        minWidth: 44,
+        minHeight: 44,
+        alignItems: 'center',
+        justifyContent: 'center',
+        margin: theme.spacing.s,
+    },
     header: {
         marginBottom: theme.spacing.l,
     },
-    backButton: {
+    headerBar: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
         marginBottom: theme.spacing.m,
+    },
+    // Only the bookmark is left: keep it on the end side (right LTR / left RTL).
+    headerBarEndOnly: {
+        justifyContent: 'flex-end',
+    },
+    // Both header icons get a real 44pt box (hitSlop is ignored on web); the negative
+    // margin keeps the icons where they were drawn.
+    backButton: {
         alignSelf: 'flex-start',
+        minWidth: 44,
+        minHeight: 44,
+        alignItems: 'center',
+        justifyContent: 'center',
+        margin: -10,
+    },
+    bookmarkButton: {
+        minWidth: 44,
+        minHeight: 44,
+        alignItems: 'center',
+        justifyContent: 'center',
+        margin: -6,
     },
     title: {
         marginTop: theme.spacing.s,
@@ -405,6 +670,31 @@ const styles = StyleSheet.create({
     },
     supplementCard: {
         marginBottom: theme.spacing.s,
+    },
+    chipRow: {
+        flexDirection: 'row',
+        paddingVertical: theme.spacing.xs,
+        gap: theme.spacing.s,
+    },
+    chip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        maxWidth: 220,
+        paddingHorizontal: theme.spacing.m,
+        paddingVertical: theme.spacing.s,
+        borderRadius: theme.borderRadius.round,
+        backgroundColor: theme.colors.cardBackground,
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+    },
+    chipText: {
+        ...theme.typography.label,
+        color: theme.colors.accent,
+        marginStart: theme.spacing.xs,
+        flexShrink: 1,
+    },
+    chipTextRTL: {
+        textAlign: 'right',
     },
     fallbackContainer: {
         padding: theme.spacing.l,
@@ -435,7 +725,7 @@ const markdownStyles = {
     heading1: {
         fontSize: 24,
         fontWeight: 'bold',
-        color: theme.colors.primary,
+        color: theme.colors.accent,
         marginTop: theme.spacing.l,
         marginBottom: theme.spacing.m,
         borderBottomWidth: 2,
@@ -491,7 +781,7 @@ const markdownStyles = {
         fontStyle: 'italic',
     },
     link: {
-        color: theme.colors.primary,
+        color: theme.colors.accent,
         textDecorationLine: 'underline' as const,
     },
 };

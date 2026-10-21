@@ -181,3 +181,64 @@ describe('resolveLoginProfile — F4 minimal bootstrap', () => {
         });
     });
 });
+
+// ────────────────────────────────────────────────────────────────────────────
+// ANONYMOUS GUEST — the branch the whole audit campaign never exercised
+// ────────────────────────────────────────────────────────────────────────────
+
+describe('resolveLoginProfile — no Firestore doc but a cached profile exists', () => {
+    // Guest mode requires Anonymous Auth, and enabling it is an operator action on
+    // the deployment checklist. `loginAsGuest` writes to Firestore only for a
+    // PERMANENT account, so an anonymous guest finishes onboarding with no
+    // userProfiles document. On the next launch her anonymous session restores,
+    // the lookup misses, and before this fix the minimal placeholder was installed
+    // over her real cached profile — blank name, no LMP, isGuest flipped to false.
+    // She lost her pregnancy on the first restart. Unreachable with Anonymous Auth
+    // off, which is the only configuration the audit ever ran in.
+    const cached = {
+        uid: 'auth_uid_42',
+        firstName: 'Amira',
+        country: 'tunisia',
+        lmp: '2026-02-01T00:00:00.000Z',
+        pregnancyStartDate: '2026-02-01T00:00:00.000Z',
+        isGuest: true,
+        hasGestationalDiabetes: true,
+    } as any;
+
+    it('adopts the cached profile instead of blanking it', () => {
+        const { profile, isMinimal } = resolveLoginProfile(fakeDocSnap(false), fakeFbUser(), cached);
+        expect(isMinimal).toBe(false);
+        expect(profile.firstName).toBe('Amira');
+        expect(profile.lmp).toBe('2026-02-01T00:00:00.000Z');
+        expect(profile.isGuest).toBe(true);
+        expect((profile as any).hasGestationalDiabetes).toBe(true);
+    });
+
+    it('refuses a cached profile belonging to a different uid', () => {
+        // Adopting one would hand this user someone else's pregnancy data.
+        const other = { ...cached, uid: 'someone_else' };
+        const { profile, isMinimal } = resolveLoginProfile(fakeDocSnap(false), fakeFbUser(), other);
+        expect(isMinimal).toBe(true);
+        expect(profile.firstName).toBe('');
+    });
+
+    it('refuses a cached profile with no pregnancy anchor', () => {
+        const anchorless = { uid: 'auth_uid_42', firstName: 'Amira' } as any;
+        expect(resolveLoginProfile(fakeDocSnap(false), fakeFbUser(), anchorless).isMinimal).toBe(true);
+    });
+
+    it('still bootstraps a minimal profile when there is no cache at all', () => {
+        expect(resolveLoginProfile(fakeDocSnap(false), fakeFbUser(), null).isMinimal).toBe(true);
+        expect(resolveLoginProfile(fakeDocSnap(false), fakeFbUser()).isMinimal).toBe(true);
+    });
+
+    it('the Firestore document still wins when it exists', () => {
+        const { profile, isMinimal } = resolveLoginProfile(
+            fakeDocSnap(true, { firstName: 'Server', lmp: '2026-03-01T00:00:00.000Z' }),
+            fakeFbUser(),
+            cached,
+        );
+        expect(isMinimal).toBe(false);
+        expect(profile.firstName).toBe('Server');
+    });
+});

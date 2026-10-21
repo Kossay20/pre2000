@@ -118,7 +118,7 @@ const styles = StyleSheet.create({
     },
     bulletDot: {
         fontSize: 16,
-        color: theme.colors.primary,
+        color: theme.colors.accent,
         marginEnd: 8,
         marginTop: 2,
     },

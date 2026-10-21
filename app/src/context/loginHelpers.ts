@@ -35,7 +35,23 @@ export interface ResolvedLoginProfile {
  */
 export const resolveLoginProfile = (
     docSnap: { exists: () => boolean; data: () => any },
-    firebaseUser: { uid: string; email: string | null | undefined }
+    firebaseUser: { uid: string; email: string | null | undefined },
+    /**
+     * The locally cached profile, when there is one.
+     *
+     * This is load-bearing the moment Anonymous Auth is switched on, which guest
+     * mode requires. `loginAsGuest` writes to Firestore only for a PERMANENT
+     * account, so an anonymous guest finishes onboarding with no
+     * `userProfiles/{uid}` document at all. On the next launch her anonymous
+     * session restores, the lookup misses, and the minimal placeholder below
+     * would be installed over the real cached profile — blank name, no LMP, and
+     * `isGuest: false`. She would lose her pregnancy on the first restart.
+     *
+     * The whole audit campaign ran with Anonymous Auth OFF, where an anonymous
+     * session never exists and this branch is unreachable for guests. Turning it
+     * on is an operator action on the deployment checklist.
+     */
+    cachedProfile?: UserProfile | null
 ): ResolvedLoginProfile => {
     if (docSnap.exists()) {
         const data = docSnap.data();
@@ -46,12 +62,141 @@ export const resolveLoginProfile = (
         } as UserProfile;
         return { profile, isMinimal: false };
     }
-    const minimal = {
-        uid: firebaseUser.uid,
-        email: firebaseUser.email ?? undefined,
-        firstName: '',
-        country: '',
-        isGuest: false,
-    } as unknown as UserProfile;
-    return { profile: minimal, isMinimal: true };
+    // Same uid only. A cached profile from a different account must never be
+    // adopted — that would hand one user another's pregnancy data.
+    if (
+        cachedProfile &&
+        cachedProfile.uid === firebaseUser.uid &&
+        (cachedProfile.pregnancyStartDate || cachedProfile.lmp)
+    ) {
+        return { profile: cachedProfile, isMinimal: false };
+    }
+    return { profile: buildMinimalProfile(firebaseUser), isMinimal: true };
+};
+
+/**
+ * What to install for a Firebase session — the auth listener and `login()` both
+ * go through here. Same resolution as `resolveLoginProfile`, with one exception:
+ * when a caller is about to write the profile itself (`profileSetupPending` —
+ * Onboarding creating or recovering the account, a guest upgrading) it returns
+ * `null`, meaning "leave the current user alone". Installing the placeholder then
+ * would route to Onboarding mid-flight — the working screen unmounts, and an
+ * upgrading guest is sent back through onboarding despite having a profile — and
+ * installing an existing profile would jump to Home before Onboarding has asked
+ * whether to keep it or replace it with the answers just given.
+ */
+export const resolveSessionProfile = (
+    docSnap: { exists: () => boolean; data: () => any },
+    firebaseUser: { uid: string; email: string | null | undefined },
+    cachedProfile: UserProfile | null | undefined,
+    profileSetupPending: boolean
+): ResolvedLoginProfile | null => {
+    if (profileSetupPending) return null;
+    return resolveLoginProfile(docSnap, firebaseUser, cachedProfile);
+};
+
+/**
+ * The placeholder installed for a signed-in account that has no profile yet:
+ * uid + email, no pregnancy anchor, `isGuest: false`. It is what makes
+ * `needsProfileSetup` true, so the root navigator sends the user to Onboarding.
+ */
+export const buildMinimalProfile = (
+    firebaseUser: { uid: string; email: string | null | undefined }
+): UserProfile => ({
+    uid: firebaseUser.uid,
+    email: firebaseUser.email ?? undefined,
+    firstName: '',
+    country: '',
+    isGuest: false,
+} as unknown as UserProfile);
+
+/**
+ * Routing predicate: a signed-in user whose profile has no pregnancy anchor must
+ * finish Onboarding before MainTabs.
+ *
+ * Every completed onboarding (pregnant, TTC, curious) stores a date in
+ * `pregnancyStartDate`/`lmp` — the LMP, the last period, or the synthetic
+ * explore-week date — so the anchor is exactly what separates "finished" from
+ * "never started". Without this, a fresh registration landed on a Home that had
+ * no week to show and no way to enter one, and nothing was ever written to
+ * `userProfiles/{uid}`. The same applies to any account that reaches the app
+ * without a profile: a login on a new device, an account created by an older
+ * build, a partial document.
+ */
+export const needsProfileSetup = (
+    user: Pick<UserProfile, 'pregnancyStartDate' | 'lmp'> | null | undefined
+): boolean => !!user && !(user.pregnancyStartDate || user.lmp);
+
+/**
+ * The Firestore document for a profile that already exists in memory — used when a
+ * guest upgrades to an account. A guest's profile lives on the device only
+ * (`loginAsGuest` writes to Firestore for a permanent account, never for a guest),
+ * so without this write the upgraded account had no server profile at all: the
+ * next sign-in on another device found nothing and had to onboard from scratch.
+ *
+ * Same whitelist as the one `loginAsGuest` builds: server fields only (never uid,
+ * isGuest, email or currentWeek, which is recomputed on load), and no undefined
+ * values, which Firestore rejects.
+ */
+export const toServerProfile = (profile: UserProfile, now: string): Record<string, unknown> => {
+    const lmp = profile.lmp || profile.pregnancyStartDate;
+    const data: Record<string, unknown> = {
+        firstName: profile.firstName,
+        lmp,
+        pregnancyStartDate: lmp,
+        country: profile.country,
+        createdAt: now,
+        updatedAt: now,
+    };
+    // A due date only means something for a pregnancy: for TTC the anchor is the
+    // last period, and "LMP + 280 days" would later be read as a real due date.
+    if (profile.dpa) {
+        data.dpa = profile.dpa;
+    } else if (lmp && !profile.isTTC) {
+        data.dpa = new Date(new Date(lmp).getTime() + 280 * 24 * 60 * 60 * 1000).toISOString();
+    }
+    const optional: (keyof UserProfile)[] = [
+        'lastName', 'city', 'ageRange', 'isFirstPregnancy', 'locale',
+        'isTTC', 'cycleLength', 'ovulationDate', 'fertileWindowStart', 'fertileWindowEnd',
+        'isCurious', 'exploreWeek',
+        'hasGestationalDiabetes', 'hasHypertension', 'isTwinPregnancy', 'medicalProfileAnsweredAt',
+        // The consent she gave as a guest is the consent the account runs on; left out, the
+        // account's first cold start would ask her again.
+        'healthDataConsent',
+        // A guest's emergency contacts and WeightTracker setup: a signed-in account keeps
+        // them in this document, so an upgrade that left them out lost them on any other device.
+        'emergencyContacts', 'height', 'prePregnancyWeight',
+    ];
+    for (const key of optional) {
+        if (profile[key] !== undefined) data[key] = profile[key];
+    }
+    for (const key of Object.keys(data)) {
+        if (data[key] === undefined) delete data[key];
+    }
+    return data;
+};
+
+/**
+ * W1 #3 (re-onboarding data-loss guard).
+ *
+ * `loginAsGuest` is the single sink every onboarding flow (pregnant / TTC / curious)
+ * uses to persist the collected profile. On the `auth/email-already-in-use` recovery
+ * path (a RETURNING user re-runs onboarding and re-enters their existing credentials),
+ * it would `setDoc(merge)` the fresh form values over the stored profile — overwriting
+ * their real `lmp` / `firstName` and resetting `createdAt`.
+ *
+ * This predicate tells `loginAsGuest` to ADOPT the stored profile instead of overwriting
+ * it: true iff a Firestore doc already exists AND carries a real pregnancy anchor
+ * (`lmp` or `pregnancyStartDate`). A missing doc, or an orphan/partial doc with no anchor,
+ * returns false → the normal create path runs (correct for fresh signup + partial-signup
+ * recovery, where there is nothing to preserve).
+ *
+ * Pure: no I/O. Mirrors `resolveLoginProfile`'s docSnap shape so it unit-tests the same way.
+ */
+export const shouldPreserveExistingProfile = (
+    docSnap: { exists: () => boolean; data: () => any }
+): boolean => {
+    if (!docSnap || !docSnap.exists()) return false;
+    const data = docSnap.data() || {};
+    return !!(data.lmp || data.pregnancyStartDate);
 };

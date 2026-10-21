@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import * as SQLite from 'expo-sqlite';
 import { createLogger } from '../../../utils/logger';
 import { ARTICLES, RED_FLAGS, SUGGESTIONS } from '../../../data/chatbot_data';
@@ -5,13 +6,24 @@ import { ARTICLES, RED_FLAGS, SUGGESTIONS } from '../../../data/chatbot_data';
 const log = createLogger('DatabaseService');
 
 const DB_NAME = 'chatbot.db';
-const DB_VERSION = 3; // Bumped: adds TN dialect keywords/messages for red flags + suggestions label_tn
+// Bumped to 4: ARTICLES now comes from articles_db.json instead of an inlined copy
+// in chatbot_data.ts. Existing installs must re-seed so the SQLite rows match the
+// single source of truth (v3 added TN dialect keywords/messages + suggestions label_tn).
+const DB_VERSION = 4;
 const DB_VERSION_KEY = 'chatbot_db_version';
 
 export class DatabaseService {
     private db: SQLite.SQLiteDatabase | null = null;
 
     async init() {
+        // SQLite is mobile-only. On web the wa-sqlite.wasm import is stubbed
+        // (metro.config.js PHASE 1.1), so opening a DB throws a CompileError /
+        // 'Incorrect MIME type' wasm error. The web chatbot uses the in-memory
+        // LocalChatbotRepository instead, so skip DB init entirely on web —
+        // getDatabase() then stays null and SqliteChatbotRepository null-guards.
+        if (Platform.OS === 'web') {
+            return;
+        }
         try {
             this.db = await SQLite.openDatabaseAsync(DB_NAME);
             await this.createTables();

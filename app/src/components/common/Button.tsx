@@ -79,7 +79,9 @@ export const Button: React.FC<ButtonProps> = ({
                         { color: v.textColor, fontSize: s.fontSize },
                         textStyle,
                     ]}
-                    numberOfLines={1}
+                    // Two lines, not one: a long label ("Exporter mes données" at 320pt
+                    // or with a larger system font) wraps instead of ending in "…".
+                    numberOfLines={2}
                 >
                     {title}
                 </Text>
@@ -96,5 +98,6 @@ const styles = StyleSheet.create({
     },
     text: {
         fontWeight: '600',
+        textAlign: 'center',
     },
 });

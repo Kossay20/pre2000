@@ -15,40 +15,52 @@ import {
     ScrollView,
     TouchableOpacity,
     TextInput,
-    Alert,
     RefreshControl,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { format } from 'date-fns';
 import { useAuth } from '../context/AuthContext';
 import { usePregnancy } from '../context/PregnancyContext';
 import { theme } from '../theme';
-import { styles } from './WeightTrackerScreen.styles';
+import { styles, BMI_CATEGORY_TONE } from './WeightTrackerScreen.styles';
 import {
     WeightEntry,
     saveWeightEntry,
-    getWeightHistory,
+    getAllWeightEntries,
+    latestWeighingPerDay,
     deleteWeightEntry,
+    saveWeightSetup,
     getRecommendedWeightRange,
     evaluateWeightStatus,
     calculateBMICategory,
+    gaugeDotPercent,
 } from '../services/weightService';
 import { detectTrend, getSmartSuggestions, getTrimesterMessage } from '../services/weightIntelligence';
 import { createLogger } from '../utils/logger';
+import { showAlert } from '../utils/alert';
+import { confirmAction } from '../utils/uiUtils';
 import { useDateLocale } from '../hooks/useDateLocale';
+import { isOnLocalDay, toLocalDateKey } from '../utils/localDate';
+import { displayedAgeOf, trimesterFromWeek } from '../utils/pregnancyCalculator';
+import { formatDecimal } from '../utils/localizedFormat';
 import { useTranslation } from 'react-i18next';
 import { trackPositiveAction } from '../services/inAppReviewService';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
 import { WeightIntelligenceCard } from '../components/weight/WeightIntelligenceCard';
 import { WeightMiniChart } from '../components/weight/WeightMiniChart';
+import { plainLabel } from '../utils/a11yLabel';
 
 const log = createLogger('WeightTrackerScreen');
 
 export const WeightTrackerScreen = () => {
     useScreenAnalytics('WeightTrackerScreen');
-    const { t } = useTranslation(); // Initialize t
+    const { t, i18n } = useTranslation(); // Initialize t
+    // Weights as the language writes them ("68,4 kg" in French), like the Home and
+    // Reminders cards; this screen printed "68.4 kg" beside them.
+    const num = (value: number) => formatDecimal(value, i18n.language);
     const navigation = useNavigation();
-    const { user } = useAuth();
+    const { user, updateProfile: updateAccountProfile } = useAuth();
     const { pregnancyInfo, profile, setProfile } = usePregnancy();
     const dateLocale = useDateLocale();
 
@@ -82,16 +94,26 @@ export const WeightTrackerScreen = () => {
     // P0.5: No silent fallback - null if unavailable
     const currentWeek = pregnancyInfo?.week ?? null;
     const hasWeekInfo = currentWeek !== null && currentWeek > 0;
+    // currentWeek is the content week (it stops at 40) and drives the IOM ranges; what she
+    // reads, and the week a weigh-in is filed under, is her real week ("Semaine 41" at 40+3).
+    const shownWeek = hasWeekInfo ? displayedAgeOf(pregnancyInfo).week : null;
 
     // Safety check: don't calculate if essential data is missing
     const hasValidData = prePregnancyWeight > 0 && height > 0 && hasWeekInfo;
 
-    // Show setup form automatically if needed
+    // Show setup form automatically if needed.
+    // BUG #3 FIX: prefill the inputs from the profile values already collected
+    // (Profile screen → prePregnancyWeight / height) so a user who provided ONE
+    // of the two facts is never asked for it again. Genuinely-missing fields
+    // (value 0) stay empty so the manual entry path still works. When BOTH are
+    // known `needsSetup` is false, so the card is skipped entirely (unchanged).
     React.useEffect(() => {
         if (needsSetup && !loading) {
+            if (prePregnancyWeight > 0) setSetupWeight(prePregnancyWeight.toString());
+            if (height > 0) setSetupHeight(height.toString());
             setShowSetup(true);
         }
-    }, [needsSetup, loading]);
+    }, [needsSetup, loading, prePregnancyWeight, height]);
 
     useFocusEffect(
         useCallback(() => {
@@ -108,7 +130,9 @@ export const WeightTrackerScreen = () => {
                 setLoading(false);
                 return;
             }
-            const history = await getWeightHistory(userId);
+            // Health-dashboard weighings included, so both screens show the same history,
+            // one weighing per day like the tracker's own entries.
+            const history = latestWeighingPerDay(await getAllWeightEntries(userId));
             if (isMounted) setWeightHistory(history);
         } catch (error) {
             log.error('Error loading weight history:', error);
@@ -129,26 +153,21 @@ export const WeightTrackerScreen = () => {
 
         // P0.2: Détection douce lb/kg pour 120-200 kg (zone ambiguë) - AVANT validation
         if (!isNaN(weight) && weight >= 120 && weight <= 200) {
-            Alert.alert(
+            confirmAction(
                 t('weight.unitCheckTitle'),
-                t('weight.unitCheckMsg', { weight, converted: (weight * 0.453592).toFixed(1) }),
-                [
-                    {
-                        text: t('weight.yesKg'),
-                        onPress: () => {
-                            // Continue avec validation normale
-                            continueValidation(weight);
-                        }
-                    },
-                    {
-                        text: t('weight.oopsLb'),
-                        onPress: () => {
-                            const convertedWeight = parseFloat((weight * 0.453592).toFixed(1));
-                            setNewWeight(convertedWeight.toString());
-                            Alert.alert(t('weight.convertedTitle'), t('weight.convertedMsg', { original: weight, converted: convertedWeight }));
-                        }
-                    }
-                ]
+                t('weight.unitCheckMsg', { weight: num(weight), converted: num(weight * 0.453592) }),
+                // Confirm = "Yes it's kg" → continue normal validation
+                () => {
+                    continueValidation(weight);
+                },
+                // Cancel = "Oops it's lb" → convert lb → kg
+                () => {
+                    const convertedWeight = parseFloat((weight * 0.453592).toFixed(1));
+                    setNewWeight(convertedWeight.toString());
+                    showAlert(t('weight.convertedTitle'), t('weight.convertedMsg', { original: num(weight), converted: num(convertedWeight) }));
+                },
+                t('weight.oopsLb'),
+                t('weight.yesKg'),
             );
             return;
         }
@@ -161,40 +180,32 @@ export const WeightTrackerScreen = () => {
         if (isNaN(weight) || weight < 35 || weight > 200) {
             // Si > 200, probablement des livres (lb)
             if (weight > 200) {
-                Alert.alert(
+                showAlert(
                     t('weight.verifyTitle'),
-                    t('weight.highWeightMsg', { weight, converted: (weight * 0.453592).toFixed(1) }),
+                    t('weight.highWeightMsg', { weight: num(weight), converted: num(weight * 0.453592) }),
                     [{ text: t('weight.understood') }]
                 );
             } else {
-                Alert.alert(t('weight.verifyTitle'), t('weight.invalidWeight'));
+                showAlert(t('weight.verifyTitle'), t('weight.invalidWeight'));
             }
             return;
         }
 
-        // Vérifier doublon même jour
-        const today = new Date().toISOString().split('T')[0];
-        const existingToday = weightHistory.find((e: WeightEntry) => e.date.split('T')[0] === today);
+        // Vérifier doublon même jour — her local day. The entry dates are UTC instants, and
+        // comparing their first ten characters with the UTC day missed a morning weighing
+        // in Tunis or asked to replace yesterday evening's in New York.
+        const today = toLocalDateKey();
+        const existingToday = weightHistory.find((e: WeightEntry) => isOnLocalDay(e.date, today));
         if (existingToday) {
-            Alert.alert(
+            confirmAction(
                 t('weight.entryExistsTitle'),
-                t('weight.entryExistsMsg', { weight: existingToday.weight }),
-                [
-                    { text: t('common.cancel'), style: 'cancel' },
-                    {
-                        text: t('weight.replace'),
-                        onPress: async () => {
-                            try {
-                                const userId = user?.uid;
-                                if (!userId) return;
-                                await deleteWeightEntry(userId, existingToday.id!);
-                                await saveAndConfirm(weight);
-                            } catch (error) {
-                                log.error('Error replacing entry:', error);
-                            }
-                        }
-                    }
-                ]
+                t('weight.entryExistsMsg', { weight: num(existingToday.weight) }),
+                // The new weighing is saved first and the old one removed after it (saveAndConfirm):
+                // deleting first lost the day's weighing whenever the save then failed.
+                () => saveAndConfirm(weight, existingToday),
+                undefined,
+                t('common.cancel'),
+                t('weight.replace'),
             );
             return;
         }
@@ -208,17 +219,13 @@ export const WeightTrackerScreen = () => {
             const weightLoss = lastEntry.weight - weight;
 
             if (weightLoss > 3) {
-                Alert.alert(
+                confirmAction(
                     t('weight.lossTitle'),
-                    t('weight.lossMsg', { loss: weightLoss.toFixed(1) }),
-                    [
-                        { text: t('weight.correctInput'), style: 'cancel' },
-                        {
-                            text: t('weight.saveAnyway'),
-                            style: 'destructive',
-                            onPress: () => saveAndConfirm(weight)
-                        }
-                    ]
+                    t('weight.lossMsg', { loss: num(weightLoss) }),
+                    () => saveAndConfirm(weight),
+                    undefined,
+                    t('weight.correctInput'),
+                    t('weight.saveAnyway'),
                 );
                 return;
             }
@@ -229,13 +236,13 @@ export const WeightTrackerScreen = () => {
             const lastEntry = weightHistory[0];
             const variation = Math.abs(weight - lastEntry.weight);
             if (variation > 2) {
-                Alert.alert(
+                confirmAction(
                     t('weight.variationTitle'),
-                    t('weight.variationMsg', { variation: variation.toFixed(1), last: lastEntry.weight }),
-                    [
-                        { text: t('weight.correct'), style: 'cancel' },
-                        { text: t('weight.isCorrect'), onPress: () => saveAndConfirm(weight) }
-                    ]
+                    t('weight.variationMsg', { variation: num(variation), last: num(lastEntry.weight) }),
+                    () => saveAndConfirm(weight),
+                    undefined,
+                    t('weight.correct'),
+                    t('weight.isCorrect'),
                 );
                 return;
             }
@@ -244,20 +251,28 @@ export const WeightTrackerScreen = () => {
         await saveAndConfirm(weight);
     };
 
-    const saveAndConfirm = async (weight: number) => {
+    const saveAndConfirm = async (weight: number, replaces?: WeightEntry) => {
         setSaving(true);
         try {
             const userId = user?.uid;
             if (!userId) {
-                Alert.alert(t('common.error'), t('weight.errorSave'));
+                showAlert(t('common.error'), t('weight.errorSave'));
                 return;
             }
             await saveWeightEntry({
                 user_id: userId,
                 weight,
                 date: new Date().toISOString(),
-                week_of_pregnancy: currentWeek ?? 0,
+                week_of_pregnancy: shownWeek ?? 0,
             });
+            if (replaces?.id) {
+                try {
+                    await deleteWeightEntry(userId, replaces.id, replaces.source);
+                } catch (error) {
+                    // The new weighing is safe; the old one stays listed rather than being lost.
+                    log.warn('Could not remove the replaced weighing:', error);
+                }
+            }
             setNewWeight('');
             setShowAddForm(false);
             await loadData();
@@ -265,10 +280,10 @@ export const WeightTrackerScreen = () => {
             // Engagement: Track positive action
             trackPositiveAction('add_weight');
 
-            Alert.alert(t('weight.savedTitle'), t('weight.savedMsg'));
+            showAlert(t('weight.savedTitle'), t('weight.savedMsg'));
         } catch (error) {
             log.error('Error saving weight:', error);
-            Alert.alert(t('common.error'), t('weight.errorSave'));
+            showAlert(t('common.error'), t('weight.errorSave'));
         } finally {
             setSaving(false);
         }
@@ -279,69 +294,60 @@ export const WeightTrackerScreen = () => {
         const heightNum = parseFloat(setupHeight.replace(',', '.'));
 
         if (isNaN(weight) || weight < 30 || weight > 200) {
-            Alert.alert(t('common.error'), t('weight.invalidWeight'));
+            showAlert(t('common.error'), t('weight.invalidWeight'));
             return;
         }
         if (isNaN(heightNum) || heightNum < 100 || heightNum > 250) {
-            Alert.alert(t('common.error'), t('weight.invalidHeight'));
+            showAlert(t('common.error'), t('weight.invalidHeight'));
             return;
         }
 
         setSavingSetup(true);
         try {
-            // P0.4: Create profile even if currently null
-            const baseProfile = (profile || {}) as Partial<typeof profile>;
-
-            // Update profile with pre-pregnancy data
-            const updatedProfile = {
-                firstName: baseProfile?.firstName || '',
-                lastName: baseProfile?.lastName || '',
-                country: baseProfile?.country || '',
-                lmp: baseProfile?.lmp,
-                dpa: baseProfile?.dpa,
+            // P0.4: works even while the profile is still null.
+            const result = await saveWeightSetup({
+                profile,
                 prePregnancyWeight: weight,
                 height: heightNum,
-            };
-
-            // Remove undefined values (Firebase doesn't accept undefined)
-            const cleanProfile = Object.fromEntries(
-                Object.entries(updatedProfile).filter(([_, v]) => v !== undefined)
-            );
-
-            await setProfile(cleanProfile as any); // P0.4: Allow setting profile even if initially null
+                signedIn: !!user && !user.isGuest,
+                updateAccountProfile,
+                setLocalProfile: setProfile,
+            });
+            if (!result.ok) {
+                // The card stays open with her values, so she can simply try again.
+                log.error('Weight setup not saved:', result.error);
+                showAlert(t('common.error'), t('weight.setupSaveFailed'));
+                return;
+            }
             setShowSetup(false);
-            Alert.alert(t('common.configSaved'), t('common.configSavedMsg'));
+            showAlert(t('common.configSaved'), t('common.configSavedMsg'));
         } catch (error) {
             log.error('Error saving setup:', error);
-            Alert.alert(t('common.error'), t('weight.errorSave'));
+            showAlert(t('common.error'), t('weight.errorSave'));
         } finally {
             setSavingSetup(false);
         }
     };
 
-    const handleDeleteEntry = (entryId: string) => {
-        Alert.alert(
+    const handleDeleteEntry = (entry: WeightEntry) => {
+        confirmAction(
             t('weight.resetConfirmTitle'),
             t('weight.resetConfirmMsg'),
-            [
-                { text: t('common.cancel'), style: 'cancel' },
-                {
-                    text: t('weight.delete'),
-                    style: 'destructive',
-                    onPress: async () => {
-                        try {
-                            const userId = user?.uid;
-                            if (!userId) return;
-                            await deleteWeightEntry(userId, entryId!);
-                            await loadData();
-                            Alert.alert(t('weight.resetDoneTitle'), t('weight.resetDoneMsg'));
-                        } catch (error) {
-                            log.error('Error resetting data:', error);
-                            Alert.alert(t('common.error'), t('weight.errorReset'));
-                        }
-                    }
+            async () => {
+                try {
+                    const userId = user?.uid;
+                    if (!userId) return;
+                    await deleteWeightEntry(userId, entry.id!, entry.source);
+                    await loadData();
+                    showAlert(t('weight.resetDoneTitle'), t('weight.resetDoneMsg'));
+                } catch (error) {
+                    log.error('Error resetting data:', error);
+                    showAlert(t('common.error'), t('weight.errorReset'));
                 }
-            ]
+            },
+            undefined,
+            t('common.cancel'),
+            t('weight.delete'),
         );
     };
 
@@ -361,7 +367,7 @@ export const WeightTrackerScreen = () => {
         setTapCount(newCount);
         if (newCount >= 3) {
             setShowDebugMode(!showDebugMode);
-            Alert.alert(showDebugMode ? 'Debug OFF' : 'Debug ON');
+            showAlert('', showDebugMode ? 'Debug OFF' : 'Debug ON');
             setTapCount(0);
         }
         setTimeout(() => setTapCount(0), 1500);
@@ -369,18 +375,20 @@ export const WeightTrackerScreen = () => {
 
     // Reset all weight data
     const handleResetData = async () => {
-        Alert.alert(t('common.resetConfirmShort'), t('common.resetConfirmMsgShort'), [
-            { text: t('common.no') },
-            {
-                text: t('common.yes'), onPress: async () => {
-                    const userId = user?.uid;
-                    if (!userId) return;
-                    const history = await getWeightHistory(userId);
-                    for (const e of history) await deleteWeightEntry(userId, e.id!);
-                    await loadData();
-                }
-            }
-        ]);
+        confirmAction(
+            t('common.resetConfirmShort'),
+            t('common.resetConfirmMsgShort'),
+            async () => {
+                const userId = user?.uid;
+                if (!userId) return;
+                const history = await getAllWeightEntries(userId);
+                for (const e of history) await deleteWeightEntry(userId, e.id!, e.source);
+                await loadData();
+            },
+            undefined,
+            t('common.no'),
+            t('common.yes'),
+        );
     };
 
     // Get current status (use real data only)
@@ -395,18 +403,13 @@ export const WeightTrackerScreen = () => {
         ? calculateBMICategory(prePregnancyWeight, height)
         : { category: 'normal' as const, minGain: 0, maxGain: 0, weeklyGainT2T3: 0 };
 
-    // PERFECT-FIX-2: derive BMI numeric value + map OMS category → semantic theme color.
+    // PERFECT-FIX-2: derive BMI numeric value + map OMS category → an AA (text, fill) pair.
     // bmiCategory was previously computed but never surfaced in the UI; users now
     // see both their pre-pregnancy BMI and the WHO/OMS classification.
     const bmiValue = hasValidData
         ? prePregnancyWeight / Math.pow(height / 100, 2)
         : null;
-    const BMI_CATEGORY_COLOR: Record<typeof bmiCategory.category, string> = {
-        underweight: theme.colors.warning,
-        normal: theme.colors.success,
-        overweight: theme.colors.warning,
-        obese: theme.colors.error,
-    };
+    const bmiTone = BMI_CATEGORY_TONE[bmiCategory.category];
 
     // Intelligence: Detect trend and generate smart suggestions
     const trend = React.useMemo(() => detectTrend(weightHistory), [weightHistory]);
@@ -418,6 +421,9 @@ export const WeightTrackerScreen = () => {
         return getSmartSuggestions(currentWeek, validStatus, trend || undefined);
     }, [currentWeek, weightStatus?.status, trend]);
     const trimesterMessage = currentWeek ? getTrimesterMessage(currentWeek) : null;
+    // Same label as Home and Reminders ("3ème Trimestre"); the message used to spell
+    // its own ("3e trimestre").
+    const trimesterLabel = currentWeek ? t('common.trimester_' + trimesterFromWeek(currentWeek)) : null;
 
     return (
         <ScrollView
@@ -427,10 +433,20 @@ export const WeightTrackerScreen = () => {
         >
             {/* Header with triple-tap */}
             <View style={styles.header}>
-                <TouchableOpacity onPress={handleTitlePress}>
-                    <Text style={styles.title}>{t('weight.title')}</Text>
-                    <Text style={styles.subtitle}>{t('common.weekLabel', { number: currentWeek || '?' })}</Text>
-                </TouchableOpacity>
+                {/* The triple-tap debug toggle only exists in dev builds. In a release build
+                    the title is plain text — a focusable, nameless control that does nothing
+                    would just be a dead stop for screen-reader and keyboard users. */}
+                {__DEV__ ? (
+                    <TouchableOpacity onPress={handleTitlePress}>
+                        <Text style={styles.title} accessibilityRole="header">{t('weight.title')}</Text>
+                        <Text style={styles.subtitle}>{t('common.weekLabel', { number: shownWeek || '?' })}</Text>
+                    </TouchableOpacity>
+                ) : (
+                    <View>
+                        <Text style={styles.title} accessibilityRole="header">{t('weight.title')}</Text>
+                        <Text style={styles.subtitle}>{t('common.weekLabel', { number: shownWeek || '?' })}</Text>
+                    </View>
+                )}
 
                 {/* Debug controls */}
                 {showDebugMode && (
@@ -464,9 +480,11 @@ export const WeightTrackerScreen = () => {
                         <TextInput
                             style={styles.setupInput}
                             placeholder={t('common.weightPlaceholder')}
+                            placeholderTextColor={theme.colors.neutral400}
                             keyboardType="decimal-pad"
                             value={setupWeight}
                             onChangeText={setSetupWeight}
+                            accessibilityLabel={t('weight.setupWeight')}
                         />
                     </View>
 
@@ -475,9 +493,11 @@ export const WeightTrackerScreen = () => {
                         <TextInput
                             style={styles.setupInput}
                             placeholder={t('common.heightPlaceholder')}
+                            placeholderTextColor={theme.colors.neutral400}
                             keyboardType="decimal-pad"
                             value={setupHeight}
                             onChangeText={setSetupHeight}
+                            accessibilityLabel={t('weight.setupHeight')}
                         />
                     </View>
 
@@ -505,19 +525,30 @@ export const WeightTrackerScreen = () => {
             {!needsSetup && (
                 <>
 
-                    {/* SIMPLIFIED: Huge Weight Display */}
+                    {/* SIMPLIFIED: Huge Weight Display. With no weighing yet the card is left
+                        out: "Historique" below already carries the empty state and its
+                        call to action, and the two said the same thing twice. */}
+                    {weightHistory.length > 0 && (
                     <View style={styles.weightDisplay}>
                         {latestWeight && hasValidData ? (
                             <>
-                                <Text style={styles.hugeWeight}>{latestWeight} {t('weight.hugeWeight')}</Text>
+                                <Text style={styles.hugeWeight}>{num(latestWeight)} {t('weight.hugeWeight')}</Text>
                                 <View style={styles.weightMeta}>
                                     <Text style={styles.weightGainText}>
-                                        {weightStatus!.gain >= 0 ? '+' : ''}{weightStatus!.gain.toFixed(1)} {t('weight.hugeWeight')} {t('weight.sinceStart')}
+                                        {weightStatus!.gain >= 0 ? '+' : ''}{num(weightStatus!.gain)} {t('weight.hugeWeight')} {t('weight.sinceStart')}
                                     </Text>
                                     {weightStatus?.status !== 'normal' && (
                                         <Text style={styles.miniStatus}>
                                             {weightStatus?.status === 'low' && t('weight.below')}
-                                            {weightStatus?.status === 'high' && t('weight.above')}
+                                            {/* Past 2 kg over the band (evaluateWeightStatus' own "significant"
+                                                tier) the soft "un peu au-dessus" understated it: +90 kg read
+                                                like a rounding error. Same threshold, plainer wording, and it
+                                                sends her to her midwife. */}
+                                            {weightStatus?.status === 'high' && t(
+                                                weightStatus.messageKey === 'weight.status.highSignificant'
+                                                    ? 'weight.aboveSignificant'
+                                                    : 'weight.above',
+                                            )}
                                         </Text>
                                     )}
                                 </View>
@@ -530,19 +561,14 @@ export const WeightTrackerScreen = () => {
                                         <View
                                             style={[
                                                 styles.gaugeDot,
-                                                {
-                                                    left: `${Math.min(Math.max(
-                                                        ((latestWeight - recommendedRange.min) / (recommendedRange.max - recommendedRange.min)) * 100,
-                                                        0
-                                                    ), 100)}%`
-                                                }
+                                                { left: `${gaugeDotPercent(latestWeight, recommendedRange.min, recommendedRange.max)}%` }
                                             ]}
                                         />
                                     </View>
                                     <View style={styles.gaugeLabels}>
-                                        <Text style={styles.gaugeLabelText}>{recommendedRange.min.toFixed(0)}{t('common.kg')}</Text>
+                                        <Text style={styles.gaugeLabelText}>{num(recommendedRange.min)} {t('common.kg')}</Text>
                                         <Text style={styles.gaugeIcon}>👍</Text>
-                                        <Text style={styles.gaugeLabelText}>{recommendedRange.max.toFixed(0)}{t('common.kg')}</Text>
+                                        <Text style={styles.gaugeLabelText}>{num(recommendedRange.max)} {t('common.kg')}</Text>
                                     </View>
                                 </View>
                             </>
@@ -550,43 +576,47 @@ export const WeightTrackerScreen = () => {
                             <Text style={styles.noDataText}>{t('weight.noData')}</Text>
                         )}
                     </View>
+                    )}
 
                     {/* Recommended Range Info - SIMPLIFIED */}
                     <View style={styles.infoCard}>
                         <View style={styles.infoHeader}>
-                            <Text style={styles.infoTitle}>{t('weight.targetWeekNumber', { week: currentWeek })}</Text>
+                            <Text style={styles.infoTitle}>{t('weight.targetWeekNumber', { week: shownWeek })}</Text>
                             <TouchableOpacity
                                 style={styles.infoButton}
-                                onPress={() => Alert.alert(
+                                onPress={() => showAlert(
                                     t('weight.howItWorks'),
                                     t('weight.howItWorksDesc'),
                                     [{ text: t('weight.understood') }]
                                 )}
                                 accessibilityRole="button"
-                                accessibilityLabel={t('weight.howItWorks')}
+                                accessibilityLabel={plainLabel(t('weight.howItWorks'))}
+                                // 44x44 in the style (E-006); the 24pt circle is the inner badge.
                             >
-                                <Text style={styles.infoIcon}>ℹ️</Text>
+                                <View style={styles.infoBadge}>
+                                    <Text style={styles.infoIcon}>ℹ️</Text>
+                                </View>
                             </TouchableOpacity>
                         </View>
                         {/* PERFECT-FIX-2: surface pre-pregnancy BMI + OMS/WHO category badge */}
                         {bmiValue !== null && (
                             <View style={styles.bmiRow}>
                                 <Text style={styles.bmiLabel}>
-                                    {t('weight.bmi')}: <Text style={styles.bmiValue}>{bmiValue.toFixed(1)}</Text>
+                                    {t('weight.bmi')}: <Text style={styles.bmiValue}>{num(bmiValue)}</Text>
                                 </Text>
                                 <View
                                     style={[
                                         styles.bmiCategoryBadge,
                                         {
-                                            backgroundColor: BMI_CATEGORY_COLOR[bmiCategory.category] + '22',
-                                            borderColor: BMI_CATEGORY_COLOR[bmiCategory.category],
+                                            backgroundColor: bmiTone.bg,
+                                            borderColor: bmiTone.fg,
                                         },
                                     ]}
                                 >
                                     <Text
                                         style={[
                                             styles.bmiCategoryText,
-                                            { color: BMI_CATEGORY_COLOR[bmiCategory.category] },
+                                            { color: bmiTone.fg },
                                         ]}
                                     >
                                         {t(`weight.bmiCategory.${bmiCategory.category}`)}
@@ -595,10 +625,10 @@ export const WeightTrackerScreen = () => {
                             </View>
                         )}
                         <Text style={{ fontSize: 22, fontWeight: '700', color: theme.colors.info, marginTop: 8 }}>
-                            {recommendedRange.min.toFixed(1)} - {recommendedRange.max.toFixed(1)} {t('common.kg')}
+                            {num(recommendedRange.min)} - {num(recommendedRange.max)} {t('common.kg')}
                         </Text>
                         <Text style={styles.infoDetail}>
-                            {t('weight.about')} +{recommendedRange.targetGain.min.toFixed(1)} - +{recommendedRange.targetGain.max.toFixed(1)} {t('common.kg')} {t('weight.sinceStart')}
+                            {t('weight.about')} +{num(recommendedRange.targetGain.min)} - +{num(recommendedRange.targetGain.max)} {t('common.kg')} {t('weight.sinceStart')}
                         </Text>
                     </View>
 
@@ -617,10 +647,12 @@ export const WeightTrackerScreen = () => {
                                 <TextInput
                                     style={styles.weightInput}
                                     placeholder={t('common.decimalWeightPlaceholder')}
+                                    placeholderTextColor={theme.colors.neutral400}
                                     keyboardType="decimal-pad"
                                     value={newWeight}
                                     onChangeText={setNewWeight}
                                     autoFocus
+                                    accessibilityLabel={t('weight.addWeightTitle')}
                                 />
                                 <Text style={styles.kgLabel}>{t('common.kg')}</Text>
                             </View>
@@ -654,7 +686,11 @@ export const WeightTrackerScreen = () => {
                             accessibilityRole="button"
                             accessibilityLabel={t('a11y.addWeight')}
                         >
-                            <Text style={styles.addButtonText}>{t('weight.addDailyWeight')}</Text>
+                            {/* A vector icon: the "➕" emoji painted dark grey on the magenta button. */}
+                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                                <Ionicons name="add" size={22} color={theme.colors.white} />
+                                <Text style={styles.addButtonText}>{t('weight.addDailyWeight')}</Text>
+                            </View>
                         </TouchableOpacity>
                     )}
 
@@ -671,11 +707,11 @@ export const WeightTrackerScreen = () => {
                             weightHistory.slice(0, 10).map((entry: WeightEntry) => {
                                 const entryStatus = evaluateWeightStatus(entry.weight, prePregnancyWeight, height, entry.week_of_pregnancy);
                                 return (
-                                    <View key={entry.id} style={styles.historyItem}>
+                                    <View key={`${entry.source ?? 'weight_entries'}-${entry.id}`} style={styles.historyItem}>
                                         <View style={styles.historyLeft}>
-                                            <Text style={styles.historyWeight}>{entry.weight} {t('common.kg')}</Text>
+                                            <Text style={styles.historyWeight}>{num(entry.weight)} {t('common.kg')}</Text>
                                             <Text style={styles.historyDate}>
-                                                {format(new Date(entry.date), 'dd MMM yyyy', { locale: dateLocale })} • {t('common.weekLabel', { number: entry.week_of_pregnancy })}
+                                                {format(new Date(entry.date), 'd MMM yyyy', { locale: dateLocale })} • {t('common.weekLabel', { number: entry.week_of_pregnancy })}
                                             </Text>
                                         </View>
                                         <View style={styles.historyRight}>
@@ -689,11 +725,11 @@ export const WeightTrackerScreen = () => {
                                                 </Text>
                                             </View>
                                             <TouchableOpacity
-                                                style={styles.deleteButton}
-                                                onPress={() => handleDeleteEntry(entry.id!)}
+                                                style={[styles.deleteButton, { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' }]}
+                                                onPress={() => handleDeleteEntry(entry)}
                                                 accessibilityRole="button"
                                                 accessibilityLabel={t('a11y.deleteWeight')}
-                                                accessibilityHint={`${entry.weight} ${t('common.kg')}, ${format(new Date(entry.date), 'dd MMM yyyy', { locale: dateLocale })}`}
+                                                accessibilityHint={`${num(entry.weight)} ${t('common.kg')}, ${format(new Date(entry.date), 'd MMM yyyy', { locale: dateLocale })}`}
                                             >
                                                 <Text style={styles.deleteButtonText}>🗑️</Text>
                                             </TouchableOpacity>
@@ -709,6 +745,7 @@ export const WeightTrackerScreen = () => {
                         hasValidData={hasValidData}
                         historyCount={weightHistory.length}
                         trimesterMessage={trimesterMessage}
+                        trimesterLabel={trimesterLabel}
                         trend={trend}
                         suggestions={suggestions}
                         t={t}
@@ -719,7 +756,7 @@ export const WeightTrackerScreen = () => {
                         style={styles.educationHeader}
                         onPress={() => setShowEducation(!showEducation)}
                         accessibilityRole="button"
-                        accessibilityLabel={t('weight.whyTrack')}
+                        accessibilityLabel={plainLabel(t('weight.whyTrack'))}
                         accessibilityHint={showEducation ? t('a11y.collapseSection') : t('a11y.expandSection')}
                         accessibilityState={{ expanded: showEducation }}
                     >

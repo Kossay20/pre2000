@@ -157,6 +157,16 @@ export const updateTaskStatus = async (
 
         await updateDoc(taskRef, updateData);
 
+        // W4 #4: cancel a one-off task's pending notification once it's completed — otherwise an
+        // orphaned reminder fires for an already-done task. Best-effort (web/no-perm = harmless
+        // no-op). Recurring tasks keep their schedule (their per-date completion is tracked separately).
+        if (!isRecurring && completed) {
+            try {
+                await cancelReminderNotifications(taskId);
+            } catch (e) {
+                log.warn('Failed to cancel notification for completed task:', e);
+            }
+        }
 
     } catch (error) {
         log.error('❌ Error updating task status:', error);

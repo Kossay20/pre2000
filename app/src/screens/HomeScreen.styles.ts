@@ -1,8 +1,11 @@
-import { Dimensions, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { theme } from '../theme';
 import { getTextShadowStyle } from '../utils/styleUtils';
+import { getContentWidth, TABLET_BREAKPOINT } from '../utils/layout';
 
-const { width } = Dimensions.get('window');
+const width = getContentWidth();
+// The 720pt tablet column: the hero's quick actions fill it, four across.
+const tabletColumn = width >= TABLET_BREAKPOINT;
 
 export const styles = StyleSheet.create({
     // NEW STYLES FOR UNIFIED DESIGN
@@ -58,7 +61,8 @@ export const styles = StyleSheet.create({
     },
     postpartumEmoji: {
         fontSize: 40,
-        marginRight: 16,
+        // Cycle 2 F307 RTL : marginEnd flip auto en arabe/tunisien.
+        marginEnd: 16,
     },
     postpartumTextContainer: {
         flex: 1,
@@ -66,12 +70,12 @@ export const styles = StyleSheet.create({
     postpartumTitle: {
         fontSize: 16,
         fontWeight: 'bold',
-        color: theme.colors.orange900,
+        color: theme.colors.deepOrange900,
         marginBottom: 4,
     },
     postpartumDesc: {
         fontSize: 13,
-        color: theme.colors.orange900,
+        color: theme.colors.deepOrange900,
         opacity: 0.9,
         lineHeight: 18,
         marginBottom: 12,
@@ -87,6 +91,79 @@ export const styles = StyleSheet.create({
         color: theme.colors.white,
         fontSize: 13,
         fontWeight: 'bold',
+    },
+    // Cycle 3 F212 — Curious mode banner styles.
+    curiousBanner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: theme.colors.lavenderBlush,
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: theme.colors.borderLight,
+    },
+    curiousBannerEmoji: {
+        fontSize: 28,
+        marginEnd: 12,
+    },
+    curiousBannerTextContainer: {
+        flex: 1,
+    },
+    curiousBannerTitle: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: theme.colors.text,
+        marginBottom: 2,
+    },
+    curiousBannerDesc: {
+        fontSize: 12,
+        color: theme.colors.textSecondary,
+    },
+    curiousBannerCta: {
+        backgroundColor: theme.colors.accent,
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        borderRadius: 8,
+        marginStart: 8,
+    },
+    curiousBannerCtaText: {
+        color: theme.colors.white,
+        fontSize: 12,
+        fontWeight: '700',
+    },
+    // D3-03 first-run welcome card
+    welcomeCard: {
+        backgroundColor: theme.colors.surfaceBlush,
+        margin: 16,
+        marginBottom: 0,
+        padding: 16,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: theme.colors.borderLight,
+    },
+    welcomeTitle: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: theme.colors.text,
+        marginBottom: 6,
+    },
+    welcomeBody: {
+        fontSize: 14,
+        lineHeight: 20,
+        color: theme.colors.textSecondary,
+        marginBottom: 14,
+    },
+    welcomeDismiss: {
+        alignSelf: 'flex-start',
+        backgroundColor: theme.colors.accent,
+        paddingVertical: 10,
+        paddingHorizontal: 18,
+        borderRadius: 24,
+    },
+    welcomeDismissText: {
+        color: theme.colors.white,
+        fontSize: 14,
+        fontWeight: '700',
     },
     // EXISTING STYLES (Kept for compatibility)
     container: {
@@ -120,21 +197,46 @@ export const styles = StyleSheet.create({
         width: '100%',
         paddingBottom: 24,
     },
+    // The avatar is absolutely placed over the header's top-right corner (its left edge sits
+    // ~66pt from the right edge, physical `right: 16`). The greeting is centred on the page axis
+    // (like "Semaine N" and the buttons below) with the SAME physical clearance on both sides:
+    // logical paddingStart/End flip with the document direction while the avatar's `right` does
+    // not (the Arabic greeting ran under the avatar), and one-sided padding shifted the line off
+    // the axis. 76pt (avatar 66 + 10 gap) keeps ~220pt of width at 375pt; a longer name wraps
+    // (numberOfLines 2) or shrinks natively instead of moving the block. A narrow screen has no
+    // room for a greeting next to a 50pt avatar (at 280pt it still touched), so the greeting
+    // starts below the avatar instead.
     headerTextContainer: {
         alignItems: 'center',
         marginBottom: 16,
+        ...(width < 340 ? { marginTop: 80 } : { paddingLeft: 76, paddingRight: 76 }),
     },
     weekInfo: {
         fontSize: 14,
-        color: theme.colors.whiteAlpha90,
+        color: theme.colors.white,
         fontWeight: '500',
         marginTop: 4,
     },
     profileButtonContainer: {
         position: 'absolute',
-        top: 16,
+        // Flush with the top of the header content: at 16pt the 50pt avatar reached
+        // down into the week row and its tap area overlapped the "next week" chevron.
+        top: 0,
         right: 16,
         zIndex: 10,
+    },
+    profileTouch: {
+        alignItems: 'center',
+        minWidth: 56,
+        minHeight: 44,
+    },
+    // Visible hint under the avatar: the profile (and the account deletion in it) is not a tab.
+    profileLabel: {
+        marginTop: 3,
+        fontSize: 12,
+        fontWeight: '600',
+        textAlign: 'center',
+        color: theme.colors.white,
     },
     profileButton: {
         width: 50,
@@ -164,6 +266,14 @@ export const styles = StyleSheet.create({
         alignItems: 'center',
         width: '100%',
     },
+    versionNote: {
+        fontSize: 12,
+        lineHeight: 16,
+        color: theme.colors.white,
+        fontWeight: '500',
+        marginBottom: 6,
+        textAlign: 'center',
+    },
     greeting: {
         fontSize: 18,
         color: theme.colors.white,
@@ -178,7 +288,11 @@ export const styles = StyleSheet.create({
         marginBottom: 8,
     },
     navButton: {
-        paddingHorizontal: 12,
+        minWidth: 44,
+        minHeight: 44,
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: 4,
         paddingVertical: 4,
     },
     weekBadge: {
@@ -193,10 +307,10 @@ export const styles = StyleSheet.create({
     },
     trimesterBadge: {
         fontSize: 12,
-        color: theme.colors.whiteAlpha80,
+        color: theme.colors.white,
         fontWeight: '600',
         marginTop: 4,
-        backgroundColor: theme.colors.whiteAlpha20,
+        backgroundColor: theme.colors.headerChipBg,
         paddingHorizontal: 8,
         paddingVertical: 2,
         borderRadius: 10,
@@ -263,7 +377,7 @@ export const styles = StyleSheet.create({
     },
     progressText: {
         fontSize: 13,
-        color: theme.colors.whiteAlpha90,
+        color: theme.colors.white,
         marginTop: 8,
         fontWeight: '600',
     },
@@ -315,7 +429,7 @@ export const styles = StyleSheet.create({
     },
     modalEmail: {
         fontSize: 14,
-        color: theme.colors.whiteAlpha90,
+        color: theme.colors.white,
     },
     modalContent: {
         maxHeight: 400,
@@ -350,7 +464,7 @@ export const styles = StyleSheet.create({
         textAlign: 'right',
     },
     highlightValue: {
-        color: theme.colors.primary,
+        color: theme.colors.accent,
         fontWeight: 'bold',
     },
     modalActions: {
@@ -397,7 +511,7 @@ export const styles = StyleSheet.create({
     quickNavButton: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: theme.colors.whiteAlpha25,
+        backgroundColor: theme.colors.headerChipBg,
         borderRadius: theme.borderRadius.s,
         paddingVertical: 6,
         paddingHorizontal: 12,
@@ -422,15 +536,104 @@ export const styles = StyleSheet.create({
         gap: 8,
     },
     quickLink: {
-        fontSize: 11,
+        // Cycle 4 F701 : 11→13 lisibilité +30% + paddingVertical 8 pour hit
+        // target 44pt (Apple HIG / WCAG touch target). Avant: lisibilité fail
+        // sur écrans denses + tap sub-44 sur Android Material.
+        fontSize: 13,
         color: theme.colors.white,
         fontWeight: '600',
-        opacity: 0.9,
+        opacity: 0.95,
+        paddingVertical: 8,
+        paddingHorizontal: 4,
     },
     linkDivider: {
         fontSize: 10,
         color: theme.colors.white,
         opacity: 0.5,
+    },
+    // #9 — Quick action pill buttons (replaces the tiny text quick-links).
+    // Sit on the pink header gradient → darkening glass surface + white text
+    // (a white wash lifted the pink to 2.1:1 behind the labels). 2x2 wrap, 44pt min target.
+    // On a tablet the row sized itself to its content: a 400pt 2×2 grid in the middle of
+    // a 720pt hero. There it spans the column in one row of four.
+    quickActionsRow: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        justifyContent: 'center',
+        marginTop: 12,
+        marginBottom: 12,
+        gap: 8,
+        ...(tabletColumn ? { alignSelf: 'stretch' as const, paddingHorizontal: 24 } : {}),
+    },
+    quickActionPill: {
+        // `row` mirrors on its own under the document's dir=rtl — the inline
+        // `isRTL ? 'row-reverse' : 'row'` this replaces was a double flip that made
+        // the pills read left-to-right in Arabic.
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: 44,
+        flexGrow: 1,
+        flexBasis: tabletColumn ? '22%' : '45%',
+        maxWidth: tabletColumn ? '24%' : '48%',
+        backgroundColor: theme.colors.headerChipBg,
+        borderRadius: theme.borderRadius.l,
+        paddingVertical: 10,
+        paddingHorizontal: 10,
+        gap: 4,
+        borderWidth: 1,
+        borderColor: theme.colors.whiteAlpha40,
+    },
+    // Ionicons drawn in white (≥4.6:1 on the tile, WCAG 1.4.11 asks 3:1 for an icon).
+    quickActionPillIcon: {
+        flexShrink: 0,
+    },
+    // On a narrow screen (or large text) "Rechercher" did not fit a half-width pill and
+    // truncated to "Recher…". Native shrinks via adjustsFontSizeToFit; web gets a
+    // point smaller below 320pt, and a label that still does not fit ("Nouveau RDV" at
+    // 280 pt with large text) takes a second line rather than an ellipsis.
+    quickActionPillLabel: {
+        fontSize: width < 320 ? 12 : 13,
+        fontWeight: '700',
+        color: theme.colors.white,
+        flexShrink: 1,
+        textAlign: 'center',
+    },
+    // #9 — "Return to current week" pill, shown only while previewing another week.
+    todayPill: {
+        flexDirection: 'row',
+        alignSelf: 'center',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: 36,
+        marginTop: 4,
+        marginBottom: 4,
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+        borderRadius: 20,
+        gap: 6,
+        backgroundColor: theme.colors.accent,
+        shadowColor: theme.colors.black,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+        elevation: 3,
+    },
+    todayPillIcon: {
+        fontSize: 13,
+    },
+    todayPillText: {
+        fontSize: 13,
+        fontWeight: '700',
+        color: theme.colors.white,
+    },
+    // #9 — Subtle "preview" cue on the week badge when time-travelling.
+    weekBadgePreview: {
+        borderWidth: 1,
+        borderColor: theme.colors.whiteAlpha50,
+        borderRadius: 14,
+        paddingHorizontal: 12,
+        paddingVertical: 4,
     },
     quickActionsContainer: {
         flexDirection: 'row',
@@ -588,7 +791,7 @@ export const styles = StyleSheet.create({
     warningTitle: {
         fontSize: 20,
         fontWeight: 'bold',
-        color: theme.colors.accentOrangeDeep,
+        color: theme.colors.deepOrange900,
         marginBottom: 12,
     },
     appointmentItem: {
@@ -635,10 +838,20 @@ export const styles = StyleSheet.create({
         marginTop: 12,
         marginBottom: 16,
     },
+    // The screen has no side padding of its own (each card brings marginHorizontal 16), so
+    // this section's heading and carousel carry the same 16pt gutter: the heading sat at
+    // x=0 and "Tout voir" touched the right edge.
+    recommendationsHeader: {
+        marginHorizontal: 16,
+    },
+    recommendationsContent: {
+        paddingStart: 16,
+        paddingEnd: 16,
+    },
     recommendationCard: {
         width: width * 0.45,
         minWidth: 180,
-        height: 140,
+        height: 164, // three title lines (a long title ended in "...") plus the badge
         borderRadius: theme.borderRadius.l,
         overflow: 'hidden',
         shadowColor: theme.colors.black,
@@ -728,7 +941,7 @@ export const styles = StyleSheet.create({
     },
     tipCategoryText: {
         fontSize: 12,
-        color: theme.colors.accentOrangeDeep,
+        color: theme.colors.deepOrange900,
         fontWeight: '600',
     },
 
@@ -853,6 +1066,10 @@ export const styles = StyleSheet.create({
         alignItems: 'center',
         marginBottom: 8,
     },
+    // The "Your body" header doubles as the expand/collapse control → 44pt target.
+    infoCardHeaderToggle: {
+        minHeight: 44,
+    },
     infoCardEmoji: {
         fontSize: 20,
         marginEnd: 8,
@@ -906,7 +1123,7 @@ export const styles = StyleSheet.create({
     },
     toolSubtitle: {
         fontSize: 12,
-        color: theme.colors.neutral400,
+        color: theme.colors.textMuted,
         textAlign: 'center',
     },
 
@@ -928,7 +1145,7 @@ export const styles = StyleSheet.create({
     },
     babySizeLabelPro: {
         fontSize: 16,
-        color: theme.colors.neutral400,
+        color: theme.colors.textMuted,
         marginBottom: 8,
         fontWeight: '400',
     },
@@ -952,7 +1169,7 @@ export const styles = StyleSheet.create({
     },
     babyComparisonLabelPro: {
         fontSize: 16,
-        color: theme.colors.neutral400,
+        color: theme.colors.textMuted,
         marginBottom: 8,
     },
     babyComparisonValuePro: {
@@ -988,7 +1205,7 @@ export const styles = StyleSheet.create({
     babySizeValue: {
         fontSize: 24,
         fontWeight: 'bold',
-        color: theme.colors.primary,
+        color: theme.colors.accent,
     },
     babyComparisonContainer: {
         backgroundColor: theme.colors.lavenderBlush,
@@ -1005,7 +1222,7 @@ export const styles = StyleSheet.create({
     babyComparisonValue: {
         fontSize: 20,
         fontWeight: 'bold',
-        color: theme.colors.primary,
+        color: theme.colors.accent,
     },
     babyDevText: {
         fontSize: 15,

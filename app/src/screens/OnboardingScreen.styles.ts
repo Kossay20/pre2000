@@ -19,20 +19,38 @@ export const styles = StyleSheet.create({
         backgroundColor: theme.colors.primary,
         borderRadius: 2,
     },
+    // Cycle 5 F901 — Stepper text "Step X of Y" sous progress bar (pattern Flo/Glow).
+    stepperText: {
+        fontSize: 12,
+        color: theme.colors.textSecondary,
+        textAlign: 'center',
+        marginTop: 8,
+        marginBottom: 0,
+        fontWeight: '500',
+    },
     stepContentContainer: {
         padding: 24,
-        paddingTop: 40,
+        paddingTop: 32,
         paddingBottom: 40,
         alignItems: 'center' as const,
     },
     stepContent: {
         flex: 1,
         padding: 24,
-        paddingTop: 40,
+        // Cycle 5 F903 — paddingTop 40→24 (réduit white-space avant question).
+        paddingTop: 24,
     },
     stepEmoji: {
+        // Cycle 5 F900 — Centrer + ajuster taille (était 64 mais top-left visuel
+        // car alignItems pas hérité). Reste 64 mais avec textAlign center.
         fontSize: 64,
         marginBottom: 16,
+        textAlign: 'center',
+        alignSelf: 'center',
+    },
+    stepIcon: {
+        marginBottom: 16,
+        alignSelf: 'center',
     },
     stepTitle: {
         fontSize: 26,
@@ -89,6 +107,13 @@ export const styles = StyleSheet.create({
     methodButtonActive: {
         backgroundColor: theme.colors.surfacePinkSoft,
     },
+    // Vector glyph + label (the chips used to start with an emoji in the string).
+    methodContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 6,
+    },
     methodText: {
         fontSize: 14,
         fontWeight: '600',
@@ -122,6 +147,9 @@ export const styles = StyleSheet.create({
         fontWeight: '600',
     },
     previewBox: {
+        // Same width in every state (week, post-term, invalid): without it the card shrink-wrapped
+        // to its text and changed width as the date changed.
+        alignSelf: 'stretch',
         marginTop: 20,
         padding: 16,
         backgroundColor: theme.colors.background,
@@ -180,6 +208,79 @@ export const styles = StyleSheet.create({
     radioText: {
         fontSize: 16,
         color: theme.colors.neutral900,
+    },
+    checkOption: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        padding: 16,
+        borderRadius: 12,
+        borderWidth: 2,
+        borderColor: theme.colors.neutral150,
+        backgroundColor: theme.colors.neutral25,
+    },
+    checkOptionSelected: {
+        borderColor: theme.colors.primary,
+        backgroundColor: theme.colors.background,
+    },
+    checkBox: {
+        width: 24,
+        height: 24,
+        borderRadius: 6,
+        borderWidth: 2,
+        borderColor: theme.colors.neutral300,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    checkBoxSelected: {
+        borderColor: theme.colors.primary,
+        backgroundColor: theme.colors.primary,
+    },
+    checkMark: {
+        color: theme.colors.white,
+        fontSize: 14,
+        fontWeight: '700',
+        lineHeight: 16,
+    },
+    // Collapsed by default. The medical question is genuinely optional and it made
+    // step 3 — already the longest — roughly a third taller, pushing Continue off a
+    // small screen. Onboarding completion is the funnel that matters most, so the
+    // question states itself in the header and only opens for someone it concerns.
+    disclosureHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 12,
+        paddingVertical: 14,
+        paddingHorizontal: 16,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: theme.colors.neutral200,
+        backgroundColor: theme.colors.neutral25,
+    },
+    disclosureHeaderOpen: {
+        borderColor: theme.colors.primary,
+    },
+    disclosureTitle: {
+        flex: 1,
+        fontSize: 15,
+        fontWeight: '600',
+        color: theme.colors.neutral900,
+    },
+    disclosureBody: {
+        paddingTop: 14,
+    },
+    inputHint: {
+        fontSize: 14,
+        color: theme.colors.textSecondary,
+        marginBottom: 12,
+        lineHeight: 20,
+    },
+    privacyNote: {
+        fontSize: 13,
+        color: theme.colors.textSecondary,
+        marginTop: 10,
+        lineHeight: 18,
     },
     navButtons: {
         flexDirection: 'row',
@@ -272,6 +373,11 @@ export const styles = StyleSheet.create({
         shadowRadius: 8,
         elevation: 6,
     },
+    // Switched off: flat, like the shared Button's disabled state.
+    startButtonOff: {
+        shadowOpacity: 0,
+        elevation: 0,
+    },
     startButtonGradient: {
         paddingVertical: 18,
         alignItems: 'center',
@@ -284,6 +390,9 @@ export const styles = StyleSheet.create({
     backButtonFinal: {
         marginTop: 20,
         padding: 12,
+        // 44pt target (WCAG 2.5.5 / HIG): padding alone measured 42.
+        minHeight: 44,
+        justifyContent: 'center' as const,
     },
     finalScrollContent: {
         flexGrow: 1,
@@ -354,6 +463,13 @@ export const styles = StyleSheet.create({
         marginTop: 10,
         width: '100%',
     },
+    accountHint: {
+        alignSelf: 'stretch',
+        marginTop: 4,
+        fontSize: 12,
+        color: theme.colors.textSecondary,
+        textAlign: 'auto',
+    },
     accountNote: {
         fontSize: 12,
         color: theme.colors.textLight,
@@ -369,6 +485,12 @@ export const styles = StyleSheet.create({
         fontSize: 15,
         color: theme.colors.textLight,
         textDecorationLine: 'underline' as const,
+    },
+    // Disabled until the consent box is ticked. The grey of the disabled save button
+    // above it, at full opacity: dimming the link to 0.6 left the guest's only way
+    // forward at about 2.6:1.
+    skipAccountTextDisabled: {
+        color: theme.colors.neutral700,
     },
     ageRangeContainer: {
         flexDirection: 'row' as const,

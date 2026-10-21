@@ -8,23 +8,25 @@ export const styles = StyleSheet.create({
         backgroundColor: theme.colors.surface,
     },
     header: {
-        paddingTop: 60,
-        paddingBottom: 32,
+        paddingTop: 48,
+        paddingBottom: 16,
+        // Without an inset a long e-mail ran edge to edge on a 280pt screen.
+        paddingHorizontal: 16,
         alignItems: 'center',
     },
     profileCircle: {
-        width: 100,
-        height: 100,
-        borderRadius: 50,
-        backgroundColor: theme.colors.whiteAlpha30,
+        width: 68,
+        height: 68,
+        borderRadius: 34,
+        backgroundColor: theme.colors.headerChipBg,
         justifyContent: 'center',
         alignItems: 'center',
         borderWidth: 4,
         borderColor: theme.colors.whiteAlpha50,
-        marginBottom: 16,
+        marginBottom: 8,
     },
     profileLetter: {
-        fontSize: 48,
+        fontSize: 34,
         fontWeight: 'bold',
         color: theme.colors.white,
     },
@@ -36,7 +38,7 @@ export const styles = StyleSheet.create({
     },
     headerSubtitle: {
         fontSize: 14,
-        color: theme.colors.whiteAlpha90,
+        color: theme.colors.white,
     },
     content: {
         padding: 16,
@@ -70,7 +72,7 @@ export const styles = StyleSheet.create({
         paddingHorizontal: 12,
         paddingVertical: 6,
         borderRadius: theme.borderRadius.m,
-        backgroundColor: theme.colors.primary,
+        backgroundColor: theme.colors.accent,
     },
     editButtonText: {
         color: theme.colors.white,
@@ -127,6 +129,8 @@ export const styles = StyleSheet.create({
         gap: 8,
     },
     countryButton: {
+        minHeight: 44,
+        justifyContent: 'center',
         paddingHorizontal: 16,
         paddingVertical: 10,
         borderRadius: theme.borderRadius.xl,
@@ -135,8 +139,8 @@ export const styles = StyleSheet.create({
         backgroundColor: theme.colors.white,
     },
     countryButtonSelected: {
-        backgroundColor: theme.colors.primary,
-        borderColor: theme.colors.primary,
+        backgroundColor: theme.colors.accent,
+        borderColor: theme.colors.accent,
     },
     countryButtonText: {
         fontSize: 14,
@@ -164,6 +168,8 @@ export const styles = StyleSheet.create({
     },
     dateButton: {
         backgroundColor: theme.colors.surfaceBlueTint,
+        minHeight: 44,
+        justifyContent: 'center',
         paddingHorizontal: 16,
         paddingVertical: 10,
         borderRadius: theme.borderRadius.m,
@@ -188,10 +194,12 @@ export const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: theme.colors.amberBorder,
     },
+    // The due date is information, not a warning: the app's text brown on the amber card
+    // (brick red made it read like an error).
     dpaText: {
         fontSize: 20,
         fontWeight: 'bold',
-        color: theme.colors.accentOrangeDeep,
+        color: theme.colors.text,
         marginTop: 8,
     },
     dpaSubtext: {
@@ -220,7 +228,7 @@ export const styles = StyleSheet.create({
         color: theme.colors.textSecondary,
     },
     saveButton: {
-        backgroundColor: theme.colors.primary,
+        backgroundColor: theme.colors.accent,
         paddingVertical: 14,
         borderRadius: theme.borderRadius.m,
         alignItems: 'center',
@@ -275,7 +283,7 @@ export const styles = StyleSheet.create({
     resetButtonText: {
         fontSize: 16,
         fontWeight: '600',
-        color: theme.colors.orange900,
+        color: theme.colors.deepOrange900,
     },
     userTypeBadge: {
         backgroundColor: theme.colors.surfaceBlueTint,
@@ -346,67 +354,11 @@ export const styles = StyleSheet.create({
     },
     modalHeaderText: {
         fontSize: 16,
-        color: theme.colors.primary,
+        color: theme.colors.accent,
     },
     modalTitle: {
         fontSize: 18,
         fontWeight: 'bold',
         color: theme.colors.text,
-    },
-    reauthOverlay: {
-        flex: 1,
-        backgroundColor: theme.colors.overlay,
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: 24,
-    },
-    reauthCard: {
-        width: '100%',
-        maxWidth: 420,
-        backgroundColor: theme.colors.white,
-        borderRadius: theme.borderRadius.l,
-        padding: 20,
-        ...getShadowStyle(4, theme.colors.black, 0.15, 8, { width: 0, height: 4 }),
-    },
-    reauthTitle: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: theme.colors.text,
-        marginBottom: 8,
-    },
-    reauthMessage: {
-        fontSize: 14,
-        color: theme.colors.textSecondary,
-        marginBottom: 16,
-    },
-    reauthActions: {
-        flexDirection: 'row',
-        justifyContent: 'flex-end',
-        gap: 8,
-        marginTop: 16,
-    },
-    reauthCancelButton: {
-        paddingVertical: 12,
-        paddingHorizontal: 16,
-        borderRadius: theme.borderRadius.m,
-        backgroundColor: theme.colors.surface,
-    },
-    reauthCancelText: {
-        fontSize: 14,
-        fontWeight: '600',
-        color: theme.colors.textSecondary,
-    },
-    reauthConfirmButton: {
-        paddingVertical: 12,
-        paddingHorizontal: 16,
-        borderRadius: theme.borderRadius.m,
-        backgroundColor: theme.colors.error,
-        minWidth: 100,
-        alignItems: 'center',
-    },
-    reauthConfirmText: {
-        fontSize: 14,
-        fontWeight: '600',
-        color: theme.colors.white,
     },
 });

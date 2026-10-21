@@ -202,7 +202,8 @@ const styles = StyleSheet.create({
     },
     profileButtonContainer: {
         position: 'absolute',
-        right: 20,
+        // Cycle 2 F311 RTL : `end` flip auto en arabe.
+        end: 20,
         top: 0,
         zIndex: 10,
     },

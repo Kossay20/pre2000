@@ -1,0 +1,272 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // =========================================================
+    // 🛠️ HELPER FUNCTIONS
+    // =========================================================
+    
+    // Vérifie si l'utilisateur est connecté
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Static read = authentifié seulement (anti-scraping / cost protection).
+    // NB: les invités Firebase (anonymous auth via loginAsGuest) sont
+    // authentifiés → ils gardent l'accès au contenu statique. Pas de
+    // régression UX, on bloque uniquement le trafic non-auth (scraping/DoS).
+    function isAuthenticatedReader() {
+      return isAuthenticated();
+    }
+
+    // Vérifie si l'utilisateur est le propriétaire du document (basé sur l'ID du doc)
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Vérifie si l'utilisateur est propriétaire de la donnée (champ user_id)
+    // Pour la LECTURE et SUPPRESSION (resource existante)
+    function isOwnerOfResource() {
+      return isAuthenticated() && resource.data.user_id == request.auth.uid;
+    }
+
+    // Vérifie si l'utilisateur assigne bien la donnée à lui-même
+    // Pour la CRÉATION et MISE À JOUR (nouvelle resource)
+    function isOwnerOfData() {
+      return isAuthenticated() && request.resource.data.user_id == request.auth.uid;
+    }
+
+    // =========================================================
+    // 🛡️ SCHEMA & RANGE VALIDATION
+    // =========================================================
+
+    // Document size guard: limite le nb de champs top-level (anti-bloat / DoS).
+    function hasReasonableSize() {
+      return request.resource.data.size() < 30;
+    }
+
+    // Free-text profile names bounded to 50 chars, mirroring validation.ts:182-188.
+    // Written with `merge:true`, so request.resource.data is the merged document and a
+    // field may legitimately be absent on the very first write — hence the `in` guard.
+    function validProfileNames() {
+      return (!('firstName' in request.resource.data)
+              || (request.resource.data.firstName is string
+                  && request.resource.data.firstName.size() <= 50))
+          && (!('lastName' in request.resource.data)
+              || (request.resource.data.lastName is string
+                  && request.resource.data.lastName.size() <= 50));
+    }
+
+    // user_id présent et = auth.uid (string).
+    function userIdMatches() {
+      return isAuthenticated()
+          && request.resource.data.user_id is string
+          && request.resource.data.user_id == request.auth.uid;
+    }
+
+    // Validation healthMetrics: type ∈ {weight, blood_pressure}, date string,
+    // value soit number (poids) soit map (BP).
+    function validHealthMetric() {
+      return userIdMatches()
+          && hasReasonableSize()
+          && request.resource.data.type is string
+          && (request.resource.data.type == 'weight' || request.resource.data.type == 'blood_pressure')
+          && request.resource.data.date is string
+          && (
+               // weight: number > 0 && < 500 (kg, défensif)
+               (request.resource.data.type == 'weight'
+                  && request.resource.data.value is number
+                  && request.resource.data.value > 0
+                  && request.resource.data.value < 500)
+               ||
+               // blood_pressure: map {systolic, diastolic} numériques bornés
+               (request.resource.data.type == 'blood_pressure'
+                  && request.resource.data.value is map
+                  && request.resource.data.value.systolic is number
+                  && request.resource.data.value.systolic > 0
+                  && request.resource.data.value.systolic < 300
+                  && request.resource.data.value.diastolic is number
+                  && request.resource.data.value.diastolic > 0
+                  && request.resource.data.value.diastolic < 200)
+             );
+    }
+
+    // Validation glucoseMetrics: value 0-50 mmol/L, meal_context enum.
+    function validGlucose() {
+      return userIdMatches()
+          && hasReasonableSize()
+          && request.resource.data.value is number
+          && request.resource.data.value > 0
+          && request.resource.data.value < 50
+          && request.resource.data.meal_context is string
+          && (
+               request.resource.data.meal_context == 'fasting'
+               || request.resource.data.meal_context == 'post_meal'
+               || request.resource.data.meal_context == 'random'
+             )
+          && request.resource.data.date is string;
+    }
+
+    // Validation weight_entries: weight > 0 et < 500 kg.
+    function validWeightEntry() {
+      return userIdMatches()
+          && hasReasonableSize()
+          && request.resource.data.weight is number
+          && request.resource.data.weight > 0
+          && request.resource.data.weight < 500;
+    }
+
+    // Validation symptomsLog: symptoms est une liste, taille raisonnable.
+    function validSymptoms() {
+      return userIdMatches()
+          && hasReasonableSize()
+          && request.resource.data.symptoms is list
+          && request.resource.data.symptoms.size() < 50
+          && request.resource.data.date is string;
+    }
+
+    // =========================================================
+    // 👤 USER PROFILES
+    // =========================================================
+    
+    // GDPR SUBCOLLECTION FIX (Art. 17). In rules_version 2 a `match /col/{id}` rule
+    // covers ONLY the document — never its subcollections, which are default-deny
+    // unless a nested match exists. Legacy versions wrote health data under
+    // userProfiles/{uid}/{weights,events,journal,chatbot_history}, and
+    // gdprPurge.ts:73-80 tries to delete exactly those. Every getDocs there returned
+    // permission-denied, was swallowed by the per-collection catch, and downgraded to
+    // a log.warn — so "delete my account" reported success while the legacy health
+    // data survived forever, contradicting the erasure promise in PrivacyPolicyScreen.
+    // The nested wildcard is still owner-scoped, so this grants no cross-user access.
+    // NOTE on the nested match shape: `match /{document=**}` would match ZERO or
+    // more segments, i.e. it also matches the PARENT document — which silently
+    // short-circuits any guard placed on the parent's own `allow write` (verified
+    // live: a 1 MB firstName was accepted). `/{sub}/{doc=**}` requires at least a
+    // collection + document, so it covers subcollections only.
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
+      match /{sub}/{doc=**} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+
+    // User Profiles (used by AuthContext, PregnancyContext, OnboardingScreen)
+    match /userProfiles/{userId} {
+      allow read: if isOwner(userId);
+      // Server-side length cap on the free-text name fields. Client maxLength does
+      // not bind a direct SDK call, and the profile edit screen never ran
+      // validateProfile, so an arbitrarily large string could be persisted and then
+      // re-read on every cold start — a per-user storage/bandwidth amplifier.
+      allow write: if isOwner(userId) && validProfileNames();
+      match /{sub}/{doc=**} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+
+    // =========================================================
+    // 🔒 USER PRIVATE DATA (Top-level collections)
+    // =========================================================
+
+    // Calendar Events
+    match /userEvents/{eventId} {
+      allow read: if isOwnerOfResource();
+      allow create: if isOwnerOfData();
+      allow update: if isOwnerOfResource() && isOwnerOfData();
+      allow delete: if isOwnerOfResource();
+    }
+
+    // Custom Tasks
+    match /userTasks/{taskId} {
+      allow read: if isOwnerOfResource();
+      allow create: if isOwnerOfData();
+      allow update: if isOwnerOfResource() && isOwnerOfData();
+      allow delete: if isOwnerOfResource();
+    }
+
+    // Health Metrics (Weight, BP) — C7: schema + range validation
+    match /healthMetrics/{metricId} {
+      allow read: if isOwnerOfResource();
+      allow create: if validHealthMetric();
+      allow update: if isOwnerOfResource() && validHealthMetric();
+      allow delete: if isOwnerOfResource();
+    }
+
+    // Weight Entries (weightService.ts uses 'weight_entries' collection)
+    // C7: schema + range validation (kg bornés)
+    match /weight_entries/{entryId} {
+      allow read: if isOwnerOfResource();
+      allow create: if validWeightEntry();
+      allow update: if isOwnerOfResource() && validWeightEntry();
+      allow delete: if isOwnerOfResource();
+    }
+
+    // Reminder Settings
+    match /userReminderSettings/{settingId} {
+      allow read: if isOwnerOfResource();
+      allow create: if isOwnerOfData();
+      allow update: if isOwnerOfResource() && isOwnerOfData();
+      allow delete: if isOwnerOfResource();
+    }
+
+    // Task Statuses (Completed reminders)
+    match /userTaskStatuses/{statusId} {
+      allow read: if isOwnerOfResource();
+      allow create: if isOwnerOfData();
+      allow update: if isOwnerOfResource() && isOwnerOfData();
+      allow delete: if isOwnerOfResource();
+    }
+
+    // Reminder Settings V2 (remindersV2Service)
+    match /reminder_settings_v2/{settingId} {
+      allow read: if isOwnerOfResource();
+      allow create: if isOwnerOfData();
+      allow update: if isOwnerOfResource() && isOwnerOfData();
+      allow delete: if isOwnerOfResource();
+    }
+
+    // Glucose Metrics (healthService.saveGlucoseEntry / getGlucoseHistory)
+    // Added P1.1 — was missing, causing all glycemia writes to fail in prod.
+    // C7: schema + range validation (mmol/L bornés, meal_context enum)
+    match /glucoseMetrics/{metricId} {
+      allow read: if isOwnerOfResource();
+      allow create: if validGlucose();
+      allow update: if isOwnerOfResource() && validGlucose();
+      allow delete: if isOwnerOfResource();
+    }
+
+    // Symptoms Log (healthService.saveSymptomEntry / getDailySymptoms)
+    // Added P1.1 — was missing, causing all symptom writes to fail in prod.
+    // C7: schema validation (symptoms is list, size bornée)
+    // C10/F13: docId contraint à `${auth.uid}_YYYY-MM-DD` pour empêcher un
+    // user A de squatter le namespace d'un user B (le code utilise un doc ID
+    // déterministe `${userId}_${today}` pour éliminer la race window).
+    match /symptomsLog/{logId} {
+      allow read: if isOwnerOfResource();
+      allow create: if validSymptoms()
+                  && logId.matches('^' + request.auth.uid + '_[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+      allow update: if isOwnerOfResource() && validSymptoms();
+      allow delete: if isOwnerOfResource();
+    }
+
+    // =========================================================
+    // 📚 STATIC CONTENT (Read-only for users)
+    // C6a: lecture restreinte aux utilisateurs authentifiés
+    // (anti-scraping / cost protection). Les invités Firebase
+    // (anonymous auth) sont autorisés → pas de régression UX.
+    // =========================================================
+
+    match /calendarTemplates/{docId} { allow read: if isAuthenticatedReader(); allow write: if false; }
+    match /reminderTemplates/{docId} { allow read: if isAuthenticatedReader(); allow write: if false; }
+    match /weeklyTasks/{docId} { allow read: if isAuthenticatedReader(); allow write: if false; }
+    match /babyMessages/{docId} { allow read: if isAuthenticatedReader(); allow write: if false; }
+    match /tips/{docId} { allow read: if isAuthenticatedReader(); allow write: if false; }
+    match /articles/{docId} { allow read: if isAuthenticatedReader(); allow write: if false; }
+    match /articlesAntigravity/{docId} { allow read: if isAuthenticatedReader(); allow write: if false; }
+    match /supplements/{docId} { allow read: if isAuthenticatedReader(); allow write: if false; }
+    match /redFlags/{docId} { allow read: if isAuthenticatedReader(); allow write: if false; }
+    match /chatbotSuggestionsAG/{docId} { allow read: if isAuthenticatedReader(); allow write: if false; }
+    match /weeks/{docId} { allow read: if isAuthenticatedReader(); allow write: if false; }
+
+  }
+}
+

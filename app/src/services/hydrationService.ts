@@ -4,6 +4,7 @@ import * as Notifications from 'expo-notifications';
 import { isSameDay } from 'date-fns';
 import { Platform } from 'react-native';
 import i18n from '../i18n';
+import { REMINDERS_CHANNEL_ID } from './notificationChannels';
 
 const log = createLogger('HydrationService');
 const STORAGE_KEY = 'hydration_data_v1';
@@ -59,9 +60,11 @@ export const saveHydrationData = async (data: HydrationData): Promise<void> => {
         await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(data));
         // If settings changed, reschedule reminders
         if (data.reminderEnabled) {
-            scheduleHydrationReminders(data);
+            // Not awaited (the save must not wait on the OS), but a scheduling
+            // failure is logged instead of becoming an unhandled rejection.
+            scheduleHydrationReminders(data).catch(e => log.error('Error scheduling hydration reminders:', e));
         } else {
-            cancelHydrationReminders();
+            cancelHydrationReminders().catch(e => log.error('Error cancelling hydration reminders:', e));
         }
     } catch (error) {
         log.error('Error saving hydration data:', error);
@@ -124,11 +127,14 @@ export const scheduleHydrationReminders = async (data: HydrationData) => {
                 body: msg.body,
                 sound: 'default',
             },
+            // DAILY, not CALENDAR: Android has no calendar trigger and throws for it.
             trigger: {
-                type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
+                type: Notifications.SchedulableTriggerInputTypes.DAILY,
                 hour: triggerHour,
                 minute: triggerMinute,
-                repeats: true,
+                // Without a channel these landed on the generic fallback channel at
+                // default importance, unlike every other reminder.
+                ...(Platform.OS === 'android' ? { channelId: REMINDERS_CHANNEL_ID } : {}),
             },
         });
     }

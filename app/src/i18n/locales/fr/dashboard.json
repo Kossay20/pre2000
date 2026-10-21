@@ -6,16 +6,18 @@
     "add": "+ Ajouter",
     "current": "Actuel",
     "gain": "Gain",
-    "noDataWeight": "Aucune donnée. Ajoutez votre premier poids !",
+    "noDataWeight": "Aucune donnée. Ajoutez votre premier poids !",
     "bloodPressure": "💓 Tension Artérielle",
     "lastMeasurement": "Dernière mesure",
-    "noDataBP": "Aucune mesure. Ajoutez votre première tension !",
+    "noDataBP": "Aucune mesure. Ajoutez votre première tension !",
     "appointments": "📅 Rendez-vous",
     "upcoming": "À venir",
     "past": "Passés",
     "seeAll": "Voir tout →",
-    "remindersThisWeek": "🔔 Rappels Cette Semaine",
+    "remindersThisWeek": "✅ Tâches de la semaine",
     "completed": "complétés",
+    "noRemindersThisWeek": "Aucune tâche prévue cette semaine",
+    "setStartingWeight": "Renseigner mon poids initial",
     "addWeight": "Ajouter Poids",
     "weightPlaceholder": "Poids (kg)",
     "cancel": "Annuler",
@@ -23,14 +25,26 @@
     "addBP": "Ajouter Tension",
     "systolic": "Systolique (ex: 120)",
     "diastolic": "Diastolique (ex: 80)",
-    "soonAvailable": "Bientôt disponible",
-    "soonAvailableDesc": "Le suivi détaillé arrive bientôt !",
+    "systolicLabel": "Tension systolique (mmHg)",
+    "diastolicLabel": "Tension diastolique (mmHg)",
     "errorLoading": "Erreur lors du chargement des données",
     "errorSaving": "Erreur lors de l'enregistrement",
     "guestNotice": "Connectez-vous pour suivre votre santé",
+    "guestLockTitle": "Suivez votre santé",
+    "guestLockSubtitle": "Créez un compte pour enregistrer votre poids, votre tension, votre glycémie et bien plus.",
     "glucose": "Glycémie",
-    "glucoseNormal": "Glycémie normale ce mois-ci",
-    "glucoseTarget": "Objectif : 3,5 – 7,8 mmol/L (à jeun)",
+    "glucoseMonth": {
+        "empty": "Aucune mesure ce mois-ci",
+        "inRange": "Mesures du mois dans l'objectif",
+        "outOfRange": "Mesure hors objectif ce mois-ci"
+    },
+    "glucoseTarget": "Objectif à jeun : de 3,5 à moins de 5,1 mmol/L",
+    "glucoseUnitCheckTitle": "🤔 Unité de mesure",
+    "glucoseUnitCheckMsg": "Vous avez saisi {{value}}. Est-ce bien en mmol/L ?\n\nSi c'est en g/L (l'unité des laboratoires en France et en Tunisie), cela équivaut à {{converted}} mmol/L.",
+    "glucoseIsMmol": "Oui, en mmol/L",
+    "glucoseIsGl": "C'est en g/L",
+    "glucoseConvertedTitle": "Valeur convertie",
+    "glucoseConvertedMsg": "{{original}} g/L = {{converted}} mmol/L. Vérifiez la valeur, puis enregistrez-la.",
     "symptomsToday": "Symptômes du jour",
     "symptomNausea": "Nausées",
     "symptomFatigue": "Fatigue",
@@ -53,7 +67,7 @@
         },
         "glucoseSurveillance": {
             "title": "Glycémie à surveiller",
-            "message": "Cette valeur est légèrement au-dessus de la normale. Notez-la et mentionnez-la lors de votre prochain rendez-vous."
+            "message": "À jeun, une glycémie de 5,1 mmol/L (0,92 g/L) ou plus dépasse le seuil retenu pendant la grossesse. Si cette mesure a bien été prise à jeun, parlez-en à votre sage-femme ou à votre médecin dans les prochains jours, sans attendre la prochaine consultation."
         },
         "glucoseHigh": {
             "title": "Glycémie élevée",
@@ -69,11 +83,11 @@
         },
         "bpHigh": {
             "title": "Tension élevée",
-            "message": "Tension élevée. Mentionnez-le à votre professionnel de santé lors de votre prochain rendez-vous."
+            "message": "Tension de 140/90 ou plus. Contactez votre sage-femme ou votre médecin dans les 24 heures pour la faire contrôler, sans attendre la prochaine consultation. Si vous avez aussi de forts maux de tête, des troubles de la vue ou une douleur en haut du ventre, appelez les urgences."
         },
         "bpSevere": {
             "title": "Tension très élevée",
-            "message": "Tension très élevée. Contactez votre professionnel de santé sans attendre — risque de pré-éclampsie."
+            "message": "Tension très élevée. Appelez les urgences ou rendez-vous à la maternité sans attendre — risque de pré-éclampsie."
         },
         "bpLow": {
             "title": "Tension basse",

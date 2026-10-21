@@ -54,6 +54,8 @@ export interface Week {
     weekly_summary_en?: string;
     baby_image_static_url?: string;
     baby_3d_model_url?: string;
+    /** Ids from CONTENT_SOURCES (data/contentSources.ts), set once a clinician has checked the text. */
+    sources?: string[];
 }
 
 export interface ChatbotMessage {
@@ -116,6 +118,8 @@ export interface Article {
     related_articles_ids: string[];
     note_localisation?: string;
     language?: string;
+    /** Ids from CONTENT_SOURCES (data/contentSources.ts), set once a clinician has checked the text. */
+    sources?: string[];
 }
 
 export interface Supplement {
@@ -157,8 +161,11 @@ export interface CalendarTemplate {
     description_ar?: string;
     description_en?: string;
     description_tn?: string;
-    type: 'consultation' | 'exam' | 'preparation' | 'administrative' | 'lifestyle';
-    importance: 'essential' | 'recommended' | 'optional';
+    // Authored as a French composite ("examen,echo"); see utils/calendarTemplateTags.
+    type: string;
+    importance?: 'essential' | 'recommended' | 'optional';
+    // What the seeded templates actually carry: 1 = essential … 3 = optional.
+    importance_level?: number;
     week_min: number;
     week_max: number;
     recommended_day?: number; // Day in week
@@ -216,6 +223,8 @@ export interface ChatResponse {
     matchScore: number;
     anchor?: string; // NEW: For deep linking to specific paragraphs
     originalText?: string; // NEW: For retry logic
+    // An app screen the answer points to, shown as a link under the reply.
+    screenLink?: 'ForbiddenFoods';
 }
 
 export interface Video {
@@ -255,6 +264,9 @@ export interface UserProfile {
     pregnancyStartDate: string; // ISO Date string (for AuthContext)
     lmp?: string; // Last Menstrual Period ISO Date string (for PregnancyContext)
     dpa?: string; // Date Prévue Accouchement (due date) ISO Date string
+    /** The CONTENT week, 1..40 (0 in TTC mode): calculateCurrentWeek, recomputed on the
+     *  device and never stored on the server. It stops at 40 past the due date, so no
+     *  screen prints it — the printed week comes from displayedPregnancyAge. */
     currentWeek: number;
     country: string;
     city?: string;
@@ -268,6 +280,19 @@ export interface UserProfile {
     // AsyncStorage 'guestProfile' for guests). Firestore supports arrays natively;
     // no sub-collection is needed.
     emergencyContacts?: EmergencyContact[];
+    // Declared conditions, asked once during onboarding and editable in Settings.
+    // REMINDERS_V2.json has always keyed context rules on these — the glucose-check
+    // reminder is authored for users with gestational diabetes only — but nothing
+    // collected the answers, so the rules were inert and the reminder was listed for
+    // everyone. `undefined` means never asked or skipped; see utils/medicalFlags.ts
+    // for why that is deliberately distinct from an answered `false`.
+    hasGestationalDiabetes?: boolean;
+    hasHypertension?: boolean;
+    isTwinPregnancy?: boolean;
+    medicalProfileAnsweredAt?: string;   // ISO — set even when every answer was skipped
+    // Explicit consent to the processing of pregnancy/health data, given on the step
+    // that first saves the profile. See utils/healthDataConsent.ts.
+    healthDataConsent?: { version: string; at: string };
     // TTC-FIX: Trying-To-Conceive mode flag + cycle data.
     // When isTTC === true, currentWeek is forced to 0 and the user is NOT pregnant —
     // downstream UI must check isTTC and avoid rendering pregnancy-week content.
@@ -280,6 +305,13 @@ export interface UserProfile {
     ovulationDate?: string;          // ISO Date string — estimated for the current cycle
     fertileWindowStart?: string;     // ISO Date string — ovulation - 5 days
     fertileWindowEnd?: string;       // ISO Date string — ovulation + 1 day
+    // Cycle 3 F201 : marqueur "Curious" (mode découverte sans grossesse réelle).
+    // Avant : `handleFinishCurious` setait un fake LMP sans marqueur → l'app
+    // croyait l'utilisatrice enceinte semaine X (BabyGrowthCard, RDV templates).
+    // Avec ce flag, les screens peuvent guarder `if (user?.isCurious)` et afficher
+    // un mode exploration neutre (cf. F212 Wave C).
+    isCurious?: boolean;
+    exploreWeek?: number;            // 1-40 — semaine choisie en mode découverte
 }
 
 // User's personal calendar events/appointments
@@ -290,6 +322,11 @@ export interface UserEvent {
     date: string; // ISO date string
     week: number; // Calculated from LMP
     type: 'appointment';
+    // CAL-04: user-selected nature of the appointment (Medical vs Personal).
+    // `type` stays the literal 'appointment' (consumed across the app); this
+    // optional field persists the selector so re-opening an event restores it.
+    // Absent on legacy events → callers fall back to the type-based heuristic.
+    category?: 'medical' | 'other';
     location?: string; // NEW: Address/Location
     notes?: string;
     created_at: string; // Timestamp
@@ -316,6 +353,7 @@ export interface CombinedEvent {
     priorityColor?: string;
     notes?: string;
     location?: string; // For user events
+    category?: 'medical' | 'other'; // CAL-04: persisted Medical/Personal nature (user events)
 }
 
 // V3 NEW TYPES

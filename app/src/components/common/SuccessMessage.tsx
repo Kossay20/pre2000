@@ -10,7 +10,12 @@ export const SuccessMessage: React.FC<SuccessMessageProps> = ({ message }) => {
     if (!message) return null;
 
     return (
-        <View style={styles.container}>
+        // W1 #5: announce success to assistive tech (polite — success isn't as urgent as an error).
+        <View
+            style={styles.container}
+            accessibilityRole="alert"
+            accessibilityLiveRegion="polite"
+        >
             <Text style={styles.text}>✓ {message}</Text>
         </View>
     );

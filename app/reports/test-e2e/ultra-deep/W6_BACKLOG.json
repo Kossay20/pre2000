@@ -1,0 +1,432 @@
+{
+ "summary": "W6 (S6 Chatbot) triage of 75 raw findings across 10 lenses. I empirically reproduced the two highest-stakes triage-safety defects by running analyzeMessage against the live service: (1) \"I have heavy bleding\" and \"heavy blood\" return type=info (NO escalation) — a VERIFIED hemorrhage UNDER-escalation, root-caused to FuzzyMatcher returning the capitalized vocab token \"Heavy\" (case-sensitive levenshtein, distance 1 to lowercase input) which KeywordEngine assigns without re-lowercasing (KeywordEngine.ts:154), so INTENSIFIER_TOKENS.has(\"Heavy\")=false and the generic \"bleeding/blood\" token is gated away; \"severe bleeding\" correctly escalates, proving the mechanism is specifically broken for \"heavy\". This is the single most common layperson hemorrhage phrasing → P0. (2) AR/TN negated bleeding \"ما عنديش نزيف\" (I do NOT have bleeding) returns red_flag/emergency — VERIFIED cry-wolf OVER-escalation because the Arabic substring Path B (chatbotService.ts:717-726) never consults the negative[] bucket and sets strongMatch=true → P1. The remaining value is UX/a11y/i18n/perf + the severity-taxonomy unification (schema.ts:18 FR union vs active EN-only data; screen gate ChatbotScreen.tsx:139-140 recognizes only the EN pair — latent under-escalation if SQLite path ever activates). I deduped the live-region a11y gap (reported by 6 lenses → 1 P1), the contrast failures (5 lenses → 1 P1, tokens verified: error #E57373 on surfaceRose = 2.6:1 FAIL, red800 #C62828 = ~5:1 PASS), severity taxonomy (7 lenses → 1 P1 unification + 1 data-contract test), and the FlatList perf items (6 lenses → 1). All i18n keys (chatEmergency/chatEmergencyAction/chatRateLimit/chatError) verified present in all 4 langs; all theme tokens verified. 168 triage tests pass but none cover the heavy-typo or AR-negation gaps. Disputed/downgraded: negation-guard loose-substring (P2/P3, latent, strongMatch + RESET_TOKEN protect today, no live repro), FuzzyMatcher tie-break (P3 cosmetic), Date.now() id collision (real but low-prob), RFM reassurance collision (P2, narrow).",
+ "improvements": [
+  {
+   "rank": 1,
+   "sev": "P0",
+   "screen": "S6 Chatbot — triage engine",
+   "anchor": "app/src/services/chatbot/engines/KeywordEngine.ts:154 (+ constructor :80-83, vocab build chatbotService.ts:257,269)",
+   "title": "\"heavy\" intensifier shadowed by capitalized \"Heavy\" vocab token → VERIFIED hemorrhage UNDER-escalation",
+   "fix": "At KeywordEngine.ts:154 change `word = corrected;` to `word = corrected.toLowerCase();`. Belt-and-braces: normalize vocabulary to lowercase at construction (KeywordEngine.ts:80 `new Set(vocabulary.map(v=>v.toLowerCase()))`) so no title/label casing can ever leak into downstream lowercase comparisons (INTENSIFIER_TOKENS, GENERIC tokens, keyword equality). Pure correctness/defense-in-depth — does NOT weaken any over-escalation guard (NEVER_CORRECT/first-letter/length budget untouched).",
+   "impact": "high",
+   "effort": "S",
+   "acceptance": "New describe() in chatbotTriage.test.ts: 'I have heavy bleding', 'heavy bleding', 'heavy blood', 'Heavy bleeding' → ALL red_flag/emergency (hemorrhage). Currently 'heavy bleding'→info, 'heavy blood'→info (reproduced). Existing 168 tests stay green; npm run verify green.",
+   "confidence": "high",
+   "merged_from": [
+    "triage-safety #1"
+   ]
+  },
+  {
+   "rank": 2,
+   "sev": "P1",
+   "screen": "S6 Chatbot — triage engine (AR/TN)",
+   "anchor": "app/src/services/chatbotService.ts:717-726 (Arabic Path B) + :728-729 (latin-only negation guard)",
+   "title": "AR/TN NEGATED emergency symptom → false EMERGENCY (cry-wolf, RTL-only) — VERIFIED over-escalation",
+   "fix": "Add an Arabic-script negation guard scoped to Path B, mirroring the latin romNegated windowed approach. When textIsArabic, compute arNegated from the AR/TN negation lexemes already in KeywordEngine.NEGATIONS + TN_NEGATION_RE (ما...ش / مش / لا / ليس / ما عنديش), detecting a negation token within a short window BEFORE the matched AR token in arabicWordTokens. In Path B (:719) skip matchCount/strongMatch when arNegated governs that token. CRITICAL: keep it SCOPED so 'عندي نزيف ومش خايفة' (I have bleeding and am not scared) still escalates.",
+   "impact": "high",
+   "effort": "M",
+   "acceptance": "New describe() block: 'ما عنديش نزيف','لا أعاني من نزيف','لا يوجد نزيف','ما عنديش دم' → NOT red_flag; control 'عندي نزيف' → still emergency (all 5 reproduced today: 4 wrongly escalate, control correct). 168 tests stay green.",
+   "confidence": "high",
+   "merged_from": [
+    "logic-flow #1"
+   ]
+  },
+  {
+   "rank": 3,
+   "sev": "P1",
+   "screen": "S6 Chatbot — emergency alert + call button",
+   "anchor": "app/src/screens/ChatbotScreen.tsx:421-445 (alertTitle/alertText/callButton styles) + theme/index.ts:19,100,102,136",
+   "title": "Emergency alert text & call button FAIL WCAG AA contrast (2.6–3.0:1) — most safety-critical text is least legible",
+   "fix": "Theme-token-only swap (no hex). styles.alertTitle.color and styles.alertText.color → theme.colors.red800 (#C62828: 4.9:1 on surfaceRose, 5.1:1 on surfaceOrangeTint — PASS); styles.callButton.backgroundColor → theme.colors.red700 or red800 (white-on-#C62828 = 5.6:1 PASS). Keep theme.colors.error only for soft borders/tint. No logic change — tel: handler and resolveEmergencyNumber untouched.",
+   "impact": "high",
+   "effort": "S",
+   "acceptance": "Contrast helper: alertTitle/alertText ≥4.5:1 on BOTH surfaceRose and surfaceOrangeTint; callButtonText (14px bold) ≥4.5:1. Verify in all 4 langs incl. RTL.",
+   "confidence": "high",
+   "merged_from": [
+    "reasoner-ux #1",
+    "micro-state",
+    "a11y #2/#3",
+    "ux-hierarchy #1/#2"
+   ]
+  },
+  {
+   "rank": 4,
+   "sev": "P1",
+   "screen": "S6 Chatbot — dynamic content a11y",
+   "anchor": "app/src/screens/ChatbotScreen.tsx:92 (setMessages) + :141-149 (alert View) + :258-265 (FlatList)",
+   "title": "New bot replies + EMERGENCY alert NOT announced to screen readers — no live region (grep: zero accessibilityLiveRegion/announceForAccessibility)",
+   "fix": "Mirror existing convention (ErrorMessage.tsx:25-26 uses accessibilityRole='alert'+liveRegion='assertive'; HomeScreen.tsx:230 uses announceForAccessibility). (1) After botMsg append (:92) call AccessibilityInfo.announceForAccessibility — for emergency prepend localized t('common.chatEmergency') (strip emojis so SR doesn't read '🚨'). (2) Add accessibilityRole='alert' + accessibilityLiveRegion='assertive' to the emergency alert View (:141); accessibilityLiveRegion='polite' on ordinary bot bubbles. (3) Give the loading View (:267-271) accessibilityLabel + accessibilityRole='progressbar'. No new i18n keys (chatEmergency/chatError verified in 4 langs).",
+   "impact": "high",
+   "effort": "M",
+   "acceptance": "VoiceOver/TalkBack/web aria-live: typing a symptom → reply announced; emergency announced assertively with severity word first. RN-Web emits aria-live on the alert container (document.dir=rtl ar/tn verified).",
+   "confidence": "high",
+   "merged_from": [
+    "triage-safety #2",
+    "logic-flow #2",
+    "reasoner-ux #2",
+    "adversarial-break",
+    "micro-state",
+    "a11y #1",
+    "i18n-rtl #1",
+    "ux-hierarchy #4",
+    "ux-microinteraction #1",
+    "data-integrity #3"
+   ]
+  },
+  {
+   "rank": 5,
+   "sev": "P1",
+   "screen": "S6 Chatbot — rate-limit / oversized input (handleSend)",
+   "anchor": "app/src/screens/ChatbotScreen.tsx:58 (oversized) + :62-70 (rate-limit early return)",
+   "title": "Emergency message SILENTLY DISCARDED on rate-limit or >500 chars — never appended, never triaged, no UI feedback",
+   "fix": "(a) >500 (:58): clamp `messageText = messageText.slice(0, MAX_INPUT_LENGTH)` and proceed (service triages 10k-char buried emergencies fine — verified by prior lens), instead of bare `return`. (b) Rate-limit (:62-70): still append the user's message bubble BEFORE returning, attach the rate-limit notice with a retry affordance carrying originalText (reuse error-retry UI :128-136). Safety rule: a client-side throttle must never skip triage of an emergency. Best: run the pure in-memory red-flag scan even when rate-limited; throttle only the semantic-search fallback.",
+   "impact": "high",
+   "effort": "M",
+   "acceptance": "Paste >500-char text containing 'I cannot breathe' → escalates (not dropped). 21st rapid message 'I'M BLEEDING SO MUCH' → user bubble shown + retry; never silently vanishes.",
+   "confidence": "high",
+   "merged_from": [
+    "adversarial-break #1/#2"
+   ]
+  },
+  {
+   "rank": 6,
+   "sev": "P1",
+   "screen": "S6 Chatbot — severity taxonomy unification",
+   "anchor": "app/src/services/chatbot/data/schema.ts:18 (FR union) vs chatbot_data.ts (EN only) + chatbotService.ts:25-32 + ChatbotScreen.tsx:139-146",
+   "title": "Screen call-button gate is EN-only case-sensitive allowlist — narrower than service & test; FR/SQLite severity would silently lose the alert+call button",
+   "fix": "Add src/services/chatbot/severity.ts: normalizeSeverity(s) mapping {emergency,critique}→'emergency', {urgent_consult,élevé}→'urgent_consult', else 'info' (lowercased/trimmed). (1) ChatbotScreen.tsx:139-146 gate on normalizeSeverity(...) !== 'info'. (2) Refactor chatbotService.ts:838-844 to consume the same normalizer (delete duplicated literal lists). (3) Migrate schema.ts:18 to the canonical EN union OR route sqlite_data.ts:71 severity through normalizeSeverity at the repository boundary. Narrow RedFlag.severity type (types/index.ts:185) from string to the union for compile-time safety.",
+   "impact": "med",
+   "effort": "M",
+   "acceptance": "Verified today: active data = 6 emergency + 9 urgent_consult (EN only), schema = FR union. Latent: a 'critique' flag would score 3 in service yet render no call button. After fix both vocabularies render the alert+call UI.",
+   "confidence": "high",
+   "merged_from": [
+    "triage-safety #3",
+    "logic-flow #4",
+    "adversarial-break #4",
+    "micro-state",
+    "reasoner-ux #4",
+    "i18n-rtl #5",
+    "ux-hierarchy #7",
+    "data-integrity #1"
+   ]
+  },
+  {
+   "rank": 7,
+   "sev": "P1",
+   "screen": "S6 Chatbot — guard test",
+   "anchor": "app/src/services/__tests__/chatbotTriage.test.ts:28-30 (+ new severityTaxonomy.contract.test.ts)",
+   "title": "Missing data-contract test: nothing asserts active red-flag severities ⊆ screen-rendered set; existing escalates() reads response severity (incl. FR), so a FR flag passes as 'safe' while drawing no call button (false-green CI)",
+   "fix": "Add severityTaxonomy.contract.test.ts importing RED_FLAGS + the new SCREEN_HANDLED set from severity.ts: assert RED_FLAGS.every(f => normalizeSeverity(f.severity)!=='info'); assert every SEVERITY_PRIORITY key with priority>=2 normalizes to a screen-rendered bucket. Convert escalates() in chatbotTriage.test.ts to call the SAME normalizeSeverity the screen uses, so 'escalates in test' == 'renders a call button'.",
+   "impact": "med",
+   "effort": "S",
+   "acceptance": "Build fails the instant a flag with an unrenderable severity is added. Locks the rank-6 unification.",
+   "confidence": "high",
+   "merged_from": [
+    "data-integrity #2"
+   ]
+  },
+  {
+   "rank": 8,
+   "sev": "P2",
+   "screen": "S6 Chatbot — RFM reassurance guard",
+   "anchor": "app/src/services/chatbotService.ts:440-459 (REASSURANCE_TOKENS + reducedFetalMovement)",
+   "title": "Alarming reduced-fetal-movement report containing 'not normal' is de-escalated by the bare 'normal' reassurance token",
+   "fix": "Make hasReassurance negation-aware: do not count 'normal'/'fine'/'well' as reassurance when within a short negation window ('not normal','doesn't feel normal','pas normal'). Reuse existing accentWord/NEG_FRAG machinery.",
+   "impact": "med",
+   "effort": "S",
+   "acceptance": "'baby not moving, this is not normal' / 'no movement, doesn't feel normal' → escalate; 'baby is moving normally, no concerns' → still NOT escalate (CB-R7-01 case preserved).",
+   "confidence": "med",
+   "merged_from": [
+    "triage-safety #5"
+   ]
+  },
+  {
+   "rank": 9,
+   "sev": "P2",
+   "screen": "S6 Chatbot — negation guard",
+   "anchor": "app/src/services/chatbotService.ts:729",
+   "title": "Negation guard uses loose bidirectional substring (word.includes(keyword)||keyword.includes(word)) — latent over-suppression for short keywords (red/vif/دم/ألم)",
+   "fix": "Mirror the positive-path CB-NEW-01 fix (:654): require whole-token equality — `negative.some(word => word === keyword || (word.includes(' ') && word.split(/\\s+/).includes(keyword)))`. Latent (strongMatch + RESET_TOKEN protect today; no live repro found), hardening only.",
+   "impact": "med",
+   "effort": "S",
+   "acceptance": "'I am not tired but I am bleeding heavily' / 'je ne suis pas fatiguée mais je perds beaucoup de sang' → still emergency; 'I have no bleeding' → still suppressed. 168 tests green.",
+   "confidence": "med",
+   "merged_from": [
+    "triage-safety #4",
+    "logic-flow #3"
+   ]
+  },
+  {
+   "rank": 10,
+   "sev": "P2",
+   "screen": "S6 Chatbot — RTL alert/call/article alignment",
+   "anchor": "app/src/screens/ChatbotScreen.tsx:438 (callButton),:464 (retryButton),:409/:446 (alert/article containers); styles :421-455",
+   "title": "Inner controls + alert/article text use physical flex-start / no textAlign → hug LEFT in ar/tn on web (I18nManager.isRTL FALSE while document.dir=rtl)",
+   "fix": "Drive from the language-derived isRTL already in scope (:31), NOT I18nManager. Replace alignSelf:'flex-start' on callButton (:438) and retryButton (:464) with alignSelf: isRTL?'flex-end':'flex-start' (same pattern as bubbleAlign :118). Add textAlign:'auto' to alertTitle/alertText/sectionTitle/articleLinkText/callButtonText. For the emergency call label (:169) isolate the LTR number with FSI/PDI or render the number in its own Text writingDirection:'ltr' so '(190)' never reorders beside RTL text.",
+   "impact": "med",
+   "effort": "M",
+   "acceptance": "In ar AND tn (document.dir=rtl) the call button + article chips right-align inside the bubble and the emergency number renders unambiguously LTR.",
+   "confidence": "med",
+   "merged_from": [
+    "a11y #6",
+    "i18n-rtl #2/#3",
+    "ux-hierarchy #5"
+   ]
+  },
+  {
+   "rank": 11,
+   "sev": "P2",
+   "screen": "S6 Chatbot — loading/typing state",
+   "anchor": "app/src/screens/ChatbotScreen.tsx:267-271 (loading outside FlatList) + :264 (scrollToEnd)",
+   "title": "'Bot is thinking' is a detached unlabeled spinner below the list, not announced, not gated on reduced-motion",
+   "fix": "Render loading as a trailing list item / ListFooterComponent so onContentSizeChange scrolls it into view; add accessibilityLabel={t('common.chatTyping')} (NEW key — add to all 4 langs) + accessibilityLiveRegion='polite'. Gate scrollToEnd animated flag on usePrefersReducedMotion() (hook exists, used by Calendar/Home/Toast): `scrollToEnd({animated:!reducedMotion})`.",
+   "impact": "med",
+   "effort": "M",
+   "acceptance": "SR hears 'Assistant is typing…'; reduced-motion users get no animated scroll jump; spinner sits inline at conversation tail. New chatTyping key present + synced in en/fr/ar/tn.",
+   "confidence": "high",
+   "merged_from": [
+    "reasoner-ux #3",
+    "adversarial-break",
+    "a11y #4",
+    "ux-microinteraction #3",
+    "ux-hierarchy #6",
+    "perf"
+   ]
+  },
+  {
+   "rank": 12,
+   "sev": "P2",
+   "screen": "S6 Chatbot — tap-through",
+   "anchor": "app/src/screens/ChatbotScreen.tsx:258 (messages FlatList) + :274 (suggestions FlatList)",
+   "title": "Neither FlatList sets keyboardShouldPersistTaps → first tap on suggestion chip / article / retry / CALL button only dismisses keyboard (double-tap)",
+   "fix": "Add keyboardShouldPersistTaps='handled' to both FlatLists (:258 and :274). Lets taps reach buttons in one go while still dismissing on empty-space taps.",
+   "impact": "med",
+   "effort": "S",
+   "acceptance": "With keyboard open, single tap on a suggestion chip and on the emergency 📞 CALL button fires immediately, all 4 langs.",
+   "confidence": "high",
+   "merged_from": [
+    "micro-state",
+    "ux-microinteraction #4"
+   ]
+  },
+  {
+   "rank": 13,
+   "sev": "P2",
+   "screen": "S6 Chatbot — rate-limit feedback",
+   "anchor": "app/src/screens/ChatbotScreen.tsx:62-70 + app/src/utils/rateLimiter.ts:71-78 (getTimeUntilReset unused)",
+   "title": "Rate-limit bubble has no wait-time and can be spammed indefinitely (each blocked send appends another identical bubble)",
+   "fix": "Compute waitMs=chatbotLimiter.getTimeUntilReset(); interpolate t('common.chatRateLimit',{seconds:Math.ceil(waitMs/1000)}) (add {{seconds}} to the 4 chatRateLimit strings). De-dupe: if last message is already the rate-limit bubble, replace instead of append. Route through the polite live-region from rank 4.",
+   "impact": "med",
+   "effort": "S",
+   "acceptance": "Rate-limit shows a real countdown; repeated taps don't stack duplicate bubbles; 4 langs synced.",
+   "confidence": "med",
+   "merged_from": [
+    "micro-state",
+    "ux-microinteraction #6",
+    "reasoner-ux #5",
+    "data-integrity #5"
+   ]
+  },
+  {
+   "rank": 14,
+   "sev": "P2",
+   "screen": "S6 Chatbot — message FlatList perf",
+   "anchor": "app/src/screens/ChatbotScreen.tsx:115 (inline renderMessage),:258-265,:262 (inline keyExtractor)",
+   "title": "Inline renderItem + no React.memo + no virtualization props → every keystroke re-renders all bubbles (heavy red-flag rows)",
+   "fix": "Extract row into React.memo'd MessageRow with stable primitive props (item,isRTL,emergencyNumber,onRetry,t); useCallback for renderMessage; module-level keyExtractor. Add initialNumToRender={12}, maxToRenderPerBatch={8}, windowSize={9}, removeClippedSubviews. Replace unconditional onContentSizeChange scrollToEnd with a messages.length-driven effect + near-bottom guard.",
+   "impact": "med",
+   "effort": "M",
+   "acceptance": "Typing in a 20+ message session no longer re-renders all bubbles; scroll doesn't yank a user reading back through an emergency card.",
+   "confidence": "high",
+   "merged_from": [
+    "perf #1",
+    "ux-hierarchy #6",
+    "ux-microinteraction #5/#7",
+    "reasoner-ux"
+   ]
+  },
+  {
+   "rank": 15,
+   "sev": "P3",
+   "screen": "S6 Chatbot — message ids",
+   "anchor": "app/src/screens/ChatbotScreen.tsx:64,73,83,95",
+   "title": "Date.now() / Date.now()+1 ids can collide on rapid sends → duplicate FlatList keys → mis-recycled bubbles; retry filters by localized text not id",
+   "fix": "Add `const idRef=useRef(0); const nextId=()=>'m'+(++idRef.current);` and use for all Message ids. Make retry removal target by id, not by t('common.chatError') text (brittle across 4 langs).",
+   "impact": "low",
+   "effort": "S",
+   "acceptance": "No duplicate-key React warning on double-tap send / fast chip taps; retry robust across langs.",
+   "confidence": "med",
+   "merged_from": [
+    "micro-state",
+    "ux-microinteraction #2"
+   ]
+  },
+  {
+   "rank": 16,
+   "sev": "P3",
+   "screen": "S6 Chatbot — emergency title glyph",
+   "anchor": "app/src/screens/ChatbotScreen.tsx:145-149",
+   "title": "Inverted severity icon: lower URGENT title shows ⚠️; highest EMERGENCY title shows no glyph (color-only severity cue, compounds the failing-contrast title)",
+   "fix": "Prefix emergency title with 🚨: `🚨 ${t('common.chatEmergency')}` (mirrors the sibling ⚠️ branch; emoji is direction-neutral and color-independent). Optionally use a dedicated t('chatResponse.urgentTitle') for the urgent title instead of reusing redFlagHigh (which is also appended to the body → duplicate sentence). No i18n change for the glyph itself.",
+   "impact": "low",
+   "effort": "S",
+   "acceptance": "Emergency title carries a stronger glyph than urgent; no duplicate redFlagHigh sentence if urgentTitle key added (4 langs).",
+   "confidence": "high",
+   "merged_from": [
+    "micro-state",
+    "a11y #7",
+    "i18n-rtl #4",
+    "ux-hierarchy #3"
+   ]
+  },
+  {
+   "rank": 17,
+   "sev": "P3",
+   "screen": "S6 Chatbot — EN guest emergency fallback",
+   "anchor": "app/src/screens/ChatbotScreen.tsx:171-175 + app/src/utils/clinicalChecks.ts:290-294 (LOCALE_FALLBACK has no 'en')",
+   "title": "EN guest with no country gets EMERGENCY card with NO call button and only 'contact a professional' — no number, no universal-hint",
+   "fix": "In the null-number branch (:171-175) strengthen the message to instruct dialing local emergency services with universal hints (112 EU / 911 US / 999 UK) via a NEW i18n key in all 4 langs, and/or prompt the guest to set country so a number resolves. Keep the no-tel:-button safety (never dial a wrong country).",
+   "impact": "low",
+   "effort": "S",
+   "acceptance": "EN guest emergency card always gives actionable guidance; no tel: button still rendered when number is null.",
+   "confidence": "med",
+   "merged_from": [
+    "adversarial-break #5"
+   ]
+  },
+  {
+   "rank": 18,
+   "sev": "P3",
+   "screen": "S6 Chatbot — schema severity debt",
+   "anchor": "app/src/services/chatbot/data/schema.ts:18 + app/src/services/chatbot/data/sqlite_data.ts:71",
+   "title": "schema.ts DbRedFlag.severity French union is the dead SQLite source feeding the rank-6 fragility — annotate/coerce so it can't seed a FR-severity flag",
+   "fix": "PREFERRED: change schema.ts:18 to the canonical EN union and route sqlite_data.ts:71 through normalizeSeverity(row.severity) so even a FR DB row is coerced before leaving the repository (safe-by-construction). MINIMUM: add a @deprecated JSDoc on schema.ts:18 + a grep guard. Covered acceptance-wise by rank 7's contract test.",
+   "impact": "low",
+   "effort": "S",
+   "acceptance": "sqlite_data path can never emit a severity the screen can't render; contract test (rank 7) green.",
+   "confidence": "med",
+   "merged_from": [
+    "data-integrity #4"
+   ]
+  },
+  {
+   "rank": 19,
+   "sev": "P3",
+   "screen": "S6 Chatbot — touch targets",
+   "anchor": "app/src/screens/ChatbotScreen.tsx:388-396 (suggestionButton ~30pt) + :459-466 (retryButton ~28pt)",
+   "title": "Suggestion chips and retry button below the 44pt comfortable target (above WCAG 2.5.8 24px min, below HIG/2.5.5 44pt)",
+   "fix": "Add minHeight:44 + justifyContent:'center' to suggestionButton (:388) and retryButton (:459), or bump paddingVertical to theme.spacing.m. No token/i18n change.",
+   "impact": "low",
+   "effort": "S",
+   "acceptance": "Both controls ≥44pt tall; send (48) and call (44) already fine.",
+   "confidence": "high",
+   "merged_from": [
+    "a11y #5"
+   ]
+  },
+  {
+   "rank": 20,
+   "sev": "P3",
+   "screen": "S6 Chatbot — FuzzyMatcher tie-break",
+   "anchor": "app/src/services/chatbot/engines/FuzzyMatcher.ts:100",
+   "title": "Equal-distance tie-break keeps FIRST vocab candidate (order-dependent, brittle to data reordering)",
+   "fix": "Track bestLen and prefer shorter candidate on equal distance: `distance < minDistance || (distance===minDistance && candidate.length < bestLen)`. Optionally de-dupe vocabulary via Set. Determinism only — dangerous collisions already closed by NEVER_CORRECT + first-letter guard.",
+   "impact": "low",
+   "effort": "S",
+   "acceptance": "Tie-break unit test (e.g. feber→fever deterministic); 168 tests green.",
+   "confidence": "low",
+   "merged_from": [
+    "logic-flow #5"
+   ]
+  },
+  {
+   "rank": 21,
+   "sev": "P3",
+   "screen": "S6 Chatbot — engine hot-path allocation",
+   "anchor": "app/src/services/chatbotService.ts:354-603 (~13 Sets/RegExps re-allocated per message; GENERIC_AR_TOKENS filter :593)",
+   "title": "_analyzeMessage re-allocates all text-independent vocab/regex constants on every message (incl. a filter over GENERIC_FLAG_TOKENS even for non-Arabic input)",
+   "fix": "Hoist INTENSIFIER_TOKENS, BABY/MOVEMENT/RFM/NEGATION/REASSURANCE/FETAL token sets, ROM_*_RE, AR_INTENSIFIER_RE, and GENERIC_AR_TOKENS (computed once) to module scope next to GENERIC_FLAG_TOKENS (:123). Bit-identical behaviour; safety guards unchanged.",
+   "impact": "low",
+   "effort": "M",
+   "acceptance": "npm run verify green (168 triage tests confirm no regression); less per-message GC pressure.",
+   "confidence": "high",
+   "merged_from": [
+    "perf #2/#3"
+   ]
+  },
+  {
+   "rank": 22,
+   "sev": "UX",
+   "screen": "S6 Chatbot — suggestion chip ordering / RTL carousel",
+   "anchor": "app/src/screens/ChatbotScreen.tsx:273-291 + src/data/chatbot_data.ts:2159+ (SUGGESTIONS cs01-cs25)",
+   "title": "Horizontal chip rail mixes benign + alarming symptom prompts in raw order and may start at wrong edge in ar/tn web (I18nManager.isRTL false)",
+   "fix": "Lead with reassuring info topics, group symptom-report chips (optional section label). For RTL drive from language-isRTL (:31): data={isRTL?[...].reverse():...} and/or contentContainerStyle flexDirection per the project's RTL carousel probe, so the first chip is at the visual start in ar/tn.",
+   "impact": "low",
+   "effort": "M",
+   "acceptance": "First-run rail leads with everyday topics; in ar/tn (document.dir=rtl) the first chip is visible at the right edge.",
+   "confidence": "low",
+   "merged_from": [
+    "reasoner-ux #6",
+    "ux-hierarchy #6",
+    "i18n-rtl"
+   ]
+  },
+  {
+   "rank": 23,
+   "sev": "UX",
+   "screen": "S6 Chatbot — scroll-to-latest",
+   "anchor": "app/src/screens/ChatbotScreen.tsx:264",
+   "title": "Auto-scroll yanks a user reading history; no 'jump to latest' affordance",
+   "fix": "Track isNearBottom via onScroll; gate scrollToEnd on it (also satisfies rank 14). When scrolled up and a new bot message lands, show an RtlAwareChevron-down 'latest' pill (theme tokens) that scrollToEnds on press.",
+   "impact": "low",
+   "effort": "M",
+   "acceptance": "Reading back through an emergency card is not interrupted; a pill appears to jump to latest, mirrored in ar/tn.",
+   "confidence": "med",
+   "merged_from": [
+    "reasoner-ux #4",
+    "perf"
+   ]
+  },
+  {
+   "rank": 24,
+   "sev": "UX",
+   "screen": "S6 Chatbot — dead i18n key",
+   "anchor": "app/src/i18n chatResponse.unknownMessage (all 4 langs) vs chatbotService.ts:1126 (returns fallbackMessage)",
+   "title": "chatResponse.unknownMessage is fully translated in 4 langs but never consumed (unknown branch returns fallbackMessage with different wording)",
+   "fix": "Resolve the duplicate: either delete chatResponse.unknownMessage from all 4 locale files, OR switch chatbotService.ts:1126 to unknownMessage (the clearer 'I didn't understand' phrasing fits type:'unknown') and delete fallbackMessage — pick one, keep 4 langs in sync.",
+   "impact": "low",
+   "effort": "S",
+   "acceptance": "No dead i18n key; unknown branch wording intentional and synced across en/fr/ar/tn.",
+   "confidence": "high",
+   "merged_from": [
+    "data-integrity #5"
+   ]
+  },
+  {
+   "rank": 25,
+   "sev": "UX",
+   "screen": "S6 Chatbot — always-available emergency entry",
+   "anchor": "app/src/screens/ChatbotScreen.tsx:252-256 (disclaimer) + :35-37 (welcome)",
+   "title": "Emergency call path only reachable via a matched red_flag; an unmatched/mixed-language distress phrasing never surfaces the dial affordance",
+   "fix": "Add a subtle always-available 'Emergency?' text-button (botHeader right of BETA badge, or a footer chip) that renders the same resolved-number call card (reuse resolveEmergencyNumber). Safety backstop for the negation/typo/mixed-language gaps. Token + existing i18n (chatEmergency/chatEmergencyAction) only.",
+   "impact": "med",
+   "effort": "M",
+   "acceptance": "Dial path reachable independent of triage matching, all 4 langs; respects null-number safety.",
+   "confidence": "low",
+   "merged_from": [
+    "reasoner-ux #7"
+   ]
+  }
+ ],
+ "counts": {
+  "P0": 1,
+  "P1": 6,
+  "P2": 7,
+  "P3": 7,
+  "UX": 4
+ },
+ "wave": "W6",
+ "system": "S6 Chatbot",
+ "generated": "2026-06-22",
+ "raw_count": 75
+}

@@ -1,0 +1,125 @@
+{
+  "localOnlyNote": "This history stays on this phone until you create an account.",
+  "kickCounter": {
+    "title": "Baby kick counter",
+    "subtitle": "Count your baby's movements over 1 hour.",
+    "tapToCount": "Tap to count",
+    "kicks": "kicks",
+    "kicksToday": "kicks today",
+    "kicksLastHour": "in the last hour",
+    "startSession": "Start a session",
+    "endSession": "End session",
+    "cancelSession": "Cancel",
+    "cancelConfirmTitle": "Cancel this session?",
+    "cancelConfirmMsg": "The movements counted in this session will not be saved.",
+    "keepCounting": "Keep counting",
+    "discardSession": "Discard session",
+    "noSessionYet": "No session yet",
+    "noSessionSub": "Start counting your baby's kicks.",
+    "nextSessionTitle": "Ready for a new session?",
+    "nextSessionSub": "Your previous sessions are in the history below.",
+    "newSession": "New session",
+    "history": "History",
+    "elapsed": "Elapsed",
+    "guidanceTitle": "Guidance",
+    "guidanceText": "From 28 weeks, count 10 movements in under 1h, ideally after a meal. If fewer than 10 in 2h, contact your midwife or go to the maternity ward.",
+    "guidanceEarly": "Before 28 weeks, kick counts are not yet a reliable alarm. Movements often start around 16–24 weeks. Contact your midwife if anything worries you — the 10-movements-in-2-hours rule applies from 28 weeks.",
+    "disclaimer": "This tool is informational. It does not replace medical advice. When in doubt, contact your healthcare provider.",
+    "tapBabyEmoji": "👶",
+    "session": "Session"
+  },
+  "contractionTimer": {
+    "title": "Contraction timer",
+    "subtitle": "Measure duration and frequency of your contractions.",
+    "startContraction": "Contraction start",
+    "stopContraction": "Contraction end",
+    "active": "Contraction in progress…",
+    "noContractionsYet": "No contractions logged",
+    "noContractionsSub": "Tap when a contraction begins.",
+    "stats": "Statistics",
+    "count": "Count",
+    "avgDuration": "Average duration",
+    "avgFrequency": "Average frequency",
+    "lastDuration": "Last duration",
+    "lastFrequency": "Last interval",
+    "history": "History",
+    "share": "Share summary",
+    "clear": "Clear all",
+    "clearConfirmTitle": "Clear all contractions?",
+    "clearConfirmMsg": "This cannot be undone.",
+    "guidanceTitle": "When to go to the maternity ward?",
+    "guidanceText": "5-1-1 rule: contractions every 5 min, lasting 1 min, for 1 hour. For first pregnancies. Before 37 weeks, or with bleeding, fluid loss or reduced movements: call right away. Follow your midwife's advice.",
+    "disclaimer": "This tool is informational. Follow your healthcare provider's advice."
+  },
+  "hospitalBag": {
+    "title": "Hospital bag",
+    "subtitle": "Pack your bag with peace of mind.",
+    "progress": "{{done}} / {{total}} packed",
+    "sections": {
+      "papers": "📄 Documents",
+      "mom": "🤱 Mom",
+      "baby": "👶 Baby",
+      "partner": "🤝 Partner"
+    },
+    "addCustom": "Add an item",
+    "addCustomPlaceholder": "New item…",
+    "add": "Add",
+    "cancel": "Cancel",
+    "removeCustom": "Remove",
+    "tip": "💡 Prepare your bag around 32-34 weeks. Check with your maternity ward whether they provide some items."
+  },
+  "ramadan": {
+    "title": "Ramadan & Pregnancy",
+    "subtitle": "Guidance, safety, and tracking days to make up.",
+    "draftBanner": "⚠️ Content pending clinical review. Validate with your doctor and an imam.",
+    "consultDoctor": "I consulted my doctor about fasting",
+    "trimesterTitle": "By your trimester",
+    "weeks": "Weeks",
+    "keyRisks": "Key risks",
+    "recommendation": "Recommendation",
+    "warningTitle": "Signs to break the fast",
+    "suhoorTitle": "Tips for Suhoor",
+    "iftarTitle": "Tips for Iftar",
+    "trackerTitle": "Days to make up (Qada / Fidya)",
+    "trackerSubtitle": "Log non-fasted days. Islam allows you to make them up later or pay Fidya.",
+    "logDay": "Log a non-fasted day",
+    "logBroken": "Fast broken",
+    "logSkipped": "Not fasted",
+    "missedDays": "Missed days",
+    "fidyaPaid": "Fidya paid",
+    "fidyaRemaining": "Fidya remaining",
+    "fidyaPlus": "+1 Fidya paid",
+    "fidyaMinus": "-1",
+    "remove": "Remove",
+    "noMissedDays": "No missed days logged",
+    "callDoctor": "Call my doctor",
+    "disclaimer": "This screen is informational. The decision to fast is yours, your doctor's, and your religious advisor's. Islam exempts pregnant women from fasting when it may harm them or their baby."
+  },
+  "forbiddenFoodsHalal": {
+    "title": "Foods to avoid — halal perspective",
+    "intro": "In addition to clinical risks (listeriosis, toxoplasmosis…), here are common non-halal foods to watch during pregnancy.",
+    "draftNote": "Content pending review by an imam and a registered dietitian. Consult your doctor for dietary choices.",
+    "items": {
+      "alcohol": {
+        "label": "Alcohol",
+        "note": "Forbidden in Islam and teratogenic. Includes hidden alcohol (sauces, desserts, some medications)."
+      },
+      "pork": {
+        "label": "Pork and derivatives",
+        "note": "Lard, charcuterie, pork gelatin — often hidden in candies, mass-market yoghurts, capsules."
+      },
+      "gelatin": {
+        "label": "Non-halal gelatin",
+        "note": "Check origin (pork, non-zabihah beef). Found in marshmallows, gummy bears, some supplements."
+      },
+      "nonHalalMeat": {
+        "label": "Non-zabihah meat",
+        "note": "Choose halal-certified meat. Salmonella risk if raw or undercooked (carpaccio, tartare)."
+      },
+      "cookingWine": {
+        "label": "Cooking wine/beer",
+        "note": "Coq au vin, beer in sauces — alcohol never fully evaporates during cooking."
+      }
+    }
+  }
+}

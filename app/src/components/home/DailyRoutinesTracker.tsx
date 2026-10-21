@@ -5,12 +5,14 @@ import { useTranslation } from 'react-i18next';
 import { createLogger } from '../../utils/logger';
 const log = createLogger('DailyRoutinesTracker');
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
-import { DailyChecklistItem, UserTask, UserEvent } from '../../types';
+import { UserTask, UserEvent } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { usePregnancy } from '../../context/PregnancyContext';
-import { generateDailyChecklist, loadDailyProgress } from '../../services/dailyChecklistService';
+import { generateDailyChecklist, loadDailyProgress, buildMyDayItems, myDayProgress } from '../../services/dailyChecklistService';
 import { getUserTasks } from '../../services/taskService';
-import { isToday, isTomorrow, isThisWeek, format } from 'date-fns';
+import { countEventsInRange, getCurrentPregnancyWeekRange, loadUserEvents } from '../../services/calendarService';
+import { isToday, isTomorrow, isThisWeek } from 'date-fns';
+import { Ionicons } from '@expo/vector-icons';
 import { RtlAwareChevron } from '../common/RtlAwareChevron';
 
 interface UnifiedDaySummaryProps {
@@ -23,7 +25,7 @@ export const DailyRoutinesTracker: React.FC<UnifiedDaySummaryProps> = ({
     const { t } = useTranslation();
     const navigation = useNavigation();
     const { user } = useAuth();
-    const { pregnancyInfo } = usePregnancy();
+    const { pregnancyInfo, profile } = usePregnancy();
 
     const [totalItems, setTotalItems] = useState(0);
     const [completedItems, setCompletedItems] = useState(0);
@@ -32,64 +34,21 @@ export const DailyRoutinesTracker: React.FC<UnifiedDaySummaryProps> = ({
     const loadData = useCallback(async () => {
         try {
             setLoading(true);
-            const currentWeek = pregnancyInfo?.week || 1;
+            const currentWeek = pregnancyInfo?.week ?? 1; // same default as the Tasks tab
 
-            // 1. Load Routines
-            // P3.4 FIX: Pass appointments through so today's RDV appear in the routine.
-            // Was hardcoded [] → checklist never knew about RDV (only the summary line did).
-            const generatedItems = await generateDailyChecklist(appointments, currentWeek, user?.uid);
-            const routineItems = generatedItems.filter(item => item.type !== 'appointment');
-            const itemsWithProgress = await loadDailyProgress(routineItems);
+            // The pill counts the same "Ma Journée" list the Tasks tab shows: today's
+            // appointments included, skipped items excluded. It reads every event (not the
+            // upcoming `appointments` prop, which loses this morning's RDV once it has passed).
+            const [events, userTasks] = user?.uid
+                ? await Promise.all([loadUserEvents(user.uid), getUserTasks(user.uid)])
+                : [[] as UserEvent[], [] as UserTask[]];
+            const checklist = await loadDailyProgress(
+                await generateDailyChecklist(events, currentWeek, user?.uid, undefined, user)
+            );
+            const { done, total } = myDayProgress(buildMyDayItems(checklist, userTasks));
 
-            // 2. Load Tasks
-            let userTasks: UserTask[] = [];
-            if (user?.uid) {
-                userTasks = await getUserTasks(user.uid);
-            }
-
-            // Filter tasks for today
-            const todayStr = format(new Date(), 'yyyy-MM-dd');
-            const now = new Date();
-            const todayTasks = userTasks.filter(task => {
-                let shouldShowToday = true;
-                if (task.recurrence) {
-                    const rule = task.recurrence;
-                    const dayOfWeek = now.getDay();
-                    if (rule.type === 'specific_days' && rule.days) {
-                        shouldShowToday = rule.days.includes(dayOfWeek);
-                    } else if (rule.type === 'interval' && rule.interval) {
-                        if (task.created_at) {
-                            const createdDate = task.created_at instanceof Date ? task.created_at :
-                                (task.created_at && typeof (task.created_at as any).toDate === 'function') ? (task.created_at as any).toDate() :
-                                    new Date(task.created_at as any);
-                            const diffTime = Math.abs(now.getTime() - createdDate.getTime());
-                            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-                            shouldShowToday = diffDays % rule.interval === 0;
-                        }
-                    }
-                } else if (task.reminder_time) {
-                    // One-off task with reminder
-                    const date = task.reminder_time instanceof Date ? task.reminder_time :
-                        (task.reminder_time && typeof (task.reminder_time as any).toDate === 'function') ? (task.reminder_time as any).toDate() :
-                            new Date(task.reminder_time as any);
-                    shouldShowToday = isToday(date);
-                }
-                return shouldShowToday;
-            });
-
-            // Calculate Routines Progress
-            const completedRoutines = itemsWithProgress.filter(item => item.completed || (item.type === 'hydration' && item.current !== undefined && item.target !== undefined && item.current >= item.target)).length;
-
-            // Calculate Tasks Progress
-            const completedTasks = todayTasks.filter(task => {
-                if (task.recurrence) {
-                    return task.completed_dates ? task.completed_dates.includes(todayStr) : false;
-                }
-                return task.completed;
-            }).length;
-
-            setTotalItems(itemsWithProgress.length + todayTasks.length);
-            setCompletedItems(completedRoutines + completedTasks);
+            setTotalItems(total);
+            setCompletedItems(done);
 
         } catch (error) {
             log.error('Error loading daily tracking:', error);
@@ -127,20 +86,28 @@ export const DailyRoutinesTracker: React.FC<UnifiedDaySummaryProps> = ({
     today.setHours(0, 0, 0, 0); // start of day
 
     const upcomingAppointments = appointments.filter(app => new Date(app.date) >= today);
-    const thisWeekAppointments = upcomingAppointments.filter(app => isThisWeek(new Date(app.date)));
+    // "Cette semaine" is the pregnancy week the Calendar shows and counts (same range, same
+    // counter), so the two numbers cannot disagree. `appointments` must be the uncapped
+    // upcoming list — HomeScreen used to pass the 3 it displays. Without a pregnancy date
+    // (TTC / curious) it falls back to the calendar week.
+    const lmp = user?.pregnancyStartDate || profile?.lmp;
+    const lmpDate = lmp ? new Date(lmp) : null;
+    const thisWeekCount = lmpDate && !isNaN(lmpDate.getTime())
+        ? countEventsInRange(upcomingAppointments, getCurrentPregnancyWeekRange(lmpDate))
+        : upcomingAppointments.filter(app => isThisWeek(new Date(app.date))).length;
 
     let appointmentMessage = null;
     let appointmentPriority: 'high' | 'medium' | 'low' = 'low';
 
     // Simplified, less visually loaded text strings for better psychology
     if (todayAppointments.length > 0) {
-        appointmentMessage = todayAppointments.length > 1 ? `${todayAppointments.length} RDV aujourd'hui` : `1 RDV aujourd'hui`;
+        appointmentMessage = t('home.reminders.appointmentsToday', { count: todayAppointments.length });
         appointmentPriority = 'high';
     } else if (tomorrowAppointments.length > 0) {
-        appointmentMessage = tomorrowAppointments.length > 1 ? `${tomorrowAppointments.length} RDV demain` : `1 RDV demain`;
+        appointmentMessage = t('home.reminders.appointmentsTomorrow', { count: tomorrowAppointments.length });
         appointmentPriority = 'medium';
-    } else if (thisWeekAppointments.length > 0) {
-        appointmentMessage = thisWeekAppointments.length > 1 ? `${thisWeekAppointments.length} RDV cette semaine` : `1 RDV cette semaine`;
+    } else if (thisWeekCount > 0) {
+        appointmentMessage = t('home.reminders.appointmentsWeek', { count: thisWeekCount });
         appointmentPriority = 'low';
     }
 
@@ -160,15 +127,17 @@ export const DailyRoutinesTracker: React.FC<UnifiedDaySummaryProps> = ({
 
     const renderAppointmentRow = (isSharedContext: boolean) => {
         if (!appointmentMessage) return null;
-        const icon = appointmentPriority === 'high' ? '📅' : (appointmentPriority === 'medium' ? '🔔' : '📆');
+        const icon = appointmentPriority === 'medium' ? 'notifications-outline' : 'calendar-outline';
         return (
             <TouchableOpacity
                 activeOpacity={0.6}
                 onPress={() => navigation.navigate('Calendrier')}
-                style={[styles.contentRow, isSharedContext && styles.sharedContentRow]}
+                style={[styles.contentRow, isSharedContext ? styles.sharedContentRow : styles.soloContentRow]}
+                accessibilityRole="button"
+                accessibilityLabel={appointmentMessage}
             >
                 <View style={styles.leftContent}>
-                    <Text style={styles.emoji}>{icon}</Text>
+                    <Ionicons name={icon} size={16} color={theme.colors.white} style={styles.icon} />
                     <Text style={[styles.title, { color: theme.colors.white }]}>
                         {appointmentMessage}
                     </Text>
@@ -187,13 +156,15 @@ export const DailyRoutinesTracker: React.FC<UnifiedDaySummaryProps> = ({
                 activeOpacity={0.6}
                 onPress={() => navigation.navigate('Rappels', { screen: 'RemindersMain', params: { screen: 'TasksTab' } })}
                 style={[styles.contentRow, isSharedContext && styles.sharedContentRow]}
+                accessibilityRole="button"
+                accessibilityLabel={`${t('reminders.myDay.title')} ${completedItems}/${totalItems}`}
             >
                 <View style={[isSharedContext && { flex: 1 }, !isSharedContext && { width: '100%', alignItems: 'center' }]}>
                     <View style={styles.topTaskRow}>
                         <View style={styles.leftContent}>
-                            <Text style={styles.emoji}>✨</Text>
+                            <Ionicons name="sparkles-outline" size={16} color={theme.colors.white} style={styles.icon} />
                             <Text style={[styles.title, { color: theme.colors.white }]}>
-                                {t('home.myDay', 'Ma Journée')} {completedItems}/{totalItems}
+                                {t('reminders.myDay.title')} {completedItems}/{totalItems}
                             </Text>
                         </View>
                         <View style={styles.rightContent}>
@@ -239,10 +210,11 @@ const styles = StyleSheet.create({
         paddingVertical: 4,
     },
     cardContainer: {
-        backgroundColor: theme.colors.whiteAlpha15, // Subtle translucent glass effect
+        backgroundColor: theme.colors.headerChipBg, // Darkening glass: a white wash drops the white labels below AA
         borderRadius: 20, // Modern card shape
-        paddingVertical: 12,
-        paddingHorizontal: 10,
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        minHeight: 44,
         borderWidth: 1,
         borderColor: theme.colors.whiteAlpha25, // Very subtle border
         width: '100%', // Take full available width of container
@@ -268,11 +240,20 @@ const styles = StyleSheet.create({
         flex: 1, // Space evenly
         marginHorizontal: 4,
     },
+    // A solo row fills the pill (flex: 1) instead of sizing to its text: react-native-web items
+    // default to flexShrink 0, so a long "Vous avez 4 rendez-vous ..." line was wider than the
+    // pill and pushed the icon over its left border and the chevron outside the right one.
+    soloContentRow: {
+        flex: 1,
+    },
     contentRow: {
+        flexShrink: 1,
+        minWidth: 0,
         flexDirection: 'row',
         justifyContent: 'center', // Center entire block if solitary, or within flex:1 if shared
         alignItems: 'center',
-        paddingVertical: 4,
+        paddingVertical: 2,
+        minHeight: 44,
     },
     topTaskRow: {
         flexDirection: 'row',
@@ -284,28 +265,33 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         flexShrink: 1, // Allow text wrapping/shrinking if needed gracefully
-        marginRight: 4,
+        minWidth: 0,
+        // Cycle 2 F309 RTL : marginEnd flip auto.
+        marginEnd: 4,
     },
     rightContent: {
         flexDirection: 'row',
         alignItems: 'center',
     },
-    emoji: {
-        fontSize: 13,
-        marginRight: 4,
+    icon: {
+        // Cycle 2 F309 RTL.
+        marginEnd: 6,
     },
     title: {
-        fontSize: 11,
+        fontSize: 13,
         fontWeight: '600',
         color: theme.colors.white,
         flexShrink: 1, // Allow shrinking within leftContent
     },
     progressBarBackground: {
+        // Full width: the solo row centres its children, so a track with no width collapsed
+        // to nothing and an empty 0/N bar was invisible.
+        width: '100%',
         height: 4,
-        backgroundColor: theme.colors.whiteAlpha20,
+        backgroundColor: theme.colors.whiteAlpha40,
         borderRadius: 2,
         overflow: 'hidden',
-        marginTop: 6, // Space between text and bar
+        marginTop: 4, // Space between text and bar
     },
     progressBarFill: {
         height: '100%',

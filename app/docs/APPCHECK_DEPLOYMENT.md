@@ -4,7 +4,9 @@
 
 ## Vue d'ensemble
 
-L'app utilise `@react-native-firebase/app-check` pour App Check **natif** (App Attest iOS + Play Integrity Android). Le scaffolding client est en place dans `src/config/firebase.ts`. Il reste 4 étapes humaines pour activer la protection.
+L'app utilise `@react-native-firebase/app-check` pour l'attestation **native** (App Attest iOS + Play Integrity Android). Mais Firestore et Auth passent par le SDK Firebase **JS** : `src/config/appCheck.native.ts` initialise donc App Check côté JS avec un `CustomProvider` qui demande le jeton au SDK natif — sinon aucune requête ne porterait de jeton et l'enforcement bloquerait tout le monde. Sans module natif (Expo Go, build sans les fichiers Firebase), l'app démarre sans App Check (fail-open). Le web n'initialise pas App Check.
+
+L'entitlement iOS `com.apple.developer.devicecheck.appattest-environment: production` est déclaré dans `app.json` (`ios.entitlements`) ; EAS synchronise la capability App Attest sur l'identifiant d'app au prochain `eas build` / `eas credentials`. Sans lui, l'attestation échoue sur tous les iPhone iOS 14+.
 
 ## Étape 1 — Firebase Console : enregistrement App Check
 
@@ -36,7 +38,7 @@ Pour développer avec `expo run:ios|android` (pas Expo Go) :
 
 ## Étape 4 — Enforcement progressif
 
-1. **Soft launch** : Firebase Console > App Check > **Monitor** : observer les requêtes Firestore/Auth pendant 24-48h. Vérifier que > 99% sont validées.
+1. **Soft launch** : Firebase Console > App Check > **Monitor** : observer les requêtes Firestore/Auth pendant 24-48h. **Ne pas activer Enforce tant que le ratio de requêtes vérifiées n'atteint pas au moins 95 %** (viser > 99 %). Les versions installées avant le pont JS (`appCheck.native.ts`) n'envoient aucun jeton : elles doivent avoir disparu du parc avant l'enforcement.
 2. **Hard enforcement** :
    - Cloud Firestore > **Enforce**
    - Authentication > **Enforce**

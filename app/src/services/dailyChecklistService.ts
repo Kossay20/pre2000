@@ -10,8 +10,9 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { format } from 'date-fns';
-import { DailyChecklistItem, UserEvent } from '../types';
+import { DailyChecklistItem, UserEvent, UserTask } from '../types';
 import { createLogger } from '../utils/logger';
+import { isOnLocalDay, toLocalDateKey } from '../utils/localDate';
 import {
     getRemindersForTasksTab,
     loadUserSettings,
@@ -19,6 +20,11 @@ import {
 } from './remindersV2Service';
 import { ReminderDefinition, ReminderUserSetting } from '../types/remindersV2';
 import { getLocalizedTrilang } from '../utils/i18nHelpers';
+import { MedicalFlags, toContextUserFlags } from '../utils/medicalFlags';
+// F-HS-02-REGR: Statistics hydration must reflect the REAL water tracker
+// (HydrationCard → hydrationService, 'hydration_data_v1'), not the herbal-tea
+// checklist item (rem_hyd_herbal_tea, category 'hyd').
+import { loadHydrationData } from './hydrationService';
 
 const log = createLogger('DailyChecklistService');
 const DAILY_CHECKLIST_KEY_PREFIX = '@daily_checklist_v2_';
@@ -35,18 +41,18 @@ export const generateDailyChecklist = async (
     userEvents: UserEvent[],
     pregnancyWeek: number,
     userId?: string,
-    locale: string = 'fr'
+    locale: string = 'fr',
+    medicalFlags?: MedicalFlags | null
 ): Promise<DailyChecklistItem[]> => {
     log.info('Generating daily checklist', { pregnancyWeek, userId: userId || 'guest' });
 
     const items: DailyChecklistItem[] = [];
-    const today = new Date();
-    const todayStr = format(today, 'yyyy-MM-dd');
+    const todayStr = toLocalDateKey();
 
-    // 1. Appointments for today
-    const todayAppointments = userEvents.filter(event =>
-        event.date.startsWith(todayStr)
-    );
+    // 1. Appointments for today. event.date is a UTC ISO instant: comparing its first ten
+    // characters with the local day dropped an appointment whose UTC day differs (an
+    // evening one in New York, a morning one east of UTC+12).
+    const todayAppointments = userEvents.filter(event => isOnLocalDay(event.date, todayStr));
 
     log.debug(`Found ${todayAppointments.length} appointments for today`);
 
@@ -66,11 +72,10 @@ export const generateDailyChecklist = async (
     try {
         const { buildContextProfile } = require('../utils/contextMatcher');
 
-        // Build context profile for filtering
-        const profile = buildContextProfile(pregnancyWeek, {
-            // TODO: Load user flags (diabetes, etc) from user profile if available
-            // For now, we assume standard profile or what's in settings
-        });
+        // Build context profile for filtering. The flags come from the caller's
+        // user profile — passing `{}` here, as this did for the life of the
+        // feature, made every condition-keyed rule in the catalogue inert.
+        const profile = buildContextProfile(pregnancyWeek, toContextUserFlags(medicalFlags));
 
         const availableReminders: ReminderDefinition[] = getAvailableReminders(profile);
         const userSettings = await loadUserSettings(userId);
@@ -172,7 +177,8 @@ const mapReminderToChecklistItem = (
     }
 
     // Special handling for hydration type
-    if (reminder.category_id === 'hydration') {
+    // NOTE: REMINDERS_V2 hydration reminders use category_id 'hyd' (canonical), not 'hydration'.
+    if (reminder.category_id === 'hyd') {
         baseItem.type = 'hydration';
         baseItem.target = 2.0; // Default 2L
         baseItem.current = 0;
@@ -250,6 +256,115 @@ export const loadDailyProgress = async (
     }
 };
 
+// ============================================
+// "MA JOURNÉE" — ONE LIST FOR HOME AND TASKS
+// ============================================
+
+const toTaskDate = (value: unknown): Date =>
+    value instanceof Date ? value
+        : (value && typeof (value as any).toDate === 'function') ? (value as any).toDate()
+            : new Date(value as any);
+
+/**
+ * Today's "Ma Journée" list: the generated checklist (appointments + reminders, with the
+ * saved progress already merged) plus the user's own tasks that are due today, sorted by
+ * time then priority, skipped items removed. The Tasks tab lists exactly these items and
+ * the Home pill counts them, so the two can no longer disagree (Home used to drop today's
+ * appointments and keep skipped items, and showed 1/2 while Tasks showed 1 of 3).
+ */
+export const buildMyDayItems = (
+    checklist: DailyChecklistItem[],
+    userTasks: UserTask[],
+    now: Date = new Date(),
+    tomorrowLabel: string = ''
+): DailyChecklistItem[] => {
+    const todayStr = format(now, 'yyyy-MM-dd');
+
+    const taskItems: DailyChecklistItem[] = userTasks.flatMap(task => {
+        let subtitle: string | undefined;
+        let sortTimestamp = now.getTime();
+        let shouldShowToday = true;
+        let isCompletedToday = task.completed;
+
+        if (task.recurrence) {
+            const rule = task.recurrence;
+            if (rule.type === 'specific_days' && rule.days) {
+                shouldShowToday = rule.days.includes(now.getDay());
+            } else if (rule.type === 'interval' && rule.interval && task.created_at) {
+                const createdDate = toTaskDate(task.created_at);
+                const diffDays = Math.floor(Math.abs(now.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24));
+                shouldShowToday = diffDays % rule.interval === 0;
+            }
+            if (shouldShowToday) {
+                isCompletedToday = task.completed_dates ? task.completed_dates.includes(todayStr) : false;
+            }
+        }
+        // A one-off task stays on the list until it is done (it is today's to-do), whatever
+        // its reminder day — the statistics count it the same way (taskStatsByDay).
+
+        if (!shouldShowToday) return [];
+
+        let slotTime: string | undefined;
+        if (task.reminder_time) {
+            const date = toTaskDate(task.reminder_time);
+            if (!isNaN(date.getTime())) {
+                sortTimestamp = date.getTime();
+                slotTime = format(date, 'HH:mm');
+                const tomorrow = new Date(now);
+                tomorrow.setDate(now.getDate() + 1);
+                if (format(date, 'yyyy-MM-dd') === todayStr) {
+                    subtitle = slotTime;
+                } else if (format(date, 'yyyy-MM-dd') === format(tomorrow, 'yyyy-MM-dd')) {
+                    subtitle = `${tomorrowLabel} ${slotTime}`.trim();
+                } else {
+                    subtitle = format(date, 'dd/MM HH:mm');
+                }
+            }
+        }
+
+        return [{
+            id: task.task_id,
+            type: 'custom' as const,
+            title: task.title,
+            subtitle,
+            completed: !!isCompletedToday,
+            icon: task.priority === 'high' ? '🔴' : task.priority === 'medium' ? '🟡' : '🟢',
+            priority: task.priority === 'high' ? 0 : task.priority === 'medium' ? 50 : 100,
+            slotTime,
+            reminderId: undefined,
+            sortTimestamp
+        }];
+    });
+
+    // Checklist items are for today: they sort on their slot time, else on "now".
+    const checklistWithSort = checklist.map(item => {
+        let time = now.getTime();
+        if (item.slotTime) {
+            const [h, m] = item.slotTime.split(':').map(Number);
+            const d = new Date(now);
+            d.setHours(h, m, 0, 0);
+            time = d.getTime();
+        }
+        return { ...item, sortTimestamp: time };
+    });
+
+    return [...checklistWithSort, ...taskItems]
+        .sort((a, b) => {
+            const timeA = a.sortTimestamp || 0;
+            const timeB = b.sortTimestamp || 0;
+            if (Math.abs(timeA - timeB) > 60000) return timeA - timeB;
+            return a.priority - b.priority;
+        })
+        .filter(item => !item.skipped);
+};
+
+/** Done / total for a "Ma Journée" list — the Home pill and the Tasks percentage. */
+export const myDayProgress = (items: DailyChecklistItem[]): { done: number; total: number } => ({
+    done: items.filter(item => item.completed
+        || (item.type === 'hydration' && item.current !== undefined && item.target !== undefined && item.current >= item.target)).length,
+    total: items.length,
+});
+
 /**
  * Clear old progress (keep only last 60 days)
  */
@@ -277,10 +392,46 @@ export const cleanupOldProgress = async () => {
 };
 
 /**
+ * Per local day, the user's own tasks as [done, total] for the statistics: a one-off task
+ * counts on the day it was completed, a recurring one on each day in completed_dates, and
+ * today also carries the one-off tasks still open (they are on today's list).
+ */
+export const taskStatsByDay = (tasks: UserTask[], todayStr: string = toLocalDateKey()): Record<string, [number, number]> => {
+    const byDay: Record<string, [number, number]> = {};
+    const add = (day: string, done: boolean) => {
+        const entry = byDay[day] ?? (byDay[day] = [0, 0]);
+        if (done) entry[0] += 1;
+        entry[1] += 1;
+    };
+    for (const task of tasks) {
+        if (task.recurrence) {
+            for (const day of task.completed_dates ?? []) add(day, true);
+        } else if (task.completed) {
+            const at = task.completed_at ? new Date(task.completed_at as any) : null;
+            add(at && !isNaN(at.getTime()) ? toLocalDateKey(at) : todayStr, true);
+        } else {
+            add(todayStr, false);
+        }
+    }
+    return byDay;
+};
+
+/**
  * Get historical data for statistics
  * @param days Number of days to look back (default 30)
+ * @param tasks The user's own tasks (server-backed). The checklist progress kept on the
+ *   device only covers reminders and appointments, so completing a task still showed
+ *   "Pas encore de données" — and a fresh install showed nothing at all.
+ * @param myDay Done / total of today's "Ma Journée" list (myDayProgress of buildMyDayItems),
+ *   which then is today's rate. The progress kept on the device only exists once a
+ *   reminder or appointment has been ticked, so with one task done and two reminders
+ *   untouched the screen said "100 %" next to the Tasks tab's 33 % (1 of 3).
  */
-export const getHistoricalData = async (days: number = 30) => {
+export const getHistoricalData = async (
+    days: number = 30,
+    tasks: UserTask[] = [],
+    myDay?: { done: number; total: number },
+) => {
     try {
         const keys = await AsyncStorage.getAllKeys();
         const checklistKeys = keys.filter(k => k.startsWith(DAILY_CHECKLIST_KEY_PREFIX)).sort();
@@ -301,21 +452,52 @@ export const getHistoricalData = async (days: number = 30) => {
             vitamins: [] as number[]
         };
 
-        for (const key of relevantKeys) {
-            const dateStr = key.replace(DAILY_CHECKLIST_KEY_PREFIX, '');
-            const dataStr = await AsyncStorage.getItem(key);
-            if (!dataStr) continue;
+        // F-HS-02-REGR: source today's hydration from the REAL water tracker.
+        // hydrationService persists only the current day's intake (ml, daily-reset)
+        // under 'hydration_data_v1' — this is what the big HydrationCard shows.
+        // Past days have no real water history, so they report 0 rather than the
+        // herbal-tea ('hyd') checklist value, which previously mislabeled cups of
+        // tea as "liters of water".
+        const todayStr = format(new Date(), 'yyyy-MM-dd');
+        let todayWaterLiters = 0;
+        try {
+            const water = await loadHydrationData();
+            todayWaterLiters = (water.currentIntake || 0) / 1000;
+        } catch (waterErr) {
+            log.error('Error loading real water intake for stats:', waterErr);
+        }
 
-            const items = JSON.parse(dataStr);
+        const checklistByDay: Record<string, any[]> = {};
+        for (const key of relevantKeys) {
+            const dataStr = await AsyncStorage.getItem(key);
+            if (dataStr) checklistByDay[key.replace(DAILY_CHECKLIST_KEY_PREFIX, '')] = JSON.parse(dataStr);
+        }
+        const tasksByDay = taskStatsByDay(tasks, todayStr);
+        const allDays = new Set([
+            ...Object.keys(checklistByDay),
+            ...Object.keys(tasksByDay).filter((day) => day >= cutoffStr && day <= todayStr),
+            ...(myDay && myDay.total > 0 ? [todayStr] : []),
+        ]);
+
+        for (const dateStr of [...allDays].sort()) {
+            const items = checklistByDay[dateStr] ?? [];
+            const [tasksDone, tasksTotal] = tasksByDay[dateStr] ?? [0, 0];
 
             // Calculate daily stats
-            const total = items.length;
-            const completed = items.filter((i: any) => i.completed).length;
-            const rate = total > 0 ? (completed / total) * 100 : 0;
+            // F-HS-03 FIX: exclude SKIPPED tasks from both numerator and denominator.
+            // The Tasks UI hides skipped items, so counting them in the denominator
+            // under-reported the completion rate (a skipped task is not a missed task).
+            const active = items.filter((i: any) => !i.skipped);
+            const total = active.length + tasksTotal;
+            const completed = active.filter((i: any) => i.completed).length + tasksDone;
+            const rate = myDay && dateStr === todayStr
+                ? (myDay.total > 0 ? (myDay.done / myDay.total) * 100 : 0)
+                : total > 0 ? (completed / total) * 100 : 0;
 
-            // Hydration
-            const hydrationItem = items.find((i: any) => i.id.includes('hydration'));
-            const hydrationLevel = hydrationItem ? (hydrationItem.current || 0) : 0;
+            // F-HS-02-REGR: REAL water (liters) from hydrationService for today only.
+            // The checklist 'hyd' item is herbal tea (rem_hyd_water is excluded from the
+            // checklist), so it must NOT feed the "Hydration (L)" water chart.
+            const hydrationLevel = dateStr === todayStr ? todayWaterLiters : 0;
 
             // Vitamins (assuming id contains 'vitamin')
             const vitaminItem = items.find((i: any) => i.id.includes('vitamin'));

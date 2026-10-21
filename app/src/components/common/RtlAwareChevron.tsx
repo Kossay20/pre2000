@@ -21,7 +21,8 @@
  */
 
 import React from 'react';
-import { I18nManager, StyleProp, Text, TextStyle } from 'react-native';
+import { StyleProp, Text, TextStyle } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import {
     ChevronDirection,
     ChevronVariant,
@@ -49,7 +50,27 @@ export const RtlAwareChevron: React.FC<RtlAwareChevronProps> = ({
     style,
     accessibilityLabel,
 }) => {
-    const glyph = resolveChevronGlyph(direction, variant, I18nManager.isRTL);
+    // CB4-FIX: derive RTL from the active LANGUAGE, not I18nManager.isRTL. On web, setupRTL()
+    // intentionally skips forceRTL (it would cause a reload loop), so I18nManager.isRTL stays false
+    // even though the layout is mirrored via document.dir — which left chevrons (chatbot send,
+    // calendar nav) pointing the wrong way in Arabic/Tunisian. Language is the correct source.
+    const { i18n } = useTranslation();
+    const isRtl = i18n.language === 'ar' || i18n.language === 'tn';
+    const glyph = resolveChevronGlyph(direction, variant, isRtl);
+
+    // AR-RTL DOUBLE-FLIP FIX. The 'thin' (‹ ›) and 'bold' (❮ ❯) glyphs are
+    // Bidi_Mirrored characters: inside an RTL paragraph the text engine already
+    // draws them mirrored, on top of the swap resolveChevronGlyph() just did.
+    // Two flips cancel out, so in Arabic every chevron pointed the wrong way —
+    // the "arrows are inverted in Arabic" report. ('arrow' → ← and 'caret' ▶ ◀
+    // are not mirrored, which is why those variants looked fine.)
+    // Wrapping the glyph in an LTR isolate (U+2066 … U+2069) puts it at an
+    // even embedding level, so the engine renders it exactly as authored and
+    // our explicit swap is the only one that applies. Isolates are zero-width
+    // formatting characters handled by the Unicode Bidi Algorithm on web, iOS
+    // and Android alike — unlike `writingDirection`, which is iOS-only.
+    const rendered = isRtl ? `⁦${glyph}⁩` : glyph;
+
     const isDecorative = accessibilityLabel === undefined;
     return (
         <Text
@@ -58,7 +79,7 @@ export const RtlAwareChevron: React.FC<RtlAwareChevronProps> = ({
             importantForAccessibility={isDecorative ? 'no-hide-descendants' : 'yes'}
             accessibilityLabel={accessibilityLabel}
         >
-            {glyph}
+            {rendered}
         </Text>
     );
 };

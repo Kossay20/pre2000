@@ -1,3 +1,4 @@
+import { chartLabelProps } from '../utils/chartLabelProps';
 import { createLogger } from '../utils/logger';
 const log = createLogger('HealthDashboardScreen');
 import React, { useEffect, useState, useCallback } from 'react';
@@ -7,11 +8,12 @@ import {
     ScrollView,
     TouchableOpacity,
     ActivityIndicator,
-    Alert,
     Linking,
+    Platform,
 } from 'react-native';
+import { showAlert } from '../utils/alert';
+import { confirmAction } from '../utils/uiUtils';
 import { LineChart } from 'react-native-chart-kit';
-import { Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../context/AuthContext';
 import { usePregnancy } from '../context/PregnancyContext';
@@ -40,22 +42,47 @@ import {
     checkGlucose,
     checkBloodPressure,
     checkWeightChange,
-    getEmergencyNumber,
+    glucoseLooksLikeGramsPerLitre,
+    gramsPerLitreToMmol,
+    resolveEmergencyContact,
+    summarizeGlucoseMonth,
     type ClinicalAlert,
 } from '../utils/clinicalChecks'; // SAFETY-CRITICAL: clinical alerts on dangerous values
+import { getAllWeightEntries, weighingsOnDay, deleteWeightEntry, type WeightEntry } from '../services/weightService';
+import { formatDecimal } from '../utils/localizedFormat';
+import { getDeviceRegionCode } from '../utils/deviceRegion';
+import { emergencyNumberLabel } from '../utils/emergencyNumberLabel';
 import { HealthWeightModal } from '../components/health/HealthWeightModal';
 import { HealthBPModal } from '../components/health/HealthBPModal';
 import { HealthGlucoseModal } from '../components/health/HealthGlucoseModal';
+import { EmptyState } from '../components/common/EmptyState';
+import { Button } from '../components/common/Button';
 import { styles } from './HealthDashboardScreen.styles';
+import { getContentWidth } from '../utils/layout';
+import { displayedAgeOf } from '../utils/pregnancyCalculator';
+import { plainLabel } from '../utils/a11yLabel';
+import { useDateLocale } from '../hooks/useDateLocale';
+import { format } from 'date-fns';
 
-const screenWidth = Dimensions.get('window').width;
+const screenWidth = getContentWidth();
+
+// The "+ Add" pills in the section headers stay compact (29pt); the slop brings
+// their touch area to 44pt without making every section header taller.
+const ADD_PILL_HIT_SLOP = { top: 8, bottom: 8, left: 4, right: 4 };
 
 export const HealthDashboardScreen = () => {
     useScreenAnalytics('HealthDashboardScreen');
     const { t, i18n } = useTranslation();
+    const dateLocale = useDateLocale();
+    // Decimals as the language writes them ("5,2 mmol/L" in French), like the target
+    // line printed on the same card.
+    const num = (value: number) => formatDecimal(Number(value), i18n.language);
+    // A g/L lab figure keeps its two decimals: 0,92 g/L is the 5,1 mmol/L criterion, not 0,9.
+    const numGl = (value: number) => formatDecimal(Number(value), i18n.language, 2);
     const { user } = useAuth();
-    const { pregnancyInfo } = usePregnancy();
+    const { pregnancyInfo, profile } = usePregnancy();
     const navigation = useNavigation();
+    const hasWeightBaseline = Number(user?.prePregnancyWeight ?? profile?.prePregnancyWeight) > 0;
 
     const [stats, setStats] = useState<HealthStats | null>(null);
     const [weightHistory, setWeightHistory] = useState<HealthMetric[]>([]);
@@ -102,7 +129,9 @@ export const HealthDashboardScreen = () => {
             setError(null);
             try {
                 const [healthStats, weights, bps, glucoses, todaySymptoms] = await Promise.all([
-                    getHealthStats(user.uid, pregnancyInfo.week),
+                    // F-HS-04: pass pre-pregnancy weight so weight-gain uses the clinical
+                    // baseline (matches WeightTracker) instead of the first logged entry.
+                    getHealthStats(user.uid, pregnancyInfo.week, user.prePregnancyWeight),
                     // P3.7 FIX: use merged source — was reading healthMetrics only,
                     // weight_entries (WeightTrackerScreen inputs) appeared in stats but not in graph.
                     getMergedWeightHistory(user.uid),
@@ -153,7 +182,8 @@ export const HealthDashboardScreen = () => {
         setError(null);
         try {
             const [healthStats, weights, bps, glucoses, todaySymptoms] = await Promise.all([
-                getHealthStats(user.uid, pregnancyInfo.week),
+                // F-HS-04: clinical pre-pregnancy baseline for weight-gain (see initial load).
+                getHealthStats(user.uid, pregnancyInfo.week, user.prePregnancyWeight),
                 getMergedWeightHistory(user.uid),
                 getBloodPressureHistory(user.uid),
                 getGlucoseHistory(user.uid),
@@ -199,14 +229,23 @@ export const HealthDashboardScreen = () => {
             clinicalAlert.severity === 'critical' &&
             clinicalAlert.emergencyAction === 'call'
         ) {
-            const number = getEmergencyNumber((user as any)?.country);
+            // H2-FIX: a user whose profile country is empty (e.g. account created via login,
+            // not full onboarding) still gets the emergency-call button: device region, then
+            // 112 — matching ContractionTimerScreen / ChatbotScreen.
+            // A 112 fallback is labelled as the international number (see
+            // emergencyNumberLabel) — a dialog has no room for the Profile link the
+            // other call buttons carry.
+            const contact = resolveEmergencyContact((user as any)?.country, getDeviceRegionCode());
+            const number = contact.number;
             if (number) {
                 buttons.push({
-                    text: `${t('dashboard.alerts.callEmergency')} (${number})`,
+                    text: `${t('dashboard.alerts.callEmergency')} (${emergencyNumberLabel(t, contact)})`,
                     onPress: () => {
-                        Linking.openURL(`tel:${number}`).catch(err =>
-                            log.error('[HealthDashboard] Failed to open dialer:', err),
-                        );
+                        Linking.openURL(`tel:${number}`).catch(err => {
+                            log.error('[HealthDashboard] Failed to open dialer:', err);
+                            // No dialer (iPad): give the number to call from another phone.
+                            showAlert(t('common.chatEmergency'), `${t('common.chatEmergencyAction')} ${number}`);
+                        });
                     },
                 });
             }
@@ -220,7 +259,9 @@ export const HealthDashboardScreen = () => {
             onPress: onProceed,
         });
 
-        Alert.alert(t(clinicalAlert.titleKey), t(clinicalAlert.messageKey), buttons);
+        // SAFETY-CRITICAL: showAlert fires the proceed callback on web (Alert.alert is a
+        // no-op there) so "save anyway" is never silently lost.
+        showAlert(t(clinicalAlert.titleKey), t(clinicalAlert.messageKey), buttons);
     };
 
     const handleAddWeight = async () => {
@@ -229,36 +270,63 @@ export const HealthDashboardScreen = () => {
         const weightValue = parseFloat(newWeight.replace(',', '.'));
         const validation = validateHealthEntry({ type: 'weight', value: weightValue });
         if (!validation.valid) {
-            Alert.alert(t('common.error'), t(validation.error || 'common.error'));
+            showAlert(t('common.error'), t(validation.error || 'common.error'));
             return;
         }
 
         const userId = user.uid;
-        const week = pregnancyInfo.week;
-        const persist = async () => {
+        // The week she is in, as printed ("S41" at 40+3 SA): the entry's week is only a
+        // label on the charts. pregnancyInfo.week is the content week and stops at 40.
+        const week = displayedAgeOf(pregnancyInfo).week;
+        // `replaced`: today's weighings she agreed to replace. The new one is saved first,
+        // so a failed save never leaves the day without its weighing.
+        const persist = async (replaced: WeightEntry[]) => {
             try {
                 await saveWeightEntry(userId, weightValue, new Date(), week);
+                for (const old of replaced) {
+                    if (!old.id) continue;
+                    await deleteWeightEntry(userId, old.id, old.source).catch(err =>
+                        log.warn('[HealthDashboard] Replaced weighing not deleted:', err));
+                }
                 setNewWeight('');
                 setShowWeightModal(false);
                 loadData();
             } catch (err) {
                 log.error('[HealthDashboard] Error saving weight:', err);
-                Alert.alert(t('common.error'), t('dashboard.errorSaving'));
+                showAlert(t('common.error'), t('dashboard.errorSaving'));
             }
         };
 
-        // SAFETY: detect rapid loss / large variation against most recent entry.
-        // weightHistory is sorted ascending by date → latest is the last item.
-        const lastWeight =
-            weightHistory.length > 0
-                ? (weightHistory[weightHistory.length - 1].value as number)
-                : undefined;
-        const alert = checkWeightChange(weightValue, lastWeight);
-        if (alert) {
-            showClinicalAlert(alert, persist);
+        const checkThenPersist = async (replaced: WeightEntry[]) => {
+            // SAFETY: detect rapid loss / large variation against most recent entry.
+            // weightHistory is sorted ascending by date → latest is the last item.
+            const lastWeight =
+                weightHistory.length > 0
+                    ? (weightHistory[weightHistory.length - 1].value as number)
+                    : undefined;
+            const alert = checkWeightChange(weightValue, lastWeight);
+            if (alert) {
+                showClinicalAlert(alert, () => persist(replaced));
+                return;
+            }
+            await persist(replaced);
+        };
+
+        // One weighing a day, the rule "Mon Poids" applies: a weighing already logged
+        // today (on either screen) is replaced on her say-so, not silently doubled.
+        const today = weighingsOnDay(await getAllWeightEntries(userId));
+        if (today.length > 0) {
+            confirmAction(
+                t('weight.entryExistsTitle'),
+                t('weight.entryExistsMsg', { weight: num(today[0].weight) }),
+                () => { void checkThenPersist(today); },
+                undefined,
+                t('common.cancel'),
+                t('weight.replace'),
+            );
             return;
         }
-        await persist();
+        await checkThenPersist([]);
     };
 
     const handleAddBP = async () => {
@@ -268,12 +336,12 @@ export const HealthDashboardScreen = () => {
         const dia = parseInt(newBPDiastolic, 10);
         const validation = validateHealthEntry({ type: 'blood_pressure', systolic: sys, diastolic: dia });
         if (!validation.valid) {
-            Alert.alert(t('common.error'), t(validation.error || 'common.error'));
+            showAlert(t('common.error'), t(validation.error || 'common.error'));
             return;
         }
 
         const userId = user.uid;
-        const week = pregnancyInfo.week;
+        const week = displayedAgeOf(pregnancyInfo).week;
         const persist = async () => {
             try {
                 await saveBloodPressureEntry(userId, sys, dia, new Date(), week);
@@ -283,7 +351,7 @@ export const HealthDashboardScreen = () => {
                 loadData();
             } catch (err) {
                 log.error('[HealthDashboard] Error saving BP:', err);
-                Alert.alert(t('common.error'), t('dashboard.errorSaving'));
+                showAlert(t('common.error'), t('dashboard.errorSaving'));
             }
         };
 
@@ -304,13 +372,41 @@ export const HealthDashboardScreen = () => {
     const handleAddGlucose = async () => {
         if (!user?.uid || !pregnancyInfo?.week || !newGlucose) return;
         const value = parseFloat(newGlucose.replace(',', '.'));
+
+        // B-057: below 2 the reading is almost surely g/L (French and Tunisian labs), and as
+        // mmol/L it would raise the hypoglycaemia alert. Ask first, like the kg/lb check on
+        // the weight: confirm keeps mmol/L, cancel converts into the field for her to check.
+        if (glucoseLooksLikeGramsPerLitre(value)) {
+            const converted = gramsPerLitreToMmol(value);
+            confirmAction(
+                t('dashboard.glucoseUnitCheckTitle'),
+                t('dashboard.glucoseUnitCheckMsg', { value: numGl(value), converted: num(converted) }),
+                () => { saveGlucoseReading(value); },
+                () => {
+                    setNewGlucose(num(converted));
+                    showAlert(
+                        t('dashboard.glucoseConvertedTitle'),
+                        t('dashboard.glucoseConvertedMsg', { original: numGl(value), converted: num(converted) }),
+                    );
+                },
+                t('dashboard.glucoseIsGl'),
+                t('dashboard.glucoseIsMmol'),
+            );
+            return;
+        }
+        await saveGlucoseReading(value);
+    };
+
+    /** Range check, clinical alert, then save — `value` is in mmol/L. */
+    const saveGlucoseReading = async (value: number) => {
+        if (!user?.uid || !pregnancyInfo?.week) return;
         if (isNaN(value) || value <= 0 || value > 30) {
-            Alert.alert(t('common.error'), t('dashboard.glucoseTarget'));
+            showAlert(t('common.error'), t('dashboard.glucoseTarget'));
             return;
         }
 
         const userId = user.uid;
-        const week = pregnancyInfo.week;
+        const week = displayedAgeOf(pregnancyInfo).week;
         const persist = async () => {
             try {
                 await saveGlucoseEntry(userId, {
@@ -324,7 +420,7 @@ export const HealthDashboardScreen = () => {
                 loadData();
             } catch (err) {
                 log.error('[HealthDashboard] Error saving glucose:', err);
-                Alert.alert(t('common.error'), t('dashboard.errorSaving'));
+                showAlert(t('common.error'), t('dashboard.errorSaving'));
             }
         };
 
@@ -349,20 +445,32 @@ export const HealthDashboardScreen = () => {
             : [...prev, key];
         setSymptoms(updated);
         try {
-            await saveDailySymptoms(user.uid, pregnancyInfo.week, updated as SymptomKey[]);
+            await saveDailySymptoms(user.uid, displayedAgeOf(pregnancyInfo).week, updated as SymptomKey[]);
         } catch (err) {
             log.error('[HealthDashboard] Error saving symptoms:', err);
             setSymptoms(prev);
-            Alert.alert(t('common.error'), t('dashboard.errorSaving'));
+            showAlert(t('common.error'), t('dashboard.errorSaving'));
         }
     };
 
-    // GUEST GUARD: Show upgrade prompt
+    // GUEST GUARD: value-oriented upgrade prompt (was a bare 🔒 + one line floating
+    // in an empty void). EmptyState is flex:1 + vertically centered; the CTA routes to
+    // the in-MainTabs GuestUpgrade route (RegisterScreen in link mode) — same pattern as
+    // the other HomeStack locked screens. RTL flows from the active language via theme/i18n.
     if (isGuest) {
         return (
-            <View style={styles.centerContainer}>
-                <Text style={{ fontSize: 48, marginBottom: 16 }}>🔒</Text>
-                <Text style={styles.loadingText}>{t('dashboard.guestNotice')}</Text>
+            <View style={styles.container}>
+                <EmptyState
+                    icon="🔒"
+                    title={t('dashboard.guestLockTitle')}
+                    subtitle={t('dashboard.guestLockSubtitle')}
+                    action={
+                        <Button
+                            title={t('common.screen.createAccount', 'Créer un compte')}
+                            onPress={() => navigation.getParent()?.navigate('Home', { screen: 'GuestUpgrade' })}
+                        />
+                    }
+                />
             </View>
         );
     }
@@ -393,7 +501,7 @@ export const HealthDashboardScreen = () => {
                 <Text style={{ fontSize: 48, marginBottom: 16 }}>⚠️</Text>
                 <Text style={styles.loadingText}>{error}</Text>
                 <TouchableOpacity
-                    style={{ marginTop: 16, padding: 12, backgroundColor: theme.colors.primary, borderRadius: theme.borderRadius.m }}
+                    style={{ marginTop: 16, padding: 12, backgroundColor: theme.colors.accent, borderRadius: theme.borderRadius.m }}
                     onPress={loadData}
                     accessibilityRole="button"
                     accessibilityLabel={t('common.retry')}
@@ -404,15 +512,29 @@ export const HealthDashboardScreen = () => {
         );
     }
 
+    // What the Glycémie card says about the month comes from the month's readings.
+    const glucoseMonth = summarizeGlucoseMonth(glucoseHistory);
+    const glucoseMonthLabel = t(`dashboard.glucoseMonth.${glucoseMonth}`);
+
+    // A saved reading the clinical checks flag keeps its flag in the lists: 165/105 used
+    // to sit in the history looking like any other line.
+    const remindersTotal = stats?.remindersTotalThisWeek ?? 0;
+    const remindersPercent = remindersTotal > 0
+        ? Math.round(((stats?.remindersCompletedThisWeek ?? 0) / remindersTotal) * 100)
+        : 0;
+
+    const renderFlag = (flag: ClinicalAlert | null) =>
+        flag ? <Text style={styles.historyFlag}>⚠️ {t(flag.titleKey)}</Text> : null;
+
     const weightData = weightHistory.map(w => w.value as number);
     const weightLabels = weightHistory.map(w => `${t('weight.weekShort')}${w.week}`);
 
     return (
         <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
             {/* Header */}
-            <LinearGradient colors={[theme.colors.primary, theme.colors.accent]} style={styles.header}>
-                <Text style={styles.headerTitle}>{t('dashboard.title')}</Text>
-                <Text style={styles.headerSubtitle}>{t('dashboard.week')} {pregnancyInfo?.week || '—'}</Text>
+            <LinearGradient colors={[theme.colors.primaryStrong, theme.colors.accent]} style={styles.header}>
+                <Text style={styles.headerTitle} accessibilityRole="header">{t('dashboard.title')}</Text>
+                <Text style={styles.headerSubtitle}>{t('dashboard.week')} {pregnancyInfo?.week ? displayedAgeOf(pregnancyInfo).week : '—'}</Text>
             </LinearGradient>
 
             {/* Section 1: Poids */}
@@ -421,6 +543,7 @@ export const HealthDashboardScreen = () => {
                     <Text style={styles.sectionTitle}>{t('dashboard.weightTracking')}</Text>
                     <TouchableOpacity
                         style={styles.addButton}
+                        hitSlop={ADD_PILL_HIT_SLOP}
                         onPress={() => setShowWeightModal(true)}
                         accessibilityRole="button"
                         accessibilityLabel={t('a11y.addWeight')}
@@ -434,20 +557,37 @@ export const HealthDashboardScreen = () => {
                         <View style={styles.statsRow}>
                             <View style={styles.statBox}>
                                 <Text style={styles.statLabel}>{t('dashboard.current')}</Text>
-                                <Text style={styles.statValue}>{stats?.weightCurrent || '—'} {t('dashboard.kg')}</Text>
+                                <Text style={styles.statValue}>{stats?.weightCurrent ? num(stats.weightCurrent) : '—'} {t('dashboard.kg')}</Text>
                             </View>
                             <View style={styles.statBox}>
                                 <Text style={styles.statLabel}>{t('dashboard.gain')}</Text>
                                 {/* U-FIX-5: was always prefixed '+' even for losses → showed '+-2.0 kg'.
                                     Now formats with proper sign and colors loss differently. */}
-                                <Text style={[
-                                    styles.statValue,
-                                    { color: (stats?.weightGain ?? 0) < 0 ? theme.colors.warning : theme.colors.success }
-                                ]}>
-                                    {stats?.weightGain != null
-                                        ? `${stats.weightGain >= 0 ? '+' : ''}${stats.weightGain.toFixed(1)} ${t('dashboard.kg')}`
-                                        : `— ${t('dashboard.kg')}`}
-                                </Text>
+                                {/* Without a pre-pregnancy weight the stats measure the gain from the
+                                    first weighing, so a single entry read "+0 kg" in success green
+                                    while the weight screen said the setup was still to do. */}
+                                {hasWeightBaseline ? (
+                                    <Text style={[
+                                        styles.statValue,
+                                        { color: (stats?.weightGain ?? 0) < 0 ? theme.colors.warning : theme.colors.success }
+                                    ]}>
+                                        {stats?.weightGain != null
+                                            ? `${stats.weightGain >= 0 ? '+' : ''}${num(stats.weightGain)} ${t('dashboard.kg')}`
+                                            : `— ${t('dashboard.kg')}`}
+                                    </Text>
+                                ) : (
+                                    <>
+                                        <Text style={[styles.statValue, { color: theme.colors.textSecondary }]}>—</Text>
+                                        <TouchableOpacity
+                                            style={styles.linkTouch}
+                                            onPress={() => navigation.navigate('WeightTracker')}
+                                            accessibilityRole="button"
+                                            accessibilityLabel={t('dashboard.setStartingWeight')}
+                                        >
+                                            <Text style={styles.linkText}>{t('dashboard.setStartingWeight')}</Text>
+                                        </TouchableOpacity>
+                                    </>
+                                )}
                             </View>
                         </View>
 
@@ -459,6 +599,7 @@ export const HealthDashboardScreen = () => {
                                 }}
                                 width={screenWidth - 48}
                                 height={180}
+                                formatYLabel={(y) => num(Number(y))}
                                 chartConfig={{
                                     backgroundColor: theme.colors.white,
                                     backgroundGradientFrom: theme.colors.white,
@@ -472,6 +613,7 @@ export const HealthDashboardScreen = () => {
                                         strokeWidth: '2',
                                         stroke: theme.colors.primary,
                                     },
+                                    propsForLabels: chartLabelProps,
                                 }}
                                 bezier
                                 style={styles.chart}
@@ -489,9 +631,10 @@ export const HealthDashboardScreen = () => {
                     <Text style={styles.sectionTitle}>{t('dashboard.bloodPressure')}</Text>
                     <TouchableOpacity
                         style={styles.addButton}
+                        hitSlop={ADD_PILL_HIT_SLOP}
                         onPress={() => setShowBPModal(true)}
                         accessibilityRole="button"
-                        accessibilityLabel={`${t('dashboard.bloodPressure')}, ${t('a11y.addNew')}`}
+                        accessibilityLabel={`${plainLabel(t('dashboard.bloodPressure'))}, ${t('a11y.addNew')}`}
                     >
                         <Text style={styles.addButtonText}>{t('dashboard.add')}</Text>
                     </TouchableOpacity>
@@ -504,22 +647,27 @@ export const HealthDashboardScreen = () => {
                             <Text style={styles.bpValue}>
                                 {stats?.lastBP?.systolic || '—'} / {stats?.lastBP?.diastolic || '—'}
                             </Text>
+                            {renderFlag(stats?.lastBP ? checkBloodPressure(stats.lastBP.systolic, stats.lastBP.diastolic) : null)}
                             <Text style={styles.bpDate}>
                                 {stats?.lastBP?.date
-                                    ? new Date(stats.lastBP.date).toLocaleDateString(i18n.language)
+                                    ? format(new Date(stats.lastBP.date), 'd MMM yyyy', { locale: dateLocale })
                                     : ''}
                             </Text>
                         </View>
 
-                        {bpHistory.slice(0, 3).map((bp, index) => {
+                        {/* The latest reading is the card above, as the glucose list below skips its own. */}
+                        {bpHistory.slice(1, 3).map((bp, index) => {
                             const value = bp.value as { systolic: number; diastolic: number };
                             return (
                                 <View key={bp.metric_id} style={styles.bpHistoryItem}>
-                                    <Text style={styles.bpHistoryValue}>
-                                        {value.systolic} / {value.diastolic}
-                                    </Text>
+                                    <View style={styles.historyValueColumn}>
+                                        <Text style={styles.bpHistoryValue}>
+                                            {value.systolic} / {value.diastolic}
+                                        </Text>
+                                        {renderFlag(checkBloodPressure(value.systolic, value.diastolic))}
+                                    </View>
                                     <Text style={styles.bpHistoryDate}>
-                                        {new Date(bp.date).toLocaleDateString(i18n.language)} • S{bp.week}
+                                        {format(new Date(bp.date), 'd MMM yyyy', { locale: dateLocale })} • S{bp.week}
                                     </Text>
                                 </View>
                             );
@@ -536,6 +684,7 @@ export const HealthDashboardScreen = () => {
                     <Text style={styles.sectionTitle}>🩸 {t('dashboard.glucose')}</Text>
                     <TouchableOpacity
                         style={styles.addButton}
+                        hitSlop={ADD_PILL_HIT_SLOP}
                         onPress={() => setShowGlucoseModal(true)}
                         accessibilityRole="button"
                         accessibilityLabel={`${t('dashboard.glucose')}, ${t('a11y.addNew')}`}
@@ -546,32 +695,38 @@ export const HealthDashboardScreen = () => {
                 {glucoseHistory.length > 0 ? (
                     <>
                         <View style={styles.statsRow}>
-                            <View style={styles.statBox}>
-                                <Text style={styles.statLabel}>{t('dashboard.glucose')}</Text>
-                                <Text style={[styles.statValue, { color: theme.colors.accentOrangeDeep }]}>
-                                    {glucoseHistory[0].value} {t('dashboard.mmolL')}
+                            <View style={styles.glucoseStatBox}>
+                                <Text style={[styles.statLabel, styles.glucoseStatText]}>{t('dashboard.glucose')}</Text>
+                                {/* The alert colour only for a reading checkGlucose flags — it
+                                    used to colour every reading, in range or not. */}
+                                <Text style={[styles.statValue, checkGlucose(glucoseHistory[0].value) && { color: theme.colors.deepOrange900 }]}>
+                                    {num(glucoseHistory[0].value)} {t('dashboard.mmolL')}
                                 </Text>
+                                {renderFlag(checkGlucose(glucoseHistory[0].value))}
                             </View>
-                            <View style={styles.statBox}>
-                                <Text style={styles.statLabel}>{t('dashboard.glucoseNormal')}</Text>
-                                <Text style={{ fontSize: 11, color: theme.colors.neutral400, textAlign: 'center', maxWidth: 120 }}>
+                            <View style={styles.glucoseStatBox}>
+                                <Text style={[styles.statLabel, styles.glucoseStatText]}>{glucoseMonthLabel}</Text>
+                                <Text style={{ fontSize: 11, color: theme.colors.textMuted, textAlign: 'center', maxWidth: 120 }}>
                                     {t('dashboard.glucoseTarget')}
                                 </Text>
                             </View>
                         </View>
                         {glucoseHistory.slice(1, 3).map((g, i) => (
                             <View key={i} style={styles.bpHistoryItem}>
-                                <Text style={styles.bpHistoryValue}>{g.value} {t('dashboard.mmolL')}</Text>
+                                <View style={styles.historyValueColumn}>
+                                    <Text style={styles.bpHistoryValue}>{num(g.value)} {t('dashboard.mmolL')}</Text>
+                                    {renderFlag(checkGlucose(g.value))}
+                                </View>
                                 <Text style={styles.bpHistoryDate}>
-                                    {new Date(g.date).toLocaleDateString(i18n.language)}
+                                    {format(new Date(g.date), 'd MMM yyyy', { locale: dateLocale })}
                                 </Text>
                             </View>
                         ))}
                     </>
                 ) : (
                     <>
-                        <Text style={styles.emptyText}>{t('dashboard.glucoseNormal')}</Text>
-                        <Text style={[styles.emptyText, { color: theme.colors.neutral400, fontSize: 12, marginTop: 4 }]}>
+                        <Text style={styles.emptyText}>{glucoseMonthLabel}</Text>
+                        <Text style={[styles.emptyText, { color: theme.colors.textMuted, fontSize: 12, marginTop: 4 }]}>
                             {t('dashboard.glucoseTarget')}
                         </Text>
                     </>
@@ -593,6 +748,10 @@ export const HealthDashboardScreen = () => {
                             accessibilityRole="button"
                             accessibilityLabel={chip.label}
                             accessibilityState={{ selected: symptoms.includes(chip.key) }}
+                            // react-native-web drops `selected` on a button (aria-selected is
+                            // only valid on tabs/options), so on web the on/off state is
+                            // exposed as aria-pressed, as on the other toggle chips.
+                            {...(Platform.OS === 'web' ? { 'aria-pressed': symptoms.includes(chip.key) } : {})}
                             accessibilityHint={symptoms.includes(chip.key) ? t('a11y.removeSymptom') : t('a11y.addSymptom', { name: chip.label })}
                         >
                             <Text style={styles.symptomEmoji}>{chip.emoji}</Text>
@@ -613,7 +772,8 @@ export const HealthDashboardScreen = () => {
                 <View style={styles.sectionHeader}>
                     <Text style={styles.sectionTitle}>{t('dashboard.appointments')}</Text>
                     <TouchableOpacity
-                        onPress={() => Alert.alert(t('dashboard.soonAvailable'), t('dashboard.soonAvailableDesc'))}
+                        style={styles.linkTouch}
+                        onPress={() => navigation.navigate('Calendrier', { screen: 'CalendarMain', params: {} })}
                         accessibilityRole="button"
                         accessibilityLabel={t('dashboard.seeAll')}
                     >
@@ -638,7 +798,8 @@ export const HealthDashboardScreen = () => {
                 <View style={styles.sectionHeader}>
                     <Text style={styles.sectionTitle}>{t('dashboard.remindersThisWeek')}</Text>
                     <TouchableOpacity
-                        onPress={() => navigation.navigate('Rappels')}
+                        style={styles.linkTouch}
+                        onPress={() => navigation.navigate('Rappels', { screen: 'RemindersMain', params: { screen: 'TasksTab' } })}
                         accessibilityRole="button"
                         accessibilityLabel={t('dashboard.seeAll')}
                     >
@@ -646,29 +807,28 @@ export const HealthDashboardScreen = () => {
                     </TouchableOpacity>
                 </View>
 
-                <View style={styles.progressContainer}>
-                    <Text style={styles.progressText}>
-                        {stats?.remindersCompletedThisWeek || 0} / {stats?.remindersTotalThisWeek || 0} {t('dashboard.completed')}
-                    </Text>
-                    <View style={styles.progressBar}>
-                        <View
-                            style={[
-                                styles.progressFill,
-                                {
-                                    width: `${((stats?.remindersCompletedThisWeek || 0) /
-                                        (stats?.remindersTotalThisWeek || 1)) *
-                                        100}%`,
-                                },
-                            ]}
-                        />
+                {remindersTotal > 0 ? (
+                    <View style={styles.progressContainer}>
+                        <Text style={styles.progressText}>
+                            {stats?.remindersCompletedThisWeek || 0} / {stats?.remindersTotalThisWeek || 0} {t('dashboard.completed')}
+                        </Text>
+                        <View style={styles.progressBar}>
+                            <View
+                                style={[
+                                    styles.progressFill,
+                                    { width: `${remindersPercent}%` },
+                                ]}
+                            />
+                        </View>
+                        {/* The success green is for progress made: an untouched list stays neutral. */}
+                        <Text style={[styles.progressPercentage, remindersPercent === 0 && { color: theme.colors.textSecondary }]}>
+                            {remindersPercent}%
+                        </Text>
                     </View>
-                    <Text style={styles.progressPercentage}>
-                        {Math.round(
-                            ((stats?.remindersCompletedThisWeek || 0) / (stats?.remindersTotalThisWeek || 1)) * 100
-                        )}
-                        %
-                    </Text>
-                </View>
+                ) : (
+                    // Nothing to complete is not 0% done, let alone a green 0%: say so in words.
+                    <Text style={styles.progressText}>{t('dashboard.noRemindersThisWeek')}</Text>
+                )}
             </View>
 
             {/* Modal: Add Weight */}

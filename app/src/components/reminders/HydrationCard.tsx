@@ -3,12 +3,14 @@ import { View, Text, StyleSheet, TouchableOpacity, Modal, TextInput, Switch, Ani
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../theme';
+import { MODAL_MAX_WIDTH } from '../../utils/layout';
 import { useTranslation } from 'react-i18next';
 import { HydrationData, loadHydrationData, addIntake, saveHydrationData } from '../../services/hydrationService';
-import { getShadowStyle } from '../../utils/styleUtils';
+import { getShadowStyle, switchThumbProps } from '../../utils/styleUtils';
+import { formatDecimal } from '../../utils/localizedFormat';
 
 export const HydrationCard = () => {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const [data, setData] = useState<HydrationData | null>(null);
     const [showSettings, setShowSettings] = useState(false);
     const [tempGoal, setTempGoal] = useState('3000');
@@ -66,7 +68,7 @@ export const HydrationCard = () => {
     // Theme Colors (Pink/Peach)
     const cardGradient = [theme.colors.lavenderBlush, theme.colors.roseMisty] as const;
     const progressGradient = [theme.colors.pinkAccentA100, theme.colors.pinkAccentBright] as const;
-    const buttonGradient = [theme.colors.primary, theme.colors.pink400ui] as const;
+    const buttonGradient = [theme.colors.primaryStrong, theme.colors.accent] as const;
     const iconColor = theme.colors.accentDarkPink;
     const textColor = theme.colors.deepPink;
 
@@ -92,6 +94,8 @@ export const HydrationCard = () => {
                     <TouchableOpacity
                         onPress={() => setShowSettings(true)}
                         style={styles.settingsButton}
+                        accessibilityRole="button"
+                        accessibilityLabel={t('a11y.openSettings')}
                     >
                         <Ionicons name="settings-outline" size={20} color={iconColor} />
                     </TouchableOpacity>
@@ -102,11 +106,11 @@ export const HydrationCard = () => {
                     <View style={styles.statsRow}>
                         <View>
                             <Text style={styles.amountLarge}>
-                                {(data.currentIntake / 1000).toFixed(2)}
-                                <Text style={styles.unit}>L</Text>
+                                {formatDecimal(data.currentIntake / 1000, i18n.language)}
+                                <Text style={styles.unit}> {t('reminders.hydration.unitLitre')}</Text>
                             </Text>
                             <Text style={styles.goalText}>
-                                sur {(data.dailyGoal / 1000).toFixed(1)}L
+                                {t('reminders.hydration.outOf', { goalL: formatDecimal(data.dailyGoal / 1000, i18n.language) })}
                             </Text>
                         </View>
                         <View style={styles.percentageContainer}>
@@ -138,6 +142,8 @@ export const HydrationCard = () => {
                         style={styles.addButton}
                         onPress={handleAddWater}
                         activeOpacity={0.8}
+                        accessibilityRole="button"
+                        accessibilityLabel={t('reminders.hydration.addWater')}
                     >
                         <LinearGradient
                             colors={buttonGradient}
@@ -163,8 +169,14 @@ export const HydrationCard = () => {
                     <View style={styles.modalContent}>
                         <View style={styles.modalHeader}>
                             <Text style={styles.modalTitle}>{t('reminders.hydration.settingsTitle')}</Text>
-                            <TouchableOpacity onPress={() => setShowSettings(false)}>
-                                <Ionicons name="close" size={24} color={theme.colors.neutral400} />
+                            <TouchableOpacity
+                                onPress={() => setShowSettings(false)}
+                                accessibilityRole="button"
+                                accessibilityLabel={t('a11y.closeModal')}
+                                style={{ minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' }}
+                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                            >
+                                <Ionicons name="close" size={24} color={theme.colors.textMuted} />
                             </TouchableOpacity>
                         </View>
 
@@ -176,6 +188,7 @@ export const HydrationCard = () => {
                                 onChangeText={setTempGoal}
                                 keyboardType="numeric"
                                 placeholder="3000"
+                                placeholderTextColor={theme.colors.neutral400}
                             />
                         </View>
 
@@ -187,6 +200,7 @@ export const HydrationCard = () => {
                                 onChangeText={setTempFreq}
                                 keyboardType="numeric"
                                 placeholder="8"
+                                placeholderTextColor={theme.colors.neutral400}
                             />
                             <Text style={styles.hint}>{t('reminders.hydration.remindersTimeRange')}</Text>
                         </View>
@@ -194,6 +208,7 @@ export const HydrationCard = () => {
                         <View style={styles.switchRow}>
                             <Text style={styles.label}>{t('reminders.hydration.enableReminders')}</Text>
                             <Switch
+                                accessibilityLabel={t('reminders.hydration.enableReminders')}
                                 value={data.reminderEnabled}
                                 onValueChange={async (val) => {
                                     const newData = { ...data, reminderEnabled: val };
@@ -201,10 +216,11 @@ export const HydrationCard = () => {
                                     setData(newData);
                                 }}
                                 trackColor={{ false: theme.colors.neutral300, true: theme.colors.pinkAccentBright }}
+                                {...switchThumbProps(theme.colors.white)}
                             />
                         </View>
 
-                        <TouchableOpacity style={styles.saveButton} onPress={handleSaveSettings}>
+                        <TouchableOpacity style={styles.saveButton} onPress={handleSaveSettings} accessibilityRole="button">
                             <Text style={styles.saveButtonText}>{t('reminders.hydration.save')}</Text>
                         </TouchableOpacity>
                     </View>
@@ -235,6 +251,12 @@ const styles = StyleSheet.create({
     titleRow: {
         flexDirection: 'row',
         alignItems: 'center',
+        // AUDIT-FIX (massive-audit P2 2026-05-30): use `gap` instead of marginEnd on the icon.
+        // Under RN-Web RTL, `marginEnd` could resolve to the wrong physical side, removing the
+        // gap so the droplet tile sat flush against / overlapped the right-aligned Arabic title
+        // ("شرب الماء"). `gap` is direction-agnostic and keeps the spacing in both LTR and RTL.
+        gap: 12,
+        flexShrink: 1,
     },
     iconContainer: {
         width: 40,
@@ -243,7 +265,6 @@ const styles = StyleSheet.create({
         backgroundColor: theme.colors.white,
         justifyContent: 'center',
         alignItems: 'center',
-        marginEnd: 12,
         ...getShadowStyle(2, theme.colors.accentDarkPink, 0.1, 4, { width: 0, height: 2 }),
     },
     emoji: {
@@ -260,8 +281,13 @@ const styles = StyleSheet.create({
         color: theme.colors.pinkDark700,
         fontWeight: '500',
     },
+    // 44pt target around the 24pt gear without growing the card header.
     settingsButton: {
-        padding: 4,
+        minWidth: 44,
+        minHeight: 44,
+        alignItems: 'center',
+        justifyContent: 'center',
+        margin: -8,
     },
     content: {
         gap: 16,
@@ -281,7 +307,7 @@ const styles = StyleSheet.create({
     unit: {
         fontSize: 16,
         fontWeight: '600',
-        color: theme.colors.pinkAccent,
+        color: theme.colors.accent,
     },
     goalText: {
         fontSize: 13,
@@ -350,6 +376,9 @@ const styles = StyleSheet.create({
         padding: 24,
     },
     modalContent: {
+        width: '100%',
+        maxWidth: MODAL_MAX_WIDTH,
+        alignSelf: 'center',
         backgroundColor: theme.colors.white,
         borderRadius: 24,
         padding: 24,
@@ -386,7 +415,7 @@ const styles = StyleSheet.create({
     },
     hint: {
         fontSize: 12,
-        color: theme.colors.pink200,
+        color: theme.colors.textLight,
         marginTop: 6,
         marginStart: 4,
     },
@@ -397,12 +426,13 @@ const styles = StyleSheet.create({
         marginBottom: 28,
         marginTop: 8,
     },
+    // White label: the text-bearing pink (4.6:1), not pink400ui (3.76:1).
     saveButton: {
-        backgroundColor: theme.colors.pink400ui,
+        backgroundColor: theme.colors.primaryStrong,
         padding: 16,
         borderRadius: 16,
         alignItems: 'center',
-        shadowColor: theme.colors.pink400ui,
+        shadowColor: theme.colors.primaryStrong,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 8,

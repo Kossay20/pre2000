@@ -1,4 +1,5 @@
 import { theme } from '../../theme';
+import { switchThumbProps } from '../../utils/styleUtils';
 /**
  * ReminderCardV2
  * 
@@ -14,7 +15,8 @@ import {
     Text,
     StyleSheet,
     Switch,
-    TouchableOpacity
+    TouchableOpacity,
+    Platform
 } from 'react-native';
 import {
     ReminderDefinition,
@@ -22,7 +24,7 @@ import {
     ContextProfile
 } from '../../types/remindersV2';
 import { updateReminderIntensity } from '../../services/remindersV2Service';
-import { getLocalizedTrilang } from '../../utils/i18nHelpers';
+import { getLocalizedTrilang, formatTime } from '../../utils/i18nHelpers';
 import { useAuth } from '../../context/AuthContext';
 import { useTranslation } from 'react-i18next';
 
@@ -71,17 +73,25 @@ export const ReminderCardV2: React.FC<ReminderCardV2Props> = ({
         // V2.2: Include labels if set
         const timeLabels = setting?.time_labels || {};
         return times.map(t => {
-            const formatted = t.replace(':', 'h');
+            const formatted = formatTime(t, i18n.language);
             const label = timeLabels[t];
             return label ? `${formatted}: ${label}` : formatted;
         }).join(' • ');
     };
 
+    // W4 #2: calendar.weekDays is an OBJECT keyed by day name ({monday:'L',…}), NOT a numeric array,
+    // and reminder days are 1=Monday … 7=Sunday. Resolve through the ordered keys.
+    const WEEKDAY_ORDER = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+    const getWeekDayNames = (): string[] => {
+        const wd = t('calendar.weekDays', { returnObjects: true }) as Record<string, string>;
+        return WEEKDAY_ORDER.map(k => wd?.[k] || '');
+    };
+
     // Format days for per_week display
     const formatDays = (days: number[]): string => {
         if (!days || days.length === 0) return '';
-        const dayNames = t('calendar.weekDays', { returnObjects: true }) as string[];
-        return days.map(d => dayNames[d % 7]).join(' • ');
+        const dayNames = getWeekDayNames();
+        return days.map(d => dayNames[((d - 1) % 7 + 7) % 7]).filter(Boolean).join(' • ');
     };
 
     // Get days to display (from setting or preset)
@@ -112,7 +122,9 @@ export const ReminderCardV2: React.FC<ReminderCardV2Props> = ({
                     value={isEnabled}
                     onValueChange={onToggle}
                     trackColor={{ false: theme.colors.neutral300, true: theme.colors.accent }}
-                    thumbColor={isEnabled ? theme.colors.white : theme.colors.iosGroupedBackground}
+                    {...switchThumbProps(isEnabled ? theme.colors.white : theme.colors.iosGroupedBackground)}
+                    accessibilityLabel={getLocalizedContent(reminder.title)}
+                    accessibilityHint={t('a11y.toggleReminder')}
                 />
             </View>
 
@@ -134,7 +146,13 @@ export const ReminderCardV2: React.FC<ReminderCardV2Props> = ({
                         </Text>
                         {/* Small edit link instead of big button */}
                         {onEdit && (
-                            <TouchableOpacity onPress={onEdit} style={styles.editLink}>
+                            <TouchableOpacity
+                                onPress={onEdit}
+                                style={styles.editLink}
+                                hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+                                accessibilityRole="button"
+                                accessibilityLabel={t('a11y.edit')}
+                            >
                                 <Text style={styles.editLinkText}>⚙️</Text>
                             </TouchableOpacity>
                         )}
@@ -154,7 +172,7 @@ export const ReminderCardV2: React.FC<ReminderCardV2Props> = ({
                         <View style={styles.daysRow}>
                             <Text style={styles.daysLabel}>{t('reminders.card.daysLabel')}</Text>
                             <View style={styles.daysContainer}>
-                                {(t('calendar.weekDays', { returnObjects: true }) as string[]).map((day, index) => {
+                                {getWeekDayNames().map((day, index) => {
                                     const dayNum = index + 1;
                                     const isActive = setting.days?.includes(dayNum);
                                     return (
@@ -214,7 +232,7 @@ const styles = StyleSheet.create({
     },
     description: {
         fontSize: 13,
-        color: theme.colors.neutral350,
+        color: theme.colors.textMuted,
         marginTop: 2,
         lineHeight: 18,
     },
@@ -262,7 +280,7 @@ const styles = StyleSheet.create({
     },
     frequencyUnit: {
         fontSize: 13,
-        color: theme.colors.neutral350,
+        color: theme.colors.textMuted,
     },
     frequencyInfo: {
         marginBottom: 10,
@@ -319,7 +337,7 @@ const styles = StyleSheet.create({
     },
     advancedHint: {
         fontSize: 12,
-        color: theme.colors.neutral400,
+        color: theme.colors.textMuted,
         fontStyle: 'italic',
     },
 
@@ -353,7 +371,7 @@ const styles = StyleSheet.create({
     },
     dayChipText: {
         fontSize: 12,
-        color: theme.colors.neutral350,
+        color: theme.colors.textMuted,
         fontWeight: '500',
     },
     dayChipTextActive: {
@@ -367,7 +385,7 @@ const styles = StyleSheet.create({
     },
     frequencyPreviewText: {
         fontSize: 13,
-        color: theme.colors.neutral350,
+        color: theme.colors.textMuted,
     },
 
     // Edit button
@@ -410,11 +428,18 @@ const styles = StyleSheet.create({
         color: theme.colors.textSecondary,
         flex: 1,
     },
+    // A 44pt target around a small gear (it measured 23×20). The negative vertical margin
+    // keeps the summary row as compact as before; on native the slop adds a little more.
     editLink: {
-        paddingStart: 8,
+        minWidth: 44,
+        minHeight: 44,
+        marginVertical: -12,
+        marginStart: 4,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     editLinkText: {
-        fontSize: 12,
+        fontSize: 16,
         color: theme.colors.accent,
     },
 });

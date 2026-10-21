@@ -1,51 +1,71 @@
 import { createLogger } from '../utils/logger';
 const log = createLogger('ProfileScreen');
-import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator, KeyboardAvoidingView, Platform, Modal } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { showAlert } from '../utils/alert';
 import { useAuth } from '../context/AuthContext';
 import { usePregnancy } from '../context/PregnancyContext';
 import { useCurrentWeek } from '../services/useCurrentWeek';
 import { theme } from '../theme';
 import { styles } from './ProfileScreen.styles';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { useNavigation } from '@react-navigation/native';
-import { addDays, format } from 'date-fns';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { format } from 'date-fns';
 import { useDateLocale } from '../hooks/useDateLocale';
 import { LanguageSelector } from '../components/common/LanguageSelector';
 import { RtlAwareChevron } from '../components/common/RtlAwareChevron';
+import { Button } from '../components/common/Button';
+import { useRtl } from '../hooks/useRtl';
 import { useTranslation } from 'react-i18next';
+import { COUNTRY_OPTIONS } from '../utils/clinicalChecks';
 import { EmergencyContactsSection } from '../components/profile/EmergencyContactsSection';
 import { openSupportEmail } from '../services/supportService';
 import { getPickerLocale } from '../utils/pickerLocale';
-import { calculatePregnancyWeek, calculateCurrentWeek } from '../utils/pregnancyCalculator';
+import { calculatePregnancyWeek, calculateCurrentWeek, dueDateFromLmp } from '../utils/pregnancyCalculator';
+import { parseLocalDateKey, storedDateKey, toLocalDateKey } from '../utils/localDate';
 
 import { LineChart } from 'react-native-chart-kit';
 import { Ionicons } from '@expo/vector-icons';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
+import { useAccountDeletion } from '../hooks/useAccountDeletion';
+import { useConfirmedLogout } from '../hooks/useConfirmedLogout';
+import { useUnsyncedRecords } from '../hooks/useUnsyncedRecords';
+import { validateProfile } from '../utils/validation';
+import { changedFormFields } from '../context/profileSync';
+
+// Same physical bounds WeightTrackerScreen enforces (see its handleSetup), so the
+// two screens cannot disagree about what a plausible height/weight is.
+const MIN_HEIGHT_CM = 100;
+const MAX_HEIGHT_CM = 250;
+const MIN_WEIGHT_KG = 30;
+const MAX_WEIGHT_KG = 200;
 
 export const ProfileScreen = () => {
     useScreenAnalytics('ProfileScreen');
-    const { user, logout, resetProfile, updateProfile, deleteAccount, reauthenticateAndDelete } = useAuth();
+    const { user, firebaseUser, updateProfile } = useAuth();
+    const { requestDeleteAccount, requestResetProfile, busy: deletionBusy, reauthModal } = useAccountDeletion();
     const { profile, setProfile } = usePregnancy();
-    const { currentWeekNumber } = useCurrentWeek();
+    const { displayWeek } = useCurrentWeek();
     const navigation = useNavigation();
     const { t, i18n } = useTranslation();
+    const { isRTL } = useRtl();
     const [loading, setLoading] = useState(false);
+    const { pending: unsyncedCount, offline, refresh: refreshUnsynced } = useUnsyncedRecords();
+    useFocusEffect(React.useCallback(() => { refreshUnsynced(); }, [refreshUnsynced]));
 
     // Get date locale using shared hook (handles all languages including tn → arTN)
     const dateLocale = useDateLocale();
 
     const [firstName, setFirstName] = useState(profile?.firstName || '');
     const [lastName, setLastName] = useState(profile?.lastName || '');
-    const [country, setCountry] = useState(profile?.country || 'tunisia');
+    // Never default to a country: it picks the emergency number the app dials, and
+    // a default here would be written back on the next save.
+    const [country, setCountry] = useState(profile?.country || '');
     const [lmp, setLmp] = useState(
         profile?.lmp ? new Date(profile.lmp) : new Date()
     );
     const [showDatePicker, setShowDatePicker] = useState(false);
-    const [reauthModalVisible, setReauthModalVisible] = useState(false);
-    const [reauthPassword, setReauthPassword] = useState('');
-    const [reauthLoading, setReauthLoading] = useState(false);
     // PROFILE-FIX: Physical data for BMI + weight gain tracking
     const [height, setHeight] = useState(
         profile?.height ? String(profile.height) : ''
@@ -54,37 +74,71 @@ export const ProfileScreen = () => {
         profile?.prePregnancyWeight ? String(profile.prePregnancyWeight) : ''
     );
 
-    // Update local state when profile changes
+    // Update local state when the stored profile changes — only the fields that changed.
+    // Adding an emergency contact publishes a new profile object with the same name, and
+    // re-syncing every field on that wiped whatever she had typed and not saved yet.
+    const syncedProfileRef = useRef(profile);
     useEffect(() => {
-        if (profile) {
-            setFirstName(profile.firstName || '');
-            setLastName(profile.lastName || '');
-            setCountry(profile.country || 'tunisia');
-            if (profile.lmp) {
-                setLmp(new Date(profile.lmp));
-            }
-            // PROFILE-FIX: Sync physical fields from profile
-            if (profile.height) setHeight(String(profile.height));
-            if (profile.prePregnancyWeight) setPrePregnancyWeight(String(profile.prePregnancyWeight));
+        if (!profile) return;
+        const changed = changedFormFields(syncedProfileRef.current, profile);
+        syncedProfileRef.current = profile;
+        if (changed.includes('firstName')) setFirstName(profile.firstName || '');
+        if (changed.includes('lastName')) setLastName(profile.lastName || '');
+        if (changed.includes('country')) setCountry(profile.country || '');
+        if (changed.includes('lmp') && profile.lmp) setLmp(new Date(profile.lmp));
+        // PROFILE-FIX: Sync physical fields from profile
+        if (changed.includes('height') && profile.height) setHeight(String(profile.height));
+        if (changed.includes('prePregnancyWeight') && profile.prePregnancyWeight) {
+            setPrePregnancyWeight(String(profile.prePregnancyWeight));
         }
     }, [profile]);
 
-    // Calculate DPA (Due Date) = LMP + 280 days
-    const calculateDPA = (lmpDate: Date): Date => {
-        return addDays(lmpDate, 280);
-    };
-
-    const dpa = calculateDPA(lmp);
+    // The LMP and the due date are calendar days. A typed or seeded LMP is stored as UTC
+    // midnight, which local time shows as the evening before west of UTC: in New York both
+    // dates read a day early (DPA "01 décembre" where Paris said "02 décembre").
+    const lmpDay = parseLocalDateKey(storedDateKey(lmp)) ?? lmp;
+    const dpa = dueDateFromLmp(lmp) ?? lmpDay;
+    // Stored the way a calendar day is (UTC midnight of that day), so storedDateKey reads
+    // the same day back in every timezone.
+    const dpaIso = `${toLocalDateKey(dpa)}T00:00:00.000Z`;
 
     const handleSave = async () => {
-        if (!firstName.trim()) {
-            Alert.alert(t('common.error'), t('profile.errorFirstName'));
+        // VALIDATION FIX: this screen only checked "firstName is non-empty".
+        // validateProfile — which caps both names at 50 chars and rejects a future
+        // LMP — was imported nowhere but OnboardingScreen, so the edit path bypassed
+        // it entirely and wrote unbounded values straight to Firestore.
+        const profileValidation = validateProfile({
+            firstName,
+            lastName,
+            lmp,
+        });
+        if (!profileValidation.valid) {
+            showAlert(t('common.error'), t(profileValidation.error || 'profile.errorFirstName'));
             return;
+        }
+
+        // Height/weight were bounded only by maxLength (3 and 5 chars), so 999 cm and
+        // 99999 kg persisted and then fed the BMI and weight-gain calculations.
+        // WeightTracker already gates the same two fields at 100-250 cm / 30-200 kg;
+        // apply the identical range here so one screen cannot poison the other.
+        if (height.trim()) {
+            const h = parseFloat(height);
+            if (!isFinite(h) || h < MIN_HEIGHT_CM || h > MAX_HEIGHT_CM) {
+                showAlert(t('common.error'), t('profile.errorHeightRange', { min: MIN_HEIGHT_CM, max: MAX_HEIGHT_CM }));
+                return;
+            }
+        }
+        if (prePregnancyWeight.trim()) {
+            const w = parseFloat(prePregnancyWeight);
+            if (!isFinite(w) || w < MIN_WEIGHT_KG || w > MAX_WEIGHT_KG) {
+                showAlert(t('common.error'), t('profile.errorWeightRange', { min: MIN_WEIGHT_KG, max: MAX_WEIGHT_KG }));
+                return;
+            }
         }
 
         const { isInvalid } = calculatePregnancyWeek(lmp);
         if (isInvalid) {
-            Alert.alert(
+            showAlert(
                 t('common.error'),
                 t('profile.errorInvalidDate')
             );
@@ -101,132 +155,55 @@ export const ProfileScreen = () => {
                 lastName: lastName.trim() || undefined,
                 country,
                 lmp: lmp.toISOString(),
-                dpa: dpa.toISOString(),
+                dpa: dpaIso,
+                // F-PROF-01 FIX: include physical data so the guest 'guestProfile'
+                // AsyncStorage write (PregnancyContext.setProfile) persists height &
+                // prePregnancyWeight. Without these, guest BMI/weight-gain break and
+                // the WeightTracker setup gate re-triggers after reload.
+                ...(isFinite(heightNum) && heightNum > 0 ? { height: heightNum } : {}),
+                ...(isFinite(weightNum) && weightNum > 0 ? { prePregnancyWeight: weightNum } : {}),
             };
 
-            // 1. Update PregnancyContext (local state + guest AsyncStorage)
-            await setProfile(profilePayload);
-
-            // 2. Sync to AuthContext + Firestore (single write, no duplication)
-            await updateProfile({
+            // 1. AuthContext + Firestore first (single write). An emptied last name goes out
+            // as `undefined`, which updateProfile clears on the server. Its result decides
+            // what she is told: "Succès" only when the account really holds the edit.
+            const result = await updateProfile({
                 firstName: firstName.trim(),
                 lastName: lastName.trim() || undefined,
                 country,
                 pregnancyStartDate: lmp.toISOString(),
                 lmp: lmp.toISOString(),
-                dpa: dpa.toISOString(),
+                dpa: dpaIso,
                 currentWeek: calculateCurrentWeek(lmp),
                 // PROFILE-FIX: Persist physical data for BMI and weight gain calculations
                 ...(isFinite(heightNum) && heightNum > 0 ? { height: heightNum } : {}),
                 ...(isFinite(weightNum) && weightNum > 0 ? { prePregnancyWeight: weightNum } : {}),
             });
+            if (!result.ok) {
+                log.warn('Profile not saved:', result.error);
+                showAlert(t('common.error'), t('profile.errorUpdate'));
+                return;
+            }
 
-            Alert.alert(t('common.success'), t('profile.successUpdate'));
+            // 2. A guest's device-only copy ('guestProfile', read by WeightTracker). For an
+            // account PregnancyContext re-derives the profile from the updated user.
+            if (!user || user.isGuest) {
+                await setProfile({ ...profilePayload, emergencyContacts: profile?.emergencyContacts });
+            }
+
+            showAlert(t('common.success'), t('profile.successUpdate'));
         } catch (error) {
-            Alert.alert(t('common.error'), t('profile.errorUpdate'));
+            showAlert(t('common.error'), t('profile.errorUpdate'));
             log.error('Error updating profile:', error);
         } finally {
             setLoading(false);
         }
     };
 
-    const handleLogout = async () => {
-        Alert.alert(
-            t('profile.logoutConfirmTitle'),
-            t('profile.logoutConfirmMsg'),
-            [
-                { text: t('common.cancel'), style: 'cancel' },
-                {
-                    text: t('profile.logout'),
-                    style: 'destructive',
-                    onPress: async () => {
-                        try {
-                            await logout();
-                        } catch (error) {
-                            log.error('Logout error:', error);
-                        }
-                    },
-                },
-            ]
-        );
-    };
+    // Same confirmation + unsent-records guard as the onboarding header's sign-out.
+    const handleLogout = useConfirmedLogout();
 
-    const handleResetProfile = async () => {
-        Alert.alert(
-            t('profile.resetConfirmTitle'),
-            t('profile.resetConfirmMsg'),
-            [
-                { text: t('common.cancel'), style: 'cancel' },
-                {
-                    text: t('profile.reset'),
-                    style: 'destructive',
-                    onPress: async () => {
-                        try {
-                            setLoading(true);
-                            await resetProfile();
-                            Alert.alert(
-                                t('profile.resetDoneTitle'),
-                                t('profile.resetDoneMsg'),
-                                [
-                                    {
-                                        text: t('common.ok'),
-                                        onPress: () => {
-                                            // Navigate to AuthChoice
-                                            navigation.reset({
-                                                index: 0,
-                                                routes: [{ name: 'AuthChoice' } as any],
-                                            });
-                                        },
-                                    },
-                                ]
-                            );
-                        } catch (error) {
-                            log.error('Reset profile error:', error);
-                            Alert.alert(t('common.error'), t('profile.errorReset'));
-                        } finally {
-                            setLoading(false);
-                        }
-                    },
-                },
-            ]
-        );
-    };
-
-    // F4: Re-authenticate then retry the auth-side delete. Firestore data has
-    // already been purged by the prior `deleteAccount()` call; this finalizes
-    // the flow and navigates back to AuthChoice.
-    const runReauthAndDelete = async (password: string) => {
-        if (!password) {
-            Alert.alert(t('common.error'), t('profile.reauthMissingPassword'));
-            return;
-        }
-        try {
-            setReauthLoading(true);
-            setLoading(true);
-            await reauthenticateAndDelete(password);
-            setReauthModalVisible(false);
-            setReauthPassword('');
-            navigation.reset({
-                index: 0,
-                routes: [{ name: 'AuthChoice' } as any],
-            });
-        } catch (reauthErr: any) {
-            log.error('Reauthenticate-and-delete error:', reauthErr);
-            Alert.alert(t('common.error'), t('profile.deleteAccountError'));
-        } finally {
-            setReauthLoading(false);
-            setLoading(false);
-        }
-    };
-
-    const COUNTRIES = [
-        { key: 'tunisia', label: t('common.countries.tunisia') },
-        { key: 'morocco', label: t('common.countries.morocco') },
-        { key: 'algeria', label: t('common.countries.algeria') },
-        { key: 'france', label: t('common.countries.france') },
-        { key: 'belgium', label: t('common.countries.belgium') },
-        { key: 'other', label: t('common.countries.other') },
-    ];
+    const COUNTRIES = COUNTRY_OPTIONS.map((key) => ({ key, label: t(`common.countries.${key}`) }));
 
     const renderCountrySelector = () => {
         return (
@@ -242,6 +219,7 @@ export const ProfileScreen = () => {
                         accessibilityRole="button"
                         accessibilityLabel={c.label}
                         accessibilityState={{ selected: country === c.key }}
+                        {...(Platform.OS === 'web' ? { 'aria-selected': country === c.key } : {})}
                     >
                         <Text
                             style={[
@@ -266,7 +244,7 @@ export const ProfileScreen = () => {
             <ScrollView style={styles.container}>
                 {/* Header with Gradient */}
                 <LinearGradient
-                    colors={[theme.colors.primary, theme.colors.accent]}
+                    colors={[theme.colors.primaryStrong, theme.colors.accent]}
                     style={styles.header}
                 >
                     <View style={styles.profileCircle}>
@@ -276,25 +254,101 @@ export const ProfileScreen = () => {
                     </View>
                     <Text style={styles.headerTitle}>{firstName || t('profile.title')} {lastName}</Text>
                     <Text style={[styles.headerSubtitle, { fontWeight: 'bold' }]}>
-                        {t('common.week')} {currentWeekNumber || '—'}
+                        {t('common.week')} {displayWeek || '—'}
                     </Text>
-                    <Text style={styles.headerSubtitle}>
-                        {user?.email || t('profile.guestUser')}
+                    <Text style={styles.headerSubtitle} numberOfLines={1} ellipsizeMode="middle">
+                        {/* GUEST-LABEL FIX: this read only the Firestore profile's `email`
+                            field. A profile document written without that field — which is
+                            what the guest-upgrade and cold-start bootstrap paths produce —
+                            made a fully registered, signed-in user read "Utilisateur invité"
+                            under their own name. Firebase auth always knows the address, so
+                            fall back to it before calling anyone a guest. */}
+                        {user?.email || firebaseUser?.email || t('profile.guestUser')}
                     </Text>
+                    {user?.isGuest && (
+                        <Button
+                            title={t('common.screen.createAccount', 'Créer un compte')}
+                            variant="primary"
+                            size="small"
+                            onPress={() => navigation.navigate('GuestUpgrade' as never)}
+                            style={{ marginTop: 16, alignSelf: 'center' }}
+                            accessibilityHint={t('a11y.openItem')}
+                            {...(Platform.OS === 'web' ? { dir: isRTL ? 'rtl' : 'ltr' } : {})}
+                        />
+                    )}
                 </LinearGradient>
 
                 <View style={styles.content}>
 
+                    {/* Account actions first: sign out and delete account must be found without scrolling (App Review 5.1.1(v)). */}
+                    <Text style={[styles.sectionTitle, { marginTop: 0, color: theme.colors.error }]}>{t('common.dangerZone')}</Text>
+                    <View style={styles.menuSection}>
+                        <TouchableOpacity
+                            style={styles.menuRow}
+                            onPress={handleLogout}
+                            accessibilityRole="button"
+                            accessibilityLabel={t('a11y.logout')}
+                            accessibilityHint={t('a11y.logoutHint')}
+                        >
+                            <View style={styles.menuRowLeft}>
+                                {/* Signing out erases nothing: neutral, so the red is left to the
+                                    rows that do (reset, delete). */}
+                                <Ionicons name="log-out-outline" size={24} color={theme.colors.textSecondary} style={styles.menuIcon} />
+                                <Text style={styles.menuLabel}>{t('profile.logout')}</Text>
+                            </View>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={styles.menuRow}
+                            onPress={requestResetProfile}
+                            accessibilityRole="button"
+                            accessibilityLabel={t('profile.reset')}
+                        >
+                            <View style={styles.menuRowLeft}>
+                                <Ionicons name="refresh-circle-outline" size={24} color={theme.colors.orange900} style={styles.menuIcon} />
+                                <Text style={[styles.menuLabel, { color: theme.colors.deepOrange900 }]}>{t('profile.reset')}</Text>
+                            </View>
+                        </TouchableOpacity>
+
+                        {!user?.isGuest && (
+                            <TouchableOpacity
+                                style={[styles.menuRow, { borderBottomWidth: 0 }]}
+                                accessibilityRole="button"
+                                accessibilityLabel={t('profile.deleteAccount')}
+                                accessibilityHint={t('a11y.deleteAccountHint')}
+                                accessibilityState={{ disabled: deletionBusy, busy: deletionBusy }}
+                                disabled={deletionBusy}
+                                onPress={requestDeleteAccount}
+                            >
+                                <View style={styles.menuRowLeft}>
+                                    <Ionicons name="trash-outline" size={24} color={theme.colors.materialRedDark} style={styles.menuIcon} />
+                                    <Text style={[styles.menuLabel, { color: theme.colors.error }]}>{t('profile.deleteAccount')}</Text>
+                                </View>
+                            </TouchableOpacity>
+                        )}
+                    </View>
+
                     {/* Section 1: Mon Compte (Inline Edit) */}
-                    <Text style={styles.sectionTitle}>{t('profile.personalInfo')}</Text>
+                    <Text style={[styles.sectionTitle, { marginTop: 24 }]}>{t('profile.personalInfo')}</Text>
                     <View style={styles.card}>
                         <View style={styles.form}>
+                            {/* UNBOUNDED-INPUT FIX: these two had no maxLength (unlike
+                                height/weight below), and handleSave only checks that
+                                firstName is non-empty — validateProfile, which caps both
+                                at 50 chars, is never called on this edit path. A pasted
+                                megabyte was persisted to Firestore, mirrored to
+                                AsyncStorage, re-read on every cold start and rendered
+                                untruncated in the header. Bounded here and in
+                                firestore.rules, matching validation.ts:182-188. */}
                             <Text style={styles.label}>{t('common.firstName')} *</Text>
                             <TextInput
                                 style={styles.input}
                                 value={firstName}
                                 onChangeText={setFirstName}
                                 placeholder={t('common.enterFirstName')}
+                                placeholderTextColor={theme.colors.textSecondary}
+                                maxLength={50}
+                                accessibilityLabel={t('common.firstName')}
                             />
 
                             <Text style={styles.label}>{t('common.lastName')}</Text>
@@ -303,13 +357,16 @@ export const ProfileScreen = () => {
                                 value={lastName}
                                 onChangeText={setLastName}
                                 placeholder={t('common.enterLastName')}
+                                placeholderTextColor={theme.colors.textSecondary}
+                                maxLength={50}
+                                accessibilityLabel={t('common.lastName')}
                             />
 
                             <Text style={styles.label}>{t('common.country')}</Text>
                             {renderCountrySelector()}
 
                             {/* PROFILE-FIX: Physical data section */}
-                            <View style={styles.physicalRow}>
+                            <View style={[styles.physicalRow, { alignItems: 'flex-end' }]}>
                                 <View style={{ flex: 1, marginEnd: 8 }}>
                                     <Text style={styles.label}>{t('profile.height', 'Taille (cm)')}</Text>
                                     <TextInput
@@ -317,8 +374,10 @@ export const ProfileScreen = () => {
                                         value={height}
                                         onChangeText={setHeight}
                                         placeholder={t('profile.heightPlaceholder')}
+                                        placeholderTextColor={theme.colors.textSecondary}
                                         keyboardType="numeric"
                                         maxLength={3}
+                                        accessibilityLabel={t('profile.height', 'Taille (cm)')}
                                     />
                                 </View>
                                 <View style={{ flex: 1, marginStart: 8 }}>
@@ -328,8 +387,10 @@ export const ProfileScreen = () => {
                                         value={prePregnancyWeight}
                                         onChangeText={setPrePregnancyWeight}
                                         placeholder={t('profile.weightPlaceholderShort')}
+                                        placeholderTextColor={theme.colors.textSecondary}
                                         keyboardType="numeric"
                                         maxLength={5}
+                                        accessibilityLabel={t('profile.prePregnancyWeight', 'Poids avant (kg)')}
                                     />
                                 </View>
                             </View>
@@ -343,18 +404,18 @@ export const ProfileScreen = () => {
                                     style={styles.dateButton}
                                     onPress={() => setShowDatePicker(true)}
                                     accessibilityRole="button"
-                                    accessibilityLabel={`${t('profile.lmpLabel')}: ${format(lmp, 'dd MMM yyyy', { locale: dateLocale })}`}
+                                    accessibilityLabel={`${t('profile.lmpLabel')}: ${format(lmpDay, 'd MMMM yyyy', { locale: dateLocale })}`}
                                     accessibilityHint={t('a11y.selectDate')}
                                 >
                                     <Text style={styles.dateButtonText}>
-                                        {format(lmp, 'dd MMM yyyy', { locale: dateLocale })}
+                                        {format(lmpDay, 'd MMMM yyyy', { locale: dateLocale })}
                                     </Text>
                                 </TouchableOpacity>
                             </View>
 
                             {showDatePicker && (
                                 <DateTimePicker
-                                    value={lmp}
+                                    value={lmpDay}
                                     mode="date"
                                     display="spinner"
                                     onChange={(event, selectedDate) => {
@@ -373,7 +434,7 @@ export const ProfileScreen = () => {
                             <View style={styles.dpaContainer}>
                                 <Text style={styles.label}>{t('profile.dpaLabel')}</Text>
                                 <Text style={styles.dpaText}>
-                                    {format(dpa, 'dd MMMM yyyy', { locale: dateLocale })}
+                                    {format(dpa, 'd MMMM yyyy', { locale: dateLocale })}
                                 </Text>
                                 <Text style={styles.dpaSubtext}>{t('profile.dpaSubtext')}</Text>
                             </View>
@@ -395,6 +456,10 @@ export const ProfileScreen = () => {
                             </TouchableOpacity>
                         </View>
                     </View>
+
+                    {/* Emergency Contacts — a safety feature, so near the top: it used to sit
+                        at the very bottom, below logout / reset / delete. */}
+                    <EmergencyContactsSection />
 
                     {/* Section 2: Tableaux de bord */}
                     <Text style={[styles.sectionTitle, { marginTop: 24 }]}>{t('common.dashboard')}</Text>
@@ -470,102 +535,6 @@ export const ProfileScreen = () => {
                         </TouchableOpacity>
                     </View>
 
-                    {/* Section 5: Zone de danger -> Sécurité */}
-                    <Text style={[styles.sectionTitle, { marginTop: 24, color: theme.colors.error }]}>{t('common.dangerZone')}</Text>
-                    <View style={styles.menuSection}>
-                        <TouchableOpacity
-                            style={styles.menuRow}
-                            onPress={handleLogout}
-                            accessibilityRole="button"
-                            accessibilityLabel={t('a11y.logout')}
-                            accessibilityHint={t('a11y.logoutHint')}
-                        >
-                            <View style={styles.menuRowLeft}>
-                                <Ionicons name="log-out-outline" size={24} color={theme.colors.red700} style={styles.menuIcon} />
-                                <Text style={[styles.menuLabel, { color: theme.colors.error }]}>{t('profile.logout')}</Text>
-                            </View>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                            style={styles.menuRow}
-                            onPress={handleResetProfile}
-                            accessibilityRole="button"
-                            accessibilityLabel={t('profile.reset')}
-                        >
-                            <View style={styles.menuRowLeft}>
-                                <Ionicons name="refresh-circle-outline" size={24} color={theme.colors.orange900} style={styles.menuIcon} />
-                                <Text style={[styles.menuLabel, { color: theme.colors.orange900 }]}>{t('profile.reset')}</Text>
-                            </View>
-                        </TouchableOpacity>
-
-                        {!user?.isGuest && (
-                            <TouchableOpacity
-                                style={[styles.menuRow, { borderBottomWidth: 0 }]}
-                                accessibilityRole="button"
-                                accessibilityLabel={t('a11y.deleteAccount')}
-                                accessibilityHint={t('a11y.deleteAccountHint')}
-                                onPress={async () => {
-                                    Alert.alert(
-                                        t('profile.deleteAccountTitle'),
-                                        t('profile.deleteAccountMsg'),
-                                        [
-                                            { text: t('common.cancel'), style: 'cancel' },
-                                            {
-                                                text: t('common.delete'),
-                                                style: 'destructive',
-                                                onPress: async () => {
-                                                    try {
-                                                        setLoading(true);
-                                                        await deleteAccount();
-                                                        navigation.reset({
-                                                            index: 0,
-                                                            routes: [{ name: 'AuthChoice' } as any],
-                                                        });
-                                                    } catch (error: any) {
-                                                        if (error?.code === 'REAUTH_REQUIRED' || error?.message === 'REAUTH_REQUIRED') {
-                                                            // F4: Firestore data was purged but auth.delete() needs fresh
-                                                            // credentials — re-prompt for the password and retry.
-                                                            if (Platform.OS === 'ios') {
-                                                                Alert.prompt(
-                                                                    t('profile.reauthTitle'),
-                                                                    t('profile.reauthMessage'),
-                                                                    [
-                                                                        { text: t('common.cancel'), style: 'cancel' },
-                                                                        {
-                                                                            text: t('common.confirm'),
-                                                                            style: 'destructive',
-                                                                            onPress: (password?: string) => {
-                                                                                runReauthAndDelete(password ?? '');
-                                                                            },
-                                                                        },
-                                                                    ],
-                                                                    'secure-text',
-                                                                );
-                                                            } else {
-                                                                setReauthPassword('');
-                                                                setReauthModalVisible(true);
-                                                            }
-                                                        } else {
-                                                            log.error('Delete account error:', error);
-                                                            Alert.alert(t('common.error'), t('profile.deleteAccountError'));
-                                                        }
-                                                    } finally {
-                                                        setLoading(false);
-                                                    }
-                                                }
-                                            }
-                                        ]
-                                    );
-                                }}
-                            >
-                                <View style={styles.menuRowLeft}>
-                                    <Ionicons name="trash-outline" size={24} color={theme.colors.materialRedDark} style={styles.menuIcon} />
-                                    <Text style={[styles.menuLabel, { color: theme.colors.error }]}>{t('profile.deleteAccount')}</Text>
-                                </View>
-                            </TouchableOpacity>
-                        )}
-                    </View>
-
                     {/* User Type Badge */}
                     <View style={styles.userTypeBadge}>
                         <Text style={styles.userTypeText}>
@@ -574,73 +543,20 @@ export const ProfileScreen = () => {
                         <Text style={styles.userTypeSubtext}>
                             {user?.isGuest
                                 ? t('profile.guestData')
-                                : t('profile.cloudData')}
+                                : unsyncedCount > 0
+                                    ? t('profile.cloudPending', { count: unsyncedCount })
+                                    : offline
+                                        ? t('profile.cloudOffline')
+                                        : t('profile.cloudData')}
                         </Text>
                     </View>
 
-                    {/* Emergency Contacts */}
-                    <EmergencyContactsSection />
 
                 </View>
             </ScrollView>
 
-            {/* F4: Android-only reauth prompt (Alert.prompt is iOS-only) */}
-            <Modal
-                visible={reauthModalVisible}
-                transparent
-                animationType="fade"
-                onRequestClose={() => {
-                    if (!reauthLoading) {
-                        setReauthModalVisible(false);
-                        setReauthPassword('');
-                    }
-                }}
-            >
-                <View style={styles.reauthOverlay}>
-                    <View style={styles.reauthCard}>
-                        <Text style={styles.reauthTitle}>{t('profile.reauthTitle')}</Text>
-                        <Text style={styles.reauthMessage}>{t('profile.reauthMessage')}</Text>
-                        <TextInput
-                            style={styles.input}
-                            value={reauthPassword}
-                            onChangeText={setReauthPassword}
-                            secureTextEntry
-                            autoFocus
-                            editable={!reauthLoading}
-                            placeholder="••••••••"
-                            accessibilityLabel={t('profile.reauthMessage')}
-                        />
-                        <View style={styles.reauthActions}>
-                            <TouchableOpacity
-                                style={styles.reauthCancelButton}
-                                onPress={() => {
-                                    if (reauthLoading) return;
-                                    setReauthModalVisible(false);
-                                    setReauthPassword('');
-                                }}
-                                disabled={reauthLoading}
-                                accessibilityRole="button"
-                                accessibilityLabel={t('common.cancel')}
-                            >
-                                <Text style={styles.reauthCancelText}>{t('common.cancel')}</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={[styles.reauthConfirmButton, reauthLoading && styles.saveButtonDisabled]}
-                                onPress={() => runReauthAndDelete(reauthPassword)}
-                                disabled={reauthLoading}
-                                accessibilityRole="button"
-                                accessibilityLabel={t('common.confirm')}
-                            >
-                                {reauthLoading ? (
-                                    <ActivityIndicator color="white" />
-                                ) : (
-                                    <Text style={styles.reauthConfirmText}>{t('common.confirm')}</Text>
-                                )}
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                </View>
-            </Modal>
+            {/* F4: reauth prompt for Android/web (Alert.prompt is iOS-only) */}
+            {reauthModal}
         </KeyboardAvoidingView>
     );
 };

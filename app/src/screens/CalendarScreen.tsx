@@ -1,12 +1,13 @@
 import { createLogger } from '../utils/logger';
 const log = createLogger('CalendarScreen');
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
-import { View, Text, FlatList, ActivityIndicator, TouchableOpacity, Alert, ScrollView, Animated, Platform } from 'react-native';
+import { View, Text, FlatList, ActivityIndicator, TouchableOpacity, ScrollView, Animated, Platform, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../context/AuthContext';
 import { auth, db } from '../config/firebase'; // FIX: Import auth and db for direct access
 import { doc, getDoc } from 'firebase/firestore';
 import { useNavigation } from '@react-navigation/native';
+import { getReducedMotionSync } from '../hooks/usePrefersReducedMotion';
 import {
     loadCalendarTemplates,
     generateAllEvents,
@@ -16,10 +17,17 @@ import {
     GeneratedEvent,
     groupEventsByDate,
     getWeekDates,
+    pregnancyWeekOfDate,
+    displayedCalendarWeek,
+    LAST_CALENDAR_WEEK,
     getLocalDateKey,
+    countEventsInRange,
+    distinctSuggestions,
+    summariseMonth,
 } from '../services/calendarService';
 import { UserEvent, CombinedEvent } from '../types';
 import { theme } from '../theme';
+import { Ionicons } from '@expo/vector-icons';
 import { EventCard } from '../components/calendar/EventCard';
 import { WeeklyStrip } from '../components/calendar/WeeklyStrip';
 import { CalendarSkeleton } from '../components/calendar/CalendarSkeleton';
@@ -29,11 +37,11 @@ import { CalendarMonthStats } from '../components/calendar/CalendarMonthStats';
 import { format, addDays, startOfWeek, addWeeks, subWeeks, isSameDay, subMonths, addMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, parseISO, getDay } from 'date-fns';
 import { useTranslation } from 'react-i18next';
 import { useDateLocale } from '../hooks/useDateLocale';
-import { I18nManager } from 'react-native';
 import { getLocalizedContent } from '../utils/i18nHelpers';
-import { calculateCurrentWeek } from '../utils/pregnancyCalculator';
 import { CalendarScreenNavigationProp } from '../types/navigation';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
+import { showAlert } from '../utils/alert';
+import { confirmAction } from '../utils/uiUtils';
 import { styles } from './CalendarScreen.styles';
 
 type ViewMode = 'suggestions' | 'myEvents' | 'all';
@@ -44,10 +52,17 @@ export const CalendarScreen = () => {
     const { user } = useAuth();
     const navigation = useNavigation();
     const { t, i18n } = useTranslation();
+    // 667pt and under (iPhone SE class): the month grid shows one week row under the header and the
+    // stats card, so the card shrinks to a line.
+    const compactMonthStats = useWindowDimensions().height <= 700;
     const dateLocale = useDateLocale();
 
     // State
-    const [currentWeek, setCurrentWeek] = useState(user?.currentWeek || 1);
+    // The pregnancy week the strip shows. It opens on the week holding TODAY (her local
+    // day), never on the profile's currentWeek: that is the content week, which stops at 40,
+    // so at 40+3 SA the strip showed a week in the past and today was off screen.
+    const [currentWeek, setCurrentWeek] = useState(() =>
+        user?.pregnancyStartDate ? pregnancyWeekOfDate(new Date(user.pregnancyStartDate)) : 1);
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [viewMode, setViewMode] = useState<ViewMode>('all');
     const [calendarView, setCalendarView] = useState<CalendarView>('week');
@@ -64,6 +79,11 @@ export const CalendarScreen = () => {
     const [fadeAnim] = useState(new Animated.Value(0));
 
     useEffect(() => {
+        // W3 #4: respect OS "reduce motion" — show content instantly instead of a 500ms fade.
+        if (getReducedMotionSync()) {
+            fadeAnim.setValue(1);
+            return;
+        }
         Animated.timing(fadeAnim, {
             toValue: 1,
             duration: 500,
@@ -71,21 +91,11 @@ export const CalendarScreen = () => {
         }).start();
     }, []);
 
-    // Sync currentWeek with user profile when it changes
-    // Sync currentWeek with user profile when it changes
+    // A new LMP moves the strip back to the week holding today.
     useEffect(() => {
         if (user?.pregnancyStartDate) {
-            const today = new Date();
-            // FIX: Always default to TODAY on mount/update to prevent jumping back to start date
-            setSelectedDate(today);
-
-            // Calculate REAL current week based on Today
-            const realCurrentWeek = calculateCurrentWeek(new Date(user.pregnancyStartDate));
-
-            if (realCurrentWeek !== currentWeek) {
-                log.debug(`[CalendarScreen] 🔄 Auto-correcting week from ${currentWeek} to ${realCurrentWeek}`);
-                setCurrentWeek(realCurrentWeek);
-            }
+            setSelectedDate(new Date());
+            setCurrentWeek(pregnancyWeekOfDate(new Date(user.pregnancyStartDate)));
         }
     }, [user?.pregnancyStartDate]);
 
@@ -109,17 +119,26 @@ export const CalendarScreen = () => {
                 return;
             }
 
-            log.info(`Loading calendar data for user: ${effectiveUid ? 'found' : 'missing'} (week ${user?.currentWeek})`);
+            log.info(`Loading calendar data for user: ${effectiveUid ? 'found' : 'missing'}`);
+
+            // Cycle 3 F202 : skip pregnancy templates pour TTC/Curious modes —
+            // ces utilisatrices n'ont pas de RDV de grossesse (echo 12SA, etc.).
+            // Le calendrier reste utilisable pour leurs propres événements (userEvents).
+            const skipPregnancyTemplates = !!(user.isTTC || user.isCurious);
 
             const [templates, uEvents] = await Promise.all([
-                loadCalendarTemplates(),
+                skipPregnancyTemplates ? Promise.resolve([]) : loadCalendarTemplates(),
                 // Only load user events if authenticated (not guest)
                 (!user.isGuest && effectiveUid) ? loadUserEvents(effectiveUid) : Promise.resolve([])
             ]);
 
-            log.info(`Loaded ${templates.length} templates and ${uEvents.length} user events`);
+            log.info(
+                `Loaded ${templates.length} templates and ${uEvents.length} user events (TTC/Curious=${skipPregnancyTemplates})`
+            );
 
-            const generatedEvents = generateAllEvents(templates, new Date(user.pregnancyStartDate));
+            const generatedEvents = skipPregnancyTemplates
+                ? []
+                : generateAllEvents(templates, new Date(user.pregnancyStartDate));
             setAllTemplateEvents(generatedEvents);
             setUserEvents(uEvents);
         } catch (err) {
@@ -128,7 +147,7 @@ export const CalendarScreen = () => {
         } finally {
             setLoading(false);
         }
-    }, [user?.pregnancyStartDate, user?.uid, user?.isGuest, user?.currentWeek, t]);
+    }, [user?.pregnancyStartDate, user?.uid, user?.isGuest, user?.isTTC, user?.isCurious, t]);
 
     // Load initial data + reload when deps change
     useEffect(() => {
@@ -201,59 +220,37 @@ export const CalendarScreen = () => {
                 type: event.type,
                 week: event.week,
                 source: 'user' as const,
+                category: event.category, // CAL-04: carry Medical/Personal so edit re-opens with it + card can show it
+                // The week list carried these and the month list did not, so the month card
+                // had no address.
+                location: event.location,
+                notes: event.notes,
             });
         });
 
         return grouped;
     }, [allTemplateEvents, userEvents, i18n.language]);
 
-    // Count only USER events this week (not suggestions) - use date range for accuracy
-    const eventsThisWeekCount = useMemo(() => {
-        const { start, end } = weekDates;
-        // Count user events that fall within this week's date range
-        const count = userEvents.filter(e => {
-            const eventDate = new Date(e.date);
-            return eventDate >= start && eventDate <= end;
-        }).length;
-        return count;
-    }, [userEvents, weekDates]);
+    // Count only USER events this week (not suggestions). Same counter and, for the current
+    // week, the same range (getCurrentPregnancyWeekRange) as Home's "this week" pill.
+    const eventsThisWeekCount = useMemo(
+        () => countEventsInRange(userEvents, weekDates),
+        [userEvents, weekDates],
+    );
 
-    // Count suggestions for this week
-    const suggestionsThisWeekCount = useMemo(() => {
-        return currentWeekEvents.filter(e => e.source === 'template').length;
-    }, [currentWeekEvents]);
+    // Week suggestions (all for the week, not per day), each piece of advice once.
+    const weekSuggestions = useMemo(() => distinctSuggestions(currentWeekEvents), [currentWeekEvents]);
+    const suggestionsThisWeekCount = weekSuggestions.length;
 
-    // Week suggestions (all for the week, not per day)
-    const weekSuggestions = useMemo(() => {
-        return currentWeekEvents.filter(e => e.source === 'template');
-    }, [currentWeekEvents]);
-
-    // Month suggestions - all template events for the selected month
-    const monthSuggestions = useMemo(() => {
-        const monthKey = format(selectedDate, 'yyyy-MM', { locale: dateLocale });
-        const suggestions: CombinedEvent[] = [];
-
-        Object.entries(allEventsByDate).forEach(([dateKey, events]) => {
-            if (dateKey.startsWith(monthKey)) {
-                events.filter(e => e.source === 'template').forEach(e => suggestions.push(e));
-            }
-        });
-
-        const uniqueSuggestions = suggestions.reduce((acc, current) => {
-            const x = acc.find(item => item.title === current.title);
-            if (!x) {
-                return acc.concat([current]);
-            } else {
-                return acc;
-            }
-        }, [] as CombinedEvent[]);
-
-        return uniqueSuggestions.sort((a, b) => a.date.getTime() - b.date.getTime());
-    }, [allEventsByDate, selectedDate]);
-
-    const suggestionsThisMonthCount = useMemo(() => {
-        return monthSuggestions.length;
-    }, [monthSuggestions]);
+    // The month's pill, opened list and "this month" card share one summary, so the pill and
+    // the card show the same Suggestions number. The key is the local date key's 'yyyy-MM'
+    // (a locale-formatted month could carry non-Latin digits and match nothing).
+    const monthSummary = useMemo(
+        () => summariseMonth(allEventsByDate, getLocalDateKey(selectedDate).slice(0, 7)),
+        [allEventsByDate, selectedDate],
+    );
+    const monthSuggestions = monthSummary.suggestions;
+    const suggestionsThisMonthCount = monthSummary.suggestionCount;
 
     const filteredEvents = useMemo(() => {
         const dateKey = getLocalDateKey(selectedDate);
@@ -298,24 +295,6 @@ export const CalendarScreen = () => {
         return counts;
     }, [userEvents]);
 
-    const monthStats = useMemo(() => {
-        const monthKey = format(selectedDate, 'yyyy-MM', { locale: dateLocale });
-        let totalEvents = 0;
-        let userEventCount = 0;
-        let suggestionCount = 0;
-
-        Object.keys(allEventsByDate).forEach(dateKey => {
-            if (dateKey.startsWith(monthKey)) {
-                const events = allEventsByDate[dateKey];
-                totalEvents += events.length;
-                userEventCount += events.filter(e => e.source === 'user').length;
-                suggestionCount += events.filter(e => e.source === 'template').length;
-            }
-        });
-
-        return { totalEvents, userEventCount, suggestionCount };
-    }, [allEventsByDate, selectedDate]);
-
     // Handlers
     const handlePrevWeek = useCallback(() => {
         if (currentWeek > 1 && user?.pregnancyStartDate) {
@@ -327,7 +306,8 @@ export const CalendarScreen = () => {
     }, [currentWeek, user?.pregnancyStartDate]);
 
     const handleNextWeek = useCallback(() => {
-        if (currentWeek < 40 && user?.pregnancyStartDate) {
+        // Past week 40 too: there are no suggestions there, but her own appointments are.
+        if (currentWeek < LAST_CALENDAR_WEEK && user?.pregnancyStartDate) {
             const newWeek = currentWeek + 1;
             setCurrentWeek(newWeek);
             const { start } = getWeekDates(new Date(user.pregnancyStartDate), newWeek);
@@ -343,41 +323,46 @@ export const CalendarScreen = () => {
         setSelectedDate(prev => addMonths(prev, 1));
     }, []);
 
-    const handleToday = useCallback(() => {
-        if (user?.currentWeek) {
-            setCurrentWeek(user.currentWeek);
-            setSelectedDate(new Date());
-        }
-    }, [user?.currentWeek]);
-
     const handleEditEvent = useCallback((item: CombinedEvent) => {
         if (item.source === 'user') {
-            navigation.navigate('AddAppointment', { event: item });
+            // Only the id: the form reads the event from the server, so a web reload of the
+            // edit URL still has it (an object param does not survive the URL).
+            navigation.navigate('AddAppointment', { eventId: item.id });
         }
     }, [navigation]);
 
     const handleDeleteEvent = async (eventId: string) => {
         // Guest check
         if (user?.isGuest) {
-            Alert.alert(t('calendar.guestModeTitle'), t('calendar.guestModeMessage'));
+            // Cycle 3 F203 : Alert avec CTA "Create account" — avant pas de chemin
+            // direct, l'utilisatrice savait juste qu'il fallait un compte sans
+            // savoir où aller. Maintenant 1-tap vers Register.
+            // WEB-ALERT: confirmAction fires the callback on web too (Alert.alert is a no-op there).
+            confirmAction(
+                t('calendar.guestModeTitle'),
+                t('calendar.guestModeMessage'),
+                () => navigation.getParent()?.navigate('Home', { screen: 'GuestUpgrade' }),
+                undefined,
+                t('common.cancel'),
+                t('common.screen.createAccount')
+            );
             return;
         }
 
         log.debug('[CalendarScreen] Deleting event with ID:', eventId);
 
-        // Use window.confirm on web, Alert.alert on native
-        const confirmDelete = Platform.OS === 'web'
-            ? window.confirm(t('calendar.deleteEventMessage'))
-            : await new Promise<boolean>((resolve) => {
-                Alert.alert(
-                    t('calendar.deleteEventTitle'),
-                    t('calendar.deleteEventMessage'),
-                    [
-                        { text: t('calendar.cancel'), style: "cancel", onPress: () => resolve(false) },
-                        { text: t('calendar.delete'), style: "destructive", onPress: () => resolve(true) }
-                    ]
-                );
-            });
+        // WEB-ALERT: confirmAction bridges web (window.confirm) + native (Alert) and
+        // fires the callbacks on both, so the destructive confirm works on web too.
+        const confirmDelete = await new Promise<boolean>((resolve) => {
+            confirmAction(
+                t('calendar.deleteEventTitle'),
+                t('calendar.deleteEventMessage'),
+                () => resolve(true),
+                () => resolve(false),
+                t('calendar.cancel'),
+                t('calendar.delete')
+            );
+        });
 
         if (!confirmDelete) {
             log.debug('[CalendarScreen] Delete cancelled');
@@ -395,25 +380,24 @@ export const CalendarScreen = () => {
             }
         } catch (error) {
             log.error('[CalendarScreen] Delete error:', error);
-            if (Platform.OS === 'web') {
-                window.alert(t('calendar.cannotDeleteEvent'));
-            } else {
-                Alert.alert(t('calendar.error'), t('calendar.cannotDeleteEvent'));
-            }
+            // WEB-ALERT: showAlert renders on web (window.alert) and native (Alert.alert).
+            showAlert(t('calendar.error'), t('calendar.cannotDeleteEvent'));
         }
     };
 
-    const isRTL = I18nManager.isRTL;
+    // CB4-FIX: language-derived RTL (I18nManager.isRTL is false on web — forceRTL is skipped there,
+    // so the calendar nav chevrons did not mirror in Arabic/Tunisian on web).
+    const isRTL = i18n.language === 'ar' || i18n.language === 'tn';
     const monthLabel = format(selectedDate, 'MMMM yyyy', { locale: dateLocale });
-    const weekLabel = t('calendar.weekOfPregnancy', { week: currentWeek });
+    const weekLabel = t('calendar.weekOfPregnancy', { week: displayedCalendarWeek(currentWeek) });
 
     const handlePressToday = useCallback(() => {
         const today = new Date();
         setSelectedDate(today);
-        if (user?.currentWeek) {
-            setCurrentWeek(user.currentWeek);
+        if (user?.pregnancyStartDate) {
+            setCurrentWeek(pregnancyWeekOfDate(new Date(user.pregnancyStartDate), today));
         }
-    }, [user?.currentWeek]);
+    }, [user?.pregnancyStartDate]);
 
     const handleSelectWeekView = useCallback(() => setCalendarView('week'), []);
     const handleSelectMonthView = useCallback(() => setCalendarView('month'), []);
@@ -426,10 +410,10 @@ export const CalendarScreen = () => {
     if (error) {
         return (
             <View style={styles.centerContainer}>
-                <Text style={{ fontSize: 48, marginBottom: 16 }}>📅</Text>
+                <Ionicons name="calendar-outline" size={48} color={theme.colors.textMuted} style={styles.emptyIcon} />
                 <Text style={styles.loadingText}>{error}</Text>
                 <TouchableOpacity
-                    style={{ marginTop: 16, padding: 14, backgroundColor: theme.colors.primary, borderRadius: theme.borderRadius.m }}
+                    style={{ marginTop: 16, padding: 14, backgroundColor: theme.colors.accent, borderRadius: theme.borderRadius.m }}
                     onPress={() => loadData()}
                     accessibilityRole="button"
                     accessibilityLabel={t('common.retry')}
@@ -450,8 +434,8 @@ export const CalendarScreen = () => {
                 showSuggestions={showSuggestions}
                 suggestionsThisWeekCount={suggestionsThisWeekCount}
                 suggestionsThisMonthCount={suggestionsThisMonthCount}
-                onPrevWeek={handlePrevWeek}
-                onNextWeek={handleNextWeek}
+                onPrevWeek={calendarView === 'month' ? handlePrevMonth : handlePrevWeek}
+                onNextWeek={calendarView === 'month' ? handleNextMonth : handleNextWeek}
                 onSelectWeekView={handleSelectWeekView}
                 onSelectMonthView={handleSelectMonthView}
                 onToggleSuggestions={handleToggleSuggestions}
@@ -459,7 +443,7 @@ export const CalendarScreen = () => {
                 t={t}
             />
 
-            <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
+            <Animated.View style={[{ flex: 1, opacity: fadeAnim }, calendarView === 'month' && styles.monthListWithFab]}>
                 <FlatList
                     data={filteredEvents}
                     keyExtractor={(item) => item.id}
@@ -468,9 +452,10 @@ export const CalendarScreen = () => {
                             {calendarView === 'month' ? (
                                 <>
                                     <CalendarMonthStats
-                                        totalEvents={monthStats.totalEvents}
-                                        userEventCount={monthStats.userEventCount}
-                                        suggestionCount={monthStats.suggestionCount}
+                                        totalEvents={monthSummary.totalEvents}
+                                        userEventCount={monthSummary.userEventCount}
+                                        suggestionCount={monthSummary.suggestionCount}
+                                        compact={compactMonthStats}
                                         t={t}
                                     />
                                     <View style={styles.monthGrid}>
@@ -514,6 +499,26 @@ export const CalendarScreen = () => {
                                 />
                             )}
 
+                            {/* Suggestions opened with nothing to show: say so. The panel used to
+                                render nothing at all, so the button looked broken. */}
+                            {showSuggestions && (calendarView === 'week' ? weekSuggestions : monthSuggestions).length === 0 && (
+                                <View style={styles.suggestionsSection}>
+                                    <View style={styles.suggestionsSectionHeader}>
+                                        <Text style={styles.suggestionsSectionTitle} accessibilityLiveRegion="polite">
+                                            💡 {calendarView === 'week' ? t('calendar.noSuggestionsWeek') : t('calendar.noSuggestionsMonth')}
+                                        </Text>
+                                        <TouchableOpacity
+                                            onPress={() => setShowSuggestions(false)}
+                                            style={styles.suggestionsCloseButton}
+                                            accessibilityRole="button"
+                                            accessibilityLabel={t('a11y.close')}
+                                        >
+                                            <Text style={styles.suggestionsSectionClose}>✕</Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                </View>
+                            )}
+
                             {/* Suggestions Section (Collapsible) - Moved inside ListHeaderComponent */}
                             {showSuggestions && (
                                 (calendarView === 'week' && weekSuggestions.length > 0) ||
@@ -526,6 +531,7 @@ export const CalendarScreen = () => {
                                             </Text>
                                             <TouchableOpacity
                                                 onPress={() => setShowSuggestions(false)}
+                                                style={styles.suggestionsCloseButton}
                                                 accessibilityRole="button"
                                                 accessibilityLabel={t('a11y.close')}
                                             >
@@ -559,18 +565,11 @@ export const CalendarScreen = () => {
                     contentContainerStyle={styles.listContent}
                     ListEmptyComponent={
                         <View style={styles.emptyState}>
-                            <Text style={styles.emptyEmoji}>📅</Text>
+                            {/* A drawn calendar, not the 📅 emoji: that glyph has a date printed
+                                on it ("JUL 17" on Apple), under an October header. */}
+                            <Ionicons name="calendar-outline" size={48} color={theme.colors.textMuted} style={styles.emptyIcon} />
                             <Text style={styles.emptyStateText}>{t('calendar.noEventsForDay')}</Text>
                             <Text style={styles.emptyStateSubtext}>{t('calendar.enjoyRest')}</Text>
-                            <TouchableOpacity
-                                style={[styles.todayButton, { marginTop: 16, backgroundColor: theme.colors.primary, paddingHorizontal: 24 }]}
-                                onPress={() => navigation.navigate('AddAppointment', { selectedDate: selectedDate.toISOString() })}
-                                accessibilityRole="button"
-                                accessibilityLabel={t('a11y.addAppointment')}
-                                accessibilityHint={t('a11y.addAppointmentHint')}
-                            >
-                                <Text style={[styles.todayButtonText, { fontSize: 14 }]}>{t('calendar.addAppointment')}</Text>
-                            </TouchableOpacity>
                         </View>
                     }
                 />
@@ -578,13 +577,13 @@ export const CalendarScreen = () => {
 
             <TouchableOpacity
                 style={styles.fab}
-                onPress={() => navigation.navigate('AddAppointment', { selectedDate: selectedDate.toISOString() })}
+                onPress={() => navigation.navigate('AddAppointment', { selectedDate: getLocalDateKey(selectedDate) })}
                 accessibilityRole="button"
                 accessibilityLabel={t('a11y.addAppointment')}
                 accessibilityHint={t('a11y.addAppointmentHint')}
             >
                 <LinearGradient
-                    colors={[theme.colors.primary, theme.colors.accent]}
+                    colors={[theme.colors.primaryStrong, theme.colors.accent]}
                     style={styles.fabGradient}
                 >
                     <Text style={styles.fabIcon}>+</Text>

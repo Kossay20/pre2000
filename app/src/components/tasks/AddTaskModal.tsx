@@ -20,7 +20,9 @@ import { useTranslation } from 'react-i18next';
 import { getPickerLocale } from '../../utils/pickerLocale';
 import { addDays, isSameDay } from 'date-fns';
 import { theme } from '../../theme';
+import { switchThumbProps } from '../../utils/styleUtils';
 import { RecurrenceRule } from '../../types';
+import { plainLabel } from '../../utils/a11yLabel';
 import { styles } from './AddTaskModal.styles';
 
 interface AddTaskModalProps {
@@ -182,7 +184,12 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
                         <Text style={styles.title}>
                             {initialTask ? t('tasks.modal.editTitle') : t('tasks.modal.newTitle')}
                         </Text>
-                        <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
+                        <TouchableOpacity
+                            onPress={handleClose}
+                            style={styles.closeButton}
+                            accessibilityRole="button"
+                            accessibilityLabel={t('a11y.close')}
+                        >
                             <Text style={styles.closeText}>✕</Text>
                         </TouchableOpacity>
                     </View>
@@ -202,6 +209,7 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
                             <TextInput
                                 style={styles.input}
                                 placeholder={t('tasks.modal.placeholder')}
+                                placeholderTextColor={theme.colors.neutral400}
                                 value={title}
                                 onChangeText={setTitle}
                                 maxLength={100}
@@ -219,6 +227,9 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
                                         priority === 'high' && styles.priorityButtonActiveHigh,
                                     ]}
                                     onPress={() => setPriority('high')}
+                                    accessibilityRole="radio"
+                                    aria-checked={priority === 'high'}
+                                    accessibilityLabel={plainLabel(t('tasks.modal.high'))}
                                 >
                                     <Text
                                         style={[
@@ -236,11 +247,14 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
                                         priority === 'medium' && styles.priorityButtonActiveMedium,
                                     ]}
                                     onPress={() => setPriority('medium')}
+                                    accessibilityRole="radio"
+                                    aria-checked={priority === 'medium'}
+                                    accessibilityLabel={plainLabel(t('tasks.modal.medium'))}
                                 >
                                     <Text
                                         style={[
                                             styles.priorityButtonText,
-                                            priority === 'medium' && styles.priorityButtonTextActive,
+                                            priority === 'medium' && styles.priorityButtonTextActiveMedium,
                                         ]}
                                     >
                                         {t('tasks.modal.medium')}
@@ -253,6 +267,9 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
                                         priority === 'low' && styles.priorityButtonActiveLow,
                                     ]}
                                     onPress={() => setPriority('low')}
+                                    accessibilityRole="radio"
+                                    aria-checked={priority === 'low'}
+                                    accessibilityLabel={plainLabel(t('tasks.modal.low'))}
                                 >
                                     <Text
                                         style={[
@@ -273,8 +290,9 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
                                 <Switch
                                     value={isRecurring}
                                     onValueChange={setIsRecurring}
+                                    accessibilityLabel={t('tasks.modal.routine')}
                                     trackColor={{ false: theme.colors.neutral200, true: theme.colors.primary }}
-                                    thumbColor={isRecurring ? theme.colors.accent : theme.colors.iosGroupedBackground}
+                                    {...switchThumbProps(isRecurring ? theme.colors.accent : theme.colors.iosGroupedBackground)}
                                 />
                             </View>
 
@@ -285,6 +303,8 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
                                         <TouchableOpacity
                                             style={[styles.segmentButton, recurrenceType === 'daily' && styles.segmentButtonActive]}
                                             onPress={() => setRecurrenceType('daily')}
+                                            accessibilityRole="radio"
+                                            aria-checked={recurrenceType === 'daily'}
                                         >
                                             <Text style={[styles.segmentButtonText, recurrenceType === 'daily' && styles.segmentButtonTextActive]}>
                                                 {t('tasks.modal.repeatType_daily')}
@@ -293,6 +313,8 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
                                         <TouchableOpacity
                                             style={[styles.segmentButton, recurrenceType === 'specific_days' && styles.segmentButtonActive]}
                                             onPress={() => setRecurrenceType('specific_days')}
+                                            accessibilityRole="radio"
+                                            aria-checked={recurrenceType === 'specific_days'}
                                         >
                                             <Text style={[styles.segmentButtonText, recurrenceType === 'specific_days' && styles.segmentButtonTextActive]}>
                                                 {t('tasks.modal.repeatType_specific')}
@@ -301,6 +323,8 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
                                         <TouchableOpacity
                                             style={[styles.segmentButton, recurrenceType === 'interval' && styles.segmentButtonActive]}
                                             onPress={() => setRecurrenceType('interval')}
+                                            accessibilityRole="radio"
+                                            aria-checked={recurrenceType === 'interval'}
                                         >
                                             <Text style={[styles.segmentButtonText, recurrenceType === 'interval' && styles.segmentButtonTextActive]}>
                                                 {t('tasks.modal.repeatType_interval')}
@@ -328,6 +352,8 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
                                             {DAYS_MAP.map(day => (
                                                 <TouchableOpacity
                                                     key={day.key}
+                                                    accessibilityRole="checkbox"
+                                                    aria-checked={specificDays.includes(day.key)}
                                                     style={[
                                                         styles.dayBubble,
                                                         specificDays.includes(day.key) && styles.dayBubbleActive
@@ -361,8 +387,9 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
                                 <Switch
                                     value={reminderEnabled}
                                     onValueChange={setReminderEnabled}
+                                    accessibilityLabel={plainLabel(t('tasks.modal.addReminder'))}
                                     trackColor={{ false: theme.colors.neutral200, true: theme.colors.primary }}
-                                    thumbColor={reminderEnabled ? theme.colors.accent : theme.colors.iosGroupedBackground}
+                                    {...switchThumbProps(reminderEnabled ? theme.colors.accent : theme.colors.iosGroupedBackground)}
                                 />
                             </View>
 
@@ -425,6 +452,8 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
                                             {/* Date Selection Buttons */}
                                             <View style={styles.dateButtonsRow}>
                                                 <TouchableOpacity
+                                                    accessibilityRole="radio"
+                                                    aria-checked={isSameDay(reminderDate, new Date())}
                                                     style={[
                                                         styles.dateOptionButton,
                                                         isSameDay(reminderDate, new Date()) && styles.dateOptionButtonActive
@@ -443,6 +472,8 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
                                                 </TouchableOpacity>
 
                                                 <TouchableOpacity
+                                                    accessibilityRole="radio"
+                                                    aria-checked={isSameDay(reminderDate, addDays(new Date(), 1))}
                                                     style={[
                                                         styles.dateOptionButton,
                                                         isSameDay(reminderDate, addDays(new Date(), 1)) && styles.dateOptionButtonActive
@@ -466,6 +497,7 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
                                                         !isSameDay(reminderDate, new Date()) && !isSameDay(reminderDate, addDays(new Date(), 1)) && styles.dateOptionButtonActive
                                                     ]}
                                                     onPress={() => setShowDatePicker(true)}
+                                                    accessibilityRole="button"
                                                 >
                                                     <Text style={[
                                                         styles.dateOptionText,
@@ -499,6 +531,8 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
                                                     <TouchableOpacity
                                                         style={styles.dateButton}
                                                         onPress={() => setShowTimePicker(true)}
+                                                        accessibilityRole="button"
+                                                        accessibilityHint={t('tasks.modal.timeLabel')}
                                                     >
                                                         <Text style={styles.dateButtonText}>
                                                             {format(reminderDate, 'HH:mm', { locale: dateLocale })}
@@ -522,13 +556,14 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
                                                         />
                                                         {tempTimeDate && (
                                                             <TouchableOpacity
-                                                                style={{ backgroundColor: theme.colors.primary, paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20, marginTop: 12 }}
+                                                                style={{ backgroundColor: theme.colors.accent, paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20, marginTop: 12 }}
                                                                 onPress={() => {
                                                                     setReminderDate(tempTimeDate);
                                                                     setTempTimeDate(null);
                                                                 }}
+                                                                accessibilityRole="button"
                                                             >
-                                                                <Text style={{ color: theme.colors.white, fontWeight: 'bold' }}>Valider l'heure</Text>
+                                                                <Text style={{ color: theme.colors.white, fontWeight: 'bold' }}>{t('tasks.confirmTime')}</Text>
                                                             </TouchableOpacity>
                                                         )}
                                                     </View>
@@ -555,7 +590,7 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
                                             {/* Display selected date text if not today/tomorrow */}
                                             {!isSameDay(reminderDate, new Date()) && !isSameDay(reminderDate, addDays(new Date(), 1)) && (
                                                 <Text style={styles.selectedDateText}>
-                                                    {format(reminderDate, 'dd MMMM yyyy', { locale: dateLocale })}
+                                                    {format(reminderDate, 'd MMMM yyyy', { locale: dateLocale })}
                                                 </Text>
                                             )}
                                         </View>
@@ -575,6 +610,7 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
                             style={styles.cancelButton}
                             onPress={handleClose}
                             disabled={loading}
+                            accessibilityRole="button"
                         >
                             <Text style={styles.cancelButtonText}>{t('tasks.modal.cancel')}</Text>
                         </TouchableOpacity>
@@ -586,6 +622,8 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
                             ]}
                             onPress={handleCreate}
                             disabled={loading || (title || '').trim().length < 3}
+                            accessibilityRole="button"
+                            accessibilityState={{ disabled: loading || (title || '').trim().length < 3 }}
                         >
                             {loading ? (
                                 <ActivityIndicator color={theme.colors.white} size="small" />

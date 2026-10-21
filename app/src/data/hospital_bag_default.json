@@ -1,0 +1,240 @@
+[
+  {
+    "id": "mom-id-card",
+    "section": "papers",
+    "label_fr": "Pièce d'identité",
+    "label_en": "ID card",
+    "label_ar": "بطاقة الهوية",
+    "label_tn": "الكارط دي ايدنتيتي",
+    "labels_by_country": {
+      "tunisia": {
+        "label_fr": "Carte d'identité (CIN)",
+        "label_en": "National ID card (CIN)",
+        "label_ar": "بطاقة التعريف الوطنية",
+        "label_tn": "بطاقة التعريف (CIN)"
+      }
+    }
+  },
+  {
+    "id": "mom-pregnancy-record",
+    "section": "papers",
+    "label_fr": "Carnet de suivi de grossesse",
+    "label_en": "Pregnancy follow-up booklet",
+    "label_ar": "دفتر متابعة الحمل",
+    "label_tn": "كرني الحمل"
+  },
+  {
+    "id": "mom-insurance-card",
+    "section": "papers",
+    "label_fr": "Carte d'assurance maladie",
+    "label_en": "Health insurance card",
+    "label_ar": "بطاقة التأمين الصحي",
+    "label_tn": "كارط التأمين على المرض",
+    "labels_by_country": {
+      "tunisia": {
+        "label_fr": "Carte CNAM / assurance maladie",
+        "label_en": "CNAM health insurance card",
+        "label_ar": "بطاقة الضمان الاجتماعي (CNAM)",
+        "label_tn": "كارط الكنام"
+      },
+      "france": {
+        "label_fr": "Carte Vitale et carte de mutuelle",
+        "label_en": "Carte Vitale and mutuelle (top-up insurance) card",
+        "label_ar": "بطاقة Vitale وبطاقة التأمين التكميلي (mutuelle)",
+        "label_tn": "كارط فيتال وكارط الميتيال"
+      }
+    }
+  },
+  {
+    "id": "mom-blood-test",
+    "section": "papers",
+    "label_fr": "Bilan sanguin récent + groupe sanguin",
+    "label_en": "Recent blood tests + blood type",
+    "label_ar": "تحاليل الدم الأخيرة + فصيلة الدم",
+    "label_tn": "التحاليل + الفصيلة"
+  },
+  {
+    "id": "mom-ultrasound",
+    "section": "papers",
+    "label_fr": "Échographies",
+    "label_en": "Ultrasound scans",
+    "label_ar": "صور السونار",
+    "label_tn": "السونار"
+  },
+  {
+    "id": "mom-birth-plan",
+    "section": "papers",
+    "label_fr": "Projet de naissance (si rédigé)",
+    "label_en": "Birth plan (if any)",
+    "label_ar": "خطة الولادة (إن وُجدت)",
+    "label_tn": "بلان الولادة"
+  },
+  {
+    "id": "mom-nightgown",
+    "section": "mom",
+    "label_fr": "2 chemises de nuit (ouverture devant pour allaitement)",
+    "label_en": "2 nightgowns (front-opening for nursing)",
+    "label_ar": "قميصا نوم (مفتوحة من الأمام للرضاعة)",
+    "label_tn": "زوز قميص نوم (مفتوحة قدام للرضاعة)"
+  },
+  {
+    "id": "mom-robe",
+    "section": "mom",
+    "label_fr": "Peignoir / robe de chambre",
+    "label_en": "Bathrobe",
+    "label_ar": "روب الحمام",
+    "label_tn": "روب"
+  },
+  {
+    "id": "mom-slippers",
+    "section": "mom",
+    "label_fr": "Chaussons",
+    "label_en": "Slippers",
+    "label_ar": "نعال",
+    "label_tn": "صباط البيت"
+  },
+  {
+    "id": "mom-nursing-bra",
+    "section": "mom",
+    "label_fr": "Soutiens-gorge d'allaitement (×2)",
+    "label_en": "Nursing bras (×2)",
+    "label_ar": "حمالة صدر للرضاعة (×2)",
+    "label_tn": "حمالة الصدر للرضاعة (×2)"
+  },
+  {
+    "id": "mom-postpartum-pads",
+    "section": "mom",
+    "label_fr": "Serviettes hygiéniques post-partum",
+    "label_en": "Postpartum maternity pads",
+    "label_ar": "فوط ما بعد الولادة",
+    "label_tn": "السرفيات بعد الولادة"
+  },
+  {
+    "id": "mom-underwear",
+    "section": "mom",
+    "label_fr": "Sous-vêtements jetables ou anciens (×6)",
+    "label_en": "Disposable or old underwear (×6)",
+    "label_ar": "ملابس داخلية للاستعمال مرة واحدة (×6)",
+    "label_tn": "كولوتات قديمة (×6)"
+  },
+  {
+    "id": "mom-toothbrush",
+    "section": "mom",
+    "label_fr": "Trousse de toilette (brosse, dentifrice, savon)",
+    "label_en": "Toiletries (brush, toothpaste, soap)",
+    "label_ar": "أدوات النظافة (فرشاة، معجون، صابون)",
+    "label_tn": "أدوات النظافة"
+  },
+  {
+    "id": "mom-water",
+    "section": "mom",
+    "label_fr": "Bouteille d'eau + collations",
+    "label_en": "Water bottle + snacks",
+    "label_ar": "ماء + وجبات خفيفة",
+    "label_tn": "ماء + ماكلة خفيفة"
+  },
+  {
+    "id": "mom-phone-charger",
+    "section": "mom",
+    "label_fr": "Chargeur de téléphone (long câble)",
+    "label_en": "Phone charger (long cable)",
+    "label_ar": "شاحن الهاتف (سلك طويل)",
+    "label_tn": "شارجور (كابل طويل)"
+  },
+  {
+    "id": "mom-going-home",
+    "section": "mom",
+    "label_fr": "Tenue de sortie pour maman (taille pré-grossesse + 1)",
+    "label_en": "Going-home outfit for mom",
+    "label_ar": "ملابس الخروج للأم",
+    "label_tn": "حوايج خروج للأم"
+  },
+  {
+    "id": "baby-onesies",
+    "section": "baby",
+    "label_fr": "Bodies naissance (×3)",
+    "label_en": "Newborn bodysuits (×3)",
+    "label_ar": "بادي للمولود (×3)",
+    "label_tn": "بادي للبيبي (×3)"
+  },
+  {
+    "id": "baby-pyjamas",
+    "section": "baby",
+    "label_fr": "Pyjamas (×3)",
+    "label_en": "Pyjamas (×3)",
+    "label_ar": "بيجامة (×3)",
+    "label_tn": "بيجاما (×3)"
+  },
+  {
+    "id": "baby-hat-socks",
+    "section": "baby",
+    "label_fr": "Bonnet + chaussons",
+    "label_en": "Hat + socks",
+    "label_ar": "قبعة + جوارب",
+    "label_tn": "بونيه + تقاشر"
+  },
+  {
+    "id": "baby-blanket",
+    "section": "baby",
+    "label_fr": "Couverture / lange",
+    "label_en": "Blanket / swaddle",
+    "label_ar": "بطانية / قماط",
+    "label_tn": "بطانية"
+  },
+  {
+    "id": "baby-diapers",
+    "section": "baby",
+    "label_fr": "Couches taille naissance (paquet)",
+    "label_en": "Newborn diapers (pack)",
+    "label_ar": "حفاظات للمولود (علبة)",
+    "label_tn": "كوش للبيبي"
+  },
+  {
+    "id": "baby-wipes",
+    "section": "baby",
+    "label_fr": "Lingettes / coton + sérum physiologique",
+    "label_en": "Wipes / cotton + saline solution",
+    "label_ar": "مناديل / قطن + محلول ملحي",
+    "label_tn": "لانجات + سيروم"
+  },
+  {
+    "id": "baby-going-home",
+    "section": "baby",
+    "label_fr": "Tenue de sortie + couverture chaude",
+    "label_en": "Going-home outfit + warm blanket",
+    "label_ar": "ملابس الخروج + بطانية دافئة",
+    "label_tn": "حوايج خروج + بطانية دافية"
+  },
+  {
+    "id": "partner-snacks",
+    "section": "partner",
+    "label_fr": "Collations + bouteille d'eau pour l'accompagnant",
+    "label_en": "Snacks + water for the partner",
+    "label_ar": "وجبات خفيفة + ماء للمرافق",
+    "label_tn": "ماكلة + ماء للمرافق"
+  },
+  {
+    "id": "partner-charger",
+    "section": "partner",
+    "label_fr": "Chargeur supplémentaire",
+    "label_en": "Extra charger",
+    "label_ar": "شاحن إضافي",
+    "label_tn": "شارجور زايد"
+  },
+  {
+    "id": "partner-papers",
+    "section": "partner",
+    "label_fr": "Pièce d'identité de l'accompagnant",
+    "label_en": "Partner ID card",
+    "label_ar": "بطاقة هوية المرافق",
+    "label_tn": "كارط ايدنتيتي للمرافق",
+    "labels_by_country": {
+      "tunisia": {
+        "label_fr": "CIN de l'accompagnant",
+        "label_en": "Partner's national ID card (CIN)",
+        "label_ar": "بطاقة التعريف الوطنية للمرافق",
+        "label_tn": "بطاقة التعريف (CIN) للمرافق"
+      }
+    }
+  }
+]

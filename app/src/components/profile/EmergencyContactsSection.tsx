@@ -1,14 +1,19 @@
 import { theme } from '../../theme';
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, Linking, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Linking, ScrollView, Platform } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { usePregnancy, EmergencyContact } from '../../context/PregnancyContext';
+import { showAlert } from '../../utils/alert';
+import { confirmAction } from '../../utils/uiUtils';
 import { createLogger } from '../../utils/logger';
 
 const log = createLogger('EmergencyContactsSection');
 
 export { TEL_VALIDATION_REGEX, sanitizeTelNumber } from './EmergencyContactsSection.helpers';
 import { TEL_VALIDATION_REGEX, sanitizeTelNumber } from './EmergencyContactsSection.helpers';
+
+/** Upper bound on the contacts array so it cannot bloat the profile document. */
+const MAX_EMERGENCY_CONTACTS = 10;
 
 export const EmergencyContactsSection = () => {
     const { t } = useTranslation();
@@ -25,14 +30,14 @@ export const EmergencyContactsSection = () => {
     const handleCall = (number: string) => {
         const sanitized = sanitizeTelNumber(number);
         if (!sanitized) {
-            Alert.alert(t('common.error'), t('emergency.invalidNumber') || t('common.error'));
+            showAlert(t('common.error'), t('emergency.invalidNumber') || t('common.error'));
             return;
         }
         const url = `tel:${sanitized}`;
         Linking.canOpenURL(url)
             .then(supported => {
                 if (!supported) {
-                    Alert.alert(t('common.error'), t('emergency.callError'));
+                    showAlert(t('common.error'), t('emergency.callError'));
                 } else {
                     return Linking.openURL(url);
                 }
@@ -42,12 +47,20 @@ export const EmergencyContactsSection = () => {
 
     const handleAdd = async () => {
         if (!newName.trim() || !newNumber.trim()) {
-            Alert.alert(t('common.error'), t('emergency.validationError'));
+            showAlert(t('common.error'), t('emergency.validationError'));
             return;
         }
 
         if (!TEL_VALIDATION_REGEX.test(newNumber.trim())) {
-            Alert.alert(t('common.error'), t('emergency.invalidNumber'));
+            showAlert(t('common.error'), t('emergency.invalidNumber'));
+            return;
+        }
+
+        // The list was appended to with no cap, so it could grow without bound
+        // inside the profile document (which is re-read on every cold start).
+        // 10 emergency contacts is already far beyond any real use.
+        if (contacts.length >= MAX_EMERGENCY_CONTACTS) {
+            showAlert(t('common.error'), t('emergency.tooManyContacts', { max: MAX_EMERGENCY_CONTACTS }));
             return;
         }
 
@@ -72,32 +85,28 @@ export const EmergencyContactsSection = () => {
             log.info('Contact added');
         } catch (error) {
             log.error('Error adding contact', error);
-            Alert.alert(t('common.error'), t('emergency.addError'));
+            showAlert(t('common.error'), t('emergency.addError'));
         }
     };
 
     const handleDelete = (id: string) => {
-        Alert.alert(
+        confirmAction(
             t('emergency.deleteConfirm'),
             t('profile.deleteContactConfirm'),
-            [
-                { text: t('common.cancel'), style: 'cancel' },
-                {
-                    text: t('common.delete'),
-                    style: 'destructive',
-                    onPress: async () => {
-                        try {
-                            const updatedContacts = contacts.filter(c => c.id !== id);
-                            await setProfile({
-                                ...profile!,
-                                emergencyContacts: updatedContacts
-                            });
-                        } catch (error) {
-                            log.error('Error deleting contact', error);
-                        }
-                    }
+            async () => {
+                try {
+                    const updatedContacts = contacts.filter(c => c.id !== id);
+                    await setProfile({
+                        ...profile!,
+                        emergencyContacts: updatedContacts
+                    });
+                } catch (error) {
+                    log.error('Error deleting contact', error);
                 }
-            ]
+            },
+            undefined,
+            t('common.cancel'),
+            t('common.delete')
         );
     };
 
@@ -112,10 +121,12 @@ export const EmergencyContactsSection = () => {
 
     const getTypeColor = (type: string) => {
         switch (type) {
-            case 'sos': return theme.colors.critical; // Red
-            case 'doctor': return theme.colors.blue600; // Blue
-            case 'partner': return theme.colors.pinkAccent; // Pink
-            default: return theme.colors.gray500; // Grey
+            // Every fill holds 4.5:1 under the white 11pt label (the bright Material reds, blues,
+            // pinks and greys measured 3.7 to 4.4 and 2.5).
+            case 'sos': return theme.colors.error; // Red
+            case 'doctor': return theme.colors.blue800; // Blue
+            case 'partner': return theme.colors.accent; // Pink
+            default: return theme.colors.textSecondary; // Grey
         }
     };
 
@@ -191,6 +202,7 @@ export const EmergencyContactsSection = () => {
                                 accessibilityRole="button"
                                 accessibilityLabel={getTypeLabel(type)}
                                 accessibilityState={{ selected: newType === type }}
+                                {...(Platform.OS === 'web' ? { 'aria-selected': newType === type } : {})}
                             >
                                 <Text style={[
                                     styles.typeButtonText,
@@ -202,15 +214,22 @@ export const EmergencyContactsSection = () => {
                         ))}
                     </View>
 
+                    {/* UNBOUNDED-INPUT FIX: the phone field was validated by regex but
+                        the name was only checked for non-emptiness and had no
+                        maxLength, so it rode into the profile document unbounded. */}
                     <TextInput
                         style={styles.input}
                         placeholder={t('emergency.name')}
+                        placeholderTextColor={theme.colors.neutral400}
                         value={newName}
                         onChangeText={setNewName}
+                        maxLength={50}
+                        accessibilityLabel={t('emergency.name')}
                     />
                     <TextInput
                         style={styles.input}
                         placeholder={t('emergency.phone')}
+                        placeholderTextColor={theme.colors.neutral400}
                         value={newNumber}
                         onChangeText={setNewNumber}
                         keyboardType="phone-pad"
@@ -265,9 +284,9 @@ const styles = StyleSheet.create({
     },
     addButton: {
         backgroundColor: theme.colors.surfaceRose,
-        width: 32,
-        height: 32,
-        borderRadius: 16,
+        width: 44,
+        height: 44,
+        borderRadius: 22,
         alignItems: 'center',
         justifyContent: 'center',
     },
@@ -278,7 +297,7 @@ const styles = StyleSheet.create({
         marginTop: -2,
     },
     emptyText: {
-        color: theme.colors.neutral400,
+        color: theme.colors.textMuted,
         fontStyle: 'italic',
         textAlign: 'center',
         marginBottom: 8,
@@ -311,18 +330,19 @@ const styles = StyleSheet.create({
     },
     typeText: {
         color: theme.colors.white,
-        fontSize: 10,
+        fontSize: 11,
         fontWeight: 'bold',
         textTransform: 'uppercase',
     },
     actions: {
         flexDirection: 'row',
-        gap: 8,
+        // The emergency call sits next to a destructive control: keep them clearly apart (D-055).
+        gap: 16,
     },
     actionButton: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
+        width: 44,
+        height: 44,
+        borderRadius: 22,
         alignItems: 'center',
         justifyContent: 'center',
     },

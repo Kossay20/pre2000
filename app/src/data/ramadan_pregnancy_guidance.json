@@ -1,0 +1,224 @@
+{
+  "_meta": {
+    "version": "0.1-draft",
+    "review_status": "TODO_clinician_review",
+    "reviewers_needed": [
+      "Tunisian midwife or obstetrician",
+      "Imam-vetted source for Fidya/Kaffarah ruling",
+      "GDM-aware nutritionist for fasting nutrition section"
+    ],
+    "disclaimer_principle": "All guidance is informational. Pregnant women must always consult their personal doctor before deciding to fast. Islam allows pregnant and breastfeeding women to break the fast and make up the days later (Qada) or pay Fidya (feeding a poor person per missed day) when making up is not feasible."
+  },
+  "trimesters": [
+    {
+      "id": "t1",
+      "weeks": "1-12",
+      "label_fr": "1er trimestre (1-12 semaines)",
+      "label_en": "1st trimester (weeks 1-12)",
+      "label_ar": "الثلث الأول (1-12 أسبوع)",
+      "label_tn": "التريمستر الأول (1-12 أسبوع)",
+      "key_risks": [
+        "Nausées matinales et déshydratation",
+        "Hypoglycémie (jeûne prolongé)",
+        "Fatigue importante"
+      ],
+      "key_risks_en": [
+        "Morning sickness and dehydration",
+        "Hypoglycaemia from prolonged fasting",
+        "Significant fatigue"
+      ],
+      "key_risks_ar": [
+        "غثيان الصباح والجفاف",
+        "نقص السكر بسبب الصيام الطويل",
+        "إرهاق شديد"
+      ],
+      "key_risks_tn": [
+        "غثيان الصباح والجفاف",
+        "نقصان السكر بسبب الصيام الطويل",
+        "تعب برشة"
+      ],
+      "recommendation_fr": "Le 1er trimestre est souvent associé à des nausées et une fatigue qui rendent le jeûne difficile. La déshydratation expose le bébé à des risques. La plupart des cliniciens recommandent de ne pas jeûner au 1er trimestre, surtout en cas de vomissements ou perte de poids. Demandez l'avis de votre médecin avant tout.",
+      "recommendation_en": "Many clinicians advise against fasting in the 1st trimester, especially when nausea, vomiting or weight loss is present. Dehydration is a real risk. Always ask your doctor first.",
+      "recommendation_ar": "غالبا ما ينصح الأطباء بعدم الصيام في الثلث الأول، خاصة عند وجود غثيان أو قيء أو فقدان وزن. استشيري طبيبتك قبل كل قرار.",
+      "recommendation_tn": "في التريمستر الأول، الأطباء يقولوا برشة على إنو الصيام يكون صعيب. اذا عندك قيء ولا نقصان وزن، استشيري الطبيبة قبل ما تصومي."
+    },
+    {
+      "id": "t2",
+      "weeks": "13-27",
+      "label_fr": "2e trimestre (13-27 semaines)",
+      "label_en": "2nd trimester (weeks 13-27)",
+      "label_ar": "الثلث الثاني (13-27 أسبوع)",
+      "label_tn": "التريمستر الثاني (13-27 أسبوع)",
+      "key_risks": [
+        "Anémie",
+        "Diabète gestationnel",
+        "Déshydratation"
+      ],
+      "key_risks_en": [
+        "Anaemia",
+        "Gestational diabetes",
+        "Dehydration"
+      ],
+      "key_risks_ar": [
+        "فقر الدم",
+        "سكري الحمل",
+        "الجفاف"
+      ],
+      "key_risks_tn": [
+        "أنيميا",
+        "سكري الحمل",
+        "الجفاف"
+      ],
+      "recommendation_fr": "Le 2e trimestre est souvent mieux toléré, mais le jeûne reste un effort important. Une glycémie suivie, une bonne hydratation au Suhoor/Iftar et l'absence d'anémie sont des conditions minimales. Votre médecin doit valider la décision.",
+      "recommendation_en": "The 2nd trimester is generally better tolerated, but fasting remains demanding. Monitored glycaemia, good hydration at Suhoor/Iftar and the absence of anaemia are minimum conditions. Your doctor must validate the decision.",
+      "recommendation_ar": "الثلث الثاني أسهل عادة، لكن الصيام يظل مجهودا. متابعة السكر والترطيب الجيد وعدم الإصابة بفقر الدم شروط دنيا. القرار يبقى لطبيبتك.",
+      "recommendation_tn": "في التريمستر الثاني الأمور أحسن، اما الصيام يبقى تعب. اذا السكر مراقب وما عندكش أنيميا، تنجمي تتكلمي مع الطبيبة على الصيام."
+    },
+    {
+      "id": "t3",
+      "weeks": "28-40+",
+      "label_fr": "3e trimestre (28+ semaines)",
+      "label_en": "3rd trimester (weeks 28+)",
+      "label_ar": "الثلث الثالث (28+ أسبوع)",
+      "label_tn": "التريمستر الثالث (28+ أسبوع)",
+      "key_risks": [
+        "Contractions prématurées",
+        "Pré-éclampsie",
+        "Faible prise de poids du bébé"
+      ],
+      "key_risks_en": [
+        "Preterm contractions",
+        "Pre-eclampsia",
+        "Poor fetal weight gain"
+      ],
+      "key_risks_ar": [
+        "تقلصات قبل الأوان",
+        "تسمم الحمل",
+        "ضعف نمو الجنين"
+      ],
+      "key_risks_tn": [
+        "تقلصات قبل الأوان",
+        "تسمم الحمل",
+        "ضعف في نمو البيبي"
+      ],
+      "recommendation_fr": "Le 3e trimestre demande une nutrition stable et une hydratation continue. Le jeûne au 3e trimestre est souvent déconseillé, en particulier en cas de diabète gestationnel, d'hypertension ou de prise de poids insuffisante du bébé. Concertez votre obstétricien.",
+      "recommendation_en": "The 3rd trimester requires steady nutrition and continuous hydration. Fasting is often discouraged here, especially with gestational diabetes, hypertension, or poor fetal growth. Speak with your obstetrician.",
+      "recommendation_ar": "الثلث الثالث يحتاج تغذية مستقرة وترطيبا مستمرا. عادة لا ينصح بالصيام، خاصة عند سكري الحمل أو الضغط أو ضعف نمو الجنين. تحدثي مع طبيبة التوليد.",
+      "recommendation_tn": "في التريمستر الثالث، الجسم يلزمو غذا مستقر وماء برشة. الأطباء غالبا يقولوا بلاش الصيام، خاصة كان عندك سكري الحمل ولا الضغط. اتكلمي مع طبيبة التوليد."
+    }
+  ],
+  "break_fast_warning_signs": {
+    "label_fr": "Rompre le jeûne IMMÉDIATEMENT si :",
+    "label_en": "Break the fast IMMEDIATELY if:",
+    "label_ar": "أفطري فورا إذا:",
+    "label_tn": "افطري فيسع كان:",
+    "items": [
+      {
+        "fr": "Vertiges sévères ou évanouissement",
+        "en": "Severe dizziness or fainting",
+        "ar": "دوخة شديدة أو فقدان وعي",
+        "tn": "دوخة برشة ولا غمى"
+      },
+      {
+        "fr": "Contractions douloureuses ou répétées",
+        "en": "Painful or repeated contractions",
+        "ar": "تقلصات مؤلمة أو متكررة",
+        "tn": "تقلصات توجع ولا تتكرر"
+      },
+      {
+        "fr": "Saignements ou écoulement anormal",
+        "en": "Bleeding or abnormal discharge",
+        "ar": "نزيف أو إفرازات غير طبيعية",
+        "tn": "نزيف ولا افرازات مش عادية"
+      },
+      {
+        "fr": "Bébé qui ne bouge plus comme d'habitude",
+        "en": "Baby moving less than usual",
+        "ar": "حركة الجنين أقل من المعتاد",
+        "tn": "البيبي ما يتحركش كي العادة"
+      },
+      {
+        "fr": "Vomissements répétés / impossibilité de boire",
+        "en": "Repeated vomiting / inability to drink",
+        "ar": "قيء متكرر أو عدم القدرة على الشرب",
+        "tn": "قيء متكرر ولا ما تنجمش تشرب"
+      },
+      {
+        "fr": "Maux de tête sévères, vue trouble (signes de pré-éclampsie)",
+        "en": "Severe headache, blurred vision (pre-eclampsia signs)",
+        "ar": "صداع شديد، تشوش الرؤية (علامات تسمم الحمل)",
+        "tn": "وجع راس قوي، الرؤية مشوشة"
+      }
+    ]
+  },
+  "suhoor_tips": {
+    "label_fr": "Conseils pour le Suhoor (avant le jeûne)",
+    "label_en": "Tips for Suhoor (pre-dawn meal)",
+    "label_ar": "نصائح للسحور",
+    "label_tn": "نصائح للسحور",
+    "items": [
+      {
+        "fr": "Glucides complexes (avoine, pain complet, dattes)",
+        "en": "Complex carbs (oats, whole bread, dates)",
+        "ar": "كربوهيدرات معقدة (شوفان، خبز كامل، تمر)",
+        "tn": "كربوهيدرات بطيئة (شوفان، خبز كامل، تمر)"
+      },
+      {
+        "fr": "Protéines (œufs, fromage, yaourt)",
+        "en": "Protein (eggs, cheese, yoghurt)",
+        "ar": "بروتينات (بيض، جبن، زبادي)",
+        "tn": "بروتين (عظم، جبن، ياغورت)"
+      },
+      {
+        "fr": "Au moins 1 grand verre d'eau (éviter caféine)",
+        "en": "At least 1 large glass of water (avoid caffeine)",
+        "ar": "كأس ماء كبير على الأقل (تجنبي الكافيين)",
+        "tn": "كاس ماء كبير (ما تشربيش الكافي)"
+      },
+      {
+        "fr": "Fruits riches en eau (pastèque, melon)",
+        "en": "Water-rich fruits (watermelon, melon)",
+        "ar": "فواكه غنية بالماء (بطيخ، شمام)",
+        "tn": "غلة فيها ماء (دلاع، بطيخ)"
+      }
+    ]
+  },
+  "iftar_tips": {
+    "label_fr": "Conseils pour l'Iftar (rupture du jeûne)",
+    "label_en": "Tips for Iftar (breaking the fast)",
+    "label_ar": "نصائح للإفطار",
+    "label_tn": "نصائح للفطور",
+    "items": [
+      {
+        "fr": "Commencer par une datte + verre d'eau",
+        "en": "Start with a date + glass of water",
+        "ar": "ابدئي بتمرة + كأس ماء",
+        "tn": "ابدا بتمرة + كاس ماء"
+      },
+      {
+        "fr": "Soupe légère (chorba) avant le repas principal",
+        "en": "Light soup before the main meal",
+        "ar": "شوربة خفيفة قبل الأكل",
+        "tn": "شوربة خفيفة قبل الماكلة الرئيسية"
+      },
+      {
+        "fr": "Repas équilibré : protéines + légumes + féculents",
+        "en": "Balanced meal: protein + veg + carbs",
+        "ar": "وجبة متوازنة: بروتين + خضر + نشويات",
+        "tn": "ماكلة متوازنة: بروتين + خضرة + كاربوهيدرات"
+      },
+      {
+        "fr": "Boire 1.5 à 2L d'eau entre Iftar et Suhoor",
+        "en": "Drink 1.5 to 2L of water between Iftar and Suhoor",
+        "ar": "اشربي 1.5 إلى 2 لتر ماء بين الإفطار والسحور",
+        "tn": "اشربي 1.5 لـ 2 لتر ماء بين الفطور والسحور"
+      },
+      {
+        "fr": "Éviter sucres rapides en grosse quantité (pic glycémique)",
+        "en": "Avoid large amounts of fast sugars (glucose spike)",
+        "ar": "تجنبي السكريات السريعة بكميات كبيرة",
+        "tn": "تجنبي السكر برشة دفعة واحدة"
+      }
+    ]
+  }
+}

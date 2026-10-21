@@ -1,3 +1,19 @@
 # macOS (repo root — app/.gitignore couvre app/)
 .DS_Store
 **/.DS_Store
+
+# Playwright MCP — logs + snapshots transient (recréés à chaque session)
+.playwright-mcp/
+
+# Claude Code — scheduled tasks lock + transient state
+.claude/scheduled_tasks.lock
+
+# Playwright MCP screenshots (ad-hoc captures, fonts root level)
+e2e-fix-*.png
+e2e-mcp-*.png
+
+# Archives de données — le contenu décompressé est suivi, les .zip sont redondants
+*.zip
+
+# Apple submission pack: holds the demo-account password, never commit
+APPLE_SUBMISSION/

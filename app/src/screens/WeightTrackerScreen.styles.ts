@@ -2,6 +2,30 @@ import { StyleSheet } from 'react-native';
 import { theme } from '../theme';
 import { getShadowStyle } from '../utils/styleUtils';
 
+/**
+ * Badge colours as opaque (text, fill) token pairs. The badges used to tint their own
+ * text colour at ~13% over the card (`color + '22'`), which left "Poids normal" at
+ * 3.81:1 on the blue info card and the amber categories far lower. Each pair below is
+ * AA (4.5:1) and locked in theme/__tests__/contrast.test.ts.
+ */
+type BadgeTone = { fg: string; bg: string };
+const TONE_OK: BadgeTone = { fg: theme.colors.green800, bg: theme.colors.surfaceGreenTint };
+const TONE_WATCH: BadgeTone = { fg: theme.colors.warningTextDark, bg: theme.colors.surfaceAmberTint };
+const TONE_ALERT: BadgeTone = { fg: theme.colors.red800, bg: theme.colors.surfaceRose };
+
+export const BMI_CATEGORY_TONE: Record<'underweight' | 'normal' | 'overweight' | 'obese', BadgeTone> = {
+    underweight: TONE_WATCH,
+    normal: TONE_OK,
+    overweight: TONE_WATCH,
+    obese: TONE_ALERT,
+};
+
+export const TREND_SEVERITY_TONE: Record<'normal' | 'attention' | 'warning', BadgeTone> = {
+    normal: TONE_OK,
+    attention: TONE_WATCH,
+    warning: TONE_ALERT,
+};
+
 export const styles = StyleSheet.create({
     container: {
         flex: 1,
@@ -64,7 +88,7 @@ export const styles = StyleSheet.create({
     },
     noDataText: {
         fontSize: 16,
-        color: theme.colors.neutral400,
+        color: theme.colors.textMuted,
         fontStyle: 'italic',
     },
     infoCard: {
@@ -79,7 +103,19 @@ export const styles = StyleSheet.create({
         alignItems: 'center',
         marginBottom: 8,
     },
+    // The touch target is 44x44 in the style itself (hitSlop did not show up in the rendered
+    // box); the 24pt circle is the inner infoBadge. The negative margins give back the
+    // extra 20pt so the header row and the circle's edge alignment look as they did
+    // (logical marginEnd, so it holds in RTL).
     infoButton: {
+        width: 44,
+        height: 44,
+        marginVertical: -10,
+        marginEnd: -10,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    infoBadge: {
         width: 24,
         height: 24,
         borderRadius: 12,
@@ -175,7 +211,7 @@ export const styles = StyleSheet.create({
     },
     chartYLabel: {
         fontSize: 10,
-        color: theme.colors.neutral400,
+        color: theme.colors.textMuted,
     },
     chartArea: {
         flexDirection: 'row',
@@ -242,10 +278,10 @@ export const styles = StyleSheet.create({
     },
     legendText: {
         fontSize: 11,
-        color: theme.colors.neutral400,
+        color: theme.colors.textMuted,
     },
     addButton: {
-        backgroundColor: theme.colors.primary,
+        backgroundColor: theme.colors.accent,
         borderRadius: 16,
         padding: 18,
         alignItems: 'center',
@@ -284,12 +320,12 @@ export const styles = StyleSheet.create({
     },
     weightGainText: {
         fontSize: 14,
-        color: theme.colors.neutral400,
+        color: theme.colors.textMuted,
         marginBottom: 4,
     },
     miniStatus: {
         fontSize: 13,
-        color: theme.colors.accentOrangeDeep,
+        color: theme.colors.deepOrange900,
         marginTop: 4,
     },
     gaugeContainer: {
@@ -298,7 +334,7 @@ export const styles = StyleSheet.create({
     },
     gaugeLabel: {
         fontSize: 12,
-        color: theme.colors.neutral400,
+        color: theme.colors.textMuted,
         marginBottom: 8,
         textAlign: 'center',
     },
@@ -397,7 +433,7 @@ export const styles = StyleSheet.create({
         flex: 1,
         padding: 14,
         borderRadius: 12,
-        backgroundColor: theme.colors.primary,
+        backgroundColor: theme.colors.accent,
         alignItems: 'center',
     },
     saveButtonDisabled: {
@@ -419,7 +455,7 @@ export const styles = StyleSheet.create({
     },
     emptyHistory: {
         fontSize: 14,
-        color: theme.colors.neutral400,
+        color: theme.colors.textMuted,
         fontStyle: 'italic',
         textAlign: 'center',
         padding: 20,
@@ -475,7 +511,7 @@ export const styles = StyleSheet.create({
     },
     disclaimerText: {
         fontSize: 12,
-        color: theme.colors.accentOrangeDeep,
+        color: theme.colors.deepOrange900,
         lineHeight: 18,
     },
     // Education section styles
@@ -495,7 +531,7 @@ export const styles = StyleSheet.create({
     },
     educationToggle: {
         fontSize: 12,
-        color: theme.colors.neutral400,
+        color: theme.colors.textMuted,
     },
     educationContent: {
         marginBottom: 16,
@@ -524,7 +560,7 @@ export const styles = StyleSheet.create({
     },
     eduBold: {
         fontWeight: '700',
-        color: theme.colors.pinkAccent,
+        color: theme.colors.accent,
     },
     eduTable: {
         marginTop: 8,
@@ -595,7 +631,7 @@ export const styles = StyleSheet.create({
         backgroundColor: theme.colors.neutral75,
     },
     setupButton: {
-        backgroundColor: theme.colors.primary,
+        backgroundColor: theme.colors.accent,
         borderRadius: 12,
         padding: 16,
         alignItems: 'center',
@@ -634,7 +670,7 @@ export const styles = StyleSheet.create({
     },
     demoWarning: {
         fontSize: 12,
-        color: theme.colors.orange500,
+        color: theme.colors.deepOrange900,
         textAlign: 'center',
         marginTop: 8,
         fontStyle: 'italic',
@@ -688,6 +724,9 @@ export const styles = StyleSheet.create({
         paddingHorizontal: 12,
         paddingVertical: 6,
         gap: 4,
+        // A chip is as wide as its text; a long tip ran past the card's right edge. Capped
+        // to the row, the text (flexShrink) wraps onto a second line instead.
+        maxWidth: '100%',
     },
     suggestionIcon: {
         fontSize: 16,

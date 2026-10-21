@@ -1,18 +1,49 @@
 import { createLogger } from '../utils/logger';
 const log = createLogger('SupplementDetailScreen');
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, I18nManager } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { doc, getDoc } from 'firebase/firestore';
+import { getLocalSupplement, getLocalArticle, getAllLocalArticles } from '../services/localContentFallback';
+import { FIRESTORE_GUEST_TIMEOUT_MS, withTimeout } from '../utils/withTimeout';
 import { db } from '../config/firebase';
-import { Supplement } from '../types';
+import { Supplement, Article } from '../types';
 import { theme } from '../theme';
 import { Tag } from '../components/common/Tag';
 import { Card } from '../components/common/Card';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { SectionHeader } from '../components/common/SectionHeader';
+import { useNavigation, useNavigationState, useRoute } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { getLocalizedContent } from '../utils/i18nHelpers';
+import { normalizeSupplementSafety, SUPPLEMENT_SAFETY_LABEL_KEYS, SUPPLEMENT_SAFETY_TAG_COLORS } from '../utils/supplementSafety';
+import { formatSupplementSources } from '../utils/supplementSources';
 import { useScreenAnalytics } from '../hooks/useScreenAnalytics';
+import { isBookmarked, toggleBookmark, subscribeBookmarks } from '../services/bookmarkService';
+
+/**
+ * task 10a content cross-linking — resolve a supplement's `related_article_ids`.
+ *
+ * The field is a COMMA-SEPARATED string (e.g. "a01,a02") with SHORT ids, while
+ * bundled articles use full ids (e.g. "a01_symptômes_de_grossesse"). Normalise
+ * either shape and resolve via exact-then-prefix match.
+ */
+const parseRelatedIds = (value: unknown): string[] => {
+    if (Array.isArray(value)) {
+        return value.map(v => String(v).trim()).filter(Boolean);
+    }
+    if (typeof value === 'string') {
+        return value.split(',').map(s => s.trim()).filter(Boolean);
+    }
+    return [];
+};
+
+const resolveRelatedArticle = (id: string): Article | undefined => {
+    const exact = getLocalArticle(id);
+    if (exact) return exact;
+    return getAllLocalArticles().find(
+        a => a.article_id === id || a.article_id.startsWith(`${id}_`),
+    );
+};
 
 export const SupplementDetailScreen = () => {
     useScreenAnalytics('SupplementDetailScreen');
@@ -20,13 +51,23 @@ export const SupplementDetailScreen = () => {
     const navigation = useNavigation();
     const route = useRoute<any>();
     const { supplementId } = route.params || {};
-    const isRTL = I18nManager.isRTL;
+    // GJ-008: the stack header draws its own back button whenever this screen has a previous
+    // route in its stack, so the in-body arrow is only shown when the detail opened as the
+    // stack's first screen (deep link, chatbot jump) — there the header has none, and goBack()
+    // falls through to the previous tab.
+    const showInlineBack = useNavigationState(state => state.routes[0]?.key === route.key);
+    // AUDIT-FIX (page-by-page validation 2026-06-02): language-derived RTL — I18nManager.isRTL is
+    // false on web (forceRTL skipped to avoid reload loop), breaking absolute-positioned mirroring.
+    const isRTL = i18n.language === 'ar' || i18n.language === 'tn';
 
     // ── ALL HOOKS BEFORE ANY EARLY RETURN ──
     const [supplement, setSupplement] = useState<Supplement | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [refreshKey, setRefreshKey] = useState(0);
+    // task 10b — bookmark/save state. Keyed off the route's supplementId so the
+    // icon reflects saved-state immediately (no need to wait for the fetch).
+    const [saved, setSaved] = useState(false);
 
     useEffect(() => {
         if (!supplementId) return;
@@ -36,16 +77,24 @@ export const SupplementDetailScreen = () => {
             setError(null);
             try {
                 const docRef = doc(db, 'supplements', supplementId);
-                const docSnap = await getDoc(docRef);
+                const docSnap = await withTimeout(getDoc(docRef), FIRESTORE_GUEST_TIMEOUT_MS);
                 if (!isMounted) return;
                 if (docSnap.exists()) {
                     setSupplement(docSnap.data() as Supplement);
                 } else {
-                    setError(t('common.supplementNotFound'));
+                    // CLUSTER-2: not in Firestore — try the bundled supplement before erroring.
+                    const local = getLocalSupplement(supplementId);
+                    if (local) setSupplement(local);
+                    else setError(t('common.supplementNotFound'));
                 }
             } catch (err) {
                 log.error('Error fetching supplement details:', err);
-                if (isMounted) setError(t('common.errorLoadingData'));
+                // CLUSTER-2: Firestore failed (permission-denied for guests / offline).
+                const local = getLocalSupplement(supplementId);
+                if (isMounted) {
+                    if (local) setSupplement(local);
+                    else setError(t('common.errorLoadingData'));
+                }
             } finally {
                 if (isMounted) setLoading(false);
             }
@@ -53,6 +102,30 @@ export const SupplementDetailScreen = () => {
         fetchSupplement();
         return () => { isMounted = false; };
     }, [supplementId, refreshKey]);
+
+    // task 10b — reflect bookmark state on mount + stay live across toggles
+    // (fired from this screen or anywhere else, e.g. the Favoris list chip).
+    useEffect(() => {
+        if (!supplementId) return;
+        let active = true;
+        const sync = () => {
+            isBookmarked('supplement', supplementId).then(v => {
+                if (active) setSaved(v);
+            });
+        };
+        sync();
+        const unsubscribe = subscribeBookmarks(sync);
+        return () => {
+            active = false;
+            unsubscribe();
+        };
+    }, [supplementId]);
+
+    const handleToggleBookmark = React.useCallback(() => {
+        if (!supplementId) return;
+        // Optimistic flip; subscribeBookmarks will reconcile with the persisted value.
+        toggleBookmark('supplement', supplementId).then(setSaved);
+    }, [supplementId]);
 
     // ── EARLY RETURNS (after hooks) ──
     if (!supplementId) {
@@ -81,60 +154,77 @@ export const SupplementDetailScreen = () => {
                 </Text>
                 <TouchableOpacity
                     onPress={() => setRefreshKey(k => k + 1)}
-                    style={{ marginTop: 16, padding: 14, backgroundColor: theme.colors.primary, borderRadius: theme.borderRadius.m }}
+                    style={{ marginTop: 16, padding: 14, backgroundColor: theme.colors.accent, borderRadius: theme.borderRadius.m }}
                     accessibilityRole="button"
                     accessibilityLabel={t('common.retry')}
                 >
                     <Text style={{ color: theme.colors.white, fontWeight: '600' }}>{t('common.retry')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginTop: 12 }}>
-                    <Text style={{ color: theme.colors.primary }}>{t('common.back')}</Text>
+                    <Text style={{ color: theme.colors.accent }}>{t('common.back')}</Text>
                 </TouchableOpacity>
             </View>
         );
     }
 
-    const getSafetyColor = (safety: string) => {
-        switch (safety) {
-            case 'ok': return theme.colors.success;
-            case 'a_surveiller': return theme.colors.warning;
-            case 'deconseille': return theme.colors.error;
-            default: return theme.colors.secondary;
-        }
-    };
+    // Every safety lookup goes through the shared normaliser, so an accented or unknown token
+    // reads the same (caution) here as in the supplements list and its filter. Label and
+    // colours come from the same tables the list uses.
+    const safety = normalizeSupplementSafety(supplement.pregnancy_safety);
+    const safetyColors = SUPPLEMENT_SAFETY_TAG_COLORS[safety];
 
-    const getSafetyLabel = (safety: string) => {
-        switch (safety) {
-            case 'ok': return t('common.supplementSafety.safe');
-            case 'a_surveiller': return t('common.supplementSafety.caution');
-            case 'deconseille': return t('common.supplementSafety.avoid');
-            default: return t('common.supplementSafety.unknown');
-        }
-    };
+    // task 10a — cross-linking. Resolve related articles (skip related_symptoms_ids:
+    // there is no symptom screen). Section renders only when ≥1 id resolves.
+    const linkedArticles = parseRelatedIds(supplement.related_article_ids)
+        .map(resolveRelatedArticle)
+        .filter((a): a is Article => Boolean(a));
 
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-            {/* Back button + RTL aware */}
-            <TouchableOpacity
-                onPress={() => navigation.goBack()}
-                style={styles.backButton}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                accessibilityRole="button"
-                accessibilityLabel={t('a11y.back')}
-            >
-                <Ionicons
-                    name={isRTL ? 'arrow-forward' : 'arrow-back'}
-                    size={24}
-                    color={theme.colors.text}
-                />
-            </TouchableOpacity>
+            {/* Back button + bookmark toggle.
+                DOUBLE-FLIP FIX: dropped the RTL `row-reverse` — under dir=rtl a plain
+                `flexDirection: 'row'` already lays children out right-to-left, so the
+                extra reverse cancelled it and Arabic got the LTR arrangement.
+                (was: RTL-safe: row-reverse flips the
+                bookmark to the opposite side of the back arrow (task 10b). */}
+            <View style={[styles.headerBar, !showInlineBack && styles.headerBarEndOnly]}>
+                {showInlineBack && (
+                    <TouchableOpacity
+                        onPress={() => navigation.goBack()}
+                        style={styles.backButton}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        accessibilityRole="button"
+                        accessibilityLabel={t('a11y.back')}
+                    >
+                        <Ionicons
+                            name={isRTL ? 'arrow-forward' : 'arrow-back'}
+                            size={24}
+                            color={theme.colors.text}
+                        />
+                    </TouchableOpacity>
+                )}
+                <TouchableOpacity
+                    onPress={handleToggleBookmark}
+                    style={styles.bookmarkButton}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    accessibilityRole="button"
+                    accessibilityLabel={saved ? t('common.saved') : t('common.addToFavorites')}
+                    accessibilityState={{ selected: saved }}
+                >
+                    <Ionicons
+                        name={saved ? 'bookmark' : 'bookmark-outline'}
+                        size={24}
+                        color={saved ? theme.colors.accent : theme.colors.text}
+                    />
+                </TouchableOpacity>
+            </View>
 
             <View style={styles.header}>
-                <Tag label={getSafetyLabel(supplement.pregnancy_safety)} color={getSafetyColor(supplement.pregnancy_safety)} />
+                <Tag label={t(SUPPLEMENT_SAFETY_LABEL_KEYS[safety])} color={safetyColors.background} textColor={safetyColors.text} />
                 <Text style={[theme.typography.h1, styles.title] as any}>
                     {getLocalizedContent(supplement, 'name', i18n.language)}
                 </Text>
-                <Text style={theme.typography.caption}>{getLocalizedContent(supplement, 'category', i18n.language) || supplement.category}</Text>
+                <Text style={theme.typography.caption}>{t(`supplementCategories.${supplement.category}`, { defaultValue: supplement.category })}</Text>
             </View>
 
             {getLocalizedContent(supplement, 'short_description', i18n.language) !== '' && (
@@ -165,16 +255,56 @@ export const SupplementDetailScreen = () => {
 
             {getLocalizedContent(supplement, 'precautions', i18n.language) !== '' && (
                 <Card style={[styles.card, { borderColor: theme.colors.warning, borderWidth: 1 }]}>
-                    <Text style={[theme.typography.h3, styles.sectionTitle, { color: theme.colors.warning }] as any}>{t('common.precautions')}</Text>
+                    <Text style={[theme.typography.h3, styles.sectionTitle, { color: theme.colors.deepOrange900 }] as any}>{t('common.precautions')}</Text>
                     <Text style={theme.typography.body}>
                         {getLocalizedContent(supplement, 'precautions', i18n.language)}
                     </Text>
                 </Card>
             )}
 
-            {supplement.sources && (
-                <Text style={[theme.typography.caption, styles.source]}>{`${t('common.source')} : ${supplement.sources}`}</Text>
+            {/* task 10a — related ARTICLES (from supplement.related_article_ids) */}
+            {linkedArticles.length > 0 && (
+                <View style={styles.section}>
+                    <SectionHeader title={t('common.relatedArticles')} />
+                    <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={styles.chipRow}
+                    >
+                        {linkedArticles.map(linked => {
+                            const label = getLocalizedContent(linked, 'title', i18n.language);
+                            return (
+                                <TouchableOpacity
+                                    key={linked.article_id}
+                                    onPress={() => navigation.navigate('ArticleDetail', { articleId: linked.article_id })}
+                                    activeOpacity={0.7}
+                                    style={styles.chip}
+                                    accessibilityRole="button"
+                                    accessibilityLabel={label}
+                                    accessibilityHint={t('a11y.readArticle')}
+                                >
+                                    <Ionicons name="document-text-outline" size={16} color={theme.colors.accent} />
+                                    <Text style={[styles.chipText, isRTL && styles.chipTextRTL]} numberOfLines={2}>{label}</Text>
+                                </TouchableOpacity>
+                            );
+                        })}
+                    </ScrollView>
+                </View>
             )}
+
+            {supplement.sources && (
+                <Text style={[theme.typography.caption, styles.source]}>{formatSupplementSources(supplement.sources, t, i18n.language)}</Text>
+            )}
+
+            {/* MEDICAL-DISCLAIMER FIX. This screen shows concrete dosages and a green
+                "safe during pregnancy" pill, and was the only such surface with no
+                disclaimer — the chatbot, kick counter, contraction timer, forbidden
+                foods and Ramadan screens all carry one. Beyond the App Store health
+                guideline, a dosage shown without "ask your doctor" is the riskiest
+                thing this app can display. Same visual pattern as ForbiddenFoods. */}
+            <View style={styles.disclaimer}>
+                <Text style={styles.disclaimerText}>{t('common.supplementsDisclaimer')}</Text>
+            </View>
         </ScrollView>
     );
 };
@@ -193,9 +323,21 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
     },
-    backButton: {
+    headerBar: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
         marginBottom: theme.spacing.m,
+    },
+    // Only the bookmark is left: keep it on the end side (right LTR / left RTL).
+    headerBarEndOnly: {
+        justifyContent: 'flex-end',
+    },
+    backButton: {
         alignSelf: 'flex-start',
+    },
+    bookmarkButton: {
+        padding: theme.spacing.xs,
     },
     header: {
         marginBottom: theme.spacing.l,
@@ -210,9 +352,52 @@ const styles = StyleSheet.create({
     sectionTitle: {
         marginBottom: theme.spacing.s,
     },
+    section: {
+        marginTop: theme.spacing.s,
+        marginBottom: theme.spacing.m,
+    },
+    chipRow: {
+        flexDirection: 'row',
+        paddingVertical: theme.spacing.xs,
+        gap: theme.spacing.s,
+    },
+    chip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        maxWidth: 220,
+        paddingHorizontal: theme.spacing.m,
+        paddingVertical: theme.spacing.s,
+        borderRadius: theme.borderRadius.round,
+        backgroundColor: theme.colors.cardBackground,
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+    },
+    chipText: {
+        ...theme.typography.label,
+        color: theme.colors.accent,
+        marginStart: theme.spacing.xs,
+        flexShrink: 1,
+    },
+    chipTextRTL: {
+        textAlign: 'right',
+    },
     source: {
         textAlign: 'center',
         marginTop: theme.spacing.m,
         fontStyle: 'italic',
+    },
+    disclaimer: {
+        backgroundColor: theme.colors.surfaceAmberTint,
+        borderRadius: 12,
+        padding: 12,
+        marginTop: theme.spacing.l,
+        marginBottom: theme.spacing.l,
+        borderWidth: 1,
+        borderColor: theme.colors.amberBorder,
+    },
+    disclaimerText: {
+        fontSize: 12,
+        color: theme.colors.deepOrange900,
+        lineHeight: 18,
     },
 });

@@ -11,12 +11,12 @@
     "total": "Total",
     "myAppointments": "Mes RDV",
     "noEventsForDay": "Aucun événement pour ce jour",
-    "enjoyRest": "Profitez-en pour vous reposer ! 💆‍♀️",
+    "enjoyRest": "Profitez-en pour vous reposer ! 💆‍♀️",
     "addAppointment": "+ Ajouter un RDV",
-    "guestModeTitle": "Mode Invité",
+    "guestModeTitle": "Mode Invitée",
     "guestModeMessage": "Vous devez être connecté pour gérer vos événements.",
     "deleteEventTitle": "Supprimer l'événement",
-    "deleteEventMessage": "Êtes-vous sûre de vouloir supprimer cet événement ?",
+    "deleteEventMessage": "Êtes-vous sûre de vouloir supprimer cet événement ?",
     "cancel": "Annuler",
     "delete": "Supprimer",
     "error": "Erreur",
@@ -32,5 +32,19 @@
     },
     "noAppointments": "Aucun RDV cette semaine",
     "appointmentsThisWeek": "{{count}} RDV cette semaine",
-    "myAppointment": "Mon RDV"
+    "myAppointment": "Mon RDV",
+    "noSuggestionsWeek": "Aucune suggestion à afficher pour cette semaine.",
+    "noSuggestionsMonth": "Aucune suggestion à afficher pour ce mois.",
+    "category": {
+        "administrative": "Démarche",
+        "exam": "Examen",
+        "preparation": "Préparation",
+        "prevention": "Prévention",
+        "selfCare": "Bien-être"
+    },
+    "importance": {
+        "essential": "Essentiel",
+        "recommended": "Recommandé",
+        "optional": "Facultatif"
+    }
 }

@@ -6,6 +6,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getShadowStyle } from '../../utils/styleUtils';
 import { useTranslation } from 'react-i18next';
+import { dayOfPregnancyFor } from '../../utils/pregnancyCalculator';
 
 interface BabyMessageCardProps {
     message: string;
@@ -40,8 +41,10 @@ export const BabyMessageCard: React.FC<BabyMessageCardProps> = ({
 
                 <Text style={styles.message}>{message}</Text>
 
+                {/* "Semaine 32, Jour 218", the day the baby card above prints. The bare
+                    day-in-week ("Jour 1") read as a second, contradicting day count. */}
                 <Text style={styles.footer}>
-                    {t('home.weekDay', { week, day })}
+                    {t('home.weekDay', { week, day: dayOfPregnancyFor(week, day) })}
                 </Text>
             </LinearGradient>
         </View>
@@ -83,7 +86,8 @@ const styles = StyleSheet.create({
     footer: {
         fontSize: 12,
         fontStyle: 'italic',
-        color: theme.colors.gray600,
-        textAlign: 'right',
+        color: theme.colors.textSecondary,
+        // Cycle 4 F820 RTL : `auto` = follow direction → en RTL = visuel gauche.
+        textAlign: 'auto',
     },
 });

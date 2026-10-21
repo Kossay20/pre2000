@@ -1,13 +1,14 @@
 import { createLogger } from '../utils/logger';
 const log = createLogger('PregnancyContext');
 // src/context/PregnancyContext.tsx
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { useMemo, createContext, useContext, useEffect, useState } from 'react';
 import { getDoc, doc } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from './AuthContext';
 import { calculatePregnancyWeek } from '../utils/pregnancyCalculator';
 import { calculateCycleDay } from '../utils/fertility';
+import { guestLocalFields } from './profileSync';
 // R3 FIX: EmergencyContact is now defined in types/ so it can be referenced by
 // UserProfile without a circular import. Re-exported here for backward compat
 // (existing imports `import { EmergencyContact } from '../context/PregnancyContext'`
@@ -35,6 +36,12 @@ export type PregnancyInfo = {
     week: number;
     dayInWeek: number;
     isInvalid?: boolean;
+    // 40+0..42+0 SA: past the due date, still a pregnancy. week/dayInWeek stay on
+    // 40/7 (the last day the weeks content covers); the real age is below.
+    isPostTerm?: boolean;
+    // Completed weeks + days ("31 SA + 2 j"), unclamped — see calculatePregnancyWeek.
+    completedWeeks?: number;
+    completedDays?: number;
     mode: PregnancyMode;
 };
 
@@ -91,7 +98,31 @@ export const PregnancyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                             // they survive app restart (Firestore for auth users,
                             // AsyncStorage 'user_profile' for the cached snapshot).
                             emergencyContacts: user.emergencyContacts,
+                            // PT-01 / F-PROF-01 FIX: carry physical data from the auth
+                            // profile when present (auth users persist these via
+                            // AuthContext.updateProfile → Firestore/'user_profile').
+                            ...(user.height !== undefined ? { height: user.height } : {}),
+                            ...(user.prePregnancyWeight !== undefined ? { prePregnancyWeight: user.prePregnancyWeight } : {}),
                         };
+                        // PT-01 / F-PROF-01 FIX: for guests, height & prePregnancyWeight are
+                        // written ONLY to the 'guestProfile' AsyncStorage entry (by
+                        // WeightTracker setup / ProfileScreen via setProfile) and are NOT
+                        // present on the AuthContext user object. Without merging them here
+                        // the WeightTracker setup gate (profile.height/prePregnancyWeight)
+                        // re-triggers on every reload and Profile inputs come back empty.
+                        // The same holds for a guest's emergency contacts, which vanished
+                        // from Profile on every reload.
+                        if (user.isGuest) {
+                            try {
+                                const storedGuest = await AsyncStorage.getItem('guestProfile');
+                                Object.assign(
+                                    profileData,
+                                    guestLocalFields(profileData, storedGuest ? (JSON.parse(storedGuest) as Profile) : null),
+                                );
+                            } catch (mergeErr) {
+                                log.warn('[PregnancyContext] ⚠️ Failed to merge guestProfile data', mergeErr);
+                            }
+                        }
                         setProfileState(profileData);
                         computeInfo(profileData);
                         log.debug('[PregnancyContext] ⚡️ Used profile from AuthContext');
@@ -225,9 +256,24 @@ export const PregnancyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             return;
         }
 
-        const { week, day, isInvalid } = calculatePregnancyWeek(lmpDate);
+        const { week, day, isInvalid, isPostTerm, completedWeeks, completedDays } = calculatePregnancyWeek(lmpDate);
         log.debug(`[PregnancyContext] 📊 Week ${week}, Day ${day}, isInvalid=${isInvalid}`);
-        setPregnancyInfo({ week, dayInWeek: day, isInvalid: isInvalid ?? false, mode: 'pregnant' });
+        // Bail out when nothing actually changed. This runs on an hourly interval,
+        // and it used to hand back a NEW object every time regardless — invalidating
+        // the whole consumer tree once an hour, forever, for no reason (the week and
+        // day only change at midnight).
+        setPregnancyInfo(prev =>
+            prev
+                && prev.mode === 'pregnant'
+                && prev.week === week
+                && prev.dayInWeek === day
+                && prev.isInvalid === isInvalid
+                && prev.isPostTerm === isPostTerm
+                && prev.completedWeeks === completedWeeks
+                && prev.completedDays === completedDays
+                ? prev
+                : { week, dayInWeek: day, isInvalid, isPostTerm, completedWeeks, completedDays, mode: 'pregnant' }
+        );
         setTtcInfo(null);
     };
 
@@ -250,11 +296,10 @@ export const PregnancyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                 // to AuthContext.updateProfile so it survives app restart.
                 // Without this the contacts were memory-only and lost on cold start.
                 if (Array.isArray(p.emergencyContacts)) {
-                    try {
-                        await updateAuthProfile({ emergencyContacts: p.emergencyContacts });
-                    } catch (e) {
-                        log.warn('[PregnancyContext] ⚠️ Failed to persist emergencyContacts to Firestore:', e);
-                    }
+                    // updateProfile reports failure instead of throwing; a contact the
+                    // account never received must not look saved.
+                    const res = await updateAuthProfile({ emergencyContacts: p.emergencyContacts });
+                    if (!res.ok) throw new Error(`emergencyContacts not saved: ${res.error}`);
                 }
             }
             // For auth users: also update in-memory state. AuthContext owns Firestore for the rest.
@@ -262,13 +307,24 @@ export const PregnancyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             computeInfo(p);
         } catch (e) {
             log.error('[PregnancyContext] ❌ Error setting profile', e);
+            // Rethrown: callers (WeightTracker setup, emergency contacts, a guest's Profile
+            // save) tell her it was not saved. Swallowing it let those report success.
+            throw e;
         } finally {
             setLoading(false);
         }
     };
 
+    // Fresh object literal on every render meant all 17 consumers re-rendered
+    // whenever this provider did — and since PregnancyProvider itself consumes
+    // useAuth(), every AuthContext render cascaded through here.
+    const contextValue = useMemo(
+        () => ({ profile, setProfile, pregnancyInfo, ttcInfo, loading }),
+        [profile, setProfile, pregnancyInfo, ttcInfo, loading],
+    );
+
     return (
-        <PregnancyContext.Provider value={{ profile, setProfile, pregnancyInfo, ttcInfo, loading }}>
+        <PregnancyContext.Provider value={contextValue}>
             {children}
         </PregnancyContext.Provider>
     );

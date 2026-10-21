@@ -1,0 +1,229 @@
+# Audit AR / parcours invité / sécurité — 2026-08-07
+
+Branche `feat/interaction-ux-2026-06-18`, base `a2eb408`.
+Méthode : pilotage réel de l'app dans le navigateur (mode invité, langue arabe) +
+audit statique + sous-agents adversariaux, chaque constat vérifié à la main avant
+correction.
+
+---
+
+## 1. Ce qui bloquait l'utilisateur (reproduit en direct)
+
+| # | Symptôme rapporté | Cause racine réelle | Fichier |
+|---|---|---|---|
+| A | « J'arrive pas à remplir le formulaire de création de compte » | `<Pressable onPress={Keyboard.dismiss}>` enveloppait le ScrollView. Sur react-native-web le responder de Pressable appelle `preventDefault()` sur pointer-down, ce qui annule le focus par défaut de l'`<input>` sous-jacent. Chaque tap laissait `document.activeElement` sur `<body>` → **Connexion ET Inscription intypables**. Le focus programmatique fonctionnait, d'où l'absence de détection par les tests et sur natif. | `LoginScreen.tsx`, `RegisterScreen.tsx` → `components/common/DismissKeyboardView.tsx` |
+| B | « Il m'a demandé de créer un compte mais m'a pas redirigé » | `upgradeMode` lu avec `=== true`. La route est deep-linkable et React Navigation reconstruit les params depuis l'URL en livrant la **chaîne** `"true"`. L'écran partait donc dans la branche inscription-fraîche : `register()` au lieu de `upgradeGuest()`, puis `navigate('Onboarding')` — route absente de HomeStack → action ignorée, écran figé, compte créé en silence. Second essai : « email déjà utilisé ». | `RegisterScreen.tsx` |
+| C | « Sur Calendrier je voulais ajouter un truc » | Le FAB n'était pas gated : l'invité remplissait tout le formulaire et n'était bloqué qu'au « Enregistrer », **saisie perdue**. Le chemin web utilisait un `window.confirm` brut, incapable d'afficher le libellé localisé du bouton. La branche « pas d'uid » était un cul-de-sac sans issue. | `AddAppointmentScreen.tsx` |
+
+Correctifs : wrapper no-op sur web, parsing robuste du flag + garde `routeNames`,
+bannière invité en amont du formulaire, brouillon persisté 24 h et restauré après
+création du compte, `confirmAction` localisé partout.
+
+---
+
+## 2. Arabe / RTL — 3 causes racines, pas des retouches
+
+1. **Styles logiques non miroités sur web.** react-native-web 0.21 compile
+   `marginStart/End`, `paddingStart/End` et `start/end` en CSS **physique**
+   (`marginEnd:16` → `margin-right:16px`). Le miroir a lieu au rendu dans
+   `localizeStyle(style, isRTL)`, où `isRTL` vient de
+   `props.dir || LocaleContext.direction` (défaut `ltr`). Ni `I18nManager`
+   (volontairement non forcé sur web) ni `<html dir="rtl">` n'alimentent ce
+   contexte → les 120+ usages de styles logiques restaient côté LTR.
+   *Fix* : `LocaleProvider` de RN-Web, en `.web.tsx` (natif inchangé).
+2. **Double retournement des chevrons.** `‹ › ❮ ❯` sont des caractères
+   **Bidi_Mirrored** : le moteur de texte les retourne déjà en contexte RTL, en
+   plus du swap de `resolveChevronGlyph`. Les deux flips s'annulaient → toutes
+   les flèches à l'envers en arabe. (`→ ←` et `▶ ◀` ne sont pas miroités, d'où
+   les variantes qui semblaient correctes.)
+   *Fix* : isolat LTR `U+2066…U+2069` autour du glyphe.
+3. **Flèches codées en dur dans les traductions.** `onboarding.{editInfos,back,changeWeek}`
+   et `reminders.viewAll` pointaient du mauvais côté en ar/tn.
+
+Divers : badge ✓ du sélecteur de langue en `position:absolute; right:20` (chevauchait
+le drapeau), flèche retour de React Navigation non miroitée (`direction` prop),
+`dir="auto"` de RN-Web résolvant en `ltr` sur les Text purement emoji.
+
+**Parité i18n** : 0 clé manquante sur ar/tn/en (1513 clés), 0 chaîne française
+codée en dur dans le JSX. Le contenu arabe était déjà complet — le problème
+était bien le RTL.
+
+---
+
+## 3. L'arabe n'était pas réellement testé
+
+`e2e/auth-onboarding-lang-audit.spec.ts` sélectionnait les cartes de langue par
+emoji drapeau puis par index. Le commit `bef5be3` (2026-06-19) a remplacé le 🇩🇿
+de la carte arabe par un 🌍 neutre : depuis, la regex ne matchait plus que
+**trois** cartes et tous les index avaient glissé —
+
+- `en` (index 3) → élément inexistant → timeout 120 s
+- `tn` (index 2) → cliquait English → `dir=rtl` attendu, `ltr` obtenu
+- `ar` (index 1) → **cliquait la carte tunisienne et passait au vert**, les deux
+  étant RTL avec le même texte arabe
+
+L'arabe — la locale la plus problématique — n'avait donc **aucune couverture E2E
+réelle depuis sept semaines**, pendant que la suite affichait vert.
+*Fix* : sélection par `data-testid="lang_card_<code>"`.
+
+---
+
+## 4. Sécurité
+
+### Corrigé dans le code
+
+| Sévérité | Constat | Vérification |
+|---|---|---|
+| **P0** | **ReDoS sur le chemin de triage d'urgence obstétricale.** La regex de négation « rupture des membranes » utilisait `([^a-zà-ÿ]+\w+){0,3}`, dont les deux classes se recouvrent sur les chiffres et `_` → backtracking exponentiel. | Mesuré sur la regex exacte : `" not " + "_"×60` = 1,6 s, ×80 = 12,5 s, ×100 = **63 s** de thread JS bloqué (kill watchdog iOS). Atteignable depuis le chatbot (limite 500 caractères). Après fix : **1 ms**, et 2000 caractères restent à 1 ms. 182 tests de triage verts, langage accepté inchangé. |
+| **P0** | **Politique de confidentialité inaccessible une fois connecté** (blocage App Store). `AuthStack` et `MainTabs` sont mutuellement exclusifs et l'écran n'était enregistré que dans AuthStack → liens morts dans Réglages, Profil et le formulaire d'inscription. Le seul avertissement médical de l'app y réside aussi. | Constaté en direct : clic sans effet. |
+| **P1** | **Purge RGPD Art.17 silencieusement inopérante.** En `rules_version 2`, `match /userProfiles/{userId}` ne couvre **pas** les sous-collections. Chaque lecture de `userProfiles/{uid}/{weights,events,journal,chatbot_history}` était refusée, avalée par le `catch` et rétrogradée en `log.warn` → « supprimer mon compte » renvoyait un succès pendant que les données de santé héritées survivaient. `users/{uid}` n'était pas balayé du tout. | Règles corrigées + `firebase deploy --dry-run` : **compilation réussie**. 2 tests de non-régression ajoutés. |
+| **P1** | **UID Firebase brut envoyé à Sentry.** `log.error` est le seul niveau non gated par `__DEV__` et ses arguments partent vers Sentry tels quels, ce qui annulait le hachage SHA-256 délibéré de `logger.setUser()`. | Test asserte désormais que l'uid n'apparaît jamais. |
+| **P1** | **Champs libres non bornés vers Firestore.** `firstName`/`lastName` sans `maxLength`, `validateProfile` jamais appelé sur l'écran d'édition. Taille/poids bornés uniquement par `maxLength` (999 cm, 99999 kg alimentaient l'IMC). Nom de contact d'urgence non borné, tableau sans plafond. | Bornes client + serveur (règles), plage alignée sur WeightTracker (100-250 cm / 30-200 kg), 10 contacts max. |
+| **P2** | **Écran Diagnostic livré en production** : l'entrée du menu était gated `__DEV__` mais l'écran restait enregistré et deep-linkable à `/diagnostic`. | Enregistrement et deep link désormais `__DEV__`. |
+| **P2** | `NSMotionUsageDescription` déclarait une capacité jamais utilisée (aucun consommateur CoreMotion). | Retiré. |
+| **P2** | `SupplementDetailScreen` affichait des posologies et une pastille verte « sans risque » **sans avertissement médical** — seule surface de ce type sans disclaimer. | Ajouté dans les 4 langues. |
+
+### Nettoyage
+
+33 scripts orphelins d'un projet sans rapport (avis Google / proxies) supprimés :
+leurs imports (`./server/db`, `./server/services/proxy.service`) pointent dans le
+vide, aucun n'est référencé par `package.json`, et **onze portaient des
+identifiants ou une configuration proxy en clair**. 28 artefacts de build
+(`dist-dev/`, `dist-r3/`) retirés du suivi git.
+
+### ⚠️ Actions opérateur — obligatoires, hors de ma portée
+
+1. **Révoquer les identifiants proxy Bright Data.** Le dépôt
+   `github.com/loeymot-sketch/pre2000` est **public** (vérifié) et les fichiers
+   étaient suivis par git. La suppression ne défait pas l'exposition :
+   l'historique reste public. Rotation impérative.
+2. **Activer Anonymous Auth** (Firebase Console → Authentication). Console
+   observée : `auth/admin-restricted-operation`. Conséquence mesurée : l'invité
+   n'obtient pas d'UID Firebase, donc toutes les lectures Firestore échouent
+   (`tipsService`, `babyMessageService`, semaine en cours) — le mode invité est
+   une coquille vide.
+3. **Déployer les règles Firestore** : `firebase deploy --only firestore:rules`
+   (la correction RGPD n'a d'effet qu'une fois déployée).
+4. **Restreindre la clé API GCP.** La clé web Firebase est publique par
+   conception, mais elle est aussi une clé Google Cloud et apparaît dans deux
+   documents versionnés. Sans restriction d'API/référent, elle est utilisable
+   pour d'autres services Google facturés.
+5. **Câbler `ios.googleServicesFile`** dans `app.json` : absent alors que
+   `android.googleServicesFile` est présent → App Check inerte sur iOS.
+
+---
+
+## 5. Gate de vérification
+
+- `npm run verify` : **73 suites / 1913 tests** ✅ (lint couleurs + `tsc --noEmit` + Jest)
+- Playwright E2E : **38/38** ✅ (run isolé — 4 langues × 5 onglets)
+- `firebase deploy --only firestore:rules --dry-run` : compilation réussie ✅
+- Parité i18n : 0 clé manquante ar/tn/en ✅
+
+## 6. Commits
+
+```
+87423b2 fix(AR/RTL): mirror logical styles on web + un-collide language checkmark
+e04e047 fix(AR/RTL): stop chevron double-flip, mirror nav back arrow, fix arrow glyphs
+187fdb5 fix(auth,guest,security): unblock signup form, fix guest-upgrade route, kill chatbot ReDoS, restore privacy policy
+65ab3de fix(home): give the empty Home state a way out instead of stranding the user
+b06fd59 test(e2e): fix language-card selection — the "ar" test was exercising the TN card
+50a3d7b fix(security,a11y,i18n): close GDPR purge no-op, PII leak, unbounded inputs; remove orphan credential scripts
+ab02e92 fix(i18n): bottom tab labels stayed in the fallback language after a tab switch
+```
+
+### Vérifications négatives (constats testés, PAS des bugs)
+
+- Le pager à onglets supérieurs (Rappels / Tâches), réputé rendre un 2e onglet
+  blanc en RTL sur web, **rend correctement** — testé en arabe.
+- Le changement de langue en cours de session met tout à jour instantanément,
+  sans rechargement, barre d'onglets comprise (testé ar → fr → ar).
+- **Faux positif corrigé — libellés d'onglets en français.** J'ai d'abord
+  diagnostiqué des libellés d'onglets figés sur la langue de repli `fr` et livré
+  un correctif (ab02e92). C'était faux. La cause réelle est **la traduction
+  automatique de Chrome** : `document.documentElement` portait
+  `class="translated-ltr"` avec 258 balises `<font>` injectées et `lang="fr"`,
+  et les mots français variaient d'une capture à l'autre pour le même libellé
+  (« Maison » puis « Principal ») — signature d'une traduction machine, pas de
+  clés i18n. Contre-épreuve : avec le code d'origine restauré et aucune
+  traduction active (`fonts: 0`), le DOM après changement d'onglet renvoie
+  `["الرئيسية","التقويم","التذكيرات","الموارد","المساعدة"]`. Le correctif a été
+  reverté (6421554 → revert).
+  **Leçon de méthode** : sur un audit RTL/i18n conduit dans un navigateur dont
+  la locale diffère de celle de l'app, toujours vérifier
+  `documentElement.className` / le nombre de balises `<font>` avant de conclure
+  à un bug de traduction.
+
+## 7. Reste ouvert
+
+- Contenu **TN** (beta) : suppléments et aliments interdits complétés (15 et 19
+  entrées), mais la formulation Derja n'a pas été relue par un locuteur natif.
+  Les règles de pluriel `tn` sont désormais alignées sur l'arabe — décision
+  réversible en une ligne (`src/i18n/index.ts`) si un relecteur natif tranche
+  autrement.
+- `showAlert` utilise `window.alert`/`window.confirm` sur web (bloquants). Le
+  double dialogue est corrigé, mais une vraie version web devrait router ces
+  appels vers la modale interne.
+
+---
+
+## 8. Passe finition / optimisation / déploiement (même run)
+
+### Déployé en production
+`firebase deploy --only firestore:rules,firestore:indexes` sur
+`pregnancy-app-1f939`. **Un premier déploiement était inopérant** : le
+`match /{document=**}` imbriqué que j'avais ajouté pour la purge RGPD matche
+*zéro ou plus* de segments — donc aussi le **document parent**, ce qui
+court-circuitait le garde de taille placé dessus (vérifié en direct : un prénom
+d'1 Mo accepté). Corrigé en `/{sub}/{doc=**}` et redéployé. Vérifié contre la
+production avec un vrai compte, **9/9 conformes** :
+
+| Attendu | Cas |
+|---|---|
+| ALLOWED | prénom normal ; prénom de 50 caractères |
+| DENIED | prénom de 51 caractères ; prénom d'1 Mo |
+| ALLOWED | lecture de son profil ; lecture **et** écriture de sa sous-collection héritée (le chemin de la purge RGPD, refusé avant ce correctif) |
+| DENIED | lecture du profil d'un autre ; lecture de la sous-collection d'un autre |
+
+### Optimisation — mesurée sur de vrais builds `expo export --platform ios`
+- **Export : 26 Mo → 16 Mo.**
+- Images bébé : 1024×1024 (~1,24 Mo pièce) pour un rendu à ~200 px →
+  600 px + quantification : **11 124 858 → 1 237 830 octets (−88 %)**. PNG
+  conservé plutôt que WebP (11× plus petit encore) : le décodage WebP côté iOS
+  dépend du pipeline image de la plateforme, invérifiable sans device.
+- Icônes : 3,09 Mo → 1,08 Mo, 1024×1024 préservé (exigence App Store).
+  `icon.png` et `adaptive-icon.png` étaient le **même fichier**.
+- `chatbot_data.ts` embarquait une copie intégrale des 80 articles (vérifié
+  80/80 identiques) : 1 488 534 → 32 805 octets. **Gain bytecode réel : 414 Ko**,
+  pas les ~2,17 Mo que la taille source suggère — Hermes déduplique déjà les
+  littéraux de chaîne identiques. `DB_VERSION` 3→4 pour re-semer SQLite.
+- Premier affichage : `App.tsx` rendait `null` pour toute la navigation tant
+  qu'`AuthContext` chargeait, et ce verrou ne se levait qu'après l'init Firebase
+  **et** un `getDoc` Firestore attendu. Le cache local levait déjà l'état mais
+  pas le verrou.
+- Re-rendus : valeurs de provider mémoïsées (`ToastContext` 6 consommateurs,
+  `PregnancyContext` 17 + cascade depuis `useAuth`) ; l'intervalle horaire de
+  `PregnancyContext` n'invalide plus l'arbre quand rien n'a changé.
+
+### Défauts de correction trouvés dans cette passe
+- `ForbiddenFoodsScreen` triait **en place** le tableau du module JSON importé —
+  réordonnant l'état partagé, définitivement, pour tous les autres consommateurs.
+- `HospitalBagChecklistScreen` : contournement RTL manuel devenu un double
+  retournement après le `LocaleProvider` — libellé arabe collé à la case à cocher
+  sur les 26 items. **Régression que j'avais introduite.**
+- `row-reverse` en RTL sur Home / ArticleDetail / SupplementDetail : sous
+  `dir=rtl`, `row` miroite déjà — flèche retour à gauche et marque-page à droite
+  en arabe, soit l'inverse du correct.
+- `BabyEvolutionScreen` : le positionnement initial ne s'appliquait jamais
+  (`setTimeout` contre la mise en page) — une utilisatrice en semaine 9 ouvrait
+  l'écran sur le **mois 1**, en français aussi. Et le carrousel se lisait de
+  gauche à droite en arabe alors que les points se miroitaient.
+- `ProfileScreen` affichait « Utilisateur invité » à un compte pleinement
+  inscrit, parce que le champ `email` manque dans les documents profil écrits par
+  le parcours d'upgrade et le bootstrap à froid.
+
+### Non déployé, volontairement
+La **soumission App Store**. Elle exige des identifiants Apple absents du dépôt
+et constitue une distribution publique irréversible : elle demande un feu vert
+explicite, pas une déduction.
+

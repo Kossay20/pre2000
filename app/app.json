@@ -2,28 +2,28 @@
   "expo": {
     "name": "Mama & Bébé",
     "slug": "mama-bebe",
+    "scheme": "mama-bebe",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
-    "description": "Votre compagne de grossesse intelligente — suivi semaine par semaine, rappels, calendrier médical, recettes et conseils personnalisés.",
+    "description": "Votre compagne de grossesse intelligente — suivi semaine par semaine, rappels, calendrier médical, articles et conseils pratiques.",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#FF6B9D"
+      "backgroundColor": "#FDADBB"
     },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.mamabebe.app",
       "buildNumber": "4",
       "entitlements": {
-        "aps-environment": "production"
+        "aps-environment": "production",
+        "com.apple.developer.devicecheck.appattest-environment": "production"
       },
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false,
-        "NSUserNotificationsUsageDescription": "Mama & Bébé vous envoie des rappels bienveillants pour votre bien-être et celui de votre bébé.",
-        "NSMotionUsageDescription": "Utilisé pour détecter l'activité physique."
+        "ITSAppUsesNonExemptEncryption": false
       },
       "privacyManifests": {
         "NSPrivacyCollectedDataTypes": [
@@ -69,7 +69,7 @@
           },
           {
             "NSPrivacyCollectedDataType": "NSPrivacyCollectedDataTypeCoarseLocation",
-            "NSPrivacyCollectedDataTypeLinked": false,
+            "NSPrivacyCollectedDataTypeLinked": true,
             "NSPrivacyCollectedDataTypeTracking": false,
             "NSPrivacyCollectedDataTypePurposes": [
               "NSPrivacyCollectedDataTypePurposeAppFunctionality"
@@ -89,22 +89,6 @@
             "NSPrivacyCollectedDataTypeTracking": false,
             "NSPrivacyCollectedDataTypePurposes": [
               "NSPrivacyCollectedDataTypePurposeAppFunctionality"
-            ]
-          },
-          {
-            "NSPrivacyCollectedDataType": "NSPrivacyCollectedDataTypeCrashData",
-            "NSPrivacyCollectedDataTypeLinked": false,
-            "NSPrivacyCollectedDataTypeTracking": false,
-            "NSPrivacyCollectedDataTypePurposes": [
-              "NSPrivacyCollectedDataTypePurposeAppFunctionality"
-            ]
-          },
-          {
-            "NSPrivacyCollectedDataType": "NSPrivacyCollectedDataTypeProductInteraction",
-            "NSPrivacyCollectedDataTypeLinked": false,
-            "NSPrivacyCollectedDataTypeTracking": false,
-            "NSPrivacyCollectedDataTypePurposes": [
-              "NSPrivacyCollectedDataTypePurposeAnalytics"
             ]
           }
         ],
@@ -141,10 +125,11 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#FF6B9D"
+        "backgroundImage": "./assets/adaptive-icon-background.png",
+        "monochromeImage": "./assets/adaptive-icon-monochrome.png",
+        "backgroundColor": "#FC9096"
       },
       "package": "com.mamabebe.app",
-      "googleServicesFile": "./google-services.json",
       "versionCode": 8,
       "allowBackup": false,
       "permissions": [
@@ -161,7 +146,8 @@
         "android.permission.READ_MEDIA_IMAGES",
         "android.permission.READ_MEDIA_VIDEO",
         "android.permission.READ_CONTACTS",
-        "android.permission.READ_PHONE_STATE"
+        "android.permission.READ_PHONE_STATE",
+        "android.permission.SYSTEM_ALERT_WINDOW"
       ]
     },
     "web": {
@@ -171,7 +157,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/icon.png",
+          "icon": "./assets/notification-icon.png",
           "color": "#FF6B9D",
           "defaultChannel": "default",
           "sounds": []
@@ -179,21 +165,48 @@
       ],
       "expo-sqlite",
       "@react-native-firebase/app",
-      "@react-native-firebase/app-check"
+      "@react-native-firebase/app-check",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "useFrameworks": "static",
+            "forceStaticLinking": [
+              "RNFBApp",
+              "RNFBAppCheck"
+            ]
+          }
+        }
+      ],
+      "expo-font",
+      [
+        "expo-localization",
+        {
+          "supportedLocales": {
+            "ios": [
+              "fr",
+              "en",
+              "ar"
+            ]
+          },
+          "allowDynamicLocaleChangesAndroid": true
+        }
+      ]
     ],
     "extra": {
       "privacyPolicyUrl": "https://www.mama-et-bebe.com/privacy.html",
+      "accountDeletionUrl": "https://www.mama-et-bebe.com/delete-account.html",
       "marketingUrl": "https://www.mama-et-bebe.com",
       "eas": {
-        "projectId": "75911d23-9cdf-4b98-833a-ee7807efe4e6"
+        "projectId": "b93a9d90-4332-4936-998a-91d62ccdf46a"
       }
     },
     "runtimeVersion": {
       "policy": "appVersion"
     },
     "updates": {
-      "url": "https://u.expo.dev/75911d23-9cdf-4b98-833a-ee7807efe4e6"
+      "url": "https://u.expo.dev/b93a9d90-4332-4936-998a-91d62ccdf46a"
     },
-    "owner": "kossko"
+    "owner": "kossay1"
   }
 }

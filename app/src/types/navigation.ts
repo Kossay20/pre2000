@@ -35,6 +35,10 @@ export type HomeStackParamList = {
   Diagnostic: undefined;
   LanguageSelect: undefined;
   BabyEvolution: undefined;
+  KickCounter: undefined;
+  ContractionTimer: undefined;
+  HospitalBag: undefined;
+  RamadanPregnancy: undefined;
 };
 
 // ─── Resources Stack Screens ─────────────────────────────────
@@ -47,7 +51,8 @@ export type ResourcesStackParamList = {
 // ─── Calendar Stack Screens ──────────────────────────────────
 export type CalendarStackParamList = {
   CalendarMain: { selectedDate?: string };
-  AddAppointment: { selectedDate?: string; event?: any };
+  // selectedDate: local yyyy-MM-dd. eventId: edit mode (the form reads the event itself).
+  AddAppointment: { selectedDate?: string; eventId?: string };
 };
 
 // ─── Reminders Stack Screens ─────────────────────────────────
@@ -91,9 +96,14 @@ export type AllScreensParamList = {
   Diagnostic: undefined;
   LanguageSelect: undefined;
   BabyEvolution: undefined;
+  KickCounter: undefined;
+  ContractionTimer: undefined;
+  HospitalBag: undefined;
+  RamadanPregnancy: undefined;
   // Calendar Stack
   CalendarMain: { selectedDate?: string };
-  AddAppointment: { selectedDate?: string; event?: any };
+  // selectedDate: local yyyy-MM-dd. eventId: edit mode (the form reads the event itself).
+  AddAppointment: { selectedDate?: string; eventId?: string };
   // Reminders Stack
   RemindersMain: { screen?: string; params?: Record<string, any> };
   Statistics: undefined;

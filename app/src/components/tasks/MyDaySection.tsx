@@ -7,9 +7,13 @@
  * - Local progress tracking with AsyncStorage
  */
 
+import { plainLabel } from '../../utils/a11yLabel';
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
+import { showAlert } from '../../utils/alert';
+import { confirmAction } from '../../utils/uiUtils';
 import { useDateLocale } from '../../hooks/useDateLocale';
 import { useTranslation } from 'react-i18next';
 import i18n from '../../i18n';
@@ -20,7 +24,9 @@ import {
     generateDailyChecklist,
     loadDailyProgress,
     saveDailyProgress,
-    cleanupOldProgress
+    cleanupOldProgress,
+    buildMyDayItems,
+    myDayProgress
 } from '../../services/dailyChecklistService';
 import { updateTaskStatus } from '../../services/taskService';
 import { usePregnancy } from '../../context/PregnancyContext';
@@ -69,134 +75,18 @@ export const MyDaySection: React.FC<Props> = React.memo(({
                 userEvents,
                 week,
                 user?.uid,
-                i18n.language
+                i18n.language,
+                user
             );
 
             // 2. Load saved progress for reminders
             const mergedReminders = await loadDailyProgress(generatedReminders);
 
-            // 3. Convert UserTasks to DailyChecklistItem format
-            const todayStr = format(new Date(), 'yyyy-MM-dd');
-            const now = new Date();
-
-            const taskItems: DailyChecklistItem[] = userTasks.flatMap(task => {
-                let subtitle = undefined;
-                let sortTimestamp = now.getTime(); // Default to now for sorting if no time
-
-                // --- Evaluate Recurrence ---
-                let shouldShowToday = true;
-                let isCompletedToday = task.completed;
-
-                if (task.recurrence) {
-                    const rule = task.recurrence;
-                    const dayOfWeek = now.getDay();
-
-                    if (rule.type === 'specific_days' && rule.days) {
-                        shouldShowToday = rule.days.includes(dayOfWeek);
-                    } else if (rule.type === 'interval' && rule.interval) {
-                        // Calculate days since created
-                        if (task.created_at) {
-                            // created_at can be Firestore Timestamp or Date string
-                            const createdDate = task.created_at instanceof Date ? task.created_at :
-                                (task.created_at && typeof (task.created_at as any).toDate === 'function') ? (task.created_at as any).toDate() :
-                                    new Date(task.created_at as any);
-
-                            const diffTime = Math.abs(now.getTime() - createdDate.getTime());
-                            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-                            shouldShowToday = diffDays % rule.interval === 0;
-                        } else {
-                            shouldShowToday = true;
-                        }
-                    } else if (rule.type === 'daily') {
-                        shouldShowToday = true;
-                    }
-
-                    // Check completion for today
-                    if (shouldShowToday) {
-                        isCompletedToday = task.completed_dates ? task.completed_dates.includes(todayStr) : false;
-                    }
-                } else {
-                    // One-off task. If it's completed and from yesterday, we might want to hide it
-                    // but for now we follow the old logic and show all non-recurring tasks unless otherwise handled.
-                }
-
-                if (!shouldShowToday) return [];
-
-                if (task.reminder_time) {
-                    const date = task.reminder_time instanceof Date ? task.reminder_time :
-                        (task.reminder_time && typeof (task.reminder_time as any).toDate === 'function') ? (task.reminder_time as any).toDate() :
-                            new Date(task.reminder_time as any);
-
-                    sortTimestamp = date.getTime();
-
-                    const isToday = date.getDate() === now.getDate() && date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
-                    const tomorrowDate = new Date(now);
-                    tomorrowDate.setDate(now.getDate() + 1);
-                    const isTomorrow = tomorrowDate.getDate() === date.getDate() && tomorrowDate.getMonth() === date.getMonth() && tomorrowDate.getFullYear() === date.getFullYear();
-
-                    if (isToday) {
-                        subtitle = format(date, 'HH:mm');
-                    } else if (isTomorrow) {
-                        subtitle = `${t('common.tomorrow')} ${format(date, 'HH:mm')}`;
-                    } else {
-                        subtitle = format(date, 'dd/MM HH:mm');
-                    }
-                }
-
-                return [{
-                    id: task.task_id,
-                    type: 'custom',
-                    title: task.title,
-                    subtitle: subtitle,
-                    completed: isCompletedToday,
-                    icon: task.priority === 'high' ? '🔴' : task.priority === 'medium' ? '🟡' : '🟢',
-                    priority: task.priority === 'high' ? 0 : task.priority === 'medium' ? 50 : 100,
-                    slotTime: task.reminder_time ? format(new Date(task.reminder_time as any), 'HH:mm') : undefined,
-                    reminderId: undefined,
-                    sortTimestamp
-                }];
-            });
-
-            // 4. Merge everything
-            // For system reminders, we need to add sortTimestamp too
-            const remindersWithSort = mergedReminders.map(r => {
-                // System reminders are for "today"
-                const now = new Date();
-                let time = now.getTime();
-
-                if (r.slotTime) {
-                    const [h, m] = r.slotTime.split(':').map(Number);
-                    const d = new Date();
-                    d.setHours(h, m, 0, 0);
-                    time = d.getTime();
-                }
-
-                return { ...r, sortTimestamp: time };
-            });
-
-            const allItems = [...remindersWithSort, ...taskItems];
-
-            // 5. Sort by Date/Time then priority
-            const sorted = allItems.sort((a, b) => {
-                // Compare timestamps first (Date + Time)
-                const timeA = a.sortTimestamp || 0;
-                const timeB = b.sortTimestamp || 0;
-
-                // If difference is significant (e.g. different days), sort by time
-                // But actually, just sorting by timestamp handles both date and time!
-                if (Math.abs(timeA - timeB) > 60000) { // If diff > 1 minute
-                    return timeA - timeB;
-                }
-
-                // If same time (approx), sort by priority
-                return a.priority - b.priority;
-            });
-
-            // Filter out skipped items
-            const visibleItems = sorted.filter(i => !i.skipped);
+            // 3. Add today's own tasks, sort, drop skipped — the same list the Home pill counts.
+            const visibleItems = buildMyDayItems(mergedReminders, userTasks, new Date(), t('tasks.modal.tomorrow'));
 
             setItems(visibleItems);
-            log.info(`Loaded ${visibleItems.length} unified items (hidden: ${sorted.length - visibleItems.length})`);
+            log.info(`Loaded ${visibleItems.length} unified items`);
         } catch (error) {
             log.error('Error loading unified checklist:', error);
         } finally {
@@ -276,7 +166,7 @@ export const MyDaySection: React.FC<Props> = React.memo(({
         if (allCompleted) {
             log.info('All items completed! 🎉');
             setTimeout(() => {
-                Alert.alert(t('common.success'), t('reminders.myDay.allDone'));
+                showAlert(t('common.success'), t('reminders.myDay.allDone'));
             }, 500);
         }
     };
@@ -310,8 +200,8 @@ export const MyDaySection: React.FC<Props> = React.memo(({
         );
     }
 
-    const completedCount = items.filter(i => i.completed).length;
-    const progress = items.length > 0 ? completedCount / items.length : 0;
+    const { done: completedCount, total: totalCount } = myDayProgress(items);
+    const progress = totalCount > 0 ? completedCount / totalCount : 0;
 
     const handleSkipItem = async (id: string) => {
         log.debug('Skipping item:', id);
@@ -377,6 +267,11 @@ export const MyDaySection: React.FC<Props> = React.memo(({
                                 style={styles.cardContent}
                                 onPress={() => handleToggleItem(item.id)}
                                 activeOpacity={0.7}
+                                accessibilityRole="checkbox"
+                                accessibilityState={{ checked: item.completed }}
+                                // Not mapped to aria-checked by react-native-web.
+                                {...(Platform.OS === 'web' ? { 'aria-checked': item.completed } : {})}
+                                accessibilityLabel={plainLabel(item.title)}
                             >
                                 <View style={[styles.checkbox, item.completed && styles.checkboxChecked]}>
                                     {item.completed && <Text style={styles.checkmark}>✓</Text>}
@@ -410,6 +305,8 @@ export const MyDaySection: React.FC<Props> = React.memo(({
                                     <TouchableOpacity
                                         style={styles.actionIcon}
                                         onPress={() => onEditTask && onEditTask(item.id)}
+                                        accessibilityRole="button"
+                                        accessibilityLabel={t('a11y.editItem', { name: plainLabel(item.title) })}
                                     >
                                         <Text style={{ fontSize: 16 }}>✏️</Text>
                                     </TouchableOpacity>
@@ -417,23 +314,31 @@ export const MyDaySection: React.FC<Props> = React.memo(({
 
                                 <TouchableOpacity
                                     style={styles.actionIcon}
+                                    // Two actions, two glyphs: custom tasks are deleted (trash),
+                                    // reminders/appointments are only hidden for today (eye-off).
+                                    accessibilityRole="button"
+                                    accessibilityLabel={item.type === 'custom'
+                                        ? t('a11y.deleteItem', { name: plainLabel(item.title) })
+                                        : t('a11y.hideItemToday', { name: plainLabel(item.title) })}
                                     onPress={() => {
                                         if (item.type === 'custom') {
                                             onDeleteTask && onDeleteTask(item.id);
                                         } else {
                                             // For reminders/appointments: Skip for today
-                                            Alert.alert(
+                                            confirmAction(
                                                 t('reminders.myDay.hideTodayTitle'),
                                                 t('reminders.myDay.hideTodayMsg'),
-                                                [
-                                                    { text: t('reminders.myDay.cancel'), style: "cancel" },
-                                                    { text: t('reminders.myDay.hide'), onPress: () => handleSkipItem(item.id) }
-                                                ]
+                                                () => handleSkipItem(item.id),
+                                                undefined,
+                                                t('reminders.myDay.cancel'),
+                                                t('reminders.myDay.hide')
                                             );
                                         }
                                     }}
                                 >
-                                    <Text style={{ fontSize: 16 }}>🗑️</Text>
+                                    {item.type === 'custom'
+                                        ? <Text style={{ fontSize: 16 }}>🗑️</Text>
+                                        : <Ionicons name="eye-off-outline" size={18} color={theme.colors.textSecondary} />}
                                 </TouchableOpacity>
                             </View>
 
@@ -442,6 +347,7 @@ export const MyDaySection: React.FC<Props> = React.memo(({
                                 <TouchableOpacity
                                     style={styles.actionButton}
                                     onPress={() => handleAddWater(item.id)}
+                                    accessibilityRole="button"
                                 >
                                     <Text style={styles.actionButtonText}>+ 250ml</Text>
                                 </TouchableOpacity>
@@ -465,7 +371,12 @@ export const MyDaySection: React.FC<Props> = React.memo(({
 
 const styles = StyleSheet.create({
     container: {
+        // Air under the sticky "Mes Tâches" bar: the title sat ~3pt under its divider (B-050 / E-059).
+        paddingTop: 16,
         marginBottom: 24,
+        // The same gutter as the sections around it in the Tasks tab (statistics link,
+        // weekly tasks); without it the title and the cards ran edge to edge.
+        marginHorizontal: theme.spacing.m,
     },
     header: {
         flexDirection: 'row',
@@ -485,7 +396,8 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: theme.colors.textSecondary,
         fontWeight: '600',
-        textTransform: 'capitalize',
+        // No textTransform: 'capitalize' — it capitalised every word ("Jeudi 1 Octobre");
+        // the render capitalises the first letter only.
     },
     progressContainer: {
         alignItems: 'flex-end',
@@ -494,7 +406,7 @@ const styles = StyleSheet.create({
     progressText: {
         fontSize: 14,
         fontWeight: '700',
-        color: theme.colors.primary,
+        color: theme.colors.accent,
         marginBottom: 4,
     },
     progressBarBg: {
@@ -511,13 +423,13 @@ const styles = StyleSheet.create({
     },
     loadingText: {
         fontSize: 14,
-        color: theme.colors.neutral400,
+        color: theme.colors.textMuted,
         textAlign: 'center',
         paddingVertical: 40,
     },
     emptyText: {
         fontSize: 15,
-        color: theme.colors.neutral350,
+        color: theme.colors.textMuted,
         textAlign: 'center',
         paddingVertical: 30,
         lineHeight: 24,
@@ -571,8 +483,8 @@ const styles = StyleSheet.create({
         backgroundColor: theme.colors.white,
     },
     checkboxChecked: {
-        backgroundColor: theme.colors.primary,
-        borderColor: theme.colors.primary,
+        backgroundColor: theme.colors.accent,
+        borderColor: theme.colors.accent,
     },
     checkmark: {
         color: theme.colors.white,
@@ -598,11 +510,11 @@ const styles = StyleSheet.create({
     },
     itemTitleCompleted: {
         textDecorationLine: 'line-through',
-        color: theme.colors.gray500,
+        color: theme.colors.textMuted,
     },
     itemSubtitle: {
         fontSize: 13,
-        color: theme.colors.neutral350,
+        color: theme.colors.textMuted,
         marginTop: 2,
     },
     actionButton: {
@@ -623,7 +535,7 @@ const styles = StyleSheet.create({
     },
     footerText: {
         fontSize: 13,
-        color: theme.colors.neutral400,
+        color: theme.colors.textMuted,
         fontWeight: '500',
         fontStyle: 'italic',
     },
@@ -650,7 +562,10 @@ const styles = StyleSheet.create({
         marginStart: 8,
     },
     actionIcon: {
-        padding: 8,
+        minWidth: 44,
+        minHeight: 44,
+        alignItems: 'center',
+        justifyContent: 'center',
         marginStart: 4,
     },
 });

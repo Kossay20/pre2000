@@ -1,22 +1,22 @@
 {
-    "weekOfPregnancy": "الجمعة {{week}} في الحمل",
-    "week": "جمعة",
+    "weekOfPregnancy": "الأسبوع {{week}} في الحمل",
+    "week": "أسبوع",
     "month": "شهر",
     "today": "اليوم",
     "suggestions": "اقتراحات",
     "suggestionsCount": "{{count}} اقتراحات",
-    "suggestionsForWeek": "اقتراحات الجمعة هذي",
+    "suggestionsForWeek": "اقتراحات الأسبوع هذا",
     "suggestionsForMonth": "اقتراحات الشهر هذا",
     "thisMonth": "الشهر هذا",
     "total": "المجموع",
     "myAppointments": "المواعيد متاعي",
     "noEventsForDay": "ما فما شيء اليوم",
     "enjoyRest": "رتحي روحك! 💆‍♀️",
-    "addAppointment": "+ زيد موعد (RDV)",
+    "addAppointment": "+ زيدي موعد",
     "guestModeTitle": "وضع الضيف",
-    "guestModeMessage": "لازم تعمل كونت بش تنجم تقيد مواعيدك.",
+    "guestModeMessage": "لازمك تعملي كونت باش تنجمي تقيّدي مواعيدك.",
     "deleteEventTitle": "فسخ الموعد",
-    "deleteEventMessage": "متأكدة تحب تفسخ هذا؟",
+    "deleteEventMessage": "متأكدة تحبّي تفسخي هذا؟",
     "cancel": "بطل",
     "delete": "فسخ",
     "error": "غلطة",
@@ -30,7 +30,21 @@
         "saturday": "س",
         "sunday": "ح"
     },
-    "noAppointments": "ما عندكش مواعيد الجمعة هذي",
-    "appointmentsThisWeek": "{{count}} مواعيد الجمعة هذي",
-    "myAppointment": "الموعد متاعي"
+    "noAppointments": "ما عندكش مواعيد الأسبوع هذا",
+    "appointmentsThisWeek": "{{count}} مواعيد الأسبوع هذا",
+    "myAppointment": "الموعد متاعي",
+    "noSuggestionsWeek": "ما فماش اقتراحات باش تتعرض للأسبوع هذا.",
+    "noSuggestionsMonth": "ما فماش اقتراحات باش تتعرض للشهر هذا.",
+    "category": {
+        "administrative": "ورق إداري",
+        "exam": "فحص",
+        "preparation": "تحضير",
+        "prevention": "وقاية",
+        "selfCare": "تهلّاي في روحك"
+    },
+    "importance": {
+        "essential": "ضروري",
+        "recommended": "منصوح بيه",
+        "optional": "كيف تحبّي"
+    }
 }

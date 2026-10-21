@@ -1,0 +1,87 @@
+{
+  "_status": "DRAFT FROM THE CODE. The owner MUST confirm every answer in App Store Connect > App Privacy before submitting. This file is checked against app.json ios.privacyManifests by __tests__/releaseConfig.test.ts; it is not read by the stores.",
+  "_sources": [
+    "app.json ios.privacyManifests",
+    "App.tsx (Sentry.init is disabled when EXPO_PUBLIC_SENTRY_DSN is absent in production)",
+    "src/context/AuthContext.tsx (email/password sign-up, anonymous sign-in for guests)",
+    "src/types/index.ts UserProfile (name, email, country, age range, first-pregnancy flag, medical flags, emergency contacts, consent record)",
+    "src/screens/OnboardingScreen.tsx (collects the age range and the first-pregnancy answer; the city is passed as undefined, so it is not collected)",
+    "src/context/gdprPurge.ts (health trackers synced to Firestore under the uid)"
+  ],
+  "tracking": false,
+  "trackingDomains": [],
+  "advertising": false,
+  "thirdPartyAdvertising": false,
+  "dataTypes": [
+    {
+      "manifestType": "NSPrivacyCollectedDataTypeName",
+      "appStoreConnectCategory": "Contact Info > Name",
+      "linkedToUser": true,
+      "usedForTracking": false,
+      "purposes": ["App Functionality"],
+      "what": "First name (and optional last name) entered at onboarding, stored in Firestore under the account uid."
+    },
+    {
+      "manifestType": "NSPrivacyCollectedDataTypeEmailAddress",
+      "appStoreConnectCategory": "Contact Info > Email Address",
+      "linkedToUser": true,
+      "usedForTracking": false,
+      "purposes": ["App Functionality"],
+      "what": "Sign-in e-mail (Firebase Auth) for registered accounts. Guests use anonymous auth and give none."
+    },
+    {
+      "manifestType": "NSPrivacyCollectedDataTypeHealth",
+      "appStoreConnectCategory": "Health & Fitness > Health",
+      "linkedToUser": true,
+      "usedForTracking": false,
+      "purposes": ["App Functionality"],
+      "what": "Weight, blood pressure, glucose, symptoms, kick sessions, contractions, hospital bag, pregnancy dates, the first-pregnancy flag, declared medical flags."
+    },
+    {
+      "manifestType": "NSPrivacyCollectedDataTypeSensitiveInfo",
+      "appStoreConnectCategory": "Sensitive Info",
+      "linkedToUser": true,
+      "usedForTracking": false,
+      "purposes": ["App Functionality"],
+      "what": "Declared conditions (gestational diabetes, hypertension, twin pregnancy), the age range chosen at onboarding, the first-pregnancy flag and the health-data consent record. Age range and first-pregnancy sit on the profile under userProfiles/{uid}, so they are linked to the account."
+    },
+    {
+      "manifestType": "NSPrivacyCollectedDataTypeOtherUserContent",
+      "appStoreConnectCategory": "User Content > Other User Content",
+      "linkedToUser": true,
+      "usedForTracking": false,
+      "purposes": ["App Functionality"],
+      "what": "Appointments (title, date, notes) and reminders stored under the account. The chatbot and the journal PDF keep nothing server side."
+    },
+    {
+      "manifestType": "NSPrivacyCollectedDataTypeCoarseLocation",
+      "appStoreConnectCategory": "Location > Coarse Location",
+      "linkedToUser": true,
+      "usedForTracking": false,
+      "purposes": ["App Functionality"],
+      "what": "Country selected by the user (no location permission is requested). Stored on the profile under userProfiles/{uid}, so it is linked to the account, as in the manifest."
+    },
+    {
+      "manifestType": "NSPrivacyCollectedDataTypeOtherContactInfo",
+      "appStoreConnectCategory": "Contact Info > Other User Contact Info",
+      "linkedToUser": true,
+      "usedForTracking": false,
+      "purposes": ["App Functionality"],
+      "what": "Emergency contacts (name and phone number) typed in by the user, stored on the profile."
+    },
+    {
+      "manifestType": "NSPrivacyCollectedDataTypeUserID",
+      "appStoreConnectCategory": "Identifiers > User ID",
+      "linkedToUser": true,
+      "usedForTracking": false,
+      "purposes": ["App Functionality"],
+      "what": "Firebase Auth uid (registered or anonymous) keys every Firestore document. No analytics or crash-reporting service is enabled in the production EAS environment."
+    }
+  ],
+  "ownerChecklist": [
+    "Re-read each answer in App Store Connect against the published privacy policy (website/privacy.html).",
+    "Confirm whether Firebase App Check attestation tokens need a Device ID line in your reading of Apple's definitions; the manifest does not declare one.",
+    "After this file changed CoarseLocation to linked, re-enter that row in App Store Connect > App Privacy so it matches app.json (finding F-040).",
+    "The current production EAS environment has no EXPO_PUBLIC_SENTRY_DSN; if crash reporting is enabled later, revisit the Diagnostics and Product Interaction answers before shipping that build."
+  ]
+}

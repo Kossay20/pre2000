@@ -4,6 +4,9 @@ const log = createLogger('reminderPersistence');
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { collection, doc, setDoc, getDocs, query, where, deleteDoc, deleteField } from 'firebase/firestore';
 import { db } from '../config/firebase';
+import { pushPendingSessions } from './kickCounterService';
+import { pushPendingContractions } from './contractionTimerService';
+import { pushPendingBag } from './hospitalBagService';
 import { UserReminderSettings, UserTaskStatus } from '../types';
 import { ReminderUserSetting } from '../types/remindersV2';
 
@@ -718,6 +721,16 @@ const migrateDailyChecklistProgressToAuth = async (userId: string): Promise<void
  */
 export const migrateAllGuestDataToAuth = async (userId: string): Promise<void> => {
     log.info('[reminderPersistence] 🚀 Starting full migration Guest → Auth for:', userId);
+
+    // Kick sessions, contractions and the hospital bag recorded as a guest are still marked
+    // unsynced on the device; send them to the new account now rather than on the next
+    // visit to each screen, which a logout in between would wipe. Not awaited: these writes
+    // wait for the network, and signing up must not.
+    void Promise.allSettled([
+        pushPendingSessions(userId),
+        pushPendingContractions(userId),
+        pushPendingBag(userId),
+    ]);
 
     try {
         // V1 migrations are best-effort; V2 migrations added below run in parallel

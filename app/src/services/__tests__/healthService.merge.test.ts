@@ -10,8 +10,11 @@
  */
 
 import { getDocs } from 'firebase/firestore';
-import { getMergedWeightHistory } from '../healthService';
+import { getMergedWeightHistory, getHealthStats } from '../healthService';
 import { getWeightHistory as getWeightHistoryV2 } from '../weightService';
+import { loadUserEvents } from '../calendarService';
+import { loadTaskStatusesAuth } from '../reminderPersistence';
+import { fetchTasksForWeekV2 } from '../remindersV2Service';
 
 jest.mock('../../config/firebase', () => ({ db: {} }));
 
@@ -39,6 +42,10 @@ jest.mock('../calendarService', () => ({
 
 jest.mock('../reminderPersistence', () => ({
     loadTaskStatusesAuth: jest.fn(),
+}));
+
+jest.mock('../remindersV2Service', () => ({
+    fetchTasksForWeekV2: jest.fn(),
 }));
 
 jest.mock('../../utils/logger', () => ({
@@ -210,6 +217,56 @@ describe('healthService.getMergedWeightHistory (P3.7)', () => {
             expect(result[0].value).toBe(65);
         });
 
+        // F-HS-05: same-date entries across the two sources must NOT double-count.
+        it('deduplicates same-date entries, keeping the most recent created_at per day', async () => {
+            // Legacy entry for 2025-02-10 created early; V2 entry for the SAME day created later.
+            (getDocs as jest.Mock).mockResolvedValueOnce({
+                docs: [
+                    {
+                        id: 'm1',
+                        data: () => ({
+                            user_id: 'u1',
+                            type: 'weight',
+                            value: 60,
+                            date: '2025-02-10T08:00:00Z',
+                            week: 16,
+                            created_at: '2025-02-10T08:00:00Z',
+                        }),
+                    },
+                    {
+                        id: 'm2',
+                        data: () => ({
+                            user_id: 'u1',
+                            type: 'weight',
+                            value: 65,
+                            date: '2025-03-01T08:00:00Z',
+                            week: 19,
+                            created_at: '2025-03-01T08:00:00Z',
+                        }),
+                    },
+                ],
+            });
+            // V2 entry shares the calendar day 2025-02-10 but has a later created_at (date field).
+            (getWeightHistoryV2 as jest.Mock).mockResolvedValueOnce([
+                {
+                    id: 'w1',
+                    user_id: 'u1',
+                    weight: 62,
+                    date: '2025-02-10T20:00:00Z',
+                    week_of_pregnancy: 16,
+                },
+            ]);
+
+            const result = await getMergedWeightHistory('u1');
+
+            // 3 raw entries → 2 distinct days.
+            expect(result).toHaveLength(2);
+            expect(result.map(r => r.date.slice(0, 10))).toEqual(['2025-02-10', '2025-03-01']);
+            // For the duplicated day, the later (V2) entry wins → value 62, not 60.
+            const feb10 = result.find(r => r.date.slice(0, 10) === '2025-02-10');
+            expect(feb10?.value).toBe(62);
+        });
+
         it('every entry has the HealthMetric required fields after merge', async () => {
             (getDocs as jest.Mock).mockResolvedValueOnce({
                 docs: [
@@ -246,5 +303,123 @@ describe('healthService.getMergedWeightHistory (P3.7)', () => {
                 expect(typeof m.week).toBe('number');
             }
         });
+    });
+});
+
+/**
+ * F-HS-04 + F-HS-05 — getHealthStats weight baseline & gain.
+ *
+ * Weight values are driven through the V2 source (independently mocked) so they are
+ * deterministic regardless of Promise.all ordering; getDocs (legacy weight + BP) is
+ * stubbed to return no docs.
+ */
+describe('healthService.getHealthStats — weight baseline (F-HS-04 / F-HS-05)', () => {
+    beforeEach(() => {
+        jest.clearAllMocks();
+        // No legacy healthMetrics weight rows and no BP rows.
+        (getDocs as jest.Mock).mockResolvedValue({ docs: [] });
+        (loadUserEvents as jest.Mock).mockResolvedValue([]);
+        (loadTaskStatusesAuth as jest.Mock).mockResolvedValue({});
+        (fetchTasksForWeekV2 as jest.Mock).mockResolvedValue([]);
+    });
+
+    it('uses prePregnancyWeight as the gain baseline, not the first logged entry', async () => {
+        // First logged entry is 70kg mid-pregnancy; pre-pregnancy was 60kg, latest is 72kg.
+        (getWeightHistoryV2 as jest.Mock).mockResolvedValueOnce([
+            { id: 'w1', user_id: 'u1', weight: 70, date: '2025-02-01T00:00:00Z', week_of_pregnancy: 18 },
+            { id: 'w2', user_id: 'u1', weight: 72, date: '2025-03-01T00:00:00Z', week_of_pregnancy: 22 },
+        ]);
+
+        const stats = await getHealthStats('u1', 22, 60);
+
+        expect(stats.weightInitial).toBe(60);   // clinical baseline, NOT 70
+        expect(stats.weightCurrent).toBe(72);
+        expect(stats.weightGain).toBe(12);       // 72 - 60, not 72 - 70
+    });
+
+    it('falls back to the earliest logged entry when prePregnancyWeight is missing', async () => {
+        (getWeightHistoryV2 as jest.Mock).mockResolvedValueOnce([
+            { id: 'w1', user_id: 'u1', weight: 68, date: '2025-02-01T00:00:00Z', week_of_pregnancy: 18 },
+            { id: 'w2', user_id: 'u1', weight: 71, date: '2025-03-01T00:00:00Z', week_of_pregnancy: 22 },
+        ]);
+
+        const stats = await getHealthStats('u1', 22); // no prePregnancyWeight
+
+        expect(stats.weightInitial).toBe(68);
+        expect(stats.weightCurrent).toBe(71);
+        expect(stats.weightGain).toBe(3);
+    });
+
+    it('ignores a non-positive prePregnancyWeight and falls back to logged data', async () => {
+        (getWeightHistoryV2 as jest.Mock).mockResolvedValueOnce([
+            { id: 'w1', user_id: 'u1', weight: 64, date: '2025-02-01T00:00:00Z', week_of_pregnancy: 18 },
+        ]);
+
+        const stats = await getHealthStats('u1', 18, 0);
+
+        expect(stats.weightInitial).toBe(64);
+        expect(stats.weightGain).toBe(0); // single entry → current === initial
+    });
+
+    it('deduplicates same-date weights so gain is computed on distinct days (F-HS-05)', async () => {
+        // Two V2 entries for the same calendar day; later one (70.5) should win.
+        (getWeightHistoryV2 as jest.Mock).mockResolvedValueOnce([
+            { id: 'w1', user_id: 'u1', weight: 70.0, date: '2025-03-10T08:00:00Z', week_of_pregnancy: 24 },
+            { id: 'w2', user_id: 'u1', weight: 70.5, date: '2025-03-10T19:00:00Z', week_of_pregnancy: 24 },
+        ]);
+
+        const stats = await getHealthStats('u1', 24, 60);
+
+        // Latest distinct-day weight is 70.5 (dedup kept the most-recent same-day entry).
+        expect(stats.weightCurrent).toBe(70.5);
+        expect(stats.weightInitial).toBe(60);
+        expect(stats.weightGain).toBeCloseTo(10.5, 5);
+    });
+
+    it('returns guest stats without weight fields for guest userId', async () => {
+        const stats = await getHealthStats('guest_x', 20, 60);
+        expect(stats.weightInitial).toBeUndefined();
+        expect(stats.weightGain).toBeUndefined();
+        expect(getDocs).not.toHaveBeenCalled();
+    });
+});
+
+/**
+ * B-031 — "Rappels cette semaine" counts the same weekly tasks the Tasks tab lists.
+ * Status docs only exist once a task is ticked, so counting them printed "0 / 0" beside
+ * a tab listing five tasks.
+ */
+describe('healthService.getHealthStats — weekly reminders (B-031)', () => {
+    const tasks = ['a', 'b', 'c', 'd', 'e'].map(id => ({ task_id: `task_${id}` }));
+
+    beforeEach(() => {
+        jest.clearAllMocks();
+        (getDocs as jest.Mock).mockResolvedValue({ docs: [] });
+        (loadUserEvents as jest.Mock).mockResolvedValue([]);
+        (getWeightHistoryV2 as jest.Mock).mockResolvedValue([]);
+        (fetchTasksForWeekV2 as jest.Mock).mockResolvedValue(tasks);
+    });
+
+    it('totals the week\'s task list even when nothing has been ticked yet', async () => {
+        (loadTaskStatusesAuth as jest.Mock).mockResolvedValue({});
+
+        const stats = await getHealthStats('u1', 32);
+
+        expect(fetchTasksForWeekV2).toHaveBeenCalledWith(32);
+        expect(stats.remindersTotalThisWeek).toBe(5);
+        expect(stats.remindersCompletedThisWeek).toBe(0);
+    });
+
+    it('counts a ticked task once, and ignores statuses of tasks not in the week\'s list', async () => {
+        (loadTaskStatusesAuth as jest.Mock).mockResolvedValue({
+            task_a_w32: { completed: true },
+            task_b_w32: { completed: false },
+            task_gone_w32: { completed: true },
+        });
+
+        const stats = await getHealthStats('u1', 32);
+
+        expect(stats.remindersTotalThisWeek).toBe(5);
+        expect(stats.remindersCompletedThisWeek).toBe(1);
     });
 });

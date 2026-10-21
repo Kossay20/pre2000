@@ -1,9 +1,10 @@
 {
     "channelName": "Rappels de grossesse",
+    "channelNameGeneral": "Notifications générales",
     "hydration": [
         {
-            "title": "💧 Coucou !",
-            "body": "Un petit verre d'eau pour toi ? 🥰"
+            "title": "💧 Coucou !",
+            "body": "Un petit verre d'eau pour toi ? 🥰"
         },
         {
             "title": "💧 Pause douceur",
@@ -46,7 +47,7 @@
             },
             {
                 "title": "💕 Petit rappel",
-                "body": "{{eventTitle}} demain. On pense à toi !"
+                "body": "{{eventTitle}} demain. On pense à toi !"
             },
             {
                 "title": "🌸 Pense à",
@@ -160,7 +161,7 @@
             "body": "Écoute ton corps, mange à ton rythme 💕"
         },
         {
-            "title": "🍎 Petit encas ?",
+            "title": "🍎 Petit encas ?",
             "body": "Si tu en ressens le besoin ✨"
         },
         {
@@ -231,9 +232,9 @@
         "multiple": "{{name}}, tu as {{count}} rappels 💕"
     },
     "encouragements": [
-        "💪 Tu gères !",
-        "✨ Continue comme ça !",
-        "💕 Tu es formidable !",
-        "🌟 Bravo maman !"
+        "💪 Tu gères !",
+        "✨ Continue comme ça !",
+        "💕 Tu es formidable !",
+        "🌟 Bravo maman !"
     ]
 }
